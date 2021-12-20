@@ -1,0 +1,17 @@
+numpy==1.21.5
+scipy==1.7.3
+pytest==6.2.3
+pytest-cov==2.11.1
+pandas==1.2.2
+matplotlib==3.3.4
+seaborn==0.11.2
+aesara==2.3.1
+pysb==1.13.2
+amici==0.11.22
+petab==0.1.22
+sympy==1.9
+snakemake==6.12.1
+fides==0.7.4
+pypesto==0.2.9
+scikit-learn==0.24.1
+synapseclient==2.3.1
