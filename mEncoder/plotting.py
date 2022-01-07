@@ -66,20 +66,21 @@ def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
         simulation_df[petab.SIMULATION_CONDITION_ID]
     ]
 
-    plot = (
-            ggplot(data=stat,
-                   mapping=aes(y=petab.MEASUREMENT, x=petab.SIMULATION,
-                               color=petab.PREEQUILIBRATION_CONDITION_ID,
-                               group=petab.PREEQUILIBRATION_CONDITION_ID))
-            + geom_point(size=1)
-            + facet_wrap(petab.OBSERVABLE_ID,
-                         scales='free_y')
-            + xlab('simulation')
-            + ylab('measurement')
-            + theme(**PLOTNINE_THEME)
-    )
+    if len(stat):
+        plot = (
+                ggplot(data=stat,
+                       mapping=aes(y=petab.MEASUREMENT, x=petab.SIMULATION,
+                                   color=petab.PREEQUILIBRATION_CONDITION_ID,
+                                   group=petab.PREEQUILIBRATION_CONDITION_ID))
+                + geom_point(size=1)
+                + facet_wrap(petab.OBSERVABLE_ID,
+                             scales='free_y')
+                + xlab('simulation')
+                + ylab('measurement')
+                + theme(**PLOTNINE_THEME)
+        )
 
-    save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
+        save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
 
 
 def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
@@ -150,19 +151,20 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
         sdf[petab.SIMULATION_CONDITION_ID]
         ].copy()
 
-    plot = (
-            ggplot(data=stat,
-                   mapping=aes(y=petab.MEASUREMENT, x=petab.SIMULATION,
-                               color=petab.PREEQUILIBRATION_CONDITION_ID,
-                               group=petab.PREEQUILIBRATION_CONDITION_ID))
-            + geom_point(size=1)
-            + facet_wrap(petab.OBSERVABLE_ID)
-            + xlab('simulation')
-            + ylab('measurement')
-            + theme(**PLOTNINE_THEME)
-    )
+    if len(stat):
+        plot = (
+                ggplot(data=stat,
+                       mapping=aes(y=petab.MEASUREMENT, x=petab.SIMULATION,
+                                   color=petab.PREEQUILIBRATION_CONDITION_ID,
+                                   group=petab.PREEQUILIBRATION_CONDITION_ID))
+                + geom_point(size=1)
+                + facet_wrap(petab.OBSERVABLE_ID)
+                + xlab('simulation')
+                + ylab('measurement')
+                + theme(**PLOTNINE_THEME)
+        )
 
-    save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
+        save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
 
     for sample in sdf[petab.PREEQUILIBRATION_CONDITION_ID].unique():
         plot_single_sample(

@@ -55,10 +55,7 @@ Expression('degradation_ERBB2__Y1248_p_rate', ERBB2_degradation_rate*INPUT_degra
 
 Observable('EGF_obs', EGF(inh=None))
 Observable('EGFR__Y1173_p_obs', EGFR(Y1173='p', inh=None))
-Observable('tEGF', EGF())
-Observable('tEGFR', EGFR())
 Observable('pEGFR_Y1173', EGFR(Y1173='p'))
-Observable('tERBB2', ERBB2())
 Observable('pERBB2_Y1248', ERBB2(Y1248='p'))
 Observable('target_EGFR', EGFR())
 
