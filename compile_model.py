@@ -1,7 +1,7 @@
 import sys
 import os
 
-from mEncoder.autoencoder import load_petab
+from mEncoder.petab_subproblem import load_petab
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]

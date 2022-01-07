@@ -1,2 +1,2 @@
-ALPHAS = [64.0, 4.0, 1.0]
-HIDDEN_LAYERS = [8, 12, 16, 20]
+ALPHAS = [0.0, 1/4, 1.0, 4.0]
+HIDDEN_LAYERS = [2]

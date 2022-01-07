@@ -5,10 +5,11 @@ from pypesto.store import (
     OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
 )
 from mEncoder.autoencoder import MechanisticAutoEncoder
-from mEncoder.training import create_pypesto_problem, training_samples, Wildcards
+from mEncoder.training import create_pypesto_problem
 from mEncoder import (
     results_dir, COLLECTED_ESTIMATION_OUTFILE_TEMP, ESTIMATION_OUTFILE_TEMP
 )
+from process_data import training_samples, Wildcards
 
 import pypesto.visualize
 

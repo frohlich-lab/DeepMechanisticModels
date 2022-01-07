@@ -4,12 +4,10 @@ import os
 import fides
 import logging
 import scipy.linalg as la
-from collections import namedtuple
 
 from .autoencoder import MechanisticAutoEncoder
 from . import (
-    pretrain_dir, parameter_boundaries_scales,
-    PER_SAMPLE_OUTFILE_TEMP, ESTIMATION_OUTFILE_TEMP
+    parameter_boundaries_scales, ESTIMATION_OUTFILE_TEMP
 )
 
 from pypesto.optimize import (
@@ -85,7 +83,7 @@ def train(ae: MechanisticAutoEncoder,
     """
     pypesto_problem = create_pypesto_problem(ae)
     opt = FidesOptimizer(
-        hessian_update=fides.HybridUpdate(),
+        hessian_update=fides.HybridFixed(),
         options={
             fides.Options.FATOL: 1e-6,
             fides.Options.XTOL: 1e-8,
@@ -135,57 +133,5 @@ def train(ae: MechanisticAutoEncoder,
         opt,
         n_starts=n_starts,
         options=optimize_options,
+        filename=None
     )
-
-
-SAMPLES = {
-    'dream_cytof': [
-        'c184A1', 'cBT20', 'cBT474', 'cBT549', 'cCAL148', 'cCAL851',
-        'cCAL51', 'cDU4475', 'cEFM192A', 'cEVSAT', 'cHBL100', 'cHCC1187',
-        'cHCC1395', 'cHCC1419', 'cHCC1500', 'cHCC1569', 'cHCC1599',
-        'cHCC1937', 'cHCC1954', 'cHCC2157', 'cHCC2185', 'cHCC3153',
-        'cHCC38', 'cHCC70', 'cHDQP1', 'cJIMT1', 'cMCF10A', 'cMCF10F',
-        'cMCF7', 'cMDAMB134VI', 'cMDAMB157', 'cMDAMB175VII', 'cMDAMB361',
-        'cMDAMB415', 'cMDAMB453', 'cMDAkb2', 'cMFM223', 'cMPE600', 'cMX1',
-        'cOCUBM', 'cT47D', 'cUACC812', 'cUACC893', 'cZR7530'
-    ],
-    'synthetic': [
-        'sample_0', 'sample_1', 'sample_2', 'sample_3', 'sample_4',
-        'sample_5', 'sample_6', 'sample_7', 'sample_8', 'sample_9',
-        'sample_10', 'sample_11', 'sample_12', 'sample_13', 'sample_14',
-        'sample_15', 'sample_16', 'sample_17', 'sample_18', 'sample_19'
-    ]
-}
-
-Wildcards = namedtuple('Wildcards', ['data', 'samples'])
-
-
-def training_samples(wildcards):
-    samples = SAMPLES[wildcards.data]
-    split, n_splits = wildcards.samples.split('_')
-    split = int(split)
-    n_splits = int(n_splits)
-    n_samples = len(samples)
-    return samples[:int(np.round(n_samples/n_splits*split))] + \
-        samples[int(np.round(n_samples/n_splits*(split+1))):]
-
-
-def test_samples(wildcards):
-    samples = SAMPLES[wildcards.data]
-    split, n_splits = wildcards.samples.split('_')
-    split = int(split)
-    n_splits = int(n_splits)
-    n_samples = len(samples)
-    return samples[int(np.round(n_samples/n_splits*split)):
-                   int(np.round(n_samples/n_splits*(split+1))):]
-
-
-def pretraining_samples_fun(wildcards):
-    return [
-        os.path.join(
-            pretrain_dir, '{model}', '{data}',
-            PER_SAMPLE_OUTFILE_TEMP.format(sample=sample)
-        )
-        for sample in training_samples(wildcards)
-    ]
-

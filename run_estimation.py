@@ -2,7 +2,8 @@ import sys
 import os
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
-from mEncoder.training import train, training_samples, Wildcards
+from mEncoder.training import train
+from process_data import training_samples, Wildcards
 from mEncoder import results_dir, ESTIMATION_OUTFILE_TEMP
 
 from pypesto.store import OptimizationResultHDF5Writer

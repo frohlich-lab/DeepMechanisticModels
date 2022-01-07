@@ -16,7 +16,7 @@ from typing import Tuple, Sequence
 def load_petab(datafiles: Tuple[str, str, str],
                pathway_name: str,
                par_input_scale: float,
-               samples: Sequence[str] = None):
+               samples: Sequence[str] = None) -> PetabImporterPysb:
     """
     Imports data from a csv and converts it to the petab format. This
     function is used to connect the mechanistic model to the specified data
@@ -37,6 +37,12 @@ def load_petab(datafiles: Tuple[str, str, str],
     measurement_table = pd.read_csv(datafiles[0], index_col=0, sep='\t')
     condition_table = pd.read_csv(datafiles[1], index_col=0, sep='\t')
     observable_table = pd.read_csv(datafiles[2], index_col=0, sep='\t')
+
+    # TEMPORARY: filter out baseline data
+    measurement_table = measurement_table[
+        measurement_table[petab.SIMULATION_CONDITION_ID] !=
+        measurement_table[petab.PREEQUILIBRATION_CONDITION_ID]
+    ]
 
     if samples:
         measurement_table = measurement_table[
@@ -68,9 +74,9 @@ def load_petab(datafiles: Tuple[str, str, str],
                                f'conditions {candidates} for condition '
                                f'{cond}, which is not supported.')
         if len(candidates) == 0:
-            condition_table.drop(index=cond, inplace=True)
-            continue
-        preeq_conds[cond] = candidates[0]
+            preeq_conds[cond] = cond
+        else:
+            preeq_conds[cond] = candidates[0]
 
     for feature in features:
         condition_table[feature.name] = [
@@ -103,54 +109,67 @@ def load_petab(datafiles: Tuple[str, str, str],
         petab.PARAMETER_ID: par,
         petab.LOWER_BOUND: transforms[parameter_boundaries_scales[
             par.split('_')[-1]][2]
-        ](parameter_boundaries_scales[par.split('_')[-1]][0])
-        if not par.startswith(MODEL_FEATURE_PREFIX) else 10 ** -par_input_scale,
+        ](parameter_boundaries_scales[par.split('_')[-1]][0]),
         petab.UPPER_BOUND: transforms[parameter_boundaries_scales[
             par.split('_')[-1]][2]
-        ](parameter_boundaries_scales[par.split('_')[-1]][1])
-        if not par.startswith(MODEL_FEATURE_PREFIX) else 10 ** par_input_scale,
+        ](parameter_boundaries_scales[par.split('_')[-1]][1]),
         petab.PARAMETER_SCALE: parameter_boundaries_scales[
             par.split('_')[-1]
-        ][2] if not par.startswith(MODEL_FEATURE_PREFIX) else petab.LOG10,
+        ][2],
         petab.NOMINAL_VALUE: model.parameters[par].value
         if par in model.parameters.keys()
         else 1e3 if par.endswith('offset') and par.startswith('p')
         else 1.0 if par.endswith('offset') and par.startswith('t')
-        else 0.0 if par.startswith(MODEL_FEATURE_PREFIX)
         else 1.0
-    } for par in params]
+    } for par in params if not par.startswith(MODEL_FEATURE_PREFIX)]
+
+    par_inputs = [par for par in params
+                  if par.startswith(MODEL_FEATURE_PREFIX)]
 
     # add additional input parameters for every base condition
     for cond in measurement_table[
         petab.PREEQUILIBRATION_CONDITION_ID
     ].unique():
         param_defs.extend([{
-            petab.PARAMETER_ID: f'{par.name}__{cond}',
-            petab.LOWER_BOUND: 10**-par_input_scale,
-            petab.UPPER_BOUND: 10**par_input_scale,
-            petab.PARAMETER_SCALE: 'log10',
-            petab.NOMINAL_VALUE: 1.0,
-        } for par in features])
+            petab.PARAMETER_ID:
+                f'{par.name}__{cond}' if par in features else par,
+            petab.LOWER_BOUND:
+                10**-par_input_scale if par_input_scale > 0 else 0.1,
+            petab.UPPER_BOUND:
+                10**par_input_scale if par_input_scale > 0 else 10.0,
+            petab.PARAMETER_SCALE: petab.LOG10,
+            petab.NOMINAL_VALUE: 1.0 if par in features else 0.0,
+        } for par in features + par_inputs
+            if par in features or par.endswith(f'__{cond}')])
 
-    # piece of codes allows disabling estimation for parameter by setting
-    # equal upper and lower bounds, primarily for debugging purposes
-    parameter_table = pd.DataFrame(param_defs).set_index(petab.PARAMETER_ID)
-    parameter_table[petab.ESTIMATE] = (
-        parameter_table[petab.LOWER_BOUND] !=
-        parameter_table[petab.UPPER_BOUND]
+    parameter_table = pd.DataFrame(param_defs)
+
+    input_pars = parameter_table[petab.PARAMETER_ID].apply(
+        lambda x: x.startswith(MODEL_FEATURE_PREFIX)
+    ).values
+
+    parameter_table[petab.ESTIMATE] = 1
+    # piece of codes allows disabling estimation for (non-input) parameters by
+    # setting equal upper and lower bounds, primarily for debugging purposes
+    parameter_table.loc[np.logical_not(input_pars), petab.ESTIMATE] = (
+        parameter_table.loc[np.logical_not(input_pars), petab.LOWER_BOUND] !=
+        parameter_table.loc[np.logical_not(input_pars), petab.UPPER_BOUND]
     ).apply(lambda x: int(x))
 
-    # add l2 regularization to input parameters
+    parameter_table.set_index(petab.PARAMETER_ID, inplace=True)
+
+    # add l2 regularization to input parameters (only if estimating them)
     parameter_table[petab.OBJECTIVE_PRIOR_TYPE] = [
         petab.NORMAL if name.startswith(MODEL_FEATURE_PREFIX)
-        and name.split('__')[0].endswith('offset')
+        and name.split('__')[0].endswith('offset') and par_input_scale > 0
         else petab.PARAMETER_SCALE_NORMAL
-        if name.startswith(MODEL_FEATURE_PREFIX)
+        if name.startswith(MODEL_FEATURE_PREFIX) and par_input_scale > 0
         else np.NaN
         for name in parameter_table.index
     ]
     parameter_table[petab.OBJECTIVE_PRIOR_PARAMETERS] = [
-        f'0.0;{par_input_scale}' if name.startswith(MODEL_FEATURE_PREFIX)
+        f'0.0;{par_input_scale}'
+        if name.startswith(MODEL_FEATURE_PREFIX) and par_input_scale > 0
         else np.NaN
         for name in parameter_table.index
     ]

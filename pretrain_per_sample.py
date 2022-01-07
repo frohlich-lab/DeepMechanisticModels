@@ -12,7 +12,7 @@ import amici.petab_objective
 
 from pypesto.optimize import FidesOptimizer
 
-from mEncoder.autoencoder import MechanisticAutoEncoder
+from mEncoder.petab_subproblem import load_petab
 from mEncoder.pretraining import (
     generate_per_sample_pretraining_problems, pretrain,
     store_and_plot_pretraining
@@ -28,13 +28,16 @@ MODEL = sys.argv[1]
 DATA = sys.argv[2]
 SAMPLE = sys.argv[3]
 
-mae = MechanisticAutoEncoder(1, (
+datafiles = (
     os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
     os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
     os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
-), MODEL, [SAMPLE])
+)
 
-importer = generate_per_sample_pretraining_problems(mae, SAMPLE)
+importer = generate_per_sample_pretraining_problems(
+    load_petab(datafiles, 'pw_' + MODEL, 0.0, [SAMPLE]),
+    MODEL, f'{DATA}__{MODEL}', SAMPLE
+)
 outdir = os.path.join(pretrain_dir, MODEL, DATA)
 output_prefix = os.path.splitext(
     PER_SAMPLE_OUTFILE_TEMP.format(sample=SAMPLE)
@@ -53,8 +56,8 @@ optimizer = FidesOptimizer(
         fides.Options.SUBSPACE_DIM: fides.SubSpaceDim.TWO,
     }
 )
-result = pretrain(problem, pypesto.startpoint.uniform, 20,
-                  optimizer, pypesto.engine.MultiThreadEngine(4))
+result = pretrain(problem, pypesto.startpoint.uniform, 5,
+                  optimizer, pypesto.engine.MultiThreadEngine(1))
 store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix)
 
 x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],

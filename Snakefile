@@ -4,7 +4,7 @@ from mEncoder import (
     data_dir, pretrain_dir, results_dir, PER_SAMPLE_OUTFILE_TEMP,
     COLLECTED_ESTIMATION_OUTFILE_TEMP, ESTIMATION_OUTFILE_TEMP
 )
-from mEncoder.training import pretraining_samples_fun
+from process_data import pretraining_samples_fun
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
 PATHWAYS = ['EGFR_MAPK']
@@ -12,15 +12,15 @@ DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
 
 
-STARTS = [str(i) for i in range(int(config["num_starts"]))]
+STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
 
 rule process_data:
     input:
         script='process_data.py',
         data_code=os.path.join('mEncoder', 'generate_data.py'),
-        enc_code=os.path.join('mEncoder', 'encoder.py'),
         model_code=os.path.join('mEncoder', 'mechanistic_model.py'),
-        pathway=os.path.join('mEncoder', 'pathways.py')
+        pathway=os.path.join('pathways', 'pw_{model}.py'),
+        pathways=os.path.join('mEncoder', 'pathways.py'),
     output:
         datafiles=expand(
             os.path.join(data_dir, '{{data}}__{{model}}__{file}.tsv'),
@@ -35,11 +35,9 @@ rule process_data:
 rule compile_mechanistic_model:
     input:
         script='compile_model.py',
-        model_code=os.path.join('mEncoder', 'mechanistic_model.py'),
-        enc_code=os.path.join('mEncoder', 'encoder.py'),
-        autoencoder_code=os.path.join('mEncoder', 'autoencoder.py'),
-        pathway=os.path.join('pathways', 'pw_{model}.py'),
-        pathways=os.path.join('mEncoder', 'pathways.py'),
+        model_code=rules.process_data.input.model_code,
+        pathway=rules.process_data.input.pathway,
+        pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
         model=os.path.join('amici_models', '{model}_{data}__{model}_petab',
@@ -55,7 +53,6 @@ rule pretrain_per_sample:
     input:
         script='pretrain_per_sample.py',
         pretraining_code=os.path.join('mEncoder', 'pretraining.py'),
-        model_code=os.path.join('mEncoder', 'mechanistic_model.py'),
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
     output:
@@ -74,8 +71,8 @@ rule pretrain_per_sample:
 rule pretrain_cross_sample:
     input:
         script='pretrain_cross_samples.py',
-        pretraining_code=os.path.join('mEncoder', 'pretraining.py'),
-        model_code=os.path.join('mEncoder', 'mechanistic_model.py'),
+        pretraining=os.path.join('mEncoder', 'pretraining.py'),
+        autoencoder=os.path.join('mEncoder', 'autoencoder.py'),
         pretrain_per_sample=pretraining_samples_fun,
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
@@ -100,11 +97,11 @@ rule pretrain_cross_sample:
 rule estimate_parameters:
     input:
         script='run_estimation.py',
-        encoder_code=os.path.join('mEncoder', 'encoder.py'),
-        training_code=os.path.join('mEncoder', 'training.py'),
-        autoencoder_code=os.path.join('mEncoder', 'autoencoder.py'),
+        encoder=os.path.join('mEncoder', 'encoder.py'),
+        training=os.path.join('mEncoder', 'training.py'),
+        autoencoder=os.path.join('mEncoder','autoencoder.py'),
         dataset=rules.process_data.output.datafiles,
-        pretrain_encoder=rules.pretrain_cross_sample.output.pretraining,
+        pretrain_inflate=rules.pretrain_cross_sample.output.pretraining,
         model=rules.compile_mechanistic_model.output.model,
     output:
         result=os.path.join(

@@ -10,6 +10,7 @@ from pypesto.objective import AggregatedObjective, AmiciObjective
 import petab
 import os
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Callable
@@ -24,8 +25,10 @@ basedir = os.path.dirname(os.path.dirname(__file__))
 
 
 def generate_per_sample_pretraining_problems(
-        ae: MechanisticAutoEncoder,
-        sample: str
+    importer: PetabImporterPysb,
+    model: str,
+    dataset: str,
+    sample: str
 ) -> PetabImporterPysb:
     """
     Creates a pypesto problem that can be used to train the
@@ -38,16 +41,22 @@ def generate_per_sample_pretraining_problems(
         Dict of pypesto problems. Keys are sample names.
     """
     # construct problem based on petab for pypesto subproblem
-    ae.petab_importer.petab_problem.parameter_df['estimate'] = [
+    pp = importer.petab_problem
+    pp.parameter_df[petab.ESTIMATE] = [
         not x.startswith(MODEL_FEATURE_PREFIX) and
-        ae.petab_importer.petab_problem.parameter_df['estimate'][x]
-        for x in ae.petab_importer.petab_problem.parameter_df.index
+        pp.parameter_df[petab.ESTIMATE][x]
+        for x in pp.parameter_df.index
     ]
-    pp = ae.petab_importer.petab_problem
+    pp.parameter_df.loc[
+        pp.parameter_df[petab.ESTIMATE] == 0,
+        [petab.OBJECTIVE_PRIOR_TYPE, petab.OBJECTIVE_PRIOR_PARAMETERS]
+    ] = np.NaN
+
     # create fresh model from scratch since the petab imported one already
     # has the observables added and this might lead to issues.
-    clean_model = load_pathway('pw_' + ae.pathway_name)
+    clean_model = load_pathway('pw_' + model)
 
+    # subset measurements, conditions and parameters for specified sample
     mdf = pp.measurement_df[
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID]
         == sample
@@ -79,7 +88,7 @@ def generate_per_sample_pretraining_problems(
     ), output_folder=os.path.join(
         basedir, 'amici_models',
         f'{pp.pysb_model.name}_'
-        f'{ae.data_name}_petab'
+        f'{dataset}_petab'
     ))
 
 

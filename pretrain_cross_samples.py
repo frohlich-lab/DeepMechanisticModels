@@ -10,18 +10,16 @@ import pandas as pd
 import numpy as np
 import scipy.linalg as la
 import fides
-import amici.petab_objective
 
 from pypesto.optimize import FidesOptimizer
-from pypesto.objective.base import FVAL
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
-from mEncoder.training import training_samples, Wildcards
+from process_data import training_samples, Wildcards
 from mEncoder.pretraining import (
     generate_cross_sample_pretraining_problem, pretrain,
     store_and_plot_pretraining
 )
-from mEncoder.plotting import plot_cross_samples
+
 from mEncoder import (
     MODEL_FEATURE_PREFIX, apply_objective_settings,
     parameter_boundaries_scales, pretrain_dir,

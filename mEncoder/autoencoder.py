@@ -8,14 +8,14 @@ import pandas as pd
 import petab
 import pypesto
 
-from typing import Tuple, Sequence
-from sklearn.decomposition import PCA
+from typing import Tuple, Sequence, Optional
+from sklearn.decomposition import PCA, SparsePCA
 from sklearn.impute import KNNImputer
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
 
 from . import MODEL_FEATURE_PREFIX, apply_objective_settings
 from .encoder import AutoEncoder
-from .petab_subproblem import load_petab, filter_observables
+from .petab_subproblem import load_petab
 
 AFunction = aesara.compile.Function
 
@@ -26,7 +26,10 @@ class MechanisticAutoEncoder(AutoEncoder):
                  datafiles: Tuple[str, str, str],
                  pathway_name: str,
                  samples: Sequence[str],
-                 par_modulation_scale: float = 1):
+                 par_modulation_scale: float = 1,
+                 features: Optional[Sequence[str]] = None,
+                 imputer: Optional[KNNImputer] = None,
+                 scaler: Optional[StandardScaler] = None):
         """
         loads the mechanistic model as theano operator with loss as output and
         decoder output as input
@@ -73,15 +76,23 @@ class MechanisticAutoEncoder(AutoEncoder):
             aggfunc=np.nanmean
         )
 
-        input_data = input_data.loc[
-            :,
-            input_data.isna().sum() < input_data.shape[0] * 0.2
-        ]
+        if features:
+            # for prediction, use feature set computed on training data
+            input_data = input_data[features]
+        else:
+            # for training, compute feature set
+            # filter too many nans
+            input_data = input_data.loc[
+                :,
+                input_data.isna().sum() < input_data.shape[0] * 0.2
+            ]
 
-        # filter highly variable
-        input_data = input_data.loc[
-            :, input_data.var() > input_data.var().max() / 10
-        ]
+            # filter highly variable
+            input_data = input_data.loc[
+                :, input_data.var() > input_data.var().max() / 10
+            ]
+
+        self.features = list(input_data.columns)
 
         # subset samples
         input_data = input_data.loc[samples, :]
@@ -103,57 +114,32 @@ class MechanisticAutoEncoder(AutoEncoder):
             if sample not in petab_samples and sample in input_data.index:
                 petab_samples.append(sample)
 
-        # pca_pert = PCA(n_components=1)
-        # pert_data = pert_data.loc[pert_samples, :]
-        # pert_decomp = pca_pert.fit_transform(pert_data.values)
         input_data = input_data.loc[petab_samples, :]
 
-        pert_measurements = full_measurements[
-            full_measurements[petab.TIME] > 0
-        ]
-
-        pert_measurements = pert_measurements[
-            pert_measurements[petab.OBSERVABLE_ID].apply(
-                lambda x: x in self.petab_importer.petab_problem.observable_df.index
-            )
-        ]
-
-        pert_measurements['feature'] = pert_measurements.apply(
-            lambda x: '__'.join([x[petab.OBSERVABLE_ID],
-                                 x[petab.SIMULATION_CONDITION_ID].split('__')[
-                                     1], str(x[petab.TIME])]), axis=1
-        )
-
-        pert_data = pert_measurements.pivot_table(
-            index=petab.PREEQUILIBRATION_CONDITION_ID,
-            columns='feature',
-            values=petab.MEASUREMENT,
-            aggfunc=np.nanmean
-        ).dropna(axis=1)
-
-        # pca_pert = PCA(n_components=1)
-        # pert_decomp = pca_pert.fit_transform(pert_data.values)
-
         # impute missing values
-        if len(samples) > 1:
-            imputer = KNNImputer()
-            input_data = pd.DataFrame(imputer.fit_transform(input_data.values),
-                                      columns=input_data.columns,
-                                      index=input_data.index)
+        if imputer:
+            # prediction, load imputer from training data
+            self.imputer = imputer
+            self.scaler = scaler
         else:
-            input_data = input_data.dropna(axis=1)
+            # training, fit imputer to training data
+            self.imputer = KNNImputer()
+            self.scaler = StandardScaler(with_std=False)
+            imputed = self.imputer.fit_transform(input_data.values)
+            self.scaler.fit(imputed)
 
         # zero center input data, this is equivalent to estimating biases
         # for linear autoencoders
         # https://link.springer.com/article/10.1007/BF00332918
         # https://arxiv.org/pdf/1901.08168.pdf
-        input_data -= input_data.mean()
+        # note: transform also normalizes to unit standard deviation
+        input_data = pd.DataFrame(
+            self.scaler.transform(self.imputer.transform(input_data.values)),
+            index=input_data.index,
+            columns=input_data.columns
+        )
 
-        #regr = RandomForestRegressor()
-        #pert_fit = regr.fit(input_data.values, pert_decomp)
-
-        self.n_visible = input_data.shape[1]
-        self.n_samples = input_data.shape[0]
+        self.n_samples, self.n_visible = input_data.shape
         self.n_model_inputs = int(sum(name.startswith(MODEL_FEATURE_PREFIX)
                                       for name in
                                       self.pypesto_subproblem.x_names) /
@@ -167,7 +153,8 @@ class MechanisticAutoEncoder(AutoEncoder):
                          n_params=self.n_model_inputs)
 
         # generate PCA embedding for pretraining
-        pca = PCA(n_components=np.min([self.n_hidden, self.n_samples]))
+        pca = PCA(n_components=np.min([self.n_hidden, self.n_samples]),
+                  whiten=True)
         self.data_pca = pca.fit_transform(self.data)
 
         apply_objective_settings(self.pypesto_subproblem, pathway_name)
@@ -176,7 +163,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             amici_objective = self.pypesto_subproblem.objective
         else:
             amici_objective = self.pypesto_subproblem.objective._objectives[0]
-        amici_objective.n_threads = 4
+        amici_objective.n_threads = 1
 
         self.x_names = self.x_names + [
             name for ix, name in enumerate(self.pypesto_subproblem.x_names)
@@ -193,9 +180,8 @@ class MechanisticAutoEncoder(AutoEncoder):
         self.model_pars = aet.concatenate([
             self.x[-self.n_kin_params:],
             aet.reshape(encoded_pars.T,
-                        (self.n_model_inputs * self.n_samples,))],
-            axis=0
-        )
+                        (self.n_model_inputs * self.n_samples,))
+        ], axis=0)
 
         # assemble embedding to model theano op for pretraining
         self.x_embedding = aet.specify_shape(
