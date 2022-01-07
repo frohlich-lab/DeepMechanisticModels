@@ -5,7 +5,8 @@ from .mechanistic_model import (
 from pysb import Observable
 
 active_rtks = ['EGFR__Y1173_p', 'ERBB2__Y1248_p']
-active_erk = ['MAPK1__T185_p__Y187_p', 'MAPK3__T202_p__Y204_p']
+#active_erk = ['MAPK1__T185_p__Y187_p', 'MAPK3__T202_p__Y204_p']
+active_erk = ['ERK__Y204_p']
 active_akt = ['AKT1__T308_p', 'AKT2__T309_p', 'AKT3__T305_p']
 
 
@@ -27,24 +28,32 @@ def add_EGFR(model):
 
 
 def add_MAPK(model):
+    # mapk_cascade = [
+    #     ('MAP2K1', {'S218_S222': (active_rtks, active_erk)}),
+    #     ('MAP2K2', {'S222_S226': (active_rtks, active_erk)}),
+    #     ('MAPK1', {'T185_Y187': ['MAP2K1__S218_p__S222_p',
+    #                              'MAP2K2__S222_p__S226_p']}),
+    #     ('MAPK3', {'T202_Y204': ['MAP2K1__S218_p__S222_p',
+    #                              'MAP2K2__S222_p__S226_p']}),
+    #     ('RPS6KA1', {'S380': active_erk})  # p90RSK
+    # ]
     mapk_cascade = [
-        ('MAP2K1', {'S218_S222': (active_rtks, active_erk)}),
-        ('MAP2K2', {'S222_S226': (active_rtks, active_erk)}),
-        ('MAPK1', {'T185_Y187': ['MAP2K1__S218_p__S222_p',
-                                 'MAP2K2__S222_p__S226_p']}),
-        ('MAPK3', {'T202_Y204': ['MAP2K1__S218_p__S222_p',
-                                 'MAP2K2__S222_p__S226_p']}),
+        ('MEK', {'S222': (active_rtks, active_erk)}),
+        ('ERK', {'Y204': ['MEK__S222_p']}),
         ('RPS6KA1', {'S380': active_erk})  # p90RSK
     ]
-    generate_pathway(model, mapk_cascade)
+    generate_pathway(model, mapk_cascade,
+                     add_baseline_activation='first')
 
+    # Observable('pERK_T202_Y204',
+    #            model.monomers['MAPK1'](T185='p', Y187='p') +
+    #            model.monomers['MAPK3'](T202='p', Y204='p'))
+    #
+    # Observable('pMEK_S221',
+    #            model.monomers['MAP2K1'](S222='p') +
+    #            model.monomers['MAP2K2'](S226='p'))
     Observable('pERK_T202_Y204',
-               model.monomers['MAPK1'](T185='p', Y187='p') +
-               model.monomers['MAPK3'](T202='p', Y204='p'))
-
-    Observable('pMEK_S221',
-               model.monomers['MAP2K1'](S222='p') +
-               model.monomers['MAP2K2'](S226='p'))
+               model.monomers['ERK'](Y204='p'))
 
 
 def add_MTOR_AKT(model):
@@ -130,7 +139,7 @@ def add_S6(model):
 
 
 def add_inhibitors(model):
-    add_inhibitor(model, 'iMEK', ['MAP2K1', 'MAP2K2'])
+    add_inhibitor(model, 'iMEK', ['MEK'])
     add_inhibitor(model, 'iEGFR', ['EGFR'])
     add_inhibitor(model, 'iPI3K', ['PIK3CA'])
     add_inhibitor(model, 'iPKC', ['PKC'])

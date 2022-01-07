@@ -349,7 +349,7 @@ def add_observables(model: Model):
     phosphorylated site combinations for all monomers
     """
     for monomer in model.monomers:
-        Observable(f't{monomer.name}', monomer())
+        #Observable(f't{monomer.name}', monomer())
         psites = [site for site in monomer.site_states.keys()
                   if re.match(r'[YTS][0-9]+$', site)]
         for nsites in range(1, len(psites)+1):
