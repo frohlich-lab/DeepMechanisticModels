@@ -48,7 +48,7 @@ apply_objective_settings(problem, MODEL)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 1e-3,
+        fides.Options.FATOL: 1e-4,
         fides.Options.XTOL: 1e-6,
         fides.Options.MAXTIME: 7200,
         fides.Options.MAXITER: 1e3
