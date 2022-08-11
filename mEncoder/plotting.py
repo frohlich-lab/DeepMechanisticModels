@@ -26,6 +26,10 @@ def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
         measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] !=
         measurement_df[petab.SIMULATION_CONDITION_ID]
     ]
+    dyn_mes['ymax'] = \
+        dyn_mes[petab.MEASUREMENT] + dyn_mes[petab.NOISE_PARAMETERS]
+    dyn_mes['ymin'] = \
+        dyn_mes[petab.MEASUREMENT] - dyn_mes[petab.NOISE_PARAMETERS]
 
     kwargs = {
         'x': 'time',
@@ -44,7 +48,11 @@ def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + facet_wrap(petab.OBSERVABLE_ID, scales='free_y')
+        + geom_errorbar(
+            data=dyn_mes,
+            mapping=aes(ymax='ymax', ymin='ymin', **kwargs)
+        )
+        + facet_grid((petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID))
         + xlab('time [min]')
         + ylab('measurement')
         + theme(**PLOTNINE_THEME)

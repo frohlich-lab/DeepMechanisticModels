@@ -73,6 +73,7 @@ rule pretrain_cross_sample:
         script='pretrain_cross_samples.py',
         pretraining=os.path.join('mEncoder', 'pretraining.py'),
         autoencoder=os.path.join('mEncoder', 'autoencoder.py'),
+        bounds=os.path.join('mEncoder', '__init__.py'),
         pretrain_per_sample=pretraining_samples_fun,
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,

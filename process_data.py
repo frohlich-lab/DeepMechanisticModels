@@ -24,11 +24,11 @@ SAMPLES = {
         'c184A1', 'cBT20', 'cBT474', 'cBT549', 'cCAL148', 'cCAL851',
         'cCAL51', 'cDU4475', 'cEFM192A', 'cEVSAT', 'cHBL100', 'cHCC1187',
         'cHCC1395', 'cHCC1419', 'cHCC1500', 'cHCC1569', 'cHCC1599',
-        #'cHCC1937', 'cHCC1954', 'cHCC2157', 'cHCC2185', 'cHCC3153',
-        #'cHCC38', 'cHCC70', 'cHDQP1', 'cJIMT1', 'cMCF10A', 'cMCF10F',
-        #'cMCF7', 'cMDAMB134VI', 'cMDAMB157', 'cMDAMB175VII', 'cMDAMB361',
-        #'cMDAMB415', 'cMDAMB453', 'cMDAkb2', 'cMFM223', 'cMPE600', 'cMX1',
-        #'cOCUBM', 'cT47D', 'cUACC812', 'cUACC893', 'cZR7530'
+        'cHCC1937', 'cHCC1954', 'cHCC2157', 'cHCC2185', 'cHCC3153',
+        'cHCC38', 'cHCC70', 'cHDQP1', 'cJIMT1', 'cMCF10A', 'cMCF10F',
+        'cMCF7', 'cMDAMB134VI', 'cMDAMB157', 'cMDAMB175VII', 'cMDAMB361',
+        'cMDAMB415', 'cMDAMB453', 'cMDAkb2', 'cMFM223', 'cMPE600', 'cMX1',
+        'cOCUBM', 'cT47D', 'cUACC812', 'cUACC893', 'cZR7530'
     ],
     'synthetic': [f'sample_{isample}' for isample in range(20)],
 }
@@ -204,26 +204,64 @@ if __name__ == '__main__':
                 'syn20614074',  # UACC893
                 'syn20614085',  # ZR7530
             ]
-            median_data = []
+            mean_data = []
+            std_data = []
+            group_ids = ['treatment', 'cell_line', 'time', 'fileID']
             for file in files:
                 df = pd.read_csv(syn.get(file).path)
-                for ids, data in df.groupby(['treatment', 'cell_line', 'time',
-                                             'fileID']):
+                for ids, data in df.groupby(group_ids):
                     if f'c{ids[1]}' not in SAMPLES[DATA]:
                         continue
-                    med = data.median()
-                    med['treatment'] = ids[0]
-                    med['cell_line'] = ids[1]
-                    median_data.append(med)
-            df_median_phospho = pd.concat(median_data, axis=1).T
-            df_median_phospho.drop(columns=['fileID', 'cellID'], inplace=True)
+                    markers = [c for c in data.columns
+                               if c not in group_ids + ['cellID']]
+                    m = data[markers].mean()
+                    std = data[markers].std()
+                    for sdf in [m, std]:
+                        sdf['treatment'] = ids[0]
+                        sdf['cell_line'] = ids[1]
+                        sdf['time'] = ids[2]
+                        sdf['fileID'] = ids[3]
+                    mean_data.append(m)
+                    std_data.append(std)
+            df_phospho_mean = pd.concat(mean_data, axis=1).T
+            df_phospho_std = pd.concat(std_data, axis=1).T
+            d = {
+                desc: pd.concat(data, axis=1).T
+                for desc, data in (
+                    ('mean', mean_data),
+                    ('std', std_data)
+                )
+            }
+            id_vars = ['cell_line', 'treatment', 'time', 'fileID']
+            df_phospho_condition = d['mean'][id_vars]
+            for sdf in d.values():
+                sdf.drop(columns=id_vars, inplace=True)
+            df_phospho = pd.concat(
+                d.values(),
+                axis=1,
+                keys=d.keys()
+            ).swaplevel(0, 1, axis=1)
+            df_phospho = pd.concat((df_phospho_condition, df_phospho), axis=1)
+
             measurement_table_phospho = pd.melt(
-                df_median_phospho,
-                id_vars=['cell_line', 'treatment', 'time'],
+                df_phospho,
+                id_vars=id_vars,
                 var_name=petab.OBSERVABLE_ID,
-                value_name=petab.MEASUREMENT,
-            ).rename(columns={'cell_line': petab.PREEQUILIBRATION_CONDITION_ID,
-                              'time': petab.TIME})
+            )
+
+            measurement_table_phospho[[petab.OBSERVABLE_ID, 'type']] = \
+                measurement_table_phospho[petab.OBSERVABLE_ID].to_list()
+
+            measurement_table_phospho = measurement_table_phospho.set_index(
+                ['type', petab.OBSERVABLE_ID] + id_vars
+            ).unstack('type').droplevel(axis=1, level=0).reset_index()
+
+            measurement_table_phospho.rename(columns={
+                'cell_line': petab.PREEQUILIBRATION_CONDITION_ID,
+                'time': petab.TIME,
+                'mean': petab.MEASUREMENT,
+                'std': petab.NOISE_PARAMETERS
+            }, inplace=True)
 
             measurement_table_phospho[petab.PREEQUILIBRATION_CONDITION_ID] = \
                 measurement_table_phospho[
@@ -235,7 +273,8 @@ if __name__ == '__main__':
                     lambda x: f'{x[petab.PREEQUILIBRATION_CONDITION_ID]}__'
                               f'{x.treatment}', axis=1
                 )
-            measurement_table_phospho.drop(columns=['treatment'], inplace=True)
+            measurement_table_phospho.drop(columns=['treatment', 'fileID'],
+                                           inplace=True)
 
             df_proteomics = pd.read_csv(syn.get('syn20690775').path,
                                         index_col=[0])
@@ -308,8 +347,10 @@ if __name__ == '__main__':
             measurement_table_proteomics[petab.TIME] = 0.0
 
             # ignore proteomics data for now
-            measurement_table = pd.concat([measurement_table_phospho,
-                                           measurement_table_proteomics])
+            measurement_table = pd.concat([
+                measurement_table_phospho,
+                # measurement_table_proteomics
+            ])
 
             condition_table = pd.DataFrame({
                 petab.CONDITION_ID:
@@ -422,7 +463,7 @@ if __name__ == '__main__':
         measurement_table[petab.OBSERVABLE_PARAMETERS] = \
             measurement_table.apply(obs_pars, axis=1)
 
-        measurement_table[petab.NOISE_PARAMETERS] = ''
+        #measurement_table[petab.NOISE_PARAMETERS] = ''
 
         measurement_file = os.path.join(
                 data_dir, f'{DATA}__{MODEL}__measurements.tsv'

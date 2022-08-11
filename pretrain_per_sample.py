@@ -47,17 +47,20 @@ model = importer.create_model()
 apply_objective_settings(problem, MODEL)
 
 optimizer = FidesOptimizer(
-    hessian_update=fides.HybridFixed(switch_iteration=75),
     options={
-        fides.Options.FATOL: 1e-6,
-        fides.Options.XTOL: 1e-8,
+        fides.Options.FATOL: 1e-3,
+        fides.Options.XTOL: 1e-6,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 1e3,
-        fides.Options.SUBSPACE_DIM: fides.SubSpaceDim.TWO,
+        fides.Options.MAXITER: 1e3
     }
 )
-result = pretrain(problem, pypesto.startpoint.uniform, 5,
-                  optimizer, pypesto.engine.MultiThreadEngine(1))
+result = pretrain(
+    problem,
+    pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
+    5,
+    optimizer,
+    pypesto.engine.MultiThreadEngine(1)
+)
 store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix)
 
 x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],

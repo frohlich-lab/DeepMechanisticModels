@@ -113,11 +113,6 @@ def generate_cross_sample_pretraining_problem(
         ae.embedding_model_pars,
     )
 
-    if isinstance(obj.base_objective, AmiciObjective):
-        obj.base_objective.n_threads = 4
-    elif isinstance(obj.base_objective, AggregatedObjective):
-        obj.base_objective._objectives[0].n_threads = 4
-
     return Problem(
         objective=obj,
         x_names=x_names,
@@ -142,21 +137,9 @@ def pretrain(problem: Problem, startpoint_method: Callable, nstarts: int,
 
     :param nstarts:
         number of local optimizations to perform
-
-    :param fatol:
-        absolute function tolerance for termination of optimization
-
-    :param subspace:
-        fides subspace to use, fides.SubSpaceDim.FULL becomes quite slow for
-        for anything with over 1k parameters
-
-    :param maxiter:
-        maximum number of iterations
     """
 
-    optimize_options = OptimizeOptions(
-        startpoint_resample=True, allow_failed_starts=False,
-    )
+    optimize_options = OptimizeOptions(allow_failed_starts=False)
 
     return minimize(
         problem, optimizer, n_starts=nstarts, options=optimize_options,

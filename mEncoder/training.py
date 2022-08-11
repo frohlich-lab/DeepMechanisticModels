@@ -88,8 +88,7 @@ def train(ae: MechanisticAutoEncoder,
             fides.Options.FATOL: 1e-6,
             fides.Options.XTOL: 1e-8,
             fides.Options.MAXTIME: 3600 * 10,
-            fides.Options.MAXITER: 1e3,
-            fides.Options.SUBSPACE_DIM: fides.SubSpaceDim.TWO,
+            fides.Options.MAXITER: 2e2,
         },
         verbose=logging.INFO
     )

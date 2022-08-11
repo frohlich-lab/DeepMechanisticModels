@@ -151,7 +151,7 @@ optimizer = FidesOptimizer(
         fides.Options.FRTOL: 0,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 3600 * 10,
-        fides.Options.MAXITER: 1e4,
+        fides.Options.MAXITER: 2e2,
     }
 )
 np.random.seed(JOB)

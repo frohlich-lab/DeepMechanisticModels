@@ -126,7 +126,7 @@ parameter_boundaries_scales = {
     'kr': (-3, 3, 'log10'),          # [-]
     'scale': (0, 10, 'log10'),         # [1/[c]]
     'offset': (-5, 5, 'log10'),        # [[c]]
-    'weight': (-1, 1, 'lin'),        # [-]
+    'weight': (-10, 10, 'lin'),        # [-]
     'koff': (-3, 2, 'log10'),        # [1/[t]]
     'kd':   (-3, 3, 'log10'),       # [[c]]
     'kw':   (-4, 3, 'log10'),        # [1/[c]]
