@@ -14,8 +14,7 @@ SPLITS = ['0_5',]
 
 STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
 
-singularity: config.get("singularity",
-                        "docker://fabfroehlich/generic_parameter_estimation:main")
+singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter_estimation:main")
 
 rule process_data:
     input:
