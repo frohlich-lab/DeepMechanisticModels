@@ -186,7 +186,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         # assemble embedding to model theano op for pretraining
         self.x_embedding = aet.specify_shape(
             aet.vector('x'),
-            (self.n_kin_params + self.n_model_inputs * self.n_samples,)
+            (self.n_kin_params + self.n_model_inputs * self.n_hidden,)
         )
         inflated_pars = self.inflate_params_restricted(
             self.data_pca, self.x_embedding[:-self.n_kin_params]
