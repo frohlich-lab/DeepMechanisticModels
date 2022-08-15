@@ -349,7 +349,7 @@ if __name__ == '__main__':
             # ignore proteomics data for now
             measurement_table = pd.concat([
                 measurement_table_phospho,
-                # measurement_table_proteomics
+                measurement_table_proteomics
             ])
 
             condition_table = pd.DataFrame({
