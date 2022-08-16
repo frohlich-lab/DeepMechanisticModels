@@ -47,6 +47,8 @@ reader = OptimizationResultHDF5Reader(outfile)
 result = pypesto.Result(problem)
 result.optimize_result = reader.read().optimize_result
 
+print(result.optimize_result.fval)
+
 figdir = os.path.join(basedir, 'figures', MODEL, DATA)
 os.makedirs(figdir, exist_ok=True)
 output_prefix = '__'.join([SAMPLES, str(N_HIDDEN), str(ALPHA)])
