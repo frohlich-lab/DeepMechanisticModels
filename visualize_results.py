@@ -17,7 +17,7 @@ from process_data import training_samples, test_samples, Wildcards
 
 from pypesto.visualize import waterfall, optimizer_convergence
 from pypesto.store import OptimizationResultHDF5Reader
-from pypesto.objective.constants import FVAL
+from pypesto.C import FVAL
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
