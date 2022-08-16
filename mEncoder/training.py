@@ -96,7 +96,6 @@ def train(ae: MechanisticAutoEncoder,
     np.random.seed(seed)
 
     optimize_options = OptimizeOptions(
-        startpoint_resample=False,
         allow_failed_starts=True,
     )
 
