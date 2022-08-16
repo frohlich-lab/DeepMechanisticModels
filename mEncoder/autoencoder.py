@@ -174,7 +174,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         # assemble input to model theano op
         self.x = aet.specify_shape(
             aet.vector('x'),
-            (self.n_kin_params + self.n_encoder_pars + self.n_inflate_weights,)
+            (self.n_kin_params + self.n_encoder_pars,)
         )
         encoded_pars = self.encode_params(self.x[:-self.n_kin_params])
         self.model_pars = aet.concatenate([
