@@ -203,6 +203,6 @@ rule visualize_estimation:
              alpha=ALPHAS, samples=SPLITS
          ),
          pretraining=expand(
-             evaluate_pretraining,
+             rules.evaluate_pretraining.output.plot,
              model=PATHWAYS, data=DATASETS, samples=SPLITS
          ),
