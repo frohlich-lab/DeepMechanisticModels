@@ -149,8 +149,8 @@ rule visualize_estimation_results:
     output:
         plots=expand(str(
             fig_dir / '{{model}}' / '{{data}}' /
-            '__'.join(['{{samples}}', '{{n_hidden}}', '{{alpha}}'])
-            + '__{plot}.pdf'
+            ('__'.join(['{{samples}}', '{{n_hidden}}', '{{alpha}}'])
+             + '__{plot}.pdf')
         ), plot=['waterfall', 'embedding'])
     wildcard_constraints:
         model='[\w_]+',
