@@ -62,7 +62,11 @@ plot_and_save_fig(os.path.join(figdir,
 
 x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
                                problem.x_free_indices)
-simulation = problem.objective(x, return_dict=True)
+simulation = problem.objective(
+    x,
+    return_dict=True,
+    amici_reporting=amici.RDataReporting.full
+)
 
 
 mae_prediction = MechanisticAutoEncoder(
@@ -75,7 +79,11 @@ mae_prediction = MechanisticAutoEncoder(
     imputer=mae.imputer, scaler=mae.scaler
 )
 prediction_problem = create_pypesto_problem(mae_prediction)
-prediction = prediction_problem.objective(x, return_dict=True)
+prediction = prediction_problem.objective(
+    x,
+    return_dict=True,
+    amici_reporting=amici.RDataReporting.full
+)
 
 
 importer = mae.petab_importer
