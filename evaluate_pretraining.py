@@ -1,5 +1,4 @@
 import sys
-import os
 import pandas as pd
 import numpy as np
 import itertools as itt
@@ -8,20 +7,23 @@ import seaborn as sns
 import petab
 from pypesto.store import OptimizationResultHDF5Reader
 from pypesto import OptimizeResult, Result
-from pypesto.objective.constants import MODE_RES
+from pypesto.C import MODE_RES
 from pypesto.visualize import waterfall
 from petab import get_simulation_conditions
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
-from mEncoder.training import training_samples, Wildcards
+from process_data import training_samples, Wildcards
 from mEncoder.pretraining import (
     generate_cross_sample_pretraining_problem,
     generate_per_sample_pretraining_problems
 )
+from mEncoder.petab_subproblem import load_petab
 from mEncoder import (
-    pretrain_dir, apply_objective_settings, ESTIMATION_OUTFILE_TEMP
+    pretrain_dir, data_dir, apply_objective_settings, ESTIMATION_OUTFILE_TEMP
 )
 from training_configuration import ALPHAS, HIDDEN_LAYERS
+
+from pathlib import Path
 
 
 def process_simulation(evaluations, res, conditions, sample, type,
@@ -52,28 +54,30 @@ SAMPLES = sys.argv[3]
 
 samples = training_samples(Wildcards(DATA, SAMPLES))
 
-outdir = os.path.join(pretrain_dir, MODEL, DATA)
+outdir = pretrain_dir / MODEL / DATA
 
 evaluations = []
 
+datafiles = (
+    data_dir / f'{DATA}__{MODEL}__measurements.tsv',
+    data_dir / f'{DATA}__{MODEL}__conditions.tsv',
+    data_dir / f'{DATA}__{MODEL}__observables.tsv',
+)
+
 for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     mae = MechanisticAutoEncoder(
-        hidden_layers, (
-            os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
-            os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
-            os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
-        ),
+        hidden_layers, datafiles,
         pathway_name=MODEL, samples=samples, par_modulation_scale=alpha
     )
 
     if hidden_layers == HIDDEN_LAYERS[0]:
         for sample in samples:
-            importer = generate_per_sample_pretraining_problems(mae, sample)
-            problem_sample = importer.create_problem()
-            df = pd.read_csv(
-                os.path.join(outdir, f'{sample}.csv'),
-                index_col=[0]
+            importer = generate_per_sample_pretraining_problems(
+                load_petab(datafiles, 'pw_' + MODEL, 0.0, [sample]),
+                MODEL, f'{DATA}__{MODEL}', sample
             )
+            problem_sample = importer.create_problem()
+            df = pd.read_csv(outdir / f'{sample}.csv', index_col=[0])
             apply_objective_settings(problem_sample, MODEL)
 
             conditions = get_simulation_conditions(
@@ -94,17 +98,17 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
     apply_objective_settings(problem_cross_sample, MODEL)
 
-    def result_file(job_id):
-        output_prefix = os.path.splitext(ESTIMATION_OUTFILE_TEMP.format(
+    def result_file(job_id) -> Path:
+        output_prefix = Path(ESTIMATION_OUTFILE_TEMP.format(
             samples=SAMPLES, n_hidden=hidden_layers, alpha=alpha, job=job_id
-        ))[0]
-        return os.path.join(outdir, f'{output_prefix}.hdf5')
+        )).stem
+        return outdir / f'{output_prefix}.hdf5'
 
     result = OptimizeResult()
     for job in range(100):
-        if not os.path.exists(result_file(job)):
+        if not result_file(job).exists():
             continue
-        r = OptimizationResultHDF5Reader(result_file(job)).read(). \
+        r = OptimizationResultHDF5Reader(str(result_file(job))).read(). \
             optimize_result.list[0]
         r['id'] = str(job)
         result.append(r)
@@ -118,10 +122,10 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
 
     waterfall(r)
     plt.tight_layout()
-    plt.savefig(os.path.join(
-        outdir,
-        f'pretraining_cross_sample_a{alpha}_n{hidden_layers}_waterfall.pdf'
-    ))
+    plt.savefig(
+        outdir /
+        f'{SAMPLES}_pretraining_cross_sample_a{alpha}_n{hidden_layers}_waterfall.pdf'
+    )
 
     res = problem_cross_sample.objective(result.list[0]['x'],
                                          return_dict=True)
@@ -147,10 +151,10 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     })
 
 df = pd.DataFrame(evaluations)
-df.to_csv('evaluation_pretraining.csv')
+df.to_csv(outdir / f'{SAMPLES}_evaluation_pretraining.csv')
 
 g = sns.FacetGrid(data=df, col='sample', hue='layers', hue_order=HIDDEN_LAYERS,
                   palette='Blues', col_wrap=5)
 g.map_dataframe(sns.lineplot, x='alpha', y='chi2').set(yscale='log')
 plt.tight_layout()
-plt.savefig(os.path.join(f'evaluate_pretraining.pdf'))
+plt.savefig(outdir / f'{SAMPLES}_evaluate_pretraining.pdf')

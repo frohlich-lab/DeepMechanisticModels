@@ -1,6 +1,6 @@
 from . import (
     load_model, parameter_boundaries_scales, MODEL_FEATURE_PREFIX,
-    plot_and_save_fig
+    plot_and_save_fig, basedir
 )
 
 from .encoder import AutoEncoder
@@ -13,18 +13,14 @@ from sklearn import decomposition
 
 import amici
 import petab
-import os
-import pysb
-import re
 
 from typing import Tuple
-
-basedir = os.path.dirname(os.path.dirname(__file__))
+from pathlib import Path
 
 
 def generate_synthetic_data(pathway_name: str,
                             latent_dimension: int = 2,
-                            n_samples: int = 20) -> Tuple[str, str, str]:
+                            n_samples: int = 20) -> Tuple[Path, Path, Path]:
     """
     Generates sample data using the mechanistic model.
 
@@ -138,8 +134,8 @@ def generate_synthetic_data(pathway_name: str,
             embeddings.append(embedding)
 
     # prepare petab
-    datadir = os.path.join(basedir, 'data')
-    os.makedirs(datadir, exist_ok=True)
+    datadir = basedir / 'data'
+    datadir.mkdir(exist_ok=True, parents=True)
 
     df = pd.concat(samples)
     df.loc[(df.time == 0) &
@@ -147,15 +143,12 @@ def generate_synthetic_data(pathway_name: str,
            list(model.getObservableIds())].rename(columns={
                o: o.replace('_obs', '') for o in model.getObservableIds()
            }).boxplot(rot=90)
-    plot_and_save_fig(os.path.join(datadir,
-                                   f'synthetic__{pathway_name}.pdf'))
+    plot_and_save_fig(datadir / f'synthetic__{pathway_name}.pdf')
 
     fig, ax = plt.subplots(1, 1)
     plot_embedding(np.vstack(embeddings), ax)
 
-    plot_and_save_fig(os.path.join(
-        datadir, f'synthetic__{pathway_name}__embedding.pdf'
-    ))
+    plot_and_save_fig(datadir / f'synthetic__{pathway_name}__embedding.pdf')
 
     inputs = df.loc[
         (df.time == 0) &
@@ -166,9 +159,7 @@ def generate_synthetic_data(pathway_name: str,
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(os.path.join(
-        datadir, f'synthetic__{pathway_name}__input_pca.pdf'
-    ))
+    plot_and_save_fig(datadir / f'synthetic__{pathway_name}__input_pca.pdf')
 
     inputs = df[[col for col in df.columns
                  if col.startswith(MODEL_FEATURE_PREFIX) or col == 'Sample']]
@@ -177,16 +168,12 @@ def generate_synthetic_data(pathway_name: str,
     inputs.index = inputs['variable'] + \
         inputs['Sample'].apply(lambda x: f'_sample_{x}')
     ref = pd.concat([pd.Series(static_pars), inputs.value])
-    ref.to_csv(os.path.join(
-         datadir, f'synthetic__{pathway_name}__reference_inputs.csv'
-    ))
+    ref.to_csv(datadir / f'synthetic__{pathway_name}__reference_inputs.csv')
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0],
                     axes[1])
-    plot_and_save_fig(os.path.join(
-        datadir, f'synthetic__{pathway_name}__data_pca.pdf'
-    ))
+    plot_and_save_fig(datadir, f'synthetic__{pathway_name}__data_pca.pdf')
 
     # create petab & save to csv
     # MEASUREMENTS
@@ -240,14 +227,10 @@ def generate_synthetic_data(pathway_name: str,
             lambda x: f'{x}_scale;{x}_offset'
         )
 
-    measurement_file = os.path.join(
-        datadir, f'synthetic__{pathway_name}__measurements.tsv'
-    )
+    measurement_file = datadir / f'synthetic__{pathway_name}__measurements.tsv'
 
     # CONDITIONS
-    condition_file = os.path.join(
-        datadir, f'synthetic__{pathway_name}__conditions.tsv'
-    )
+    condition_file = datadir / f'synthetic__{pathway_name}__conditions.tsv'
     conditions = pd.DataFrame({
         petab.CONDITION_ID:
             measurements[petab.SIMULATION_CONDITION_ID].unique()
@@ -285,9 +268,7 @@ def generate_synthetic_data(pathway_name: str,
     observables[petab.NOISE_DISTRIBUTION] = petab.NORMAL
     observables[petab.NOISE_FORMULA] = '1.0'
 
-    observable_file = os.path.join(
-        datadir, f'synthetic__{pathway_name}__observables.tsv'
-    )
+    observable_file = datadir / f'synthetic__{pathway_name}__observables.tsv'
     observables.set_index(petab.OBSERVABLE_ID, inplace=True)
     observables.to_csv(observable_file, sep='\t')
 

@@ -1,4 +1,3 @@
-import os
 import petab
 
 import pandas as pd
@@ -11,9 +10,10 @@ from . import parameter_boundaries_scales, MODEL_FEATURE_PREFIX, \
     load_pathway, basedir
 
 from typing import Tuple, Sequence
+from pathlib import Path
 
 
-def load_petab(datafiles: Tuple[str, str, str],
+def load_petab(datafiles: Tuple[Path, Path, Path],
                pathway_name: str,
                par_input_scale: float,
                samples: Sequence[str] = None) -> PetabImporterPysb:
@@ -174,9 +174,7 @@ def load_petab(datafiles: Tuple[str, str, str],
         for name in parameter_table.index
     ]
 
-    data_name = '__'.join(os.path.splitext(
-        os.path.basename(datafiles[0])
-    )[0].split('__')[:-1])
+    data_name = '__'.join(datafiles[0].stem.split('__')[:-1])
 
     problem = PysbPetabProblem(
         measurement_df=measurement_table,
@@ -189,10 +187,12 @@ def load_petab(datafiles: Tuple[str, str, str],
     filter_observables(problem)
     petab.lint_problem(problem)
 
-    return PetabImporterPysb(problem, output_folder=os.path.join(
-        basedir, 'amici_models',
-        f'{model.name}_{data_name}_petab'
-    ))
+    return PetabImporterPysb(
+        problem,
+        output_folder=str(
+            basedir / 'amici_models' / f'{model.name}_{data_name}_petab'
+        )
+    )
 
 
 def filter_observables(petab_problem: petab.Problem):

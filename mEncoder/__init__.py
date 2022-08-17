@@ -1,4 +1,3 @@
-import os
 import amici.pysb_import
 import logging
 import re
@@ -9,22 +8,22 @@ import amici
 import pypesto
 import pysb.export
 import matplotlib.pyplot as plt
-from typing import Tuple
+from typing import Tuple, Optional
+from pathlib import Path
 
-basedir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-figures_path = os.path.join(basedir, 'figures')
-results_dir = os.path.join(basedir, 'results')
-data_dir = os.path.join(basedir, 'data')
-pretrain_dir = os.path.join(basedir, 'pretraining')
+basedir: Path = Path(__file__).resolve().parents[1]
+fig_dir = basedir / 'figures'
+results_dir = basedir / 'results'
+data_dir = basedir / 'data'
+pretrain_dir = basedir / 'pretraining'
 
 
 def load_pathway(pathway_name: str) -> pysb.Model:
-    model_file = os.path.join(basedir, 'pathways', pathway_name + '.py')
-    sys.path.insert(0, os.path.join(basedir, 'pathways'))
+    model_file = basedir / 'pathways' / pathway_name + '.py'
+    sys.path.insert(0, str(basedir / 'pathways'))
     model = amici.pysb_import.pysb_model_from_path(model_file)
 
-    with open(os.path.join(basedir, 'pysb_models',
-                           model.name + '.py'), 'w') as file:
+    with open(basedir / 'pysb_models' / model.name + '.py', 'w') as file:
         file.write(pysb.export.export(model, 'pysb_flat'))
 
     return model
@@ -36,7 +35,7 @@ def load_model(pathway_name: str,
                                                        amici.AmiciSolver]:
 
     model = load_pathway(pathway_name)
-    outdir = os.path.join(basedir, 'amici_models', model.name)
+    outdir = basedir / 'amici_models' / model.name
 
     # extend observables
     if add_observables:
@@ -47,9 +46,9 @@ def load_model(pathway_name: str,
                 pysb.Expression(obs.name + '_obs',
                                 sp.log(scale * obs + offset))
 
-    if force_compile or not os.path.exists(os.path.join(outdir, model.name,
-                                                        model.name + '.py')):
-        os.makedirs(outdir, exist_ok=True)
+    if force_compile or \
+            not (outdir / model.name / model.name + '.py').exists():
+        outdir.makedir(exist_ok=True, parents=True)
         amici.pysb_import.pysb2amici(model,
                                      outdir,
                                      verbose=logging.DEBUG,
@@ -74,15 +73,13 @@ def load_model(pathway_name: str,
     return amici_model, solver
 
 
-def plot_and_save_fig(filename, figdir=None):
+def plot_and_save_fig(filename, figdir: Optional[Path] = None):
     if figdir is None:
-        figdir = figures_path
+        figdir = figdir
     plt.tight_layout()
-    if not os.path.exists(figdir):
-        os.mkdir(figdir)
-
+    figdir.mkdir(exist_ok=True, parents=True)
     if filename is not None:
-        plt.savefig(os.path.join(figdir, filename))
+        plt.savefig(figdir / filename)
 
 
 def apply_solver_settings(solver):

@@ -1,10 +1,9 @@
 import sys
-import os
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.training import train
 from process_data import training_samples, Wildcards
-from mEncoder import results_dir, ESTIMATION_OUTFILE_TEMP
+from mEncoder import results_dir, data_dir, ESTIMATION_OUTFILE_TEMP
 
 from pypesto.store import OptimizationResultHDF5Writer
 
@@ -17,22 +16,19 @@ JOB = int(sys.argv[6])
 
 mae = MechanisticAutoEncoder(
     N_HIDDEN, (
-        os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
+        data_dir / f'{DATA}__{MODEL}__measurements.tsv',
+        data_dir / f'{DATA}__{MODEL}__conditions.tsv',
+        data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
     par_modulation_scale=ALPHA
 )
 
 result = train(mae, SAMPLES, n_starts=1, seed=JOB)
-outdir = os.path.join(results_dir, MODEL, DATA)
-outfile = os.path.join(outdir, ESTIMATION_OUTFILE_TEMP.format(
+outdir = results_dir / MODEL / DATA
+outfile = outdir / ESTIMATION_OUTFILE_TEMP.format(
     samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
-))
-os.makedirs(outdir, exist_ok=True)
-if os.path.exists(outfile):
-    # temp bugfix for https://github.com/ICB-DCM/pyPESTO/issues/529
-    os.remove(outfile)
+)
+outdir.mkdir(exist_ok=True, parents=True)
 writer = OptimizationResultHDF5Writer(outfile)
 writer.write(result)

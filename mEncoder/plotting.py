@@ -1,7 +1,8 @@
+import pandas
 from plotnine import *
 import matplotlib.pyplot as plt
 import petab
-import os
+from pathlib import Path
 
 PLOTNINE_THEME = {
     'dpi': 300,
@@ -14,7 +15,12 @@ PLOTNINE_THEME = {
 }
 
 
-def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
+def plot_single_sample(
+    measurement_df: pandas.DataFrame,
+    simulation_df: pandas.DataFrame,
+    figdir: Path,
+    prefix: str
+):
     measurement_df = measurement_df.copy()
     simulation_df = simulation_df.copy()
 
@@ -58,7 +64,7 @@ def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
         + theme(**PLOTNINE_THEME)
     )
 
-    save_plot(plot, os.path.join(figdir, 'fit_dynamic'), prefix)
+    save_plot(plot, figdir / 'fit_dynamic', prefix)
 
     simulation_df = simulation_df.sort_values([
         petab.PREEQUILIBRATION_CONDITION_ID, petab.TIME, petab.OBSERVABLE_ID,
@@ -88,7 +94,7 @@ def plot_single_sample(measurement_df, simulation_df, figdir, prefix):
                 + theme(**PLOTNINE_THEME)
         )
 
-        save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
+        save_plot(plot, figdir / 'fit_static', prefix)
 
 
 def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
@@ -133,7 +139,7 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
         + theme(**PLOTNINE_THEME)
     )
 
-    save_plot(plot, os.path.join(figdir, 'fit_dynamic'), prefix)
+    save_plot(plot, figdir / 'fit_dynamic', prefix)
 
     res = dyn.copy()
     res['error'] = res[petab.MEASUREMENT] - res[petab.SIMULATION]
@@ -152,7 +158,7 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
             + ylab('measurement')
             + theme(**PLOTNINE_THEME)
         )
-        save_plot(plot, os.path.join(figdir, f'res_{var}'), prefix)
+        save_plot(plot, figdir / f'res_{var}', prefix)
 
     stat = sdf[
         sdf[petab.PREEQUILIBRATION_CONDITION_ID] ==
@@ -172,7 +178,7 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
                 + theme(**PLOTNINE_THEME)
         )
 
-        save_plot(plot, os.path.join(figdir, 'fit_static'), prefix)
+        save_plot(plot, figdir / 'fit_static', prefix)
 
     for sample in sdf[petab.PREEQUILIBRATION_CONDITION_ID].unique():
         plot_single_sample(
@@ -183,12 +189,12 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
             simulation_df[
                 simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
             ],
-            os.path.join(figdir, sample),
+            figdir / sample,
             prefix
         )
 
 
-def save_plot(plot, dir, name, fmt='pdf'):
+def save_plot(plot, figdir: Path, name: str, fmt: str = 'pdf'):
     plt.tight_layout()
-    os.makedirs(dir, exist_ok=True)
-    plot.save(os.path.join(dir, f'{name}.{fmt}'))
+    figdir.mkdir(exist_ok=True, parents=True)
+    plot.save(figdir / f'{name}.{fmt}')

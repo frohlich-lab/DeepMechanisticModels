@@ -7,7 +7,8 @@ from pypesto.store import (
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.training import create_pypesto_problem
 from mEncoder import (
-    results_dir, COLLECTED_ESTIMATION_OUTFILE_TEMP, ESTIMATION_OUTFILE_TEMP
+    results_dir, data_dir, COLLECTED_ESTIMATION_OUTFILE_TEMP,
+    ESTIMATION_OUTFILE_TEMP
 )
 from process_data import training_samples, Wildcards
 
@@ -21,9 +22,9 @@ ALPHA = float(sys.argv[5])
 
 mae = MechanisticAutoEncoder(
     N_HIDDEN, (
-        os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
+        data_dir / f'{DATA}__{MODEL}__measurements.tsv',
+        data_dir / f'{DATA}__{MODEL}__conditions.tsv',
+        data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
     par_modulation_scale=ALPHA
@@ -33,13 +34,12 @@ problem = create_pypesto_problem(mae)
 
 optimizer_results = []
 
-result_path = os.path.join(results_dir, MODEL, DATA)
+result_path = results_dir / MODEL / DATA
 result_files = os.listdir(result_path)
 
-outfile = os.path.join(result_path, COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-                           samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA
-                       ))
-
+outfile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
+    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA
+)
 
 prefix = '__'.join(ESTIMATION_OUTFILE_TEMP.format(
    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job='JOB'
@@ -49,7 +49,7 @@ for file in result_files:
     if not file.startswith(prefix) or \
             not file.endswith('.hdf5') or file == outfile:
         continue
-    reader = OptimizationResultHDF5Reader(os.path.join(result_path, file))
+    reader = OptimizationResultHDF5Reader(str(result_path / file))
     starts = reader.read().optimize_result.list
     for start in starts:
         start['hess'] = None

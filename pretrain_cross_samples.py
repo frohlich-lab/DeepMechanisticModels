@@ -19,10 +19,9 @@ from mEncoder.pretraining import (
     generate_cross_sample_pretraining_problem, pretrain,
     store_and_plot_pretraining
 )
-
 from mEncoder import (
     MODEL_FEATURE_PREFIX, apply_objective_settings,
-    parameter_boundaries_scales, pretrain_dir,
+    parameter_boundaries_scales, pretrain_dir, data_dir, fig_dir,
     ESTIMATION_OUTFILE_TEMP
 )
 
@@ -36,9 +35,9 @@ JOB = int(sys.argv[6])
 samples = training_samples(Wildcards(DATA, SAMPLES))
 mae = MechanisticAutoEncoder(
     N_HIDDEN, (
-        os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
-        os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
+        data_dir / f'{DATA}__{MODEL}__measurements.tsv',
+        data_dir / f'{DATA}__{MODEL}__conditions.tsv',
+        data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=samples, par_modulation_scale=ALPHA
 )
@@ -46,20 +45,22 @@ mae = MechanisticAutoEncoder(
 problem = generate_cross_sample_pretraining_problem(mae)
 pretrained_samples = {}
 
-outdir = os.path.join(pretrain_dir, MODEL, DATA)
+outdir = pretrain_dir / MODEL / DATA
+figdir = fig_dir / MODEL / DATA / 'pretraining_cross'
 output_prefix = os.path.splitext(ESTIMATION_OUTFILE_TEMP.format(
     samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
 ))[0]
 
 for sample in samples:
     df = pd.read_csv(
-        os.path.join(pretrain_dir, MODEL, DATA, f'{sample}.csv'),
+        pretrain_dir / MODEL / DATA / f'{sample}.csv',
         index_col=[0]
     )
     pretrained_samples[sample] = df[[
         col for col in df.columns
         if not col.startswith(MODEL_FEATURE_PREFIX)
     ]]
+
 
 def startpoints(**kwargs):
     """
@@ -113,6 +114,7 @@ def startpoints(**kwargs):
 
     return xs
 
+
 '''
 elif INIT == 'sampling':
     def startpoints(**kwargs):
@@ -145,7 +147,7 @@ elif INIT == 'sampling':
 apply_objective_settings(problem, MODEL)
 
 optimizer = FidesOptimizer(
-    hessian_update=fides.HybridFixed(switch_iteration=50),
+    hessian_update=fides.HybridFixed(),
     options={
         fides.Options.FATOL: 0,
         fides.Options.FRTOL: 0,
@@ -158,24 +160,3 @@ np.random.seed(JOB)
 result = pretrain(problem, startpoints, 1, optimizer)
 store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix,
                            plot_waterfall=False)
-
-# importer = mae.petab_importer
-# model = importer.create_model()
-#
-# x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
-#                                problem.x_free_indices)
-# simulation = problem.objective(x, return_dict=True)
-#
-# # Convert the simulation to PEtab format.
-# if np.isfinite(simulation[FVAL]):
-#     simulation_df = amici.petab_objective.rdatas_to_simulation_df(
-#         simulation['rdatas'],
-#         model=model,
-#         measurement_df=importer.petab_problem.measurement_df,
-#     )
-#
-#     # Plot with PEtab
-#     plot_cross_samples(importer.petab_problem.measurement_df,
-#                        simulation_df,
-#                        pretrain_dir,
-#                        output_prefix)

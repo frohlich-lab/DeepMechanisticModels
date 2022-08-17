@@ -1,16 +1,18 @@
 import os
 
 from mEncoder import (
-    data_dir, pretrain_dir, results_dir, PER_SAMPLE_OUTFILE_TEMP,
-    COLLECTED_ESTIMATION_OUTFILE_TEMP, ESTIMATION_OUTFILE_TEMP
+    basedir, data_dir, pretrain_dir, fig_dir, results_dir,
+    PER_SAMPLE_OUTFILE_TEMP, COLLECTED_ESTIMATION_OUTFILE_TEMP,
+    ESTIMATION_OUTFILE_TEMP
 )
 from process_data import pretraining_samples_fun
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
+mencoder_dir = basedir / 'mEncoder'
+
 PATHWAYS = ['EGFR_MAPK']
 DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
-
 
 STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
 
@@ -19,13 +21,13 @@ singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter
 rule process_data:
     input:
         script='process_data.py',
-        data_code=os.path.join('mEncoder', 'generate_data.py'),
-        model_code=os.path.join('mEncoder', 'mechanistic_model.py'),
-        pathway=os.path.join('pathways', 'pw_{model}.py'),
-        pathways=os.path.join('mEncoder', 'pathways.py'),
+        data_code=mencoder_dir / 'generate_data.py',
+        model_code=mencoder_dir / 'mechanistic_model.py',
+        pathway=basedir / 'pathways' / 'pw_{model}.py',
+        pathways=mencoder_dir / 'pathways.py',
     output:
         datafiles=expand(
-            os.path.join(data_dir, '{{data}}__{{model}}__{file}.tsv'),
+            str(data_dir / '{{data}}__{{model}}__{file}.tsv'),
             file=['conditions', 'measurements', 'observables']
         )
     wildcard_constraints:
@@ -42,8 +44,8 @@ rule compile_mechanistic_model:
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
-        model=os.path.join('amici_models', '{model}_{data}__{model}_petab',
-                           '{model}', '{model}.py'),
+        model= basedir / 'amici_models' / '{model}_{data}__{model}_petab' /
+            '{model}' / '{model}.py',
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -54,13 +56,11 @@ rule compile_mechanistic_model:
 rule pretrain_per_sample:
     input:
         script='pretrain_per_sample.py',
-        pretraining_code=os.path.join('mEncoder', 'pretraining.py'),
+        pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
     output:
-        pretraining=os.path.join(
-            pretrain_dir, '{model}', '{data}', PER_SAMPLE_OUTFILE_TEMP
-        )
+        pretraining=pretrain_dir / '{model}' / '{data}' / PER_SAMPLE_OUTFILE_TEMP
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -80,9 +80,7 @@ rule pretrain_cross_sample:
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
     output:
-        pretraining=os.path.join(
-            pretrain_dir, '{model}', '{data}', ESTIMATION_OUTFILE_TEMP
-        )
+        pretraining=pretrain_dir / '{model}' / '{data}' / ESTIMATION_OUTFILE_TEMP
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -100,16 +98,14 @@ rule pretrain_cross_sample:
 rule estimate_parameters:
     input:
         script='run_estimation.py',
-        encoder=os.path.join('mEncoder', 'encoder.py'),
-        training=os.path.join('mEncoder', 'training.py'),
-        autoencoder=os.path.join('mEncoder','autoencoder.py'),
+        encoder=mencoder_dir / 'encoder.py',
+        training=mencoder_dir / 'training.py',
+        autoencoder=mencoder_dir /'autoencoder.py',
         dataset=rules.process_data.output.datafiles,
         pretrain_inflate=rules.pretrain_cross_sample.output.pretraining,
         model=rules.compile_mechanistic_model.output.model,
     output:
-        result=os.path.join(
-            results_dir, '{model}', '{data}', ESTIMATION_OUTFILE_TEMP
-        )
+        result=results_dir / '{model}' / '{data}' / ESTIMATION_OUTFILE_TEMP
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -134,8 +130,7 @@ rule collect_estimation_results:
             )
         ), job=STARTS)
     output:
-        result=os.path.join(results_dir, '{model}', '{data}',
-                            COLLECTED_ESTIMATION_OUTFILE_TEMP),
+        result=results_dir / '{model}' / '{data}' / COLLECTED_ESTIMATION_OUTFILE_TEMP
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
@@ -152,8 +147,8 @@ rule visualize_estimation_results:
         script='visualize_results.py',
         estimation=rules.collect_estimation_results.output.result
     output:
-        plots=expand(os.path.join(
-            'figures', '{{model}}', '{{data}}',
+        plots=expand(str(
+            fig_dir / '{{model}}' / '{{data}}' /
             '__'.join(['{{samples}}', '{{n_hidden}}', '{{alpha}}'])
             + '__{plot}.pdf'
         ), plot=['waterfall', 'embedding'])
@@ -169,6 +164,29 @@ rule visualize_estimation_results:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha}'
 
+rule evaluate_pretraining:
+    input:
+        script='evaluate_pretraining.py',
+        cross_sample=expand(
+            rules.pretrain_cross_sample.output.pretraining,
+            model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
+            alpha=ALPHAS, samples=SPLITS
+        )
+    output:
+        plot=fig_dir / '{{model}}' / '{{data}}' / '{samples}_evaluate_pretraining.pdf',
+        csv=fig_dir / '{{model}}' / '{{data}}' / '{samples}_evaluate_pretraining.csv'
+    wildcard_constraints:
+        model='[\w_]+',
+        data='[\w_]+',
+        optimzer='[\w-]+',
+        n_hidden='[0-9]+',
+        job='[0-9]+',
+        samples='[0-9]+_[0-9]+',
+        alpha='[0-9\.]+'
+    shell:
+        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        '{wildcards.samples}'
+
 rule collect_estimation:
     input:
          expand(
@@ -179,8 +197,12 @@ rule collect_estimation:
 
 rule visualize_estimation:
     input:
-         expand(
+         training=expand(
              rules.visualize_estimation_results.output.plots,
              model=PATHWAYS, data=DATASETS, n_hidden=HIDDEN_LAYERS,
              alpha=ALPHAS, samples=SPLITS
-         )
+         ),
+         pretraining=expand(
+             evaluate_pretraining,
+             model=PATHWAYS, data=DATASETS, samples=SPLITS
+         ),

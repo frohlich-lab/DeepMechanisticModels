@@ -5,23 +5,21 @@ from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall, parameters
 from pypesto.objective.aesara import AesaraObjective
-from pypesto.objective import AggregatedObjective, AmiciObjective
 
 import petab
-import os
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
 from typing import Callable
+from pathlib import Path
 from pysb import Model
 
 from .autoencoder import MechanisticAutoEncoder
 from . import (
     MODEL_FEATURE_PREFIX, load_pathway, parameter_boundaries_scales,
+    basedir
 )
-
-basedir = os.path.dirname(os.path.dirname(__file__))
 
 
 def generate_per_sample_pretraining_problems(
@@ -85,10 +83,8 @@ def generate_per_sample_pretraining_problems(
         measurement_df=mdf,
         condition_df=cdf,
         pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
-    ), output_folder=os.path.join(
-        basedir, 'amici_models',
-        f'{pp.pysb_model.name}_'
-        f'{dataset}_petab'
+    ), output_folder=str(
+        basedir / 'amici_models' / f'{pp.pysb_model.name}_{dataset}_petab'
     ))
 
 
@@ -148,7 +144,7 @@ def pretrain(problem: Problem, startpoint_method: Callable, nstarts: int,
     )
 
 
-def store_and_plot_pretraining(result: Result, outdir: str, prefix: str,
+def store_and_plot_pretraining(result: Result, outdir: Path, prefix: str,
                                plot_waterfall: bool = True):
     """
     Store optimziation results in HDF5 as well as csv for later reuse. Also
@@ -162,11 +158,8 @@ def store_and_plot_pretraining(result: Result, outdir: str, prefix: str,
         different pretraining stages as well as models/datasets.
     """
     # store full results as hdf5
-    rfile = os.path.join(outdir, prefix + '.hdf5')
-    if os.path.exists(rfile):
-        # temp bugfix for https://github.com/ICB-DCM/pyPESTO/issues/529
-        os.remove(rfile)
-    writer = OptimizationResultHDF5Writer(rfile)
+    rfile = outdir / (prefix + '.hdf5')
+    writer = OptimizationResultHDF5Writer(str(rfile))
     writer.write(result, overwrite=True)
 
     # store parameter values, this will be used in subsequent steps
@@ -175,15 +168,15 @@ def store_and_plot_pretraining(result: Result, outdir: str, prefix: str,
          if r is not None],
         columns=result.problem.x_names
     )
-    parameter_df.to_csv(os.path.join(outdir, prefix + '.csv'))
+    parameter_df.to_csv(outdir / (prefix + '.csv'))
 
     # do plotting
     if plot_waterfall:
         waterfall(result, scale_y='log10', offset_y=0.0)
         plt.tight_layout()
-        plt.savefig(os.path.join(outdir, prefix + '_waterfall.pdf'))
+        plt.savefig(outdir / (prefix + '_waterfall.pdf'))
 
     if result.problem.dim_full < 2e3:
         parameters(result)
         plt.tight_layout()
-        plt.savefig(os.path.join(outdir, prefix + '_parameters.pdf'))
+        plt.savefig(outdir / (prefix + '_parameters.pdf'))

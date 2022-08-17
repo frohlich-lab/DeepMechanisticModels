@@ -19,7 +19,8 @@ from mEncoder.pretraining import (
 )
 from mEncoder.plotting import plot_single_sample
 from mEncoder import (
-    apply_objective_settings, pretrain_dir, PER_SAMPLE_OUTFILE_TEMP
+    apply_objective_settings, pretrain_dir, data_dir, fig_dir,
+    PER_SAMPLE_OUTFILE_TEMP
 )
 
 np.random.seed(0)
@@ -29,16 +30,17 @@ DATA = sys.argv[2]
 SAMPLE = sys.argv[3]
 
 datafiles = (
-    os.path.join('data', f'{DATA}__{MODEL}__measurements.tsv'),
-    os.path.join('data', f'{DATA}__{MODEL}__conditions.tsv'),
-    os.path.join('data', f'{DATA}__{MODEL}__observables.tsv'),
+    data_dir / f'{DATA}__{MODEL}__measurements.tsv',
+    data_dir / f'{DATA}__{MODEL}__conditions.tsv',
+    data_dir / f'{DATA}__{MODEL}__observables.tsv',
 )
 
 importer = generate_per_sample_pretraining_problems(
     load_petab(datafiles, 'pw_' + MODEL, 0.0, [SAMPLE]),
     MODEL, f'{DATA}__{MODEL}', SAMPLE
 )
-outdir = os.path.join(pretrain_dir, MODEL, DATA)
+outdir = pretrain_dir / MODEL / DATA
+figdir = fig_dir / MODEL / DATA / 'pretraining_sample'
 output_prefix = os.path.splitext(
     PER_SAMPLE_OUTFILE_TEMP.format(sample=SAMPLE)
 )[0]
@@ -48,8 +50,8 @@ apply_objective_settings(problem, MODEL)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 1e-4,
-        fides.Options.XTOL: 1e-6,
+        fides.Options.FATOL: 1e-6,
+        fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
         fides.Options.MAXITER: 1e3
     }
@@ -57,7 +59,7 @@ optimizer = FidesOptimizer(
 result = pretrain(
     problem,
     pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
-    5,
+    10,
     optimizer,
     pypesto.engine.MultiThreadEngine(1)
 )
@@ -74,5 +76,5 @@ simulation_df = amici.petab_objective.rdatas_to_simulation_df(
 )
 plot_single_sample(importer.petab_problem.measurement_df,
                    simulation_df,
-                   outdir,
+                   figdir,
                    output_prefix)

@@ -1,13 +1,12 @@
 import numpy as np
 import pandas as pd
-import os
 import fides
 import logging
 import scipy.linalg as la
 
 from .autoencoder import MechanisticAutoEncoder
 from . import (
-    parameter_boundaries_scales, ESTIMATION_OUTFILE_TEMP
+    parameter_boundaries_scales, ESTIMATION_OUTFILE_TEMP, basedir
 )
 
 from pypesto.optimize import (
@@ -17,8 +16,7 @@ from pypesto import Problem, Result
 from pypesto.objective.aesara import AesaraObjective
 
 
-basedir = os.path.dirname(os.path.dirname(__file__))
-trace_path = os.path.join(basedir, 'traces')
+trace_path = basedir / 'traces'
 TRACE_FILE_TEMPLATE = '{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv'
 
 
@@ -99,15 +97,13 @@ def train(ae: MechanisticAutoEncoder,
         allow_failed_starts=True,
     )
 
-    pretraining_file = os.path.join(
-        'pretraining', ae.pathway_name, ae.data_name.split('__')[0],
+    pretraining_file = basedir / 'pretraining' / ae.pathway_name / ae.data_name.split('__')[0] / \
         ESTIMATION_OUTFILE_TEMP.format(
             samples=samplestr,
             n_hidden=ae.n_hidden,
             alpha=ae.par_modulation_scale,
             job=seed,
         ).replace('.hdf5', '.csv')
-    )
     pretraining = pd.read_csv(pretraining_file, index_col=0)
 
     w = np.expand_dims(la.lstsq(ae.data, ae.data_pca)[0].flatten(), 1)

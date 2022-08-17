@@ -1,5 +1,3 @@
-import os
-
 import aesara
 import aesara.tensor as aet
 import numpy as np
@@ -9,6 +7,7 @@ import petab
 import pypesto
 
 from typing import Tuple, Sequence, Optional
+from pathlib import Path
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
@@ -23,7 +22,7 @@ AFunction = aesara.compile.Function
 class MechanisticAutoEncoder(AutoEncoder):
     def __init__(self,
                  n_hidden: int,
-                 datafiles: Tuple[str, str, str],
+                 datafiles: Tuple[Path, Path, Path],
                  pathway_name: str,
                  samples: Sequence[str],
                  par_modulation_scale: float = 1,
@@ -52,9 +51,7 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         """
         self.data_name = '__'.join(
-            os.path.splitext(
-                os.path.basename(datafiles[0])
-            )[0].split('__')[:-1]
+            datafiles[0].stem.split('__')[:-1]
         )
         self.pathway_name = pathway_name
 

@@ -1,5 +1,4 @@
 import sys
-import os
 import re
 import petab
 import synapseclient
@@ -13,6 +12,7 @@ import urllib.parse
 import urllib.request
 
 from collections import namedtuple
+from pathlib import Path
 
 from mEncoder.generate_data import generate_synthetic_data
 from mEncoder import (
@@ -58,10 +58,8 @@ def test_samples(wildcards):
 
 def pretraining_samples_fun(wildcards):
     return [
-        os.path.join(
-            pretrain_dir, '{model}', '{data}',
-            PER_SAMPLE_OUTFILE_TEMP.format(sample=sample)
-        )
+        pretrain_dir / '{model}' / '{data}' /
+        PER_SAMPLE_OUTFILE_TEMP.format(sample=sample)
         for sample in training_samples(wildcards)
     ]
 
@@ -144,7 +142,7 @@ if __name__ == '__main__':
     MODEL = sys.argv[1]
     DATA = sys.argv[2]
 
-    os.makedirs(data_dir, exist_ok=True)
+    data_dir.mkdir(exist_ok=True, parents=True)
 
     if DATA == 'synthetic':
         N_HIDDEN = 2
@@ -293,7 +291,7 @@ if __name__ == '__main__':
             )
 
             UP_ID_JSON = 'up_ids.json'
-            if os.path.exists(UP_ID_JSON):
+            if Path(UP_ID_JSON).exists():
                 with open(UP_ID_JSON, 'r') as fp:
                     up_ids = json.load(fp)
             else:
@@ -465,19 +463,13 @@ if __name__ == '__main__':
 
         #measurement_table[petab.NOISE_PARAMETERS] = ''
 
-        measurement_file = os.path.join(
-                data_dir, f'{DATA}__{MODEL}__measurements.tsv'
-            )
+        measurement_file = data_dir / f'{DATA}__{MODEL}__measurements.tsv'
         measurement_table.to_csv(measurement_file, sep='\t')
 
-        condition_file = os.path.join(
-            data_dir, f'{DATA}__{MODEL}__conditions.tsv'
-        )
+        condition_file = data_dir / f'{DATA}__{MODEL}__conditions.tsv'
         condition_table.set_index(petab.CONDITION_ID, inplace=True)
         condition_table.to_csv(condition_file, sep='\t')
 
-        observable_file = os.path.join(
-            data_dir, f'{DATA}__{MODEL}__observables.tsv'
-        )
+        observable_file = data_dir / f'{DATA}__{MODEL}__observables.tsv'
         observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
         observable_table.to_csv(observable_file, sep='\t')
