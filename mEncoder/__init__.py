@@ -19,11 +19,11 @@ pretrain_dir = basedir / 'pretraining'
 
 
 def load_pathway(pathway_name: str) -> pysb.Model:
-    model_file = basedir / 'pathways' / pathway_name + '.py'
+    model_file = basedir / 'pathways' / (pathway_name + '.py')
     sys.path.insert(0, str(basedir / 'pathways'))
     model = amici.pysb_import.pysb_model_from_path(model_file)
 
-    with open(basedir / 'pysb_models' / model.name + '.py', 'w') as file:
+    with open(basedir / 'pysb_models' / (model.name + '.py'), 'w') as file:
         file.write(pysb.export.export(model, 'pysb_flat'))
 
     return model
@@ -47,7 +47,7 @@ def load_model(pathway_name: str,
                                 sp.log(scale * obs + offset))
 
     if force_compile or \
-            not (outdir / model.name / model.name + '.py').exists():
+            not (outdir / model.name / (model.name + '.py')).exists():
         outdir.makedir(exist_ok=True, parents=True)
         amici.pysb_import.pysb2amici(model,
                                      outdir,
