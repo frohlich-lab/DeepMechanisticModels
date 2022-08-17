@@ -170,7 +170,7 @@ rule evaluate_pretraining:
         cross_sample=expand(
             rules.pretrain_cross_sample.output.pretraining,
             model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
-            alpha=ALPHAS, samples=SPLITS
+            alpha=ALPHAS, samples=SPLITS, job=STARTS
         )
     output:
         plot=fig_dir / '{{model}}' / '{{data}}' / '{samples}_evaluate_pretraining.pdf',
