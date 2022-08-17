@@ -173,8 +173,8 @@ rule evaluate_pretraining:
             alpha=ALPHAS, samples=SPLITS, job=STARTS
         )
     output:
-        plot=fig_dir / '{{model}}' / '{{data}}' / '{samples}_evaluate_pretraining.pdf',
-        csv=fig_dir / '{{model}}' / '{{data}}' / '{samples}_evaluate_pretraining.csv'
+        plot=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_pretraining.pdf',
+        csv=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_pretraining.csv'
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
