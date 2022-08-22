@@ -73,7 +73,7 @@ def load_model(pathway_name: str,
     return amici_model, solver
 
 
-def plot_and_save_fig(filename, figdir: Optional[Path] = None):
+def plot_and_save_fig(filename: str, figdir: Optional[Path] = None):
     if figdir is None:
         figdir = figdir
     plt.tight_layout()

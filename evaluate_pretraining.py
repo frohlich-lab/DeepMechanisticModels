@@ -86,9 +86,11 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
             ress = []
             fvals = []
             for ipar in range(len(df)):
-                res = problem_sample.objective(
-                    df.values[ipar, :], return_dict=True
+                x = problem_sample.get_reduced_vector(
+                    df.values[ipar, :],
+                    problem_sample.x_free_indices
                 )
+                res = problem_sample.objective(x, return_dict=True)
                 ress.append(res)
                 fvals.append(res['fval'])
 

@@ -56,10 +56,10 @@ figdir.mkdir(exist_ok=True, parents=True)
 output_prefix = '__'.join([SAMPLES, str(N_HIDDEN), str(ALPHA)])
 
 waterfall(result)
-plot_and_save_fig(figdir / (output_prefix + '__waterfall.pdf'))
+plot_and_save_fig(output_prefix + '__waterfall.pdf', figdir)
 
 optimizer_convergence(result)
-plot_and_save_fig(figdir / (output_prefix + '__optimizer_convergence.pdf'))
+plot_and_save_fig(output_prefix + '__optimizer_convergence.pdf', figdir)
 
 x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
                                problem.x_free_indices)
