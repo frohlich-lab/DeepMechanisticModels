@@ -86,7 +86,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
             ress = []
             fvals = []
             for ipar in range(len(df)):
-                res = problem_sample.objective._objectives[0](
+                res = problem_sample.objective(
                     df.values[ipar, :], return_dict=True
                 )
                 ress.append(res)
