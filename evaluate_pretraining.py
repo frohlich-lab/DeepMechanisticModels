@@ -155,7 +155,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     })
 
 df = pd.DataFrame(evaluations)
-df.to_csv(outdir / f'{SAMPLES}_evaluation_pretraining.csv')
+df.to_csv(outdir / f'{SAMPLES}_evaluate_pretraining.csv')
 
 g = sns.FacetGrid(data=df, col='sample', hue='layers', hue_order=HIDDEN_LAYERS,
                   palette='Blues', col_wrap=5)
