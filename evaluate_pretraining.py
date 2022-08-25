@@ -102,11 +102,13 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
     apply_objective_settings(problem_cross_sample, MODEL)
 
+
     def result_file(job_id) -> Path:
         output_prefix = Path(ESTIMATION_OUTFILE_TEMP.format(
             samples=SAMPLES, n_hidden=hidden_layers, alpha=alpha, job=job_id
         )).stem
         return indir / f'{output_prefix}.hdf5'
+
 
     result = OptimizeResult()
     for job in range(100):
@@ -131,20 +133,24 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
         f'{SAMPLES}_pretraining_cross_sample_a{alpha}_n{hidden_layers}_waterfall.pdf'
     )
 
-    res = problem_cross_sample.objective(result.list[0]['x'],
-                                         return_dict=True)
+    x_inner = problem_cross_sample.objective.infun(result.list[0]['x'])
 
     conditions = get_simulation_conditions(
         mae.petab_importer.petab_problem.measurement_df
     )
 
+    if alpha != 0.0:
+        obj, obj_prior = problem_cross_sample.objective.base_objective._objectives
+        chi2prior = obj_prior(x_inner, mode=MODE_RES, return_dict=True)['chi2']
+    else:
+        obj = problem_cross_sample.objective.base_objective
+        chi2prior = 0.0
+
+    res = obj(x_inner, mode=MODE_RES, return_dict=True)
+
     for sample in samples:
         process_simulation(evaluations, res, conditions, sample,
                            'cross_sample', alpha, hidden_layers)
-
-    x_inner = problem_cross_sample.objective.infun(result.list[0]['x'])
-    obj = problem_cross_sample.objective.base_objective
-    chi2prior = obj(x_inner, mode=MODE_RES, return_dict=True)['chi2']
 
     evaluations.append({
         'chi2': chi2prior,
@@ -157,8 +163,10 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
 df = pd.DataFrame(evaluations)
 df.to_csv(outdir / f'{SAMPLES}_evaluate_pretraining.csv')
 
-g = sns.FacetGrid(data=df, col='sample', hue='layers', hue_order=HIDDEN_LAYERS,
+g = sns.FacetGrid(data=df[df['sample'].apply(lambda x: x.endswith('_dyn'))],
+                  col='sample', hue='layers',
                   palette='Blues', col_wrap=5)
-g.map_dataframe(sns.lineplot, x='alpha', y='chi2').set(yscale='log')
+g.map_dataframe(sns.lineplot, x='alpha', y='chi2')
+[ax.set(yscale='log') for ax in g.axes]
 plt.tight_layout()
 plt.savefig(outdir / f'{SAMPLES}_evaluate_pretraining.pdf')
