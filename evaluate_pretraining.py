@@ -141,7 +141,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
                            'cross_sample', alpha, hidden_layers)
 
     x_inner = problem_cross_sample.objective.infun(result.list[0]['x'])
-    obj = problem_cross_sample.objective.base_objective._objectives[0]
+    obj = problem_cross_sample.objective.base_objective
     chi2prior = obj(x_inner, mode=MODE_RES, return_dict=True)['chi2']
 
     evaluations.append({
