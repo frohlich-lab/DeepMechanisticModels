@@ -19,7 +19,8 @@ from mEncoder.pretraining import (
 )
 from mEncoder.petab_subproblem import load_petab
 from mEncoder import (
-    pretrain_dir, data_dir, apply_objective_settings, ESTIMATION_OUTFILE_TEMP
+    pretrain_dir, data_dir, fig_dir, apply_objective_settings,
+    ESTIMATION_OUTFILE_TEMP
 )
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
@@ -54,7 +55,7 @@ SAMPLES = sys.argv[3]
 
 samples = training_samples(Wildcards(DATA, SAMPLES))
 
-outdir = pretrain_dir / MODEL / DATA
+outdir = fig_dir / MODEL / DATA
 
 evaluations = []
 
