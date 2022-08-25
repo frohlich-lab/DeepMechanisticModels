@@ -56,6 +56,7 @@ SAMPLES = sys.argv[3]
 samples = training_samples(Wildcards(DATA, SAMPLES))
 
 outdir = fig_dir / MODEL / DATA
+indir = pretrain_dir / MODEL / DATA
 
 evaluations = []
 
@@ -78,7 +79,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
                 MODEL, f'{DATA}__{MODEL}', sample
             )
             problem_sample = importer.create_problem()
-            df = pd.read_csv(outdir / f'{sample}.csv', index_col=[0])
+            df = pd.read_csv(indir / f'{sample}.csv', index_col=[0])
             apply_objective_settings(problem_sample, MODEL)
 
             conditions = get_simulation_conditions(
@@ -105,7 +106,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
         output_prefix = Path(ESTIMATION_OUTFILE_TEMP.format(
             samples=SAMPLES, n_hidden=hidden_layers, alpha=alpha, job=job_id
         )).stem
-        return outdir / f'{output_prefix}.hdf5'
+        return indir / f'{output_prefix}.hdf5'
 
     result = OptimizeResult()
     for job in range(100):
