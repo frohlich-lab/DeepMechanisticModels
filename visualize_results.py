@@ -1,5 +1,4 @@
 import sys
-import os
 import pypesto
 import amici.petab_objective
 import numpy as np
@@ -110,7 +109,7 @@ if np.isfinite(simulation[FVAL]):
     # Plot fit
     plot_cross_samples(importer_prediction.petab_problem.measurement_df,
                        prediction_df,
-                       os.path.join(figdir, 'prediction'),
+                       figdir / 'prediction',
                        output_prefix)
 
 embedding_fun = aesara.function(
