@@ -22,32 +22,10 @@ from mEncoder import (
     pretrain_dir, data_dir, fig_dir, apply_objective_settings,
     ESTIMATION_OUTFILE_TEMP
 )
+from mEncoder.analysis import process_simulation
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
 from pathlib import Path
-
-
-def process_simulation(evaluations, res, conditions, sample, type,
-                       alpha, hidden_layers):
-    splits = {
-        'dyn': (conditions[petab.PREEQUILIBRATION_CONDITION_ID] == sample) &
-        (conditions[petab.SIMULATION_CONDITION_ID] != sample),
-        'stat': (conditions[petab.PREEQUILIBRATION_CONDITION_ID] == sample) &
-        (conditions[petab.SIMULATION_CONDITION_ID] == sample),
-    }
-    for name, split in splits.items():
-        ics = np.where(split)[0]
-        chi2 = 0
-        for ic in ics:
-            chi2 += res['rdatas'][ic].chi2
-        evaluations.append({
-            'chi2': chi2,
-            'sample': f'{sample}_{name}',
-            'type': type,
-            'alpha': alpha,
-            'layers': hidden_layers,
-        })
-
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]

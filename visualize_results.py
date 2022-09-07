@@ -9,7 +9,7 @@ from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.training import create_pypesto_problem
 from mEncoder import (
     plot_and_save_fig, results_dir, data_dir, fig_dir,
-    COLLECTED_ESTIMATION_OUTFILE_TEMP
+    COLLECTED_ESTIMATION_OUTFILE_TEMP, apply_objective_settings
 )
 from mEncoder.plotting import plot_cross_samples
 
@@ -28,7 +28,7 @@ ALPHA = float(sys.argv[5])
 N_STARTS = 5
 
 result_path = results_dir / MODEL / DATA
-outfile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
+infile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
     samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA
 )
 
@@ -43,8 +43,9 @@ mae = MechanisticAutoEncoder(
     par_modulation_scale=ALPHA
 )
 problem = create_pypesto_problem(mae)
+apply_objective_settings(problem, MODEL)
 
-reader = OptimizationResultHDF5Reader(outfile)
+reader = OptimizationResultHDF5Reader(infile)
 result = pypesto.Result(problem)
 result.optimize_result = reader.read().optimize_result
 
