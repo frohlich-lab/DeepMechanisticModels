@@ -13,10 +13,7 @@ from petab import get_simulation_conditions
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from process_data import training_samples, test_samples, Wildcards
-from mEncoder.pretraining import (
-    generate_cross_sample_pretraining_problem,
-    generate_per_sample_pretraining_problems
-)
+from mEncoder.training import create_pypesto_problem
 from mEncoder.petab_subproblem import load_petab
 from mEncoder import (
     pretrain_dir, data_dir, fig_dir, apply_objective_settings,
