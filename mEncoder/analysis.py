@@ -2,7 +2,7 @@ import petab
 import numpy as np
 
 
-def process_simulation_chi2(evaluations, res, conditions, sample, model_type,
+def process_simulation(evaluations, res, conditions, sample, model_type,
                        alpha, hidden_layers):
     splits = {
         'dyn': (conditions[petab.PREEQUILIBRATION_CONDITION_ID] == sample) &
