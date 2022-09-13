@@ -86,7 +86,7 @@ def observable_id_to_model_expr(obs_id: str,
     if dataset == 'cytof':
         palias = {
             r'^P\.STAT5': 'STAT5A_Y694',
-            r'^P\.MEK': 'pMEK_S221',
+            r'^P\.MEK': 'pMEK_S222',
             r'^P\.S6K$': 'RPS6KB1_S412',
             r'^P\.STAT1': 'STAT1_Y727',
             r'^P\.AKT\.SER473\.': 'pAKT_S473',
@@ -212,7 +212,7 @@ if __name__ == '__main__':
                         continue
                     markers = [c for c in data.columns
                                if c not in group_ids + ['cellID']]
-                    m = data[markers].mean()
+                    m = data[markers].median()
                     std = data[markers].std()
                     for sdf in [m, std]:
                         sdf['treatment'] = ids[0]
@@ -221,6 +221,7 @@ if __name__ == '__main__':
                         sdf['fileID'] = ids[3]
                     mean_data.append(m)
                     std_data.append(std)
+
             df_phospho_mean = pd.concat(mean_data, axis=1).T
             df_phospho_std = pd.concat(std_data, axis=1).T
             d = {
@@ -431,11 +432,6 @@ if __name__ == '__main__':
 
         observable_table[petab.OBSERVABLE_FORMULA] = [
             f'log(observableParameter1_{obs}_obs * {obs} '
-            f'+ observableParameter2_{obs}_obs ' \
-            f'+ observableParameter3_{obs}_obs)'
-            if obs.startswith('p')
-            else
-            f'log(observableParameter1_{obs}_obs * {obs} '
             f'+ observableParameter2_{obs}_obs)'
             for obs in observable_obs
         ]
@@ -448,9 +444,6 @@ if __name__ == '__main__':
             def obs_pars(x):
                 pars = f'{x[petab.OBSERVABLE_ID]}_scale;' \
                        f'{x[petab.OBSERVABLE_ID]}_offset'
-                if x[petab.OBSERVABLE_ID].startswith('p'):
-                    pars += f';INPUT_{x[petab.OBSERVABLE_ID]}_offset__' \
-                            f'{x[petab.PREEQUILIBRATION_CONDITION_ID]}'
                 return pars
         else:
             def obs_pars(x):
