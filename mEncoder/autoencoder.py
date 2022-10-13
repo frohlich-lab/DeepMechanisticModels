@@ -28,7 +28,8 @@ class MechanisticAutoEncoder(AutoEncoder):
                  par_modulation_scale: float = 1,
                  features: Optional[Sequence[str]] = None,
                  imputer: Optional[KNNImputer] = None,
-                 scaler: Optional[StandardScaler] = None):
+                 scaler: Optional[StandardScaler] = None,
+                 pca: Optional[PCA] = None):
         """
         loads the mechanistic model as theano operator with loss as output and
         decoder output as input
@@ -114,16 +115,22 @@ class MechanisticAutoEncoder(AutoEncoder):
         input_data = input_data.loc[petab_samples, :]
 
         # impute missing values
-        if imputer:
-            # prediction, load imputer from training data
-            self.imputer = imputer
-            self.scaler = scaler
-        else:
+
+        if imputer is None or scaler is None:
             # training, fit imputer to training data
             self.imputer = KNNImputer()
+            self.imputer.fit(input_data.values)
+        else:
+            # prediction, load imputer from training data
+            self.imputer = imputer
+
+        imputed = self.imputer.transform(input_data.values)
+
+        if scaler is None:
             self.scaler = StandardScaler(with_std=False)
-            imputed = self.imputer.fit_transform(input_data.values)
             self.scaler.fit(imputed)
+        else:
+            self.scaler = scaler
 
         # zero center input data, this is equivalent to estimating biases
         # for linear autoencoders
@@ -131,7 +138,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         # https://arxiv.org/pdf/1901.08168.pdf
         # note: transform also normalizes to unit standard deviation
         input_data = pd.DataFrame(
-            self.scaler.transform(self.imputer.transform(input_data.values)),
+            self.scaler.transform(imputed),
             index=input_data.index,
             columns=input_data.columns
         )
@@ -150,9 +157,14 @@ class MechanisticAutoEncoder(AutoEncoder):
                          n_params=self.n_model_inputs)
 
         # generate PCA embedding for pretraining
-        pca = PCA(n_components=np.min([self.n_hidden, self.n_samples]),
-                  whiten=True)
-        self.data_pca = pca.fit_transform(self.data)
+        if pca is None:
+            pca = PCA(n_components=np.min([self.n_hidden, self.n_samples]),
+                      whiten=True)
+            self.pca = pca.fit(self.data)
+        else:
+            self.pca = pca
+
+        self.data_pca = self.pca.transform(self.data)
 
         apply_objective_settings(self.pypesto_subproblem, pathway_name)
         if isinstance(self.pypesto_subproblem.objective,

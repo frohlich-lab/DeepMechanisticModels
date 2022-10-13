@@ -4,12 +4,13 @@ import numpy as np
 import itertools as itt
 import matplotlib.pyplot as plt
 import seaborn as sns
-import petab
+
 from pypesto.store import OptimizationResultHDF5Reader
 from pypesto import OptimizeResult, Result
 from pypesto.C import MODE_RES
 from pypesto.visualize import waterfall
 from petab import get_simulation_conditions
+from amici.petab_objective import rdatas_to_simulation_df
 
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from process_data import training_samples, Wildcards
@@ -22,6 +23,7 @@ from mEncoder import (
     pretrain_dir, data_dir, fig_dir, apply_objective_settings,
     ESTIMATION_OUTFILE_TEMP
 )
+from mEncoder.plotting import plot_cross_samples
 from mEncoder.analysis import process_simulation
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
@@ -130,6 +132,19 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
         process_simulation(evaluations, res, conditions, sample,
                            'cross_sample', alpha, hidden_layers)
 
+    simulation_df = rdatas_to_simulation_df(
+        res['rdatas'],
+        model=obj.amici_model,
+        measurement_df=mae.petab_importer.petab_problem.measurement_df,
+    )
+
+    plot_cross_samples(
+        mae.petab_importer.petab_problem.measurement_df,
+        simulation_df,
+        outdir / 'pretrain_cross_samples',
+        '__'.join([SAMPLES, hidden_layers, alpha])
+    )
+
     evaluations.append({
         'chi2': chi2prior,
         'sample': 'prior',
@@ -137,6 +152,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
         'alpha': alpha,
         'layers': hidden_layers,
     })
+
 
 df = pd.DataFrame(evaluations)
 df.to_csv(outdir / f'{SAMPLES}_evaluate_pretraining.csv')
