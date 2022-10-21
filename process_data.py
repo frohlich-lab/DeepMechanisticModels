@@ -437,7 +437,7 @@ if __name__ == '__main__':
         ]
         observable_table[petab.NOISE_DISTRIBUTION] = 'normal'
         observable_table[petab.NOISE_FORMULA] = [
-            1.0 for obs in observable_obs
+            f'noiseParameter1_{obs}_obs' for obs in observable_obs
         ]
 
         if DATA == 'dream_cytof':
