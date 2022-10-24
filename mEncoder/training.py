@@ -101,7 +101,7 @@ def train(ae: MechanisticAutoEncoder,
         ESTIMATION_OUTFILE_TEMP.format(
             samples=samplestr,
             n_hidden=ae.n_hidden,
-            alpha=ae.par_modulation_scale,
+            alpha=ae.l2reg,
             job=seed,
         ).replace('.hdf5', '.csv')
     pretraining = pd.read_csv(pretraining_file, index_col=0)

@@ -15,7 +15,7 @@ from pathlib import Path
 
 def load_petab(datafiles: Tuple[Path, Path, Path],
                pathway_name: str,
-               par_input_scale: float,
+               l2reg: float,
                samples: Sequence[str] = None) -> PetabImporterPysb:
     """
     Imports data from a csv and converts it to the petab format. This
@@ -29,10 +29,8 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
     :param pathway_name:
         name of pathway to use for model
 
-    :param par_input_scale:
-        absolute value of upper/lower bounds for input parameters in log10
-        scale, also influence l2 regularization strength (std of gaussian
-        prior is par_input_scale/2)
+    :param l2reg:
+        TBD
     """
     measurement_table = pd.read_csv(datafiles[0], index_col=0, sep='\t')
     condition_table = pd.read_csv(datafiles[1], index_col=0, sep='\t')
@@ -133,10 +131,8 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
         param_defs.extend([{
             petab.PARAMETER_ID:
                 f'{par.name}__{cond}' if par in features else par,
-            petab.LOWER_BOUND:
-                10**-par_input_scale if par_input_scale > 0 else 0.1,
-            petab.UPPER_BOUND:
-                10**par_input_scale if par_input_scale > 0 else 10.0,
+            petab.LOWER_BOUND: 0.1,
+            petab.UPPER_BOUND: 10.0,
             petab.PARAMETER_SCALE: petab.LOG10,
             petab.NOMINAL_VALUE: 1.0 if par in features else 0.0,
         } for par in features + par_inputs
@@ -160,16 +156,14 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
 
     # add l2 regularization to input parameters (only if estimating them)
     parameter_table[petab.OBJECTIVE_PRIOR_TYPE] = [
-        petab.NORMAL if name.startswith(MODEL_FEATURE_PREFIX)
-        and name.split('__')[0].endswith('offset') and par_input_scale > 0
-        else petab.PARAMETER_SCALE_NORMAL
-        if name.startswith(MODEL_FEATURE_PREFIX) and par_input_scale > 0
+        petab.PARAMETER_SCALE_NORMAL
+        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
         else np.NaN
         for name in parameter_table.index
     ]
     parameter_table[petab.OBJECTIVE_PRIOR_PARAMETERS] = [
-        f'0.0;{par_input_scale}'
-        if name.startswith(MODEL_FEATURE_PREFIX) and par_input_scale > 0
+        f'0.0;{1/np.sqrt(2*l2reg)}'
+        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
         else np.NaN
         for name in parameter_table.index
     ]

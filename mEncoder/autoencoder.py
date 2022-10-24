@@ -25,7 +25,7 @@ class MechanisticAutoEncoder(AutoEncoder):
                  datafiles: Tuple[Path, Path, Path],
                  pathway_name: str,
                  samples: Sequence[str],
-                 par_modulation_scale: float = 1,
+                 l2reg: float = 1,
                  features: Optional[Sequence[str]] = None,
                  imputer: Optional[KNNImputer] = None,
                  scaler: Optional[StandardScaler] = None,
@@ -43,7 +43,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         :param n_hidden:
             number of nodes in the hidden layer of the encoder
 
-        :param par_modulation_scale:
+        :param l2reg:
             currently this parameter only influences the strength of l2
             regularization on the inflate layer (the respective gaussian
             prior has its standard deviation defined based on the value of
@@ -85,19 +85,14 @@ class MechanisticAutoEncoder(AutoEncoder):
                 input_data.isna().sum() < input_data.shape[0] * 0.2
             ]
 
-            # filter highly variable
-            input_data = input_data.loc[
-                :, input_data.var() > input_data.var().max() / 10
-            ]
-
         self.features = list(input_data.columns)
 
         # subset samples
         input_data = input_data.loc[samples, :]
 
-        self.par_modulation_scale = par_modulation_scale
+        self.l2reg = l2reg
         self.petab_importer = load_petab(datafiles, 'pw_' + pathway_name,
-                                         par_modulation_scale, samples)
+                                         l2reg, samples)
 
         self.pypesto_subproblem = self.petab_importer.create_problem()
 
@@ -116,7 +111,7 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         # impute missing values
 
-        if imputer is None or scaler is None:
+        if imputer is None:
             # training, fit imputer to training data
             self.imputer = KNNImputer()
             self.imputer.fit(input_data.values)

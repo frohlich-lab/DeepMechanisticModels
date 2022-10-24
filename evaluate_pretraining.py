@@ -49,7 +49,7 @@ datafiles = (
 for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
     mae = MechanisticAutoEncoder(
         hidden_layers, datafiles,
-        pathway_name=MODEL, samples=samples, par_modulation_scale=alpha
+        pathway_name=MODEL, samples=samples, l2reg=alpha
     )
 
     if hidden_layers == HIDDEN_LAYERS[0]:

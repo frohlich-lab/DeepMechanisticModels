@@ -50,7 +50,7 @@ for dataset, samples in zip(
         # par_modulation_scale = 0 => deactivate prior
         mae = MechanisticAutoEncoder(
             hidden_layers, datafiles,
-            pathway_name=MODEL, samples=samples, par_modulation_scale=0.0
+            pathway_name=MODEL, samples=samples, l2reg=0.0
         )
         problem = create_pypesto_problem(mae)
         apply_objective_settings(problem, MODEL)

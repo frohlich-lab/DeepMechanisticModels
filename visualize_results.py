@@ -40,7 +40,7 @@ datafiles = (
 
 mae = MechanisticAutoEncoder(
     N_HIDDEN, datafiles, MODEL, training_samples(Wildcards(DATA, SAMPLES)),
-    par_modulation_scale=ALPHA
+    l2reg=ALPHA
 )
 problem = create_pypesto_problem(mae)
 apply_objective_settings(problem, MODEL)

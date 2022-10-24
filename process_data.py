@@ -454,7 +454,8 @@ if __name__ == '__main__':
         measurement_table[petab.OBSERVABLE_PARAMETERS] = \
             measurement_table.apply(obs_pars, axis=1)
 
-        #measurement_table[petab.NOISE_PARAMETERS] = ''
+        measurement_table.dropna(axis=0, how='any',
+                                 subset=(petab.MEASUREMENT,), inplace=True)
 
         measurement_file = data_dir / f'{DATA}__{MODEL}__measurements.tsv'
         measurement_table.to_csv(measurement_file, sep='\t')
