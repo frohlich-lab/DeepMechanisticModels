@@ -106,7 +106,8 @@ def train(ae: MechanisticAutoEncoder,
         ).replace('.hdf5', '.csv')
     pretraining = pd.read_csv(pretraining_file, index_col=0)
 
-    w = np.expand_dims(la.lstsq(ae.data, ae.data_pca)[0].flatten(), 1)
+    w = np.concatenate((np.ones(ae.n_hidden),
+                        np.zeros(ae.n_features-ae.n_hidden)))
 
     if len(pretraining) == 0:
         xi = []
@@ -120,7 +121,7 @@ def train(ae: MechanisticAutoEncoder,
         xi = pretraining.values[0, :]
 
     pypesto_problem.x_guesses_full = \
-        np.expand_dims(np.hstack([w[:, 0], xi]), 1).T
+        np.expand_dims(np.hstack([w, xi]), 1).T
 
     return minimize(
         pypesto_problem,

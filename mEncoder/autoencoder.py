@@ -110,7 +110,6 @@ class MechanisticAutoEncoder(AutoEncoder):
         input_data = input_data.loc[petab_samples, :]
 
         # impute missing values
-
         if imputer is None:
             # training, fit imputer to training data
             self.imputer = KNNImputer()
@@ -138,7 +137,19 @@ class MechanisticAutoEncoder(AutoEncoder):
             columns=input_data.columns
         )
 
-        self.n_samples, self.n_visible = input_data.shape
+        # generate PCA embedding for feature selection
+        if pca is None:
+            # use n_comps such that 90% of variance is explained
+            n_pca = np.nonzero(np.cumsum(PCA(
+                n_components=input_data.shape[0]
+            ).fit(input_data).explained_variance_ratio_) > 0.9)[0][0] + 1
+            pca = PCA(n_components=n_pca, whiten=True).fit(input_data)
+
+        self.pca = pca
+
+        self.data_pca = self.pca.transform(input_data)
+
+        self.n_samples, self.n_features = self.data_pca.shape
         self.n_model_inputs = int(sum(name.startswith(MODEL_FEATURE_PREFIX)
                                       for name in
                                       self.pypesto_subproblem.x_names) /
@@ -147,19 +158,9 @@ class MechanisticAutoEncoder(AutoEncoder):
             self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
 
         self.sample_names = list(input_data.index)
-        self.data_cols = list(input_data.columns)
-        super().__init__(input_data=input_data.values, n_hidden=n_hidden,
+        self.data_cols = [f'PC{i}' for i in range(self.data_pca.shape[1])]
+        super().__init__(input_data=self.data_pca, n_hidden=n_hidden,
                          n_params=self.n_model_inputs)
-
-        # generate PCA embedding for pretraining
-        if pca is None:
-            pca = PCA(n_components=np.min([self.n_hidden, self.n_samples]),
-                      whiten=True)
-            self.pca = pca.fit(self.data)
-        else:
-            self.pca = pca
-
-        self.data_pca = self.pca.transform(self.data)
 
         apply_objective_settings(self.pypesto_subproblem, pathway_name)
         if isinstance(self.pypesto_subproblem.objective,
@@ -175,7 +176,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             and ix in self.pypesto_subproblem.x_free_indices
         ]
 
-        # assemble input to model theano op
+        # assemble input to model aesara op
         self.x = aet.specify_shape(
             aet.vector('x'),
             (self.n_kin_params + self.n_encoder_pars,)
@@ -187,13 +188,14 @@ class MechanisticAutoEncoder(AutoEncoder):
                         (self.n_model_inputs * self.n_samples,))
         ], axis=0)
 
-        # assemble embedding to model theano op for pretraining
+        # assemble embedding to model aesara op for pretraining
         self.x_embedding = aet.specify_shape(
-            aet.vector('x'),
+            aet.vector('x_embedding'),
             (self.n_kin_params + self.n_model_inputs * self.n_hidden,)
         )
         inflated_pars = self.inflate_params_restricted(
-            self.data_pca, self.x_embedding[:-self.n_kin_params]
+            self.data_pca[:, :self.n_hidden],
+            self.x_embedding[:-self.n_kin_params]
         )
         self.embedding_model_pars = aet.concatenate([
             self.x_embedding[-self.n_kin_params:],

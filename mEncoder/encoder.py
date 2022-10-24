@@ -28,15 +28,15 @@ class AutoEncoder:
                  input_data: np.ndarray,
                  n_hidden: int = 1,
                  n_params: int = 12):
-        self.n_visible = input_data.shape[1]
-        assert n_hidden < self.n_visible
+        self.n_features = input_data.shape[1]
+        assert n_hidden < self.n_features
         assert n_hidden <= n_params
         assert input_data.ndim == 2
-        assert n_hidden < self.n_visible
+        assert n_hidden < self.n_features
         self.data = input_data
         self.n_hidden = n_hidden
         self.n_params = n_params
-        self.n_encode_weights = self.n_visible * self.n_hidden
+        self.n_encode_weights = self.n_features * self.n_hidden
         self.n_inflate_weights = self.n_hidden * self.n_params
         self.n_encoder_pars = self.n_encode_weights + \
             self.n_inflate_weights
@@ -66,17 +66,17 @@ class AutoEncoder:
             parametrization of full autoencoder
         """
         W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_visible, self.n_hidden))
+                        (self.n_features, self.n_hidden))
         return aet.dot(self.data, W)
 
     def getW(self, parameters):
         return aet.reshape(parameters[0:self.n_encode_weights],
-                           (self.n_visible, self.n_hidden))
+                           (self.n_features, self.n_hidden))
 
     def initialW(self):
         """ Calculate an initial encoder parameter set by PCA. """
         LD = np.linalg.svd(self.data)[2].T
-        assert LD.shape[0] == self.n_visible
+        assert LD.shape[0] == self.n_features
         return (LD[:, 0:self.n_hidden]).flatten()
 
     def regularize(self, parameters, l2=0.0, ortho=0.0):
@@ -124,7 +124,7 @@ class AutoEncoder:
             parametrization of full autoencoder
         """
         W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_visible, self.n_hidden))
+                        (self.n_features, self.n_hidden))
         return aet.dot(embedded_data, aet.nlinalg.pinv(W))
 
     def compile_embedded_pars(self) -> AFunction:
