@@ -18,7 +18,7 @@ from pysb import Model
 from .autoencoder import MechanisticAutoEncoder
 from . import (
     MODEL_FEATURE_PREFIX, load_pathway, parameter_boundaries_scales,
-    basedir
+    basedir, apply_objective_settings
 )
 
 
@@ -109,7 +109,7 @@ def generate_cross_sample_pretraining_problem(
         ae.embedding_model_pars,
     )
 
-    return Problem(
+    problem = Problem(
         objective=obj,
         x_names=x_names,
         lb=[parameter_boundaries_scales[xname.split('_')[-1]][0]
@@ -117,6 +117,8 @@ def generate_cross_sample_pretraining_problem(
         ub=[parameter_boundaries_scales[xname.split('_')[-1]][1]
             for xname in x_names],
     )
+    apply_objective_settings(problem, ae.pathway_name)
+    return problem
 
 
 def pretrain(problem: Problem, startpoint_method: Callable, nstarts: int,

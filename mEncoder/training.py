@@ -2,11 +2,11 @@ import numpy as np
 import pandas as pd
 import fides
 import logging
-import scipy.linalg as la
 
 from .autoencoder import MechanisticAutoEncoder
 from . import (
-    parameter_boundaries_scales, ESTIMATION_OUTFILE_TEMP, basedir
+    parameter_boundaries_scales, ESTIMATION_OUTFILE_TEMP, basedir,
+    apply_objective_settings
 )
 
 from pypesto.optimize import (
@@ -52,12 +52,14 @@ def create_pypesto_problem(
     :returns:
         Optimization problem that needs to be solved for training.
     """
-    return Problem(
+    problem = Problem(
         objective=generate_pypesto_objective(ae),
         x_names=ae.x_names,
         lb=[-np.inf for _ in ae.x_names],
         ub=[np.inf for _ in ae.x_names],
     )
+    apply_objective_settings(problem, ae.pathway_name)
+    return problem
 
 
 def train(ae: MechanisticAutoEncoder,
