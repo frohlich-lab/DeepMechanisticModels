@@ -220,6 +220,7 @@ if __name__ == '__main__':
                         sdf['time'] = ids[2]
                         sdf['fileID'] = ids[3]
                     mean_data.append(m)
+                    std[std.isna()] = 1.0
                     std_data.append(std)
 
             df_phospho_mean = pd.concat(mean_data, axis=1).T
@@ -453,9 +454,6 @@ if __name__ == '__main__':
 
         measurement_table[petab.OBSERVABLE_PARAMETERS] = \
             measurement_table.apply(obs_pars, axis=1)
-
-        measurement_table.dropna(axis=0, how='any',
-                                 subset=(petab.MEASUREMENT,), inplace=True)
 
         measurement_file = data_dir / f'{DATA}__{MODEL}__measurements.tsv'
         measurement_table.to_csv(measurement_file, sep='\t')
