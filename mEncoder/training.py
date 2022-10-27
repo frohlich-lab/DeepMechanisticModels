@@ -108,8 +108,11 @@ def train(ae: MechanisticAutoEncoder,
         ).replace('.hdf5', '.csv')
     pretraining = pd.read_csv(pretraining_file, index_col=0)
 
-    w = np.concatenate((np.ones(ae.n_hidden),
-                        np.zeros(ae.n_features-ae.n_hidden)))
+    # use first couple of PCA components
+    w = np.vstack((
+        np.eye(ae.n_hidden),
+        np.zeros((ae.n_features - ae.n_hidden, ae.n_hidden))
+    )).flatten()
 
     if len(pretraining) == 0:
         xi = []
