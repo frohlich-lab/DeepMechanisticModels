@@ -142,7 +142,7 @@ for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
         mae.petab_importer.petab_problem.measurement_df,
         simulation_df,
         outdir / 'pretrain_cross_samples',
-        '__'.join([SAMPLES, hidden_layers, alpha])
+        '__'.join([SAMPLES, str(hidden_layers), alpha])
     )
 
     evaluations.append({
