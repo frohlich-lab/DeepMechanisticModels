@@ -12,7 +12,7 @@ from training_configuration import ALPHAS, HIDDEN_LAYERS
 
 mencoder_dir = basedir / 'mEncoder'
 
-PATHWAYS = ['EGFR_MAPK', 'EGFR']
+PATHWAYS = ['EGFR_MAPK']
 DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
 
