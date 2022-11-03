@@ -179,7 +179,7 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
     )
 
     filter_observables(problem)
-    petab.lint_problem(problem)
+    #petab.lint_problem(problem)
 
     return PetabImporterPysb(
         problem,
