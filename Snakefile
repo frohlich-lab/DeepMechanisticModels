@@ -5,7 +5,9 @@ from mEncoder import (
     PER_SAMPLE_OUTFILE_TEMP, COLLECTED_ESTIMATION_OUTFILE_TEMP,
     ESTIMATION_OUTFILE_TEMP
 )
-from process_data import pretraining_samples_fun
+from process_data import (
+    per_sample_pretraining_train, per_sample_pretraining_test
+)
 from training_configuration import ALPHAS, HIDDEN_LAYERS
 
 mencoder_dir = basedir / 'mEncoder'
@@ -20,7 +22,7 @@ singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter
 
 rule process_data:
     input:
-        script='process_data.py',
+        #script='process_data.py',
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=basedir / 'pathways' / 'pw_{model}.py',
@@ -34,7 +36,7 @@ rule process_data:
         model='[\w_]+',
         data='[\w]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data}'
+        'python3 process_data.py {wildcards.model} {wildcards.data}'
 
 rule compile_mechanistic_model:
     input:
@@ -76,7 +78,7 @@ rule pretrain_cross_sample:
         pretraining=os.path.join('mEncoder', 'pretraining.py'),
         autoencoder=os.path.join('mEncoder', 'autoencoder.py'),
         bounds=os.path.join('mEncoder', '__init__.py'),
-        pretrain_per_sample=pretraining_samples_fun,
+        pretrain_per_sample=per_sample_pretraining_train,
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
     output:
@@ -142,28 +144,6 @@ rule collect_estimation_results:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha}'
 
-rule visualize_estimation_results:
-    input:
-        script='visualize_results.py',
-        estimation=rules.collect_estimation_results.output.result
-    output:
-        plots=expand(str(
-            fig_dir / '{{model}}' / '{{data}}' /
-            ('__'.join(['{{samples}}', '{{n_hidden}}', '{{alpha}}'])
-             + '__{plot}.pdf')
-        ), plot=['waterfall', 'embedding'])
-    wildcard_constraints:
-        model='[\w_]+',
-        data='[\w_]+',
-        optimzer='[\w-]+',
-        n_hidden='[0-9]+',
-        job='[0-9]+',
-        samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+'
-    shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha}'
-
 rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
@@ -171,38 +151,74 @@ rule evaluate_pretraining:
             rules.pretrain_cross_sample.output.pretraining,
             model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
             alpha=ALPHAS, samples=SPLITS, job=STARTS
-        )
+        ),
+        pretrain_per_sample=per_sample_pretraining_test,
     output:
-        plot=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_pretraining.pdf',
-        csv=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_pretraining.csv'
+        plot=expand(
+            fig_dir / '{{model}}' / '{{data}}' /
+            '{{samples}}_evaluate_{mode}_{dataset}.pdf',
+            mode=['pretrain_per_sample', 'pretrain_cross_sample', 'average'],
+            dataset=['train', 'test']
+        ),
+        csv=expand(
+            fig_dir / '{{model}}' / '{{data}}' /
+            '{{samples}}_evaluate_{mode}_{dataset}.csv',
+            mode=['pretrain_per_sample', 'pretrain_cross_sample', 'average'],
+            dataset=['train', 'test']
+        )
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
-        optimzer='[\w-]+',
-        n_hidden='[0-9]+',
-        job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+'
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.samples}'
 
-rule collect_estimation:
+rule evaluate_training:
     input:
-         expand(
-             rules.collect_estimation_results.output.result,
-             model=PATHWAYS, data=DATASETS, n_hidden=HIDDEN_LAYERS,
-             alpha=ALPHAS, samples=SPLITS
-         )
+        script='evaluate_training.py',
+        cross_sample=expand(
+            rules.collect_estimation_results.output.result,
+            model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
+            alpha=ALPHAS, samples=SPLITS,
+        ),
+    output:
+        plot=expand(
+            fig_dir / '{{model}}' / '{{data}}' /
+            '{{samples}}_evaluate_training_{dataset}.pdf',
+            dataset=['train', 'test']
+        ),
+        csv=expand(
+            fig_dir / '{{model}}' / '{{data}}' /
+            '{{samples}}_evaluate_training_{dataset}.csv',
+            dataset=['train', 'test']
+        )
+    wildcard_constraints:
+        model='[\w_]+',
+        data='[\w_]+',
+        samples='[0-9]+_[0-9]+',
+    shell:
+        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        '{wildcards.samples}'
 
-rule visualize_estimation:
+rule evaluate_all:
     input:
-         training=expand(
-             rules.visualize_estimation_results.output.plots,
-             model=PATHWAYS, data=DATASETS, n_hidden=HIDDEN_LAYERS,
-             alpha=ALPHAS, samples=SPLITS
-         ),
-         pretraining=expand(
-             rules.evaluate_pretraining.output.plot,
+        script='evaluate_all.py',
+        pretraining=rules.evaluate_pretraining.output.csv,
+        training=rules.evaluate_training.output.csv,
+    output:
+        plot=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_all.pdf',
+    wildcard_constraints:
+        model='[\w_]+',
+        data='[\w_]+',
+        samples='[0-9]+_[0-9]+',
+    shell:
+        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        '{wildcards.samples}'
+
+rule train_and_evaluate:
+    input:
+         evaluation=expand(
+             rules.evaluate_all.output.plot,
              model=PATHWAYS, data=DATASETS, samples=SPLITS
          ),

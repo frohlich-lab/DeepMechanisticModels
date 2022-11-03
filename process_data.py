@@ -56,11 +56,19 @@ def test_samples(wildcards):
                    int(np.round(n_samples/n_splits*(split+1))):]
 
 
-def pretraining_samples_fun(wildcards):
+def per_sample_pretraining_train(wildcards):
     return [
         pretrain_dir / '{model}' / '{data}' /
         PER_SAMPLE_OUTFILE_TEMP.format(sample=sample)
         for sample in training_samples(wildcards)
+    ]
+
+
+def per_sample_pretraining_test(wildcards):
+    return [
+        pretrain_dir / '{model}' / '{data}' /
+        PER_SAMPLE_OUTFILE_TEMP.format(sample=sample)
+        for sample in test_samples(wildcards)
     ]
 
 

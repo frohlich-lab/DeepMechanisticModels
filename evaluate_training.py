@@ -1,28 +1,21 @@
 import sys
 import pandas as pd
-import numpy as np
 import itertools as itt
 import matplotlib.pyplot as plt
-import seaborn as sns
-import petab
+import pypesto
 from pypesto.store import OptimizationResultHDF5Reader
-from pypesto import OptimizeResult, Result
-from pypesto.C import MODE_RES
-from pypesto.visualize import waterfall
-from petab import get_simulation_conditions
 
-from mEncoder.autoencoder import MechanisticAutoEncoder
+
 from process_data import training_samples, test_samples, Wildcards
 from mEncoder.training import create_pypesto_problem
-from mEncoder.petab_subproblem import load_petab
 from mEncoder import (
-    pretrain_dir, data_dir, fig_dir, apply_objective_settings,
-    ESTIMATION_OUTFILE_TEMP
+    results_dir, data_dir, fig_dir,
+    COLLECTED_ESTIMATION_OUTFILE_TEMP
 )
-from mEncoder.analysis import process_simulation
+from mEncoder.analysis import (
+    load_mae, plot_loss_vs_regularization, evaluate_simulations
+)
 from training_configuration import ALPHAS, HIDDEN_LAYERS
-
-from pathlib import Path
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
@@ -32,9 +25,7 @@ samples_training = training_samples(Wildcards(DATA, SAMPLES))
 samples_test = test_samples(Wildcards(DATA, SAMPLES))
 
 outdir = fig_dir / MODEL / DATA
-indir = pretrain_dir / MODEL / DATA
-
-evaluations = []
+indir = results_dir / MODEL / DATA
 
 datafiles = (
     data_dir / f'{DATA}__{MODEL}__measurements.tsv',
@@ -42,21 +33,20 @@ datafiles = (
     data_dir / f'{DATA}__{MODEL}__observables.tsv',
 )
 
-for dataset, samples in zip(
-    ('train', 'test'),
-    (samples_training, samples_test)
-):
-    for alpha, hidden_layers in itt.product(ALPHAS, HIDDEN_LAYERS):
-        # par_modulation_scale = 0 => deactivate prior
-        mae = MechanisticAutoEncoder(
-            hidden_layers, datafiles,
-            pathway_name=MODEL, samples=samples, l2reg=0.0
-        )
-        problem = create_pypesto_problem(mae)
-        apply_objective_settings(problem, MODEL)
+samples = {
+    'train': training_samples(Wildcards(DATA, SAMPLES)),
+    'test': test_samples(Wildcards(DATA, SAMPLES)),
+}
 
-        infile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-            samples=SAMPLES, n_hidden=hidden_layers, alpha=alpha
+
+def evaluate_training(dataset):
+    evaluations = []
+    for l2reg, latent_dim in itt.product(ALPHAS, HIDDEN_LAYERS):
+        mae = load_mae(dataset, DATA, MODEL, SAMPLES, latent_dim, l2reg)
+        problem = create_pypesto_problem(mae)
+
+        infile = indir / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
+            samples=SAMPLES, n_hidden=latent_dim, alpha=l2reg
         )
 
         reader = OptimizationResultHDF5Reader(infile)
@@ -66,23 +56,17 @@ for dataset, samples in zip(
         x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
                                        problem.x_free_indices)
 
-        conditions = get_simulation_conditions(
-            mae.petab_importer.petab_problem.measurement_df
+        evaluate_simulations(
+            problem.objective, x, samples, mae.petab_importer.petab_problem,
+            SAMPLES, dataset, l2reg, latent_dim, outdir / 'training',
+            evaluations
         )
 
-        res = obj(x, mode=MODE_RES, return_dict=True)
+    return pd.DataFrame(evaluations)
 
-        for sample in samples_training:
-            process_simulation(evaluations, res, conditions, sample,
-                               'full', alpha, hidden_layers)
 
-    df = pd.DataFrame(evaluations)
+for dataset in ('train', 'test'):
+    df = evaluate_training(dataset)
     df.to_csv(outdir / f'{SAMPLES}_evaluate_training_{dataset}.csv')
-
-    g = sns.FacetGrid(data=df[df['sample'].apply(lambda x: x.endswith('_dyn'))],
-                      col='sample', hue='layers',
-                      palette='Blues', col_wrap=5)
-    g.map_dataframe(sns.lineplot, x='alpha', y='chi2')
-    [ax.set(yscale='log') for ax in g.axes]
-    plt.tight_layout()
+    plot_loss_vs_regularization(df)
     plt.savefig(outdir / f'{SAMPLES}_evaluate_training_{dataset}.pdf')
