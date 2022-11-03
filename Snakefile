@@ -12,7 +12,7 @@ from training_configuration import ALPHAS, HIDDEN_LAYERS
 
 mencoder_dir = basedir / 'mEncoder'
 
-PATHWAYS = ['EGFR_MAPK']
+PATHWAYS = ['EGFR']
 DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
 
@@ -22,7 +22,7 @@ singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter
 
 rule process_data:
     input:
-        #script='process_data.py',
+        script='process_data.py',
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=basedir / 'pathways' / 'pw_{model}.py',
@@ -36,7 +36,7 @@ rule process_data:
         model='[\w_]+',
         data='[\w]+',
     shell:
-        'python3 process_data.py {wildcards.model} {wildcards.data}'
+        'python3 {input.script} {wildcards.model} {wildcards.data}'
 
 rule compile_mechanistic_model:
     input:

@@ -8,8 +8,6 @@ import fides
 import pypesto
 import numpy as np
 
-import amici.petab_objective
-
 from pypesto.optimize import FidesOptimizer
 
 from mEncoder.petab_subproblem import load_petab
@@ -17,7 +15,6 @@ from mEncoder.pretraining import (
     generate_per_sample_pretraining_problems, pretrain,
     store_and_plot_pretraining
 )
-from mEncoder.plotting import plot_single_sample
 from mEncoder import (
     apply_objective_settings, pretrain_dir, data_dir, fig_dir,
     PER_SAMPLE_OUTFILE_TEMP
@@ -64,17 +61,3 @@ result = pretrain(
     pypesto.engine.MultiThreadEngine(1)
 )
 store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix)
-
-x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
-                               problem.x_free_indices)
-simulation = problem.objective(x, return_dict=True)
-# Convert the simulation to PEtab format.
-simulation_df = amici.petab_objective.rdatas_to_simulation_df(
-    simulation['rdatas'],
-    model=model,
-    measurement_df=importer.petab_problem.measurement_df,
-)
-plot_single_sample(importer.petab_problem.measurement_df,
-                   simulation_df,
-                   figdir,
-                   output_prefix)

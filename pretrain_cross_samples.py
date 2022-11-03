@@ -20,8 +20,7 @@ from mEncoder.pretraining import (
     store_and_plot_pretraining
 )
 from mEncoder import (
-    MODEL_FEATURE_PREFIX, apply_objective_settings,
-    parameter_boundaries_scales, pretrain_dir, data_dir, fig_dir,
+    MODEL_FEATURE_PREFIX, parameter_boundaries_scales, pretrain_dir, data_dir,
     ESTIMATION_OUTFILE_TEMP
 )
 
@@ -46,7 +45,6 @@ problem = generate_cross_sample_pretraining_problem(mae)
 pretrained_samples = {}
 
 outdir = pretrain_dir / MODEL / DATA
-figdir = fig_dir / MODEL / DATA / 'pretraining_cross'
 output_prefix = os.path.splitext(ESTIMATION_OUTFILE_TEMP.format(
     samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
 ))[0]
