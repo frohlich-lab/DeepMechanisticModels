@@ -163,32 +163,14 @@ def evaluate_average(dataset):
 
     df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
 
-    plot_cross_samples(df_meas, df_sim, average_dir, 'avg')
+    plot_cross_samples(df_meas, df_sim, outdir / 'simulation', 'avg')
 
     evaluations = []
 
     for sample in samples[dataset]:
-
-        s = df_meas[df_meas[petab.PREEQUILIBRATION_CONDITION_ID] == sample]
-
-        chi2 = 0
-        for (observable, time, cond), m in avg_model.iterrows():
-            d = s[
-                (s[petab.OBSERVABLE_ID] == observable) &
-                (s[petab.TIME] == time) &
-                (s[petab.SIMULATION_CONDITION_ID] == f'{sample}__{cond}')
-                ]
-            r = (d[petab.MEASUREMENT] - m[petab.MEASUREMENT]) / d[
-                petab.NOISE_PARAMETERS]
-            chi2 += np.nansum(np.power(r, 2))
-
-        evaluations.append({
-            'chi2': chi2,
-            'sample': f'{sample}_dyn',
-            'type': 'average',
-            'alpha': 0.0,
-            'layers': 0,
-        })
+        process_simulation(
+            evaluations, df_meas, df_sim, sample, 'avg', 0.0, 0.0
+        )
 
     return pd.DataFrame(evaluations)
 

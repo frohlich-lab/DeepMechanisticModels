@@ -11,39 +11,30 @@ from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
-from pypesto.objective.aesara import AesaraObjective
-from pypesto.C import MODE_FUN, MODE_RES
+from pypesto.C import MODE_RES
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
-from petab import get_simulation_conditions
 from pathlib import Path
 
 from process_data import training_samples, test_samples, Wildcards
 
 
-def process_simulation(evaluations, res, conditions, sample, model_type,
-                       alpha, hidden_layers):
-    splits = {
-        'dyn': (conditions[petab.PREEQUILIBRATION_CONDITION_ID] == sample) &
-        (conditions[petab.SIMULATION_CONDITION_ID] != sample),
-        'stat': (conditions[petab.PREEQUILIBRATION_CONDITION_ID] == sample) &
-        (conditions[petab.SIMULATION_CONDITION_ID] == sample),
-    }
-    for name, split in splits.items():
-        ics = np.where(split)[0]
-        chi2 = 0
-        llh = 0
-        for ic in ics:
-            chi2 += res['rdatas'][ic].chi2
-            llh += res['rdatas'][ic].llh
-        evaluations.append({
-            'chi2': chi2,
-            'llh': llh,
-            'sample': f'{sample}_{name}',
-            'type': model_type,
-            'alpha': alpha,
-            'layers': hidden_layers,
-        })
+def process_simulation(evaluations, measurement_df, simulation_df,
+                       sample, model_type, alpha, hidden_layers):
+    idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+    mdf = measurement_df[idx]
+    sdf = simulation_df[idx]
+
+    res = (mdf[petab.MEASUREMENT] - sdf[petab.SIMULATION]) / \
+        mdf[petab.NOISE_PARAMETERS]
+
+    evaluations.append({
+        'rmse': np.sqrt(np.power(res.values, 2).mean()),
+        'sample': sample,
+        'type': model_type,
+        'alpha': alpha,
+        'layers': hidden_layers,
+    })
 
 
 def load_mae(dataset, data, model, samples, hidden_layers, alpha):
@@ -112,14 +103,6 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
 
     res = obj(x, mode=MODE_RES, return_dict=True)
 
-    conditions = get_simulation_conditions(
-        petab_problem.measurement_df
-    )
-
-    for sample in samples:
-        process_simulation(evaluations, res, conditions, sample,
-                           model_type, l2reg, latent_dim)
-
     if isinstance(obj, pypesto.objective.AggregatedObjective):
         amici_model = obj._objectives[0].amici_model
     else:
@@ -131,6 +114,12 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
         measurement_df=petab_problem.measurement_df,
     )
 
+    for sample in samples:
+        process_simulation(
+            evaluations, petab_problem.measurement_df,
+            simulation_df, sample, model_type, l2reg, latent_dim
+        )
+
     plot_cross_samples(
         petab_problem.measurement_df,
         simulation_df,
@@ -141,9 +130,9 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
 
 def plot_loss_vs_regularization(df):
     g = sns.FacetGrid(
-        data=df[df['sample'].apply(lambda x: x.endswith('_dyn'))],
+        data=df,
         col='sample', hue='layers', palette='Blues', col_wrap=5
     )
-    g.map_dataframe(sns.lineplot, x='alpha', y='chi2')
+    g.map_dataframe(sns.lineplot, x='alpha', y='rmse')
     [ax.set(yscale='log') for ax in g.axes]
     plt.tight_layout()

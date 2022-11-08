@@ -33,18 +33,16 @@ for dataset in ['train', 'test']:
     avg = pd.read_csv(
         outdir / f'{SAMPLES}_evaluate_average_{dataset}.csv', index_col=0
     )
-    avgs[dataset] = np.power(10, avg.chi2.apply(np.log10).mean())
+    avgs[dataset] = np.power(10, avg.rmse.apply(np.log10).mean())
 
     # per sample
     df_ps = pd.read_csv(
         outdir / f'{SAMPLES}_evaluate_pretrain_per_sample_{dataset}.csv',
         index_col=0
     )
-    df_ps = df_ps[df_ps['sample'].apply(lambda x: x.endswith('_dyn'))]
-    ps[dataset] = np.power(10, df_ps.chi2.apply(np.log10).mean())
+    ps[dataset] = np.power(10, df_ps.rmse.apply(np.log10).mean())
 
     dfd = pd.concat([training, pretraining])
-    dfd = dfd[dfd['sample'].apply(lambda x: x.endswith('_dyn'))]
     dfd['dataset'] = dataset
     dfs.append(dfd)
 
@@ -57,7 +55,7 @@ df.loc[df['type'] == 'cross_sample', 'type'] = 'pca embedding'
 df.loc[df['type'] == 'full', 'type'] = 'end-to-end'
 
 g = sns.FacetGrid(data=df, row='dataset', col='latent dim')
-g.map_dataframe(sns.lineplot, x='l2 regularization', y='chi2', style='type')
+g.map_dataframe(sns.lineplot, x='l2 regularization', y='rmse', style='type')
 g.set(yscale='log', xscale='log')
 g.add_legend()
 for ids, dataset in enumerate(['train', 'test']):
