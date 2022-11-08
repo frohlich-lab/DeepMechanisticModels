@@ -181,6 +181,9 @@ for dataset in ['train', 'test']:
     df.to_csv(
         outdir / f'{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.csv'
     )
+    df.to_csv(
+        outdir / f'_{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.csv'
+    )
     plot_loss_vs_regularization(df)
     plt.savefig(
         outdir / f'{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.pdf'

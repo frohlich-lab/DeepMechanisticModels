@@ -73,5 +73,6 @@ def evaluate_training(dataset):
 for dataset in ('train', 'test'):
     df = evaluate_training(dataset)
     df.to_csv(outdir / f'{SAMPLES}_evaluate_training_{dataset}.csv')
+    df.to_csv(outdir / f'_{SAMPLES}_evaluate_training_{dataset}.csv')
     plot_loss_vs_regularization(df)
     plt.savefig(outdir / f'{SAMPLES}_evaluate_training_{dataset}.pdf')

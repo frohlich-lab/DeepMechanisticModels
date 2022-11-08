@@ -30,18 +30,25 @@ def plot_single_sample(
         )
         df[petab.SIMULATION_CONDITION_ID] = \
             df[petab.SIMULATION_CONDITION_ID].apply(
-                lambda x: x.split('__')[1]
+                lambda x:
+                    ('' if x.startswith('EGF_') else 'EGF+')
+                    + x.split('__')[1]
             )
+        df.rename(columns={
+            petab.SIMULATION_CONDITION_ID: 'treatment'
+        }, inplace=True)
 
     mdf['ymax'] = \
         mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
     mdf['ymin'] = \
         mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
 
+    cell_line = df.loc[0, petab.PREEQUILIBRATION_CONDITION_ID][1:]
+
     kwargs = {
         'x': 'time',
-        'color': petab.SIMULATION_CONDITION_ID,
-        'group': petab.SIMULATION_CONDITION_ID
+        'color': 'treatment',
+        'group': 'treatment'
     }
     plot = (
         ggplot() +
@@ -59,9 +66,10 @@ def plot_single_sample(
             data=mdf,
             mapping=aes(ymax='ymax', ymin='ymin', **kwargs)
         )
-        + facet_grid((petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID))
+        + facet_grid((petab.OBSERVABLE_ID, 'treatment'))
         + xlab('time [min]')
         + ylab('measurement')
+        + ggtitle(f'cell line: {cell_line}')
         + theme(**PLOTNINE_THEME)
     )
 
