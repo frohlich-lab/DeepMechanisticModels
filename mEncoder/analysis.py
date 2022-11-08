@@ -1,5 +1,6 @@
 import petab
 import numpy as np
+import pypesto.objective
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -10,6 +11,7 @@ from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
+from pypesto.objective.aesara import AesaraObjective
 from pypesto.C import MODE_FUN
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
@@ -118,9 +120,19 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
         process_simulation(evaluations, res, conditions, sample,
                            'cross_sample', l2reg, latent_dim)
 
+    if isinstance(obj, AesaraObjective):
+        inner_obj = obj.base_objective
+    else:
+        inner_obj = obj
+
+    if isinstance(obj, pypesto.objective.AggregatedObjective):
+        amici_model = inner_obj._objectives[0].amici_model
+    else:
+        amici_model = inner_obj.amici_model
+
     simulation_df = rdatas_to_simulation_df(
         res['rdatas'],
-        model=obj.amici_model,
+        model=amici_model,
         measurement_df=petab_problem.measurement_df,
     )
 
