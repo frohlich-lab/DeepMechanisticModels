@@ -56,9 +56,9 @@ def evaluate_training(dataset):
         result = pypesto.Result(problem)
         result.optimize_result = reader.read().optimize_result
 
-        x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
-                                       problem.x_free_indices)
-        obj = problem.objective
+        x = problem.objective.infun(result.list[0]['x'])
+
+        obj = problem.objective.base_objective
 
         evaluate_simulations(
             obj, x, samples, mae.petab_importer.petab_problem,

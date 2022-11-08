@@ -156,8 +156,7 @@ rule evaluate_pretraining:
     output:
         plot=expand(
             fig_dir / '{{model}}' / '{{data}}' /
-            '{{samples}}_evaluate_{mode}_{dataset}.pdf',
-            mode=['pretrain_per_sample', 'pretrain_cross_sample', 'average'],
+            '{{samples}}_evaluate_pretrain_cross_sample_{dataset}.pdf',
             dataset=['train', 'test']
         ),
         csv=expand(
