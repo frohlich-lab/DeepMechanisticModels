@@ -48,7 +48,7 @@ pretrained_samples = {}
 
 outdir = pretrain_dir / MODEL / DATA
 output_prefix = os.path.splitext(ESTIMATION_OUTFILE_TEMP.format(
-    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
+    context=CONTEXT, samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
 ))[0]
 
 for sample in samples:

@@ -28,7 +28,7 @@ mae = MechanisticAutoEncoder(
 result = train(mae, SAMPLES, n_starts=1, seed=JOB)
 outdir = results_dir / MODEL / DATA
 outfile = outdir / ESTIMATION_OUTFILE_TEMP.format(
-    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
+    context=CONTEXT, samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
 )
 outdir.mkdir(exist_ok=True, parents=True)
 writer = OptimizationResultHDF5Writer(outfile)
