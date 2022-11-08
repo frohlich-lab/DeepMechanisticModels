@@ -12,7 +12,7 @@ from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
 from pypesto.objective.aesara import AesaraObjective
-from pypesto.C import MODE_FUN
+from pypesto.C import MODE_FUN, MODE_RES
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from petab import get_simulation_conditions
@@ -109,8 +109,12 @@ def load_optimize_result_pretraining_cross_samples(
 
 def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
                          l2reg, latent_dim, outdir, evaluations):
-
-    res = obj(x, mode=MODE_FUN, return_dict=True)
+    if isinstance(obj, AesaraObjective):
+        res = obj(x, mode=MODE_FUN, return_dict=True)
+        inner_obj = obj.base_objective
+    else:
+        res = obj(x, mode=MODE_RES, return_dict=True)
+        inner_obj = obj
 
     conditions = get_simulation_conditions(
         petab_problem.measurement_df
@@ -120,12 +124,7 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
         process_simulation(evaluations, res, conditions, sample,
                            'cross_sample', l2reg, latent_dim)
 
-    if isinstance(obj, AesaraObjective):
-        inner_obj = obj.base_objective
-    else:
-        inner_obj = obj
-
-    if isinstance(obj, pypesto.objective.AggregatedObjective):
+    if isinstance(inner_obj, pypesto.objective.AggregatedObjective):
         amici_model = inner_obj._objectives[0].amici_model
     else:
         amici_model = inner_obj.amici_model
