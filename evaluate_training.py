@@ -62,7 +62,7 @@ def evaluate_training(dataset):
         obj = problem.objective.base_objective
 
         evaluate_simulations(
-            obj, x, samples, mae.petab_importer.petab_problem,
+            obj, x, samples[dataset], mae.petab_importer.petab_problem,
             SAMPLES, dataset, l2reg, latent_dim, outdir / 'simulation',
             evaluations, 'full'
         )

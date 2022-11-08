@@ -121,8 +121,8 @@ def evaluate_petraining_cross_sample(dataset):
         obj = problem_cross_sample.objective.base_objective
 
         evaluate_simulations(
-            obj, x, samples, mae.petab_importer.petab_problem, SAMPLES,
-            dataset, l2reg, latent_dim, outdir / 'simulation',
+            obj, x, samples[dataset], mae.petab_importer.petab_problem,
+            SAMPLES, dataset, l2reg, latent_dim, outdir / 'simulation',
             evaluations, 'cross_sample'
         )
 
