@@ -56,7 +56,7 @@ def evaluate_training(dataset):
         result = pypesto.Result(problem)
         result.optimize_result = reader.read().optimize_result
 
-        x = problem.objective.infun(result.list[0]['x'])
+        x = problem.objective.infun(result.optimize_result.list[0]['x'])
 
         obj = problem.objective.base_objective
 
