@@ -4,22 +4,19 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 
 from mEncoder import (
-    data_dir, pretrain_dir, fig_dir,
-    ESTIMATION_OUTFILE_TEMP
+    data_dir, pretrain_dir, ESTIMATION_OUTFILE_TEMP
 )
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
 from pypesto.C import MODE_RES
-from pypesto import OptimizeResult, Result
-from pypesto.visualize import waterfall
+from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from petab import get_simulation_conditions
 from pathlib import Path
 
 from process_data import training_samples, test_samples, Wildcards
-
 
 
 def process_simulation(evaluations, res, conditions, sample, model_type,
@@ -89,7 +86,6 @@ def result_file_pretraining_cross_sample(
 def load_optimize_result_pretraining_cross_samples(
         model, data, samples, hidden_layers, alpha
 ):
-    outdir = fig_dir / model / data / 'pretrain_cross_sample'
     result = OptimizeResult()
     for job in range(100):
         rfile = result_file_pretraining_cross_sample(
@@ -106,15 +102,6 @@ def load_optimize_result_pretraining_cross_samples(
     if result.list is not None:
         result.sort()
 
-        r = Result()
-        r.optimize_result = result
-
-        waterfall(r)
-        plt.tight_layout()
-        plt.savefig(
-            outdir / 'pretrain_cross_samples' /
-            f'{samples}_pretraining_cross_sample_a{alpha}_n{hidden_layers}_waterfall.pdf'
-        )
     return result
 
 

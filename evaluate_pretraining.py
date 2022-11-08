@@ -7,6 +7,8 @@ import petab
 
 from petab import get_simulation_conditions
 from amici.petab_objective import rdatas_to_simulation_df
+from pypesto import Result
+from pypesto.visualize import waterfall
 
 from process_data import training_samples, test_samples, Wildcards
 from mEncoder.pretraining import (
@@ -22,7 +24,9 @@ from mEncoder.analysis import (
     load_optimize_result_pretraining_cross_samples, evaluate_simulations
 )
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
+
 from training_configuration import ALPHAS, HIDDEN_LAYERS
+
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
@@ -36,7 +40,6 @@ cross_sample_dir = outdir / 'pretrain_cross_sample'
 average_dir = outdir / 'average'
 for path in (per_sample_dir, cross_sample_dir, average_dir):
     path.mkdir(exist_ok=True, parents=True)
-
 
 datafiles = (
     data_dir / f'{DATA}__{MODEL}__measurements.tsv',
@@ -100,6 +103,16 @@ def evaluate_petraining_cross_sample(dataset):
         problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
         result = load_optimize_result_pretraining_cross_samples(
             MODEL, DATA, SAMPLES, latent_dim, l2reg
+        )
+
+        r = Result()
+        r.optimize_result = result
+
+        waterfall(r)
+        plt.tight_layout()
+        plt.savefig(
+            cross_sample_dir,
+            f'{samples}_a{l2reg}_n{latent_dim}_waterfall.pdf'
         )
 
         x = problem_cross_sample.objective.infun(result.list[0]['x'])
