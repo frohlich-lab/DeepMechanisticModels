@@ -35,11 +35,8 @@ SAMPLES = sys.argv[3]
 outdir = fig_dir / MODEL / DATA
 indir = pretrain_dir / MODEL / DATA
 
-per_sample_dir = outdir / 'pretrain_per_sample'
 cross_sample_dir = outdir / 'pretrain_cross_sample'
-average_dir = outdir / 'average'
-for path in (per_sample_dir, cross_sample_dir, average_dir):
-    path.mkdir(exist_ok=True, parents=True)
+cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
 datafiles = (
     data_dir / f'{DATA}__{MODEL}__measurements.tsv',
@@ -65,9 +62,6 @@ def evaluate_pretraining_per_sample(dataset):
         df = pd.read_csv(indir / f'{sample}.csv', index_col=[0])
         apply_objective_settings(problem_sample, MODEL)
 
-        conditions = get_simulation_conditions(
-            importer.petab_problem.measurement_df
-        )
         ress = []
         fvals = []
         for ipar in range(len(df)):
@@ -79,15 +73,15 @@ def evaluate_pretraining_per_sample(dataset):
             ress.append(res)
             fvals.append(res['fval'])
 
-        process_simulation(evaluations, ress[np.argmin(fvals)],
-                           conditions, sample, 'per_sample', 0.0, 0)
-
         # Convert the simulation to PEtab format.
         simulation_df = rdatas_to_simulation_df(
             ress[np.argmin(fvals)]['rdatas'],
             model=problem_sample.objective.amici_model,
             measurement_df=importer.petab_problem.measurement_df,
         )
+        process_simulation(evaluations, importer.petab_problem.measurement_df,
+                           simulation_df, sample, 'per_sample', 0.0, 0)
+
         plot_single_sample(importer.petab_problem.measurement_df,
                            simulation_df,
                            outdir / 'simulation' / dataset / sample,

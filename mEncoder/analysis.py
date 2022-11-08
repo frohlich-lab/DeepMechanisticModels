@@ -134,5 +134,5 @@ def plot_loss_vs_regularization(df):
         col='sample', hue='layers', palette='Blues', col_wrap=5
     )
     g.map_dataframe(sns.lineplot, x='alpha', y='rmse')
-    [ax.set(yscale='log') for ax in g.axes]
+    [ax.set(yscale='log', xscale='log') for ax in g.axes]
     plt.tight_layout()

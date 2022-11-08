@@ -76,8 +76,8 @@ def plot_single_sample(
 
 
 def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
-
     for sample in measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique():
+        print(f'plotting {sample} for {prefix}')
         plot_single_sample(
             measurement_df[
                 measurement_df[petab.PREEQUILIBRATION_CONDITION_ID]

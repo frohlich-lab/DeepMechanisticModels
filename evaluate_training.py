@@ -26,9 +26,6 @@ samples_test = test_samples(Wildcards(DATA, SAMPLES))
 
 outdir = fig_dir / MODEL / DATA
 indir = results_dir / MODEL / DATA
-train_dir = outdir / 'full'
-
-train_dir.mkdir(exist_ok=True, parents=True)
 
 
 datafiles = (
@@ -73,6 +70,5 @@ def evaluate_training(dataset):
 for dataset in ('train', 'test'):
     df = evaluate_training(dataset)
     df.to_csv(outdir / f'{SAMPLES}_evaluate_training_{dataset}.csv')
-    df.to_csv(outdir / f'_{SAMPLES}_evaluate_training_{dataset}.csv')
     plot_loss_vs_regularization(df)
     plt.savefig(outdir / f'{SAMPLES}_evaluate_training_{dataset}.pdf')
