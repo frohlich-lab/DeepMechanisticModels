@@ -19,6 +19,7 @@ def plot_single_sample(
     measurement_df: pandas.DataFrame,
     simulation_df: pandas.DataFrame,
     figdir: Path,
+    sample: str,
     prefix: str
 ):
     mdf = measurement_df.copy()
@@ -42,8 +43,6 @@ def plot_single_sample(
         mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
     mdf['ymin'] = \
         mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
-
-    cell_line = df.loc[0, petab.PREEQUILIBRATION_CONDITION_ID][1:]
 
     kwargs = {
         'x': 'time',
@@ -69,7 +68,7 @@ def plot_single_sample(
         + facet_grid((petab.OBSERVABLE_ID, 'treatment'))
         + xlab('time [min]')
         + ylab('measurement')
-        + ggtitle(f'cell line: {cell_line}')
+        + ggtitle(f'cell line: {sample[1:]}')
         + theme(**PLOTNINE_THEME)
     )
 
@@ -88,6 +87,7 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
                 simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
             ],
             figdir / sample,
+            sample,
             prefix
         )
 

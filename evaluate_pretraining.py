@@ -91,6 +91,7 @@ def evaluate_pretraining_per_sample(dataset):
         plot_single_sample(importer.petab_problem.measurement_df,
                            simulation_df,
                            outdir / 'simulation' / dataset / sample,
+                           sample,
                            'per_sample')
     return pd.DataFrame(evaluations)
 
