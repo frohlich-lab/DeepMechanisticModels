@@ -158,7 +158,7 @@ def evaluate_average(dataset):
 
     df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
 
-    plot_cross_samples(df_meas, df_sim, outdir / 'simulation', 'avg')
+    plot_cross_samples(df_meas, df_sim, outdir / 'simulation' / dataset, 'avg')
 
     evaluations = []
 
