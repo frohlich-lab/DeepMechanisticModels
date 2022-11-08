@@ -111,7 +111,7 @@ def evaluate_petraining_cross_sample(dataset):
         waterfall(r)
         plt.tight_layout()
         plt.savefig(
-            cross_sample_dir,
+            cross_sample_dir /
             f'{samples}_a{l2reg}_n{latent_dim}_waterfall.pdf'
         )
 

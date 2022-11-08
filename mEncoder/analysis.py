@@ -10,7 +10,7 @@ from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
-from pypesto.C import MODE_RES
+from pypesto.C import MODE_FUN
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from petab import get_simulation_conditions
@@ -108,7 +108,7 @@ def load_optimize_result_pretraining_cross_samples(
 def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
                          l2reg, latent_dim, outdir, evaluations):
 
-    res = obj(x, mode=MODE_RES, return_dict=True)
+    res = obj(x, mode=MODE_FUN, return_dict=True)
 
     conditions = get_simulation_conditions(
         petab_problem.measurement_df
