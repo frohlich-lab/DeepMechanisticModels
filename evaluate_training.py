@@ -15,7 +15,7 @@ from mEncoder import (
 from mEncoder.analysis import (
     load_mae, plot_loss_vs_regularization, evaluate_simulations
 )
-from training_configuration import ALPHAS, HIDDEN_LAYERS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
@@ -42,12 +42,14 @@ samples = {
 
 def evaluate_training(dataset):
     evaluations = []
-    for l2reg, latent_dim in itt.product(ALPHAS, HIDDEN_LAYERS):
-        mae = load_mae(dataset, DATA, MODEL, SAMPLES, latent_dim, l2reg)
+    for l2reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+        mae = load_mae(
+            dataset, DATA, MODEL, context, SAMPLES, latent_dim, l2reg
+        )
         problem = create_pypesto_problem(mae)
 
         infile = indir / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-            samples=SAMPLES, n_hidden=latent_dim, alpha=l2reg
+            samples=SAMPLES, n_hidden=latent_dim, alpha=l2reg, context=context
         )
 
         reader = OptimizationResultHDF5Reader(infile)
@@ -60,8 +62,8 @@ def evaluate_training(dataset):
 
         evaluate_simulations(
             obj, x, samples[dataset], mae.petab_importer.petab_problem,
-            SAMPLES, dataset, l2reg, latent_dim, outdir / 'simulation',
-            evaluations, 'full'
+            context, SAMPLES, dataset, l2reg, latent_dim,
+            outdir / 'simulation', evaluations, 'full'
         )
 
     return pd.DataFrame(evaluations)

@@ -20,7 +20,7 @@ from process_data import training_samples, test_samples, Wildcards
 
 
 def process_simulation(evaluations, measurement_df, simulation_df,
-                       sample, model_type, alpha, hidden_layers):
+                       context, sample, model_type, alpha, hidden_layers):
     idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     mdf = measurement_df[idx]
     sdf = simulation_df[idx]
@@ -32,12 +32,13 @@ def process_simulation(evaluations, measurement_df, simulation_df,
         'rmse': np.sqrt(np.power(res.values, 2).mean()),
         'sample': sample,
         'type': model_type,
+        'context': context,
         'alpha': alpha,
         'layers': hidden_layers,
     })
 
 
-def load_mae(dataset, data, model, samples, hidden_layers, alpha):
+def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
     samples_train = training_samples(Wildcards(data, samples))
 
     datafiles = (
@@ -47,8 +48,8 @@ def load_mae(dataset, data, model, samples, hidden_layers, alpha):
     )
 
     mae_train = MechanisticAutoEncoder(
-        hidden_layers, datafiles,
-        pathway_name=model, samples=samples_train, l2reg=alpha
+        latent_dim, datafiles, contextualization=context,
+        pathway_name=model, samples=samples_train, l2reg=l2reg
     )
 
     if dataset == 'train':
@@ -57,32 +58,31 @@ def load_mae(dataset, data, model, samples, hidden_layers, alpha):
     samples_test = test_samples(Wildcards(data, samples))
 
     return MechanisticAutoEncoder(
-        hidden_layers, datafiles,
-        pathway_name=model, samples=samples_test, l2reg=alpha,
-        features=mae_train.features,
-        imputer=mae_train.imputer,
-        scaler=mae_train.scaler,
-        pca=mae_train.pca
+        latent_dim, datafiles,
+        pathway_name=model, contextualization=context, samples=samples_test,
+        l2reg=l2reg, features=mae_train.features, imputer=mae_train.imputer,
+        scaler=mae_train.scaler, pca=mae_train.pca
     )
 
 
 def result_file_pretraining_cross_sample(
-        job_id, model, data, samples, hidden_layers, alpha
+        job_id, model, context, data, samples, hidden_layers, alpha
 ) -> Path:
     indir = pretrain_dir / model / data
     output_prefix = Path(ESTIMATION_OUTFILE_TEMP.format(
-        samples=samples, n_hidden=hidden_layers, alpha=alpha, job=job_id
+        context=context, samples=samples, n_hidden=hidden_layers, alpha=alpha,
+        job=job_id,
     )).stem
     return indir / f'{output_prefix}.hdf5'
 
 
 def load_optimize_result_pretraining_cross_samples(
-        model, data, samples, hidden_layers, alpha
+        model, data, context, samples, hidden_layers, alpha
 ):
     result = OptimizeResult()
     for job in range(100):
         rfile = result_file_pretraining_cross_sample(
-            job, model, data, samples, hidden_layers, alpha
+            job, model, context, data, samples, hidden_layers, alpha
         )
         if not rfile.exists():
             continue
@@ -98,8 +98,9 @@ def load_optimize_result_pretraining_cross_samples(
     return result
 
 
-def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
-                         l2reg, latent_dim, outdir, evaluations, model_type):
+def evaluate_simulations(obj, x, samples, petab_problem, context, SAMPLES,
+                         dataset, l2reg, latent_dim, outdir, evaluations,
+                         model_type):
 
     res = obj(x, mode=MODE_RES, return_dict=True)
 
@@ -117,21 +118,24 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
     for sample in samples:
         process_simulation(
             evaluations, petab_problem.measurement_df,
-            simulation_df, sample, model_type, l2reg, latent_dim
+            simulation_df, context, sample, model_type, l2reg, latent_dim
         )
 
     plot_cross_samples(
         petab_problem.measurement_df,
         simulation_df,
         outdir / dataset,
-        '__'.join([SAMPLES, str(latent_dim), str(l2reg), dataset, model_type])
+        '__'.join([
+            SAMPLES, context, str(latent_dim), str(l2reg), dataset, model_type
+        ])
     )
 
 
 def plot_loss_vs_regularization(df):
     g = sns.FacetGrid(
         data=df,
-        col='sample', hue='layers', palette='Blues', col_wrap=5
+        col='sample', hue='layers', palette='Blues', style='context',
+        col_wrap=5
     )
     g.map_dataframe(sns.lineplot, x='alpha', y='rmse')
     [ax.set(yscale='log', xscale='log') for ax in g.axes]

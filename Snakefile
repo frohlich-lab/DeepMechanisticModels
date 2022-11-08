@@ -8,13 +8,14 @@ from mEncoder import (
 from process_data import (
     per_sample_pretraining_train, per_sample_pretraining_test
 )
-from training_configuration import ALPHAS, HIDDEN_LAYERS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
 mencoder_dir = basedir / 'mEncoder'
 
 PATHWAYS = ['EGFR']
 DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
+
 
 STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
 
@@ -86,13 +87,14 @@ rule pretrain_cross_sample:
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
+        context='[\w]+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+',
     shell:
-        'AESARA_FLAGS="compiledir=./aesara/{wildcards.model}_{wildcards.data}_{wildcards.samples}_{wildcards.n_hidden}_{wildcards.job}" '
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        'AESARA_FLAGS="compiledir=./aesara/{wildcards.model}_{wildcards.context}_{wildcards.data}_{wildcards.samples}_{wildcards.n_hidden}_{wildcards.job}" '
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} '
         '{wildcards.job}'
 
@@ -111,13 +113,14 @@ rule estimate_parameters:
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
+        context='[\w]+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
     shell:
         'AESARA_FLAGS="compiledir=./aesara/{wildcards.model}_{wildcards.data}_{wildcards.samples}_{wildcards.n_hidden}__{wildcards.alpha}_{wildcards.job}" '
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} '
         '{wildcards.job}'
 
@@ -127,7 +130,7 @@ rule collect_estimation_results:
         trace=expand(os.path.join(
             results_dir, '{{model}}', '{{data}}',
             ESTIMATION_OUTFILE_TEMP.format(
-                model='{{model}}', data='{{data}}', samples='{{samples}}',
+                context='{{context}}', samples='{{samples}}',
                 n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
             )
         ), job=STARTS)
@@ -136,12 +139,13 @@ rule collect_estimation_results:
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
+        context='[\w]+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha}'
 
 rule evaluate_pretraining:
@@ -149,8 +153,8 @@ rule evaluate_pretraining:
         script='evaluate_pretraining.py',
         cross_sample=expand(
             rules.pretrain_cross_sample.output.pretraining,
-            model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
-            alpha=ALPHAS, samples=SPLITS, job=STARTS
+            model='{model}', data='{data}', context=CONTEXTS,
+            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples=SPLITS, job=STARTS
         ),
         pretrain_per_sample=per_sample_pretraining_test,
     output:
@@ -178,8 +182,8 @@ rule evaluate_training:
         script='evaluate_training.py',
         cross_sample=expand(
             rules.collect_estimation_results.output.result,
-            model='{model}', data='{data}', n_hidden=HIDDEN_LAYERS,
-            alpha=ALPHAS, samples=SPLITS,
+            model='{model}', data='{data}', context=CONTEXTS,
+            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples=SPLITS,
         ),
     output:
         plot=expand(

@@ -133,8 +133,10 @@ MODEL_FEATURE_PREFIX = 'INPUT_'
 
 PER_SAMPLE_OUTFILE_TEMP = '{sample}' + '.csv'
 
-COLLECTED_ESTIMATION_OUTFILE_TEMP = '__'.join(['{samples}', '{n_hidden}',
-                                               '{alpha}', 'full']) + '.hdf5'
+COLLECTED_ESTIMATION_OUTFILE_TEMP = '__'.join([
+    '{context}', '{samples}', '{n_hidden}', '{alpha}', 'full'
+]) + '.hdf5'
 
-ESTIMATION_OUTFILE_TEMP = '__'.join(['{samples}', '{n_hidden}',
-                                     '{alpha}', '{job}']) + '.hdf5'
+ESTIMATION_OUTFILE_TEMP = '__'.join([
+    '{context}', '{samples}', '{n_hidden}', '{alpha}', '{job}'
+]) + '.hdf5'

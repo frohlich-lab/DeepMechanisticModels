@@ -16,9 +16,10 @@ import pypesto.visualize
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
-SAMPLES = sys.argv[3]
-N_HIDDEN = int(sys.argv[4])
-ALPHA = float(sys.argv[5])
+CONTEXT = sys.argv[3]
+SAMPLES = sys.argv[4]
+N_HIDDEN = int(sys.argv[5])
+ALPHA = float(sys.argv[6])
 
 mae = MechanisticAutoEncoder(
     N_HIDDEN, (
@@ -27,7 +28,7 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    l2reg=ALPHA
+    l2reg=ALPHA, contextualization=CONTEXT
 )
 
 problem = create_pypesto_problem(mae)
@@ -38,11 +39,11 @@ result_path = results_dir / MODEL / DATA
 result_files = os.listdir(result_path)
 
 outfile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA
+    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, context=CONTEXT
 )
 
 prefix = '__'.join(ESTIMATION_OUTFILE_TEMP.format(
-   samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job='JOB'
+   samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job='JOB', context=CONTEXT
 ).split('__')[:-1])
 
 for file in result_files:

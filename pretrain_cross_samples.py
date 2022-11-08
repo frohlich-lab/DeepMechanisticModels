@@ -26,10 +26,11 @@ from mEncoder import (
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
-SAMPLES = sys.argv[3]
-N_HIDDEN = int(sys.argv[4])
-ALPHA = float(sys.argv[5])
-JOB = int(sys.argv[6])
+CONTEXT = sys.argv[3]
+SAMPLES = sys.argv[4]
+N_HIDDEN = int(sys.argv[5])
+ALPHA = float(sys.argv[6])
+JOB = int(sys.argv[7])
 
 samples = training_samples(Wildcards(DATA, SAMPLES))
 mae = MechanisticAutoEncoder(
@@ -38,7 +39,8 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__conditions.tsv',
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
-    pathway_name=MODEL, samples=samples, l2reg=ALPHA
+    pathway_name=MODEL, samples=samples, l2reg=ALPHA,
+    contextualization=CONTEXT, n_threads=4
 )
 
 problem = generate_cross_sample_pretraining_problem(mae)

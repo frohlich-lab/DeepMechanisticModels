@@ -24,12 +24,14 @@ class MechanisticAutoEncoder(AutoEncoder):
                  n_hidden: int,
                  datafiles: Tuple[Path, Path, Path],
                  pathway_name: str,
+                 contextualization: str,
                  samples: Sequence[str],
-                 l2reg: float = 1,
+                 l2reg: float = 0.0,
                  features: Optional[Sequence[str]] = None,
                  imputer: Optional[KNNImputer] = None,
                  scaler: Optional[StandardScaler] = None,
-                 pca: Optional[PCA] = None):
+                 pca: Optional[PCA] = None,
+                 n_threads=1):
         """
         loads the mechanistic model as theano operator with loss as output and
         decoder output as input
@@ -58,18 +60,45 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         full_measurements = pd.read_csv(datafiles[0], index_col=0, sep='\t')
 
-        baseline_measurements = full_measurements[
-            full_measurements[petab.TIME] == 0
-        ]
+        baseline_measurements = full_measurements.copy()
 
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.SIMULATION_CONDITION_ID] ==
-            baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-        ]
+        if contextualization in ['baseline', 'init']:
+            baseline_measurements = baseline_measurements[
+                baseline_measurements[petab.TIME] == 0
+            ]
+
+        if contextualization == 'baseline':
+            baseline_measurements = baseline_measurements[
+                baseline_measurements[petab.SIMULATION_CONDITION_ID] ==
+                baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
+            ]
+        elif contextualization == 'init':
+            baseline_measurements = baseline_measurements[
+                baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                    lambda x: x.endswith('__EGF')
+                )
+            ]
+        else:
+            baseline_measurements = baseline_measurements[
+                baseline_measurements[petab.SIMULATION_CONDITION_ID] !=
+                baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
+            ]
+            baseline_measurements[petab.SIMULATION_CONDITION_ID] = \
+                baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                    lambda x: x.split('__')[1]
+                )
+
+        if contextualization == 'dynamic':
+            pivot_columns = (
+                petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID,
+                petab.TIME
+            )
+        else:
+            pivot_columns = petab.OBSERVABLE_ID
 
         input_data = baseline_measurements.pivot_table(
-            index=petab.SIMULATION_CONDITION_ID,
-            columns=petab.OBSERVABLE_ID,
+            index=petab.PREEQUILIBRATION_CONDITION_ID,
+            columns=pivot_columns,
             values=petab.MEASUREMENT,
             aggfunc=np.nanmean
         )
@@ -82,7 +111,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             # filter too many nans
             input_data = input_data.loc[
                 :,
-                input_data.isna().sum() < input_data.shape[0] * 0.2
+                input_data.isna().sum() / input_data.shape[0] < 0.2
             ]
 
         self.features = list(input_data.columns)
@@ -143,7 +172,9 @@ class MechanisticAutoEncoder(AutoEncoder):
             n_pca = np.nonzero(np.cumsum(PCA(
                 n_components=input_data.shape[0]
             ).fit(input_data).explained_variance_ratio_) > 0.9)[0][0] + 1
-            pca = PCA(n_components=n_pca, whiten=True).fit(input_data)
+            pca = PCA(n_components=max(n_pca, n_hidden), whiten=True).fit(
+                input_data
+            )
 
         self.pca = pca
 
@@ -168,7 +199,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             amici_objective = self.pypesto_subproblem.objective
         else:
             amici_objective = self.pypesto_subproblem.objective._objectives[0]
-        amici_objective.n_threads = 1
+        amici_objective.n_threads = n_threads
 
         self.x_names = self.x_names + [
             name for ix, name in enumerate(self.pypesto_subproblem.x_names)

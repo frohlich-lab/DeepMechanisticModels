@@ -9,10 +9,11 @@ from pypesto.store import OptimizationResultHDF5Writer
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
-SAMPLES = sys.argv[3]
-N_HIDDEN = int(sys.argv[4])
-ALPHA = float(sys.argv[5])
-JOB = int(sys.argv[6])
+CONTEXT = sys.argv[3]
+SAMPLES = sys.argv[4]
+N_HIDDEN = int(sys.argv[5])
+ALPHA = float(sys.argv[6])
+JOB = int(sys.argv[7])
 
 mae = MechanisticAutoEncoder(
     N_HIDDEN, (
@@ -21,7 +22,7 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    l2reg=ALPHA
+    contextualization=CONTEXT, l2reg=ALPHA, n_threads=4
 )
 
 result = train(mae, SAMPLES, n_starts=1, seed=JOB)

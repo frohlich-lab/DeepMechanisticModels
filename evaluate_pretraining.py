@@ -25,7 +25,7 @@ from mEncoder.analysis import (
 )
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
 
-from training_configuration import ALPHAS, HIDDEN_LAYERS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
 
 MODEL = sys.argv[1]
@@ -80,7 +80,7 @@ def evaluate_pretraining_per_sample(dataset):
             measurement_df=importer.petab_problem.measurement_df,
         )
         process_simulation(evaluations, importer.petab_problem.measurement_df,
-                           simulation_df, sample, 'per_sample', 0.0, 0)
+                           simulation_df, 'none', sample, 'per_sample', 0.0, 0)
 
         plot_single_sample(importer.petab_problem.measurement_df,
                            simulation_df,
@@ -92,12 +92,12 @@ def evaluate_pretraining_per_sample(dataset):
 
 def evaluate_petraining_cross_sample(dataset):
     evaluations = []
-    for l2reg, latent_dim in itt.product(ALPHAS, HIDDEN_LAYERS):
-        mae = load_mae(dataset, DATA, MODEL, SAMPLES, latent_dim, l2reg)
+    for l2reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+        mae = load_mae(dataset, DATA, MODEL, context, SAMPLES, latent_dim, l2reg)
 
         problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
         result = load_optimize_result_pretraining_cross_samples(
-            MODEL, DATA, SAMPLES, latent_dim, l2reg
+            MODEL, DATA, context, SAMPLES, latent_dim, l2reg
         )
 
         r = Result()
@@ -116,8 +116,8 @@ def evaluate_petraining_cross_sample(dataset):
 
         evaluate_simulations(
             obj, x, samples[dataset], mae.petab_importer.petab_problem,
-            SAMPLES, dataset, l2reg, latent_dim, outdir / 'simulation',
-            evaluations, 'cross_sample'
+            context, SAMPLES, dataset, l2reg, latent_dim,
+            outdir / 'simulation', evaluations, 'cross_sample'
         )
 
     return pd.DataFrame(evaluations)
@@ -164,7 +164,7 @@ def evaluate_average(dataset):
 
     for sample in samples[dataset]:
         process_simulation(
-            evaluations, df_meas, df_sim, sample, 'avg', 0.0, 0.0
+            evaluations, df_meas, df_sim, 'none', sample, 'avg', 0.0, 0.0
         )
 
     return pd.DataFrame(evaluations)
