@@ -58,9 +58,10 @@ def evaluate_training(dataset):
 
         x = problem.get_reduced_vector(result.optimize_result.list[0]['x'],
                                        problem.x_free_indices)
+        obj = problem.objective.base_objective
 
         evaluate_simulations(
-            problem.objective, x, samples, mae.petab_importer.petab_problem,
+            obj, x, samples, mae.petab_importer.petab_problem,
             SAMPLES, dataset, l2reg, latent_dim, train_dir,
             evaluations
         )

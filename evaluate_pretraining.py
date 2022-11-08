@@ -112,7 +112,7 @@ def evaluate_petraining_cross_sample(dataset):
         plt.tight_layout()
         plt.savefig(
             cross_sample_dir /
-            f'{samples}_a{l2reg}_n{latent_dim}_waterfall.pdf'
+            f'{SAMPLES}_a{l2reg}_n{latent_dim}_waterfall.pdf'
         )
 
         x = problem_cross_sample.objective.infun(result.list[0]['x'])
