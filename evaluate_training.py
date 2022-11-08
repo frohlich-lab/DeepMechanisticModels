@@ -26,6 +26,9 @@ samples_test = test_samples(Wildcards(DATA, SAMPLES))
 
 outdir = fig_dir / MODEL / DATA
 indir = results_dir / MODEL / DATA
+train_dir = outdir / 'train'
+train_dir.mkdir(exist_ok=True, parents=True)
+
 
 datafiles = (
     data_dir / f'{DATA}__{MODEL}__measurements.tsv',
@@ -58,7 +61,7 @@ def evaluate_training(dataset):
 
         evaluate_simulations(
             problem.objective, x, samples, mae.petab_importer.petab_problem,
-            SAMPLES, dataset, l2reg, latent_dim, outdir / 'training',
+            SAMPLES, dataset, l2reg, latent_dim, train_dir,
             evaluations
         )
 

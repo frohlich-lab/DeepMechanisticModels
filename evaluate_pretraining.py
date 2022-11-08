@@ -31,6 +31,13 @@ SAMPLES = sys.argv[3]
 outdir = fig_dir / MODEL / DATA
 indir = pretrain_dir / MODEL / DATA
 
+per_sample_dir = outdir / 'pretrain_per_sample'
+cross_sample_dir = outdir / 'pretrain_cross_sample'
+average_dir = outdir / 'average'
+for path in (per_sample_dir, cross_sample_dir, average_dir):
+    path.mkdir(exist_ok=True, parents=True)
+
+
 datafiles = (
     data_dir / f'{DATA}__{MODEL}__measurements.tsv',
     data_dir / f'{DATA}__{MODEL}__conditions.tsv',
@@ -80,7 +87,7 @@ def evaluate_pretraining_per_sample(dataset):
         )
         plot_single_sample(importer.petab_problem.measurement_df,
                            simulation_df,
-                           outdir / 'pretrain_per_sample',
+                           per_sample_dir,
                            '')
     return pd.DataFrame(evaluations)
 
@@ -101,7 +108,7 @@ def evaluate_petraining_cross_sample(dataset):
 
         evaluate_simulations(
             obj, x, samples, mae.petab_importer.petab_problem, SAMPLES,
-            dataset, l2reg, latent_dim, outdir / 'pretrain_cross_samples',
+            dataset, l2reg, latent_dim, cross_sample_dir,
             evaluations
         )
 
@@ -143,7 +150,7 @@ def evaluate_average(dataset):
 
     df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
 
-    plot_cross_samples(df_meas, df_sim, outdir / 'average', 'avg')
+    plot_cross_samples(df_meas, df_sim, average_dir, 'avg')
 
     evaluations = []
 

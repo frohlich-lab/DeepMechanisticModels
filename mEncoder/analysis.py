@@ -112,7 +112,7 @@ def load_optimize_result_pretraining_cross_samples(
         waterfall(r)
         plt.tight_layout()
         plt.savefig(
-            outdir / 'pretrain_cross_samples'
+            outdir / 'pretrain_cross_samples' /
             f'{samples}_pretraining_cross_sample_a{alpha}_n{hidden_layers}_waterfall.pdf'
         )
     return result
