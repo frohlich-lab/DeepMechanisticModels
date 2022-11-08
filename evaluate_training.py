@@ -26,7 +26,8 @@ samples_test = test_samples(Wildcards(DATA, SAMPLES))
 
 outdir = fig_dir / MODEL / DATA
 indir = results_dir / MODEL / DATA
-train_dir = outdir / 'train'
+train_dir = outdir / 'full'
+
 train_dir.mkdir(exist_ok=True, parents=True)
 
 
@@ -62,8 +63,8 @@ def evaluate_training(dataset):
 
         evaluate_simulations(
             obj, x, samples, mae.petab_importer.petab_problem,
-            SAMPLES, dataset, l2reg, latent_dim, train_dir,
-            evaluations
+            SAMPLES, dataset, l2reg, latent_dim, outdir / 'simulation',
+            evaluations, 'full'
         )
 
     return pd.DataFrame(evaluations)

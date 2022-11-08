@@ -108,7 +108,7 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
-                         l2reg, latent_dim, outdir, evaluations):
+                         l2reg, latent_dim, outdir, evaluations, model_type):
 
     res = obj(x, mode=MODE_RES, return_dict=True)
 
@@ -118,7 +118,7 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
 
     for sample in samples:
         process_simulation(evaluations, res, conditions, sample,
-                           'cross_sample', l2reg, latent_dim)
+                           model_type, l2reg, latent_dim)
 
     if isinstance(obj, pypesto.objective.AggregatedObjective):
         amici_model = obj._objectives[0].amici_model
@@ -134,8 +134,8 @@ def evaluate_simulations(obj, x, samples, petab_problem, SAMPLES, dataset,
     plot_cross_samples(
         petab_problem.measurement_df,
         simulation_df,
-        outdir,
-        '__'.join([SAMPLES, str(latent_dim), str(l2reg), dataset])
+        outdir / dataset,
+        '__'.join([SAMPLES, str(latent_dim), str(l2reg), dataset, model_type])
     )
 
 

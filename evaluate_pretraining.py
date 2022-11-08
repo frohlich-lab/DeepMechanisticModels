@@ -90,8 +90,8 @@ def evaluate_pretraining_per_sample(dataset):
         )
         plot_single_sample(importer.petab_problem.measurement_df,
                            simulation_df,
-                           per_sample_dir,
-                           '')
+                           outdir / 'simulation' / dataset / sample,
+                           'per_sample')
     return pd.DataFrame(evaluations)
 
 
@@ -121,8 +121,8 @@ def evaluate_petraining_cross_sample(dataset):
 
         evaluate_simulations(
             obj, x, samples, mae.petab_importer.petab_problem, SAMPLES,
-            dataset, l2reg, latent_dim, cross_sample_dir,
-            evaluations
+            dataset, l2reg, latent_dim, outdir / 'simulation',
+            evaluations, 'cross_sample'
         )
 
     return pd.DataFrame(evaluations)
