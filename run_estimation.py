@@ -25,7 +25,7 @@ mae = MechanisticAutoEncoder(
     contextualization=CONTEXT, l2reg=ALPHA, n_threads=4
 )
 
-result = train(mae, SAMPLES, n_starts=1, seed=JOB)
+result = train(mae, SAMPLES, n_starts=1, seed=JOB, context=CONTEXT)
 outdir = results_dir / MODEL / DATA
 outfile = outdir / ESTIMATION_OUTFILE_TEMP.format(
     context=CONTEXT, samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB

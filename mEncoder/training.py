@@ -64,6 +64,7 @@ def create_pypesto_problem(
 
 def train(ae: MechanisticAutoEncoder,
           samplestr: str,
+          context: str,
           n_starts: int = 1,
           seed: int = 0) -> Result:
     """
@@ -104,6 +105,7 @@ def train(ae: MechanisticAutoEncoder,
             samples=samplestr,
             n_hidden=ae.n_hidden,
             alpha=ae.l2reg,
+            context=context,
             job=seed,
         ).replace('.hdf5', '.csv')
     pretraining = pd.read_csv(pretraining_file, index_col=0)
