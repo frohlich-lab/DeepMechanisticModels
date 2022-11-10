@@ -57,7 +57,7 @@ df.loc[df['type'] == 'full', 'type'] = 'end-to-end'
 g = sns.FacetGrid(data=df, row='dataset', col='latent dim')
 g.map_dataframe(
     sns.lineplot, x='l2 regularization', y='rmse', style='type',
-    color='context'
+    hue='context'
 )
 g.set(yscale='log', xscale='log')
 g.add_legend()
