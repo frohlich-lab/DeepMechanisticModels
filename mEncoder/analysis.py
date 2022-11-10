@@ -132,11 +132,8 @@ def evaluate_simulations(obj, x, samples, petab_problem, context, SAMPLES,
 
 
 def plot_loss_vs_regularization(df):
-    g = sns.FacetGrid(
-        data=df,
-        col='sample', hue='layers', palette='Blues', style='context',
-        col_wrap=5
-    )
-    g.map_dataframe(sns.lineplot, x='alpha', y='rmse')
+    g = sns.FacetGrid(data=df, col='sample', col_wrap=5)
+    g.map_dataframe(sns.lineplot, x='alpha', y='rmse', color='layers',
+                    palette='Blues', style='context')
     [ax.set(yscale='log', xscale='log') for ax in g.axes]
     plt.tight_layout()
