@@ -39,7 +39,7 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__conditions.tsv',
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
-    pathway_name=MODEL, samples=samples, l2reg=ALPHA,
+    pathway_name=MODEL, samples=samples, l1reg=ALPHA,
     contextualization=CONTEXT, n_threads=4
 )
 

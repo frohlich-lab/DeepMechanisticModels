@@ -49,7 +49,7 @@ def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
 
     mae_train = MechanisticAutoEncoder(
         latent_dim, datafiles, contextualization=context,
-        pathway_name=model, samples=samples_train, l2reg=l2reg
+        pathway_name=model, samples=samples_train, l1reg=l2reg
     )
 
     if dataset == 'train':
@@ -60,7 +60,7 @@ def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
     return MechanisticAutoEncoder(
         latent_dim, datafiles,
         pathway_name=model, contextualization=context, samples=samples_test,
-        l2reg=l2reg, features=mae_train.features, imputer=mae_train.imputer,
+        l1reg=l2reg, features=mae_train.features, imputer=mae_train.imputer,
         scaler=mae_train.scaler, pca=mae_train.pca
     )
 

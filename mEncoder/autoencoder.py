@@ -21,12 +21,12 @@ AFunction = aesara.compile.Function
 
 class MechanisticAutoEncoder(AutoEncoder):
     def __init__(self,
-                 n_hidden: int,
+                 n_latent: int,
                  datafiles: Tuple[Path, Path, Path],
                  pathway_name: str,
                  contextualization: str,
                  samples: Sequence[str],
-                 l2reg: float = 0.0,
+                 l1reg: float = 0.0,
                  features: Optional[Sequence[str]] = None,
                  imputer: Optional[KNNImputer] = None,
                  scaler: Optional[StandardScaler] = None,
@@ -42,10 +42,10 @@ class MechanisticAutoEncoder(AutoEncoder):
         :param pathway_name:
             name of pathway to use for model
 
-        :param n_hidden:
+        :param n_latent:
             number of nodes in the hidden layer of the encoder
 
-        :param l2reg:
+        :param l1reg:
             currently this parameter only influences the strength of l2
             regularization on the inflate layer (the respective gaussian
             prior has its standard deviation defined based on the value of
@@ -119,9 +119,9 @@ class MechanisticAutoEncoder(AutoEncoder):
         # subset samples
         input_data = input_data.loc[samples, :]
 
-        self.l2reg = l2reg
+        self.l1reg = l1reg
         self.petab_importer = load_petab(datafiles, 'pw_' + pathway_name,
-                                         l2reg, samples)
+                                         l1reg, samples)
 
         self.pypesto_subproblem = self.petab_importer.create_problem()
 
@@ -172,7 +172,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             n_pca = np.nonzero(np.cumsum(PCA(
                 n_components=input_data.shape[0]
             ).fit(input_data).explained_variance_ratio_) > 0.9)[0][0] + 1
-            pca = PCA(n_components=max(n_pca, n_hidden), whiten=True).fit(
+            pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(
                 input_data
             )
 
@@ -190,7 +190,7 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         self.sample_names = list(input_data.index)
         self.data_cols = [f'PC{i}' for i in range(self.data_pca.shape[1])]
-        super().__init__(input_data=self.data_pca, n_hidden=n_hidden,
+        super().__init__(input_data=self.data_pca, n_latent=n_latent,
                          n_params=self.n_model_inputs)
 
         apply_objective_settings(self.pypesto_subproblem, pathway_name)
@@ -222,10 +222,10 @@ class MechanisticAutoEncoder(AutoEncoder):
         # assemble embedding to model aesara op for pretraining
         self.x_embedding = aet.specify_shape(
             aet.vector('x_embedding'),
-            (self.n_kin_params + self.n_model_inputs * self.n_hidden,)
+            (self.n_kin_params + self.n_model_inputs * self.n_latent,)
         )
         inflated_pars = self.inflate_params_restricted(
-            self.data_pca[:, :self.n_hidden],
+            self.data_pca[:, :self.n_latent],
             self.x_embedding[:-self.n_kin_params]
         )
         self.embedding_model_pars = aet.concatenate([

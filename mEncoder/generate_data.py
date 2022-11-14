@@ -92,7 +92,7 @@ def generate_synthetic_data(pathway_name: str,
             break
 
     encoder = AutoEncoder(np.zeros((1, model.ny)),
-                          n_hidden=latent_dimension, n_params=len(sample_pars))
+                          n_latent=latent_dimension, n_params=len(sample_pars))
     tt_pars = np.random.random(encoder.n_encoder_pars)
     for ip, name in enumerate(encoder.x_names):
         lb, ub, _ = parameter_boundaries_scales[name.split('_')[-1]]

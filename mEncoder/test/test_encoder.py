@@ -20,7 +20,7 @@ def test_encoder():
     f = theano.function([a], fexpr)
     output = f(unk)
 
-    assert output.shape == (data.shape[0], enc.n_hidden)
+    assert output.shape == (data.shape[0], enc.n_latent)
 
 
 def test_init():
@@ -28,7 +28,7 @@ def test_init():
     Test that we can initialize W by SVD of the data.
     """
     data = np.random.rand(100, 10)
-    enc = AutoEncoder(data, n_hidden=3)
+    enc = AutoEncoder(data, n_latent=3)
 
     a = tt.dvector("tempVar")
     fexpr = tt.nlinalg.norm(enc.decode(enc.encode(a), a) - enc.data, ord=None)
@@ -47,7 +47,7 @@ def test_reg():
     Test that regularization works for a test problem.
     """
     data = np.random.rand(100, 10)
-    enc = AutoEncoder(data, n_hidden=3)
+    enc = AutoEncoder(data, n_latent=3)
 
     a = tt.dvector("tempVar")
     costf = enc.regularize(a, l2=0.01, ortho=0.0001)

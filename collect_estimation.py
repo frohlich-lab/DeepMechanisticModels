@@ -28,7 +28,7 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    l2reg=ALPHA, contextualization=CONTEXT
+    l1reg=ALPHA, contextualization=CONTEXT
 )
 
 problem = create_pypesto_problem(mae)

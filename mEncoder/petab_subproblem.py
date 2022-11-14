@@ -15,7 +15,7 @@ from pathlib import Path
 
 def load_petab(datafiles: Tuple[Path, Path, Path],
                pathway_name: str,
-               l2reg: float,
+               l1reg: float,
                samples: Sequence[str] = None) -> PetabImporterPysb:
     """
     Imports data from a csv and converts it to the petab format. This
@@ -29,7 +29,7 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
     :param pathway_name:
         name of pathway to use for model
 
-    :param l2reg:
+    :param l1reg:
         TBD
     """
     measurement_table = pd.read_csv(datafiles[0], index_col=0, sep='\t')
@@ -156,14 +156,14 @@ def load_petab(datafiles: Tuple[Path, Path, Path],
 
     # add l2 regularization to input parameters (only if estimating them)
     parameter_table[petab.OBJECTIVE_PRIOR_TYPE] = [
-        petab.PARAMETER_SCALE_NORMAL
-        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
+        petab.PARAMETER_SCALE_LAPLACE
+        if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0
         else np.NaN
         for name in parameter_table.index
     ]
     parameter_table[petab.OBJECTIVE_PRIOR_PARAMETERS] = [
-        f'0.0;{1/np.sqrt(2*l2reg)}'
-        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
+        f'0.0;{1/l1reg}'
+        if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0
         else np.NaN
         for name in parameter_table.index
     ]

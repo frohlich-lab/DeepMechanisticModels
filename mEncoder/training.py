@@ -103,8 +103,8 @@ def train(ae: MechanisticAutoEncoder,
     pretraining_file = basedir / 'pretraining' / ae.pathway_name / ae.data_name.split('__')[0] / \
         ESTIMATION_OUTFILE_TEMP.format(
             samples=samplestr,
-            n_hidden=ae.n_hidden,
-            alpha=ae.l2reg,
+            n_hidden=ae.n_latent,
+            alpha=ae.l1reg,
             context=context,
             job=seed,
         ).replace('.hdf5', '.csv')
@@ -112,8 +112,8 @@ def train(ae: MechanisticAutoEncoder,
 
     # use first couple of PCA components
     w = np.vstack((
-        np.eye(ae.n_hidden),
-        np.zeros((ae.n_features - ae.n_hidden, ae.n_hidden))
+        np.eye(ae.n_latent),
+        np.zeros((ae.n_features - ae.n_latent, ae.n_latent))
     )).flatten()
 
     if len(pretraining) == 0:

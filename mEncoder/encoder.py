@@ -17,7 +17,7 @@ class AutoEncoder:
     :param input_data:
         input data for the encoder
 
-    :param n_hidden:
+    :param n_latent:
         number of latent variables
 
     :param n_params:
@@ -26,18 +26,18 @@ class AutoEncoder:
 
     def __init__(self,
                  input_data: np.ndarray,
-                 n_hidden: int = 1,
+                 n_latent: int = 1,
                  n_params: int = 12):
         self.n_features = input_data.shape[1]
-        assert n_hidden < self.n_features
-        assert n_hidden <= n_params
+        assert n_latent < self.n_features
+        assert n_latent <= n_params
         assert input_data.ndim == 2
-        assert n_hidden < self.n_features
+        assert n_latent < self.n_features
         self.data = input_data
-        self.n_hidden = n_hidden
+        self.n_latent = n_latent
         self.n_params = n_params
-        self.n_encode_weights = self.n_features * self.n_hidden
-        self.n_inflate_weights = self.n_hidden * self.n_params
+        self.n_encode_weights = self.n_features * self.n_latent
+        self.n_inflate_weights = self.n_latent * self.n_params
         self.n_encoder_pars = self.n_encode_weights + \
             self.n_inflate_weights
 
@@ -66,32 +66,32 @@ class AutoEncoder:
             parametrization of full autoencoder
         """
         W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_features, self.n_hidden))
+                        (self.n_features, self.n_latent))
         return aet.dot(self.data, W)
 
     def getW(self, parameters):
         return aet.reshape(parameters[0:self.n_encode_weights],
-                           (self.n_features, self.n_hidden))
+                           (self.n_features, self.n_latent))
 
     def initialW(self):
         """ Calculate an initial encoder parameter set by PCA. """
         LD = np.linalg.svd(self.data)[2].T
         assert LD.shape[0] == self.n_features
-        return (LD[:, 0:self.n_hidden]).flatten()
+        return (LD[:, 0:self.n_latent]).flatten()
 
     def regularize(self, parameters, l2=0.0, ortho=0.0):
         """ Calculate regularization of encoder. """
         W = self.getW(parameters)
         return l2 * aet.nlinalg.norm(parameters, None) \
             + ortho * aet.nlinalg.norm(
-            aet.dot(W.T, W) - aet.eye(self.n_hidden), None
+            aet.dot(W.T, W) - aet.eye(self.n_latent), None
         )
 
     def inflate_params_restricted(self, embedding: np.ndarray,
                                   parameters: aet.vector):
         """ Inflate the input to parameters (partial parameter vector) """
         W_p = aet.reshape(
-            parameters, (self.n_hidden, self.n_params)
+            parameters, (self.n_latent, self.n_params)
         )
         return aet.dot(embedding, W_p)
 
@@ -124,7 +124,7 @@ class AutoEncoder:
             parametrization of full autoencoder
         """
         W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_features, self.n_hidden))
+                        (self.n_features, self.n_latent))
         return aet.dot(embedded_data, aet.nlinalg.pinv(W))
 
     def compile_embedded_pars(self) -> AFunction:

@@ -22,7 +22,7 @@ mae = MechanisticAutoEncoder(
         data_dir / f'{DATA}__{MODEL}__observables.tsv',
     ),
     pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    contextualization=CONTEXT, l2reg=ALPHA, n_threads=4
+    contextualization=CONTEXT, l1reg=ALPHA, n_threads=4
 )
 
 result = train(mae, SAMPLES, n_starts=1, seed=JOB, context=CONTEXT)
