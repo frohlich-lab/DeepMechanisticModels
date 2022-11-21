@@ -5,7 +5,6 @@ import itertools as itt
 import matplotlib.pyplot as plt
 import petab
 
-from petab import get_simulation_conditions
 from amici.petab_objective import rdatas_to_simulation_df
 from pypesto import Result
 from pypesto.visualize import waterfall

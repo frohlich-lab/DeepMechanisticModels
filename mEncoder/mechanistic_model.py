@@ -116,7 +116,7 @@ def add_monomer_synth_deg(m_name: str,
     if with_synth:
         kdeg = Parameter(f'{m_name}_degradation_kdeg')
         deg_rate = Expression(f'{m_name}_degradation_rate',
-                              kdeg * get_autoencoder_modulator(kdeg))
+                              kdeg)
         syn_rate = Expression(f'{m_name}_synthesis_rate',
                               t0 * deg_rate)
         Rule(f'synthesis_{m_name}', None >> syn_prod, syn_rate)
@@ -156,7 +156,7 @@ def add_monomer_synth_deg(m_name: str,
                     rates += [
                         Expression(
                             f'{m_name}_{label[1]}_{site}_base_rate',
-                            kr * get_autoencoder_modulator(kr) * rates[0]
+                            kr * rates[0]
                         )
                     ]
 
@@ -297,14 +297,14 @@ def add_activation(
         koff /= len(site.split('_'))
     else:
         koff = model.expressions[f'{m_name}_{reverse}_{site}_base_rate']
-    rate_expr = kr * koff * get_autoencoder_modulator(kr)
+    rate_expr = kr * koff
 
     num = 0.0
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         if len(activators) > 1:
             weight = Parameter(f'{m_name}_{forward}_{site}_{activator}_kw')
-            factor *= weight * get_autoencoder_modulator(weight)
+            factor *= weight
 
         num += factor
 
@@ -312,8 +312,7 @@ def add_activation(
     for deactivator in deactivators:
         weight = Parameter(
             f'{m_name}_deactivation_{site}_{deactivator}_kw')
-        denum += add_or_get_modulator_obs(model, deactivator) * weight * \
-            get_autoencoder_modulator(weight)
+        denum += add_or_get_modulator_obs(model, deactivator) * weight
 
     rate = rate_expr * num / denum
 
