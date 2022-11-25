@@ -152,9 +152,9 @@ if __name__ == '__main__':
 
     data_dir.mkdir(exist_ok=True, parents=True)
 
-    if DATA == 'synthetic':
-        N_HIDDEN = 2
-        N_SAMPLES = 20
+    if DATA.startswith('synthetic'):
+        N_HIDDEN = 4
+        N_SAMPLES = int(DATA.split('_')[1])
         generate_synthetic_data(MODEL, N_HIDDEN, N_SAMPLES)
 
     else:

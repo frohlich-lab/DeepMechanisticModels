@@ -328,7 +328,7 @@ def add_degradation(model: Model, targets):
         kr = Parameter(f'degradation_{target}_kr')
         deg_rate = model.expressions[f'{mono_name}_degradation_rate']
         rate = Expression(f'degradation_{target}_rate',
-                          kr * get_autoencoder_modulator(kr) * deg_rate)
+                          kr * deg_rate)
         Rule(f'degradation_{target}',
              model.monomers[mono_name](**site_conditions) >> None,
              rate)

@@ -1,3 +1,2 @@
 #!/usr/bin/env bash
-source ./venv/bin/activate
-snakemake visualize_estimation -j 2 --config num_starts=10
+docker run -t -a STDOUT -v $(pwd):/opt/project -e SYNAPSE_AUTH_TOKEN fabfroehlich/generic_parameter_estimation:main /bin/bash -c "cd opt/project;snakemake train_and_evaluate -j 2"

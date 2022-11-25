@@ -12,7 +12,7 @@ from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
 mencoder_dir = basedir / 'mEncoder'
 
-PATHWAYS = ['EGFR']
+PATHWAYS = ['EGFR_MAPK']
 DATASETS = ['dream_cytof']
 SPLITS = ['0_5',]
 

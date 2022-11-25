@@ -20,7 +20,8 @@ from pathlib import Path
 
 def generate_synthetic_data(pathway_name: str,
                             latent_dimension: int = 2,
-                            n_samples: int = 20) -> Tuple[Path, Path, Path]:
+                            n_samples: int = 20,
+                            n_features: int = 25) -> Tuple[Path, Path, Path]:
     """
     Generates sample data using the mechanistic model.
 
@@ -51,51 +52,64 @@ def generate_synthetic_data(pathway_name: str,
         for par_id in model.getParameterIds()
     ]))
 
-
     # run simulations to equilibrium
     model.setTimepoints([0, 2, 4, 8, 15, 30, 60])
 
     edata_base = amici.ExpData(model)
-
     edata_base.fixedParametersPreequilibration = edata_base.fixedParameters
+    fp = list(edata_base.fixedParameters)
+    fp[model.getFixedParameterIds().index('EGF_0')] = 1.0
+    edata_base.fixedParameters = fp
+    edata_base.reinitializeFixedParameterInitialStates = True
+
     edatas = [edata_base]
 
     for ipert, pert in enumerate(model.getFixedParameterIds()):
+        if pert == 'EGF_0':
+            continue
         edata = amici.ExpData(edata_base)
         tmp = list(edata.fixedParameters)
-        tmp[ipert] = 1
+        tmp[ipert] = 1.0
         edata.fixedParameters = tmp
+        tmp[model.getFixedParameterIds().index('EGF_0')] = 0.0
+        edata.fixedParametersPresimulation = tuple(tmp)
+        edata_base.t_presim = 15
         edatas.append(edata)
 
     # set numpy random seed to ensure reproducibility
     np.random.seed(0)
 
-    sample_pars = [par_id for par_id in model.getParameterIds()
-                   if par_id.startswith(MODEL_FEATURE_PREFIX)]
+    # set input parameters to zero to simulate the baseline
+    sample_par_names = [par_id for par_id in model.getParameterIds()
+                        if par_id.startswith(MODEL_FEATURE_PREFIX)]
 
-    for par_id in model.getParameterIds():
-        if par_id.startswith(MODEL_FEATURE_PREFIX):
-            model.setParameterById(par_id, 0.0)
+    for par_id in sample_par_names:
+        model.setParameterById(par_id, 0.0)
 
     # generate static parameters that are consistent across samples
     static_pars = dict()
 
     while True:
         for par_id in model.getParameterIds():
-            if par_id in sample_pars:
+            if par_id in sample_par_names:
                 continue
             lb, ub, _ = parameter_boundaries_scales[par_id.split('_')[-1]]
             static_pars[par_id] = np.random.random() * (ub - lb) + lb
-            model.setParameterById(par_id, 0.0)
+            model.setParameterById(par_id, static_pars[par_id])
         rdatas = amici.runAmiciSimulations(model, solver, [edata_base])
         if rdatas[0].status == amici.AMICI_SUCCESS:
             break
 
-    encoder = AutoEncoder(np.zeros((1, model.ny)),
-                          n_latent=latent_dimension, n_params=len(sample_pars))
+    encoder = AutoEncoder(np.random.random((n_samples, n_features)),
+                          n_latent=latent_dimension, n_params=len(sample_par_names))
+
+    # generate sparse encoder/decoder parameters
     tt_pars = np.random.random(encoder.n_encoder_pars)
     for ip, name in enumerate(encoder.x_names):
         lb, ub, _ = parameter_boundaries_scales[name.split('_')[-1]]
+        lb /= 10
+        ub /= 10
+        # sparsity
         if np.random.binomial(1, 0.3):
             tt_pars[ip] = 0
         else:
@@ -104,18 +118,21 @@ def generate_synthetic_data(pathway_name: str,
     samples = []
     embeddings = []
     while len(samples) < n_samples:
-        # generate new fake data
-        encoder.data = np.random.random(encoder.data.shape) / 10
+        # generate new fake data for sample
+        sample_data = np.random.random(encoder.data[len(samples), :].shape)
 
+        # bias input data to generate bimodal population
         if len(samples) < n_samples / 2:
-            encoder.data += 0.2
+            sample_data += 0.2
         else:
-            encoder.data -= 0.2
+            sample_data -= 0.2
+
+        encoder.data[len(samples), :] = sample_data
 
         # generate parameters from fake data
-        embedding = encoder.compute_embedded_pars(tt_pars)
-        sample_par_vals = encoder.compute_inflated_pars(tt_pars)
-        sample_pars = dict(zip(sample_pars, sample_par_vals[0, :]))
+        embedding = encoder.compute_embedded_pars(tt_pars)[len(samples), :]
+        sample_par_vals = encoder.compute_inflated_pars(tt_pars)[len(samples), :]
+        sample_pars = dict(zip(sample_par_names, sample_par_vals))
 
         # set parameters in model
         for par_id, val in {**static_pars, **sample_pars}.items():

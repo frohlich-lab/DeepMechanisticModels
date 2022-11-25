@@ -48,7 +48,7 @@ def load_model(pathway_name: str,
 
     if force_compile or \
             not (outdir / model.name / (model.name + '.py')).exists():
-        outdir.makedir(exist_ok=True, parents=True)
+        outdir.mkdir(exist_ok=True, parents=True)
         amici.pysb_import.pysb2amici(model,
                                      outdir,
                                      verbose=logging.DEBUG,

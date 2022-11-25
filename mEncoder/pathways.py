@@ -4,7 +4,10 @@ from .mechanistic_model import (
 )
 from pysb import Observable
 
-active_rtks = ['EGFR__Y1173_p', 'ERBB2__Y1248_p']
+active_rtks = [
+    'EGFR__Y1173_p',
+    # 'ERBB2__Y1248_p'
+]
 #active_erk = ['MAPK1__T185_p__Y187_p', 'MAPK3__T202_p__Y204_p']
 active_erk = ['ERK__Y204_p']
 active_akt = ['AKT1__T308_p', 'AKT2__T309_p', 'AKT3__T305_p']
@@ -19,10 +22,13 @@ def add_EGFR(model):
 
     erbb_cascade = [
         ('EGFR', {'Y1173': ['EGF']}),
-        ('ERBB2', {'Y1248': ['EGFR__Y1173_p']}),
+        # ('ERBB2', {'Y1248': ['EGFR__Y1173_p']}),
     ]
     generate_pathway(model, erbb_cascade,
-                     species_with_synth=['EGFR', 'ERBB2'],
+                     species_with_synth=[
+                         'EGFR',
+                         #'ERBB2'
+                     ],
                      add_baseline_activation='all')
     add_degradation(model, active_rtks)
 
@@ -40,7 +46,7 @@ def add_MAPK(model):
     mapk_cascade = [
         ('MEK', {'S222': (active_rtks, active_erk)}),
         ('ERK', {'Y204': ['MEK__S222_p']}),
-        ('RPS6KA1', {'S380': active_erk})  # p90RSK
+        # ('RPS6KA1', {'S380': active_erk})  # p90RSK
     ]
     generate_pathway(model, mapk_cascade,
                      add_baseline_activation='first')
@@ -52,8 +58,8 @@ def add_MAPK(model):
     # Observable('pMEK_S221',
     #            model.monomers['MAP2K1'](S222='p') +
     #            model.monomers['MAP2K2'](S226='p'))
-    Observable('pERK_T202_Y204',
-               model.monomers['ERK'](Y204='p'))
+    # Observable('pERK_T202_Y204',
+    #            model.monomers['ERK'](Y204='p'))
 
 
 def add_MTOR_AKT(model):
@@ -140,7 +146,7 @@ def add_S6(model):
 
 def add_inhibitors(model):
     add_inhibitor(model, 'iMEK', ['MEK'])
-    add_inhibitor(model, 'iEGFR', ['EGFR'])
+    add_inhibitor(model, 'iEGFR', ['EGF'])
     add_inhibitor(model, 'iPI3K', ['PIK3CA'])
     add_inhibitor(model, 'iPKC', ['PKC'])
 
