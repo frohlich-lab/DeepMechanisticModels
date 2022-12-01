@@ -42,14 +42,14 @@ samples = {
 
 def evaluate_training(dataset):
     evaluations = []
-    for l2reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+    for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
         mae = load_mae(
-            dataset, DATA, MODEL, context, SAMPLES, latent_dim, l2reg
+            dataset, DATA, MODEL, context, SAMPLES, latent_dim, l1reg
         )
         problem = create_pypesto_problem(mae)
 
         infile = indir / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-            samples=SAMPLES, n_hidden=latent_dim, alpha=l2reg, context=context
+            samples=SAMPLES, n_hidden=latent_dim, alpha=l1reg, context=context
         )
 
         reader = OptimizationResultHDF5Reader(infile)
@@ -62,7 +62,7 @@ def evaluate_training(dataset):
 
         evaluate_simulations(
             obj, x, samples[dataset], mae.petab_importer.petab_problem,
-            context, SAMPLES, dataset, l2reg, latent_dim,
+            context, SAMPLES, dataset, l1reg, latent_dim,
             outdir / 'simulation', evaluations, 'full'
         )
 

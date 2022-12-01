@@ -38,7 +38,7 @@ def process_simulation(evaluations, measurement_df, simulation_df,
     })
 
 
-def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
+def load_mae(dataset, data, model, context, samples, latent_dim, l1reg):
     samples_train = training_samples(Wildcards(data, samples))
 
     datafiles = (
@@ -49,7 +49,7 @@ def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
 
     mae_train = MechanisticAutoEncoder(
         latent_dim, datafiles, contextualization=context,
-        pathway_name=model, samples=samples_train, l1reg=l2reg
+        pathway_name=model, samples=samples_train, l1reg=l1reg
     )
 
     if dataset == 'train':
@@ -60,7 +60,7 @@ def load_mae(dataset, data, model, context, samples, latent_dim, l2reg):
     return MechanisticAutoEncoder(
         latent_dim, datafiles,
         pathway_name=model, contextualization=context, samples=samples_test,
-        l1reg=l2reg, features=mae_train.features, imputer=mae_train.imputer,
+        l1reg=l1reg, features=mae_train.features, imputer=mae_train.imputer,
         scaler=mae_train.scaler, pca=mae_train.pca
     )
 
@@ -99,7 +99,7 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def evaluate_simulations(obj, x, samples, petab_problem, context, SAMPLES,
-                         dataset, l2reg, latent_dim, outdir, evaluations,
+                         dataset, l1reg, latent_dim, outdir, evaluations,
                          model_type):
 
     res = obj(x, mode=MODE_RES, return_dict=True)
@@ -118,7 +118,7 @@ def evaluate_simulations(obj, x, samples, petab_problem, context, SAMPLES,
     for sample in samples:
         process_simulation(
             evaluations, petab_problem.measurement_df,
-            simulation_df, context, sample, model_type, l2reg, latent_dim
+            simulation_df, context, sample, model_type, l1reg, latent_dim
         )
 
     plot_cross_samples(
@@ -126,7 +126,7 @@ def evaluate_simulations(obj, x, samples, petab_problem, context, SAMPLES,
         simulation_df,
         outdir / dataset,
         '__'.join([
-            SAMPLES, context, str(latent_dim), str(l2reg), dataset, model_type
+            SAMPLES, context, str(latent_dim), str(l1reg), dataset, model_type
         ])
     )
 

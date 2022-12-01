@@ -91,12 +91,12 @@ def evaluate_pretraining_per_sample(dataset):
 
 def evaluate_petraining_cross_sample(dataset):
     evaluations = []
-    for l2reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
-        mae = load_mae(dataset, DATA, MODEL, context, SAMPLES, latent_dim, l2reg)
+    for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+        mae = load_mae(dataset, DATA, MODEL, context, SAMPLES, latent_dim, l1reg)
 
         problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
         result = load_optimize_result_pretraining_cross_samples(
-            MODEL, DATA, context, SAMPLES, latent_dim, l2reg
+            MODEL, DATA, context, SAMPLES, latent_dim, l1reg
         )
 
         r = Result()
@@ -106,7 +106,7 @@ def evaluate_petraining_cross_sample(dataset):
         plt.tight_layout()
         plt.savefig(
             cross_sample_dir /
-            f'{SAMPLES}_a{l2reg}_n{latent_dim}_waterfall.pdf'
+            f'{SAMPLES}_a{l1reg}_n{latent_dim}_waterfall.pdf'
         )
 
         x = problem_cross_sample.objective.infun(result.list[0]['x'])
@@ -115,7 +115,7 @@ def evaluate_petraining_cross_sample(dataset):
 
         evaluate_simulations(
             obj, x, samples[dataset], mae.petab_importer.petab_problem,
-            context, SAMPLES, dataset, l2reg, latent_dim,
+            context, SAMPLES, dataset, l1reg, latent_dim,
             outdir / 'simulation', evaluations, 'cross_sample'
         )
 

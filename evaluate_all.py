@@ -48,7 +48,7 @@ for dataset in ['train', 'test']:
 
 df = pd.concat(dfs).reset_index()
 df.rename(columns={
-    'alpha': 'l2 regularization',
+    'alpha': 'l1 regularization',
     'layers': 'latent dim'
 }, inplace=True)
 df.loc[df['type'] == 'cross_sample', 'type'] = 'pca embedding'
@@ -56,7 +56,7 @@ df.loc[df['type'] == 'full', 'type'] = 'end-to-end'
 
 g = sns.FacetGrid(data=df, row='dataset', col='latent dim')
 g.map_dataframe(
-    sns.lineplot, x='l2 regularization', y='rmse', style='type',
+    sns.lineplot, x='l1 regularization', y='rmse', style='type',
     hue='context'
 )
 g.set(yscale='log', xscale='log')
