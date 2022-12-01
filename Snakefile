@@ -174,8 +174,8 @@ rule evaluate_pretraining:
         data='[\w_]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
-        '{wildcards.samples}'
+        'pip install pytz --upgrade; pip install tzdata --upgrade; '
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 rule evaluate_training:
     input:
@@ -201,8 +201,8 @@ rule evaluate_training:
         data='[\w_]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
-        '{wildcards.samples}'
+        'pip install pytz --upgrade; pip install tzdata --upgrade; '
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 rule evaluate_all:
     input:
