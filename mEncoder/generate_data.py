@@ -156,27 +156,27 @@ def generate_synthetic_data(pathway_name: str,
 
     df = pd.concat(samples)
     df.loc[(df.time == 0) &
-           (df[list(model.getFixedParameterIds())] == 0).all(axis=1),
+           (df.loc[:, [x for x in list(model.getFixedParameterIds()) if x != 'EGF_0']] == 0).all(axis=1),
            list(model.getObservableIds())].rename(columns={
                o: o.replace('_obs', '') for o in model.getObservableIds()
            }).boxplot(rot=90)
-    plot_and_save_fig(datadir / f'synthetic__{pathway_name}.pdf')
+    plot_and_save_fig(f'synthetic__{pathway_name}.pdf', datadir)
 
     fig, ax = plt.subplots(1, 1)
     plot_embedding(np.vstack(embeddings), ax)
 
-    plot_and_save_fig(datadir / f'synthetic__{pathway_name}__embedding.pdf')
+    plot_and_save_fig(f'synthetic__{pathway_name}__embedding.pdf', datadir)
 
     inputs = df.loc[
         (df.time == 0) &
-        (df[list(model.getFixedParameterIds())] == 0).all(axis=1),
+        (df.loc[:, [x for x in list(model.getFixedParameterIds()) if x != 'EGF_0']] == 0).all(axis=1),
         [col for col in df.columns if col.startswith(MODEL_FEATURE_PREFIX)]
     ]
 
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(datadir / f'synthetic__{pathway_name}__input_pca.pdf')
+    plot_and_save_fig(f'synthetic__{pathway_name}__input_pca.pdf', datadir)
 
     inputs = df[[col for col in df.columns
                  if col.startswith(MODEL_FEATURE_PREFIX) or col == 'Sample']]
@@ -190,7 +190,7 @@ def generate_synthetic_data(pathway_name: str,
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0],
                     axes[1])
-    plot_and_save_fig(datadir, f'synthetic__{pathway_name}__data_pca.pdf')
+    plot_and_save_fig(f'synthetic__{pathway_name}__data_pca.pdf', datadir)
 
     # create petab & save to csv
     # MEASUREMENTS
@@ -300,7 +300,7 @@ def plot_embedding(embedding: np.ndarray, ax: plt.Axes):
 
 def plot_pca_inputs(x: np.ndarray, embed_ax: plt.Axes,
                     vexpl_ax: plt.Axes = None):
-    pca = decomposition.PCA(n_components=10)
+    pca = decomposition.PCA(n_components=min(x.shape[1], 10))
     pca.fit(x)
     x_pca = pca.transform(x)
 
