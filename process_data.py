@@ -30,7 +30,8 @@ SAMPLES = {
         'cMDAMB415', 'cMDAMB453', 'cMDAkb2', 'cMFM223', 'cMPE600', 'cMX1',
         'cOCUBM', 'cT47D', 'cUACC812', 'cUACC893', 'cZR7530'
     ],
-    'synthetic': [f'sample_{isample}' for isample in range(20)],
+    'synthetic_45': [f'sample_{isample}' for isample in range(45)],
+    'synthetic_90': [f'sample_{isample}' for isample in range(90)],
 }
 
 Wildcards = namedtuple('Wildcards', ['data', 'samples'])
