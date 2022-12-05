@@ -285,7 +285,7 @@ def generate_synthetic_data(pathway_name: str,
     observables[petab.NOISE_DISTRIBUTION] = petab.NORMAL
     observables[petab.NOISE_FORMULA] = '1.0'
 
-    observable_file = datadir / f'synthetic__{pathway_name}__observables.tsv'
+    observable_file = datadir / f'synthetic_{n_samples}__{pathway_name}__observables.tsv'
     observables.set_index(petab.OBSERVABLE_ID, inplace=True)
     observables.to_csv(observable_file, sep='\t')
 
