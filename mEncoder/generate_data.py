@@ -21,7 +21,7 @@ from pathlib import Path
 def generate_synthetic_data(pathway_name: str,
                             latent_dimension: int = 2,
                             n_samples: int = 20,
-                            n_features: int = 25) -> Tuple[Path, Path, Path]:
+                            n_features: int = 25) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates sample data using the mechanistic model.
 
@@ -202,16 +202,17 @@ def generate_synthetic_data(pathway_name: str,
                            var_name=petab.OBSERVABLE_ID)
 
     measurements = measurements[
-        measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('p'))
-        | (
-            measurements[petab.OBSERVABLE_ID].apply(
-                lambda x: x.startswith('t')
-            ) & (measurements[[petab.TIME] +
-                              list(model.getFixedParameterIds())] == 0
-                 ).all(axis=1)
+        # phospho or
+        measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('p')) | (
+            # total
+            measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('t')
+        ) & (
+            # and baseline
+            measurements[[petab.TIME] + list(model.getFixedParameterIds())] == 0).all(axis=1)
         )
     ]
 
+    # filter that only non-baseline conditions have dynamic measurements
     measurements = measurements[
         measurements.apply(
             lambda m: (m[list(model.getFixedParameterIds())] != 0).any() |
@@ -219,6 +220,11 @@ def generate_synthetic_data(pathway_name: str,
             axis=1
         )
     ]
+
+    # fix observable names so they are properly recognized in downstream processing
+    measurements[petab.OBSERVABLE_ID] = measurements[petab.OBSERVABLE_ID].apply(
+        lambda x: x.replace('_obs', '')
+    )
 
     measurements[petab.SIMULATION_CONDITION_ID] = \
         measurements.apply(
@@ -244,18 +250,18 @@ def generate_synthetic_data(pathway_name: str,
             lambda x: f'{x}_scale;{x}_offset'
         )
 
-    measurement_file = datadir / f'synthetic__{pathway_name}__measurements.tsv'
+    measurements[petab.NOISE_PARAMETERS] = '1.0'
 
     # CONDITIONS
-    condition_file = datadir / f'synthetic__{pathway_name}__conditions.tsv'
     conditions = pd.DataFrame({
         petab.CONDITION_ID:
-            measurements[petab.SIMULATION_CONDITION_ID].unique()
+            list(measurements[petab.SIMULATION_CONDITION_ID].unique()) +
+            list(measurements[petab.PREEQUILIBRATION_CONDITION_ID].unique()),
     })
     for fp in model.getFixedParameterIds():
         conditions[fp] = conditions[petab.CONDITION_ID].apply(
             lambda x: float(next(
-                (cond for cond in x.split('___')
+                (cond for cond in x.split('___')[1:]
                  if cond.startswith(fp)),
                 f'{fp}__0.0'
             ).split('__')[1].replace('_', '.'))
@@ -263,33 +269,13 @@ def generate_synthetic_data(pathway_name: str,
     conditions[petab.CONDITION_ID] = conditions[petab.CONDITION_ID].apply(
         lambda x: x.replace('__', '_')
     )
-    conditions.set_index(petab.CONDITION_ID, inplace=True)
-    conditions.to_csv(condition_file, sep='\t')
     for col in [petab.SIMULATION_CONDITION_ID,
                 petab.PREEQUILIBRATION_CONDITION_ID]:
         measurements[col] = measurements[col].apply(
             lambda x: x.replace('__', '_')
         )
-    measurements.to_csv(measurement_file, sep='\t')
 
-    # OBSERVABLES
-    observables = pd.DataFrame([{
-        petab.OBSERVABLE_ID: obs_id,
-        petab.OBSERVABLE_NAME: obs_name,
-        petab.OBSERVABLE_FORMULA:
-            f'log({"_".join(obs_id.split("_")[:-1])} * '
-            f'observableParameter1_{obs_id} + '
-            f'observableParameter2_{obs_id})',
-    } for obs_id, obs_name in zip(model.getObservableIds(),
-                                  model.getObservableNames())])
-    observables[petab.NOISE_DISTRIBUTION] = petab.NORMAL
-    observables[petab.NOISE_FORMULA] = '1.0'
-
-    observable_file = datadir / f'synthetic_{n_samples}__{pathway_name}__observables.tsv'
-    observables.set_index(petab.OBSERVABLE_ID, inplace=True)
-    observables.to_csv(observable_file, sep='\t')
-
-    return measurement_file, condition_file, observable_file
+    return conditions, measurements
 
 
 def plot_embedding(embedding: np.ndarray, ax: plt.Axes):
