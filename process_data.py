@@ -269,14 +269,11 @@ if __name__ == '__main__':
         }, inplace=True)
 
         measurement_table_phospho[petab.PREEQUILIBRATION_CONDITION_ID] = \
-            measurement_table_phospho[
-                petab.PREEQUILIBRATION_CONDITION_ID
-            ].apply(lambda x: f'c{x}')
+            measurement_table_phospho[petab.PREEQUILIBRATION_CONDITION_ID].apply(lambda x: f'c{x}')
 
         measurement_table_phospho[petab.SIMULATION_CONDITION_ID] = \
             measurement_table_phospho.apply(
-                lambda x: f'{x[petab.PREEQUILIBRATION_CONDITION_ID]}__'
-                          f'{x.treatment}', axis=1
+                lambda x: f'{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}', axis=1
             )
         measurement_table_phospho.drop(columns=['treatment', 'fileID'],
                                        inplace=True)
@@ -286,8 +283,7 @@ if __name__ == '__main__':
         df_proteomics[petab.OBSERVABLE_ID] = df_proteomics.index
 
         df_proteomics = df_proteomics[
-            df_proteomics[petab.OBSERVABLE_ID].apply(lambda x:
-                                                     ';' not in x)
+            df_proteomics[petab.OBSERVABLE_ID].apply(lambda x: ';' not in x)
         ]
 
         measurement_table_proteomics = pd.melt(
@@ -402,7 +398,7 @@ if __name__ == '__main__':
     elif DATA.startswith('synthetic'):
         N_HIDDEN = 4
         N_SAMPLES = int(DATA.split('_')[1])
-        condition_table, measurement_table = generate_synthetic_data(MODEL, N_HIDDEN, N_SAMPLES)
+        condition_table, measurement_table = generate_synthetic_data(DATA, MODEL, N_HIDDEN, N_SAMPLES)
 
         observable_mode = 'synthetic'
 
@@ -419,8 +415,7 @@ if __name__ == '__main__':
     observable_ids = [
         obs_id for obs_id in
         measurement_table.loc[:, petab.OBSERVABLE_ID].unique()
-        if observable_id_to_model_expr(obs_id, observable_mode,
-                                       model) != ''
+        if observable_id_to_model_expr(obs_id, observable_mode, model) != ''
     ]
     observable_table = pd.DataFrame({
         petab.OBSERVABLE_NAME: observable_ids,

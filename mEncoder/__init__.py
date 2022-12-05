@@ -31,11 +31,11 @@ def load_pathway(pathway_name: str) -> pysb.Model:
 
 def load_model(pathway_name: str,
                force_compile: bool = True,
-               add_observables: bool = False) -> Tuple[amici.AmiciModel,
-                                                       amici.AmiciSolver]:
+               add_observables: bool = False,
+               name_suffix: str = '') -> Tuple[amici.AmiciModel, amici.AmiciSolver]:
 
     model = load_pathway(pathway_name)
-    outdir = basedir / 'amici_models' / model.name
+    outdir = basedir / 'amici_models' / (model.name + name_suffix)
 
     # extend observables
     if add_observables:

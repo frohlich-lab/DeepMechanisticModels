@@ -18,7 +18,8 @@ from typing import Tuple
 from pathlib import Path
 
 
-def generate_synthetic_data(pathway_name: str,
+def generate_synthetic_data(data_name: str,
+                            pathway_name: str,
                             latent_dimension: int = 2,
                             n_samples: int = 20,
                             n_features: int = 25) -> Tuple[pd.DataFrame, pd.DataFrame]:
@@ -39,7 +40,7 @@ def generate_synthetic_data(pathway_name: str,
         path to csv where generated data was saved
     """
     model, solver = load_model('pw_' + pathway_name, force_compile=True,
-                               add_observables=True)
+                               add_observables=True, name_suffix=f'_{data_name}')
 
     solver.setAbsoluteTolerance(1e-12)
     solver.setRelativeTolerance(1e-12)
@@ -160,12 +161,12 @@ def generate_synthetic_data(pathway_name: str,
            list(model.getObservableIds())].rename(columns={
                o: o.replace('_obs', '') for o in model.getObservableIds()
            }).boxplot(rot=90)
-    plot_and_save_fig(f'synthetic__{pathway_name}.pdf', datadir)
+    plot_and_save_fig(f'{data_name}__{pathway_name}.pdf', datadir)
 
     fig, ax = plt.subplots(1, 1)
     plot_embedding(np.vstack(embeddings), ax)
 
-    plot_and_save_fig(f'synthetic__{pathway_name}__embedding.pdf', datadir)
+    plot_and_save_fig(f'{data_name}__{pathway_name}__embedding.pdf', datadir)
 
     inputs = df.loc[
         (df.time == 0) &
@@ -176,7 +177,7 @@ def generate_synthetic_data(pathway_name: str,
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(f'synthetic__{pathway_name}__input_pca.pdf', datadir)
+    plot_and_save_fig(f'{data_name}__{pathway_name}__input_pca.pdf', datadir)
 
     inputs = df[[col for col in df.columns
                  if col.startswith(MODEL_FEATURE_PREFIX) or col == 'Sample']]
@@ -185,12 +186,12 @@ def generate_synthetic_data(pathway_name: str,
     inputs.index = inputs['variable'] + \
         inputs['Sample'].apply(lambda x: f'_sample_{x}')
     ref = pd.concat([pd.Series(static_pars), inputs.value])
-    ref.to_csv(datadir / f'synthetic__{pathway_name}__reference_inputs.csv')
+    ref.to_csv(datadir / f'{data_name}__{pathway_name}__reference_inputs.csv')
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0],
                     axes[1])
-    plot_and_save_fig(f'synthetic__{pathway_name}__data_pca.pdf', datadir)
+    plot_and_save_fig(f'{data_name}__{pathway_name}__data_pca.pdf', datadir)
 
     # create petab & save to csv
     # MEASUREMENTS
