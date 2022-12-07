@@ -15,14 +15,13 @@ import amici
 import petab
 
 from typing import Tuple
-from pathlib import Path
 
 
 def generate_synthetic_data(data_name: str,
                             pathway_name: str,
                             latent_dimension: int = 2,
-                            n_samples: int = 20,
-                            n_features: int = 25) -> Tuple[pd.DataFrame, pd.DataFrame]:
+                            n_samples: int = 45,
+                            n_features: int = 100) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates sample data using the mechanistic model.
 
@@ -74,7 +73,7 @@ def generate_synthetic_data(data_name: str,
         edata.fixedParameters = tmp
         tmp[model.getFixedParameterIds().index('EGF_0')] = 0.0
         edata.fixedParametersPresimulation = tuple(tmp)
-        edata_base.t_presim = 15
+        edata.t_presim = 15
         edatas.append(edata)
 
     # set numpy random seed to ensure reproducibility
@@ -96,7 +95,12 @@ def generate_synthetic_data(data_name: str,
                 continue
             lb, ub, _ = parameter_boundaries_scales[par_id.split('_')[-1]]
             static_pars[par_id] = np.random.random() * (ub - lb) + lb
+            if par_id == 'MEK_phosphorylation_S222_base_kr':
+                static_pars[par_id] -= 5.0
+            if par_id == 'iMEK_MEK_kd':
+                static_pars[par_id] -= 5.0
             model.setParameterById(par_id, static_pars[par_id])
+
         rdatas = amici.runAmiciSimulations(model, solver, [edata_base])
         if rdatas[0].status == amici.AMICI_SUCCESS:
             break
@@ -120,13 +124,13 @@ def generate_synthetic_data(data_name: str,
     embeddings = []
     while len(samples) < n_samples:
         # generate new fake data for sample
-        sample_data = np.random.random(encoder.data[len(samples), :].shape)
+        sample_data = np.random.random(encoder.data[len(samples), :].shape) / 10
 
         # bias input data to generate bimodal population
         if len(samples) < n_samples / 2:
-            sample_data += 0.2
+            sample_data += 0.5 / n_features
         else:
-            sample_data -= 0.2
+            sample_data -= 0.5 / n_features
 
         encoder.data[len(samples), :] = sample_data
 

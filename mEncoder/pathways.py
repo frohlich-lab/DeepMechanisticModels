@@ -29,7 +29,7 @@ def add_EGFR(model):
                          'EGFR',
                          #'ERBB2'
                      ],
-                     add_baseline_activation='all')
+                     add_baseline_activation='none')
     add_degradation(model, active_rtks)
 
 
@@ -145,7 +145,7 @@ def add_S6(model):
 
 
 def add_inhibitors(model):
-    add_inhibitor(model, 'iMEK', ['MEK'])
+    add_inhibitor(model, 'iMEK', ['pMEK_S222'])
     add_inhibitor(model, 'iEGFR', ['EGF'])
     add_inhibitor(model, 'iPI3K', ['PIK3CA'])
     add_inhibitor(model, 'iPKC', ['PKC'])

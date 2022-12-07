@@ -361,21 +361,32 @@ def add_observables(model: Model):
 def add_inhibitor(model: Model, name: str, targets: List[str]):
     inh = Parameter(f'{name}_0', 0.0)
 
-    affinities = {}
+    free_target = {}
     for target in targets:
-        if target not in model.monomers.keys():
+        if target in model.observables.keys():
+            target_obs = model.observables[target]
+        elif target in model.monomers.keys():
+            target_obs = Observable(f'target_{target}', model.monomers[target])
+        else:
             continue
         kd = Parameter(f'{name}_{target}_kd', 0.0)
         kmod = get_autoencoder_modulator(kd)
 
-        affinities[target] = Expression(
-            f'inh_{target}',
-            Observable(f'target_{target}', model.monomers[target])
-            / (kd * kmod),
+        # [A]*[I] = kD*[A:I]
+        # [A]_0 = [A] + [A:I]
+        # [A] = [A]_0 - [A:I]
+        # [A] = [A]_0 - [A]*[I]/kD
+        # [A](1 + [I]/kD) = [A]_0
+        # [A] = [A]_0/(1 + [I]/kD)
+        # free A: [A] = [A]_0 / (1 + kD*[I])
+
+        free_target[target] = Expression(
+            f'free_{target}',
+            target_obs / (1 + inh / (kd * kmod) ),
             _export=False
         )
 
-    if not affinities:
+    if not free_target:
         return
 
     for expr in model.expressions:
@@ -397,10 +408,9 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
         ), (None, None))
         if target is None:
             continue
-        expr.expr = expr.expr.subs(observable,
-                                   observable/(1 + inh * affinities[target]))
+        expr.expr = expr.expr.subs(observable, free_target[target])
 
-    model.expressions = pysb.ComponentSet(list(affinities.values()) +
+    model.expressions = pysb.ComponentSet(list(free_target.values()) +
                                           list(model.expressions))
 
 
