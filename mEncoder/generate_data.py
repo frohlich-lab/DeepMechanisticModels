@@ -152,6 +152,8 @@ def generate_synthetic_data(data_name: str,
             sample['Sample'] = len(samples)
             for pid, val in sample_pars.items():
                 sample[pid] = val
+            for ifeature, value in enumerate(sample_data):
+                sample[f'feature{ifeature}'] = value
             samples.append(sample)
             embeddings.append(embedding)
 
@@ -199,21 +201,35 @@ def generate_synthetic_data(data_name: str,
 
     # create petab & save to csv
     # MEASUREMENTS
+    features = [x for x in df.columns if x.startswith('feature')]
     measurements = df[['Sample', petab.TIME, ] +
-                      list(model.getObservableIds()) + list(model.getFixedParameterIds())]
+                      list(model.getObservableIds()) + list(model.getFixedParameterIds()) + features]
     measurements = pd.melt(measurements,
                            id_vars=[petab.TIME, 'Sample'] + list(model.getFixedParameterIds()),
                            value_name=petab.MEASUREMENT,
                            var_name=petab.OBSERVABLE_ID)
 
+    measurements.loc[
+        measurements[petab.OBSERVABLE_ID].apply(lambda x: x in features),
+        'EGF_0'
+    ] = 0
+
     measurements = measurements[
-        # phospho or
+        # phospho
         measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('p')) | (
-            # total
-            measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('t')
-        ) & (
-            # and baseline
-            measurements[[petab.TIME] + list(model.getFixedParameterIds())] == 0).all(axis=1)
+            # or total
+            measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith('t'))
+            & (
+                # and baseline
+                measurements[[petab.TIME] + list(model.getFixedParameterIds())] == 0
+            ).all(axis=1)
+        ) | (
+            # or feature
+            measurements[petab.OBSERVABLE_ID].apply(lambda x: x in features)
+            & (
+                # and baseline
+                measurements[[petab.TIME] + list(model.getFixedParameterIds())] == 0
+            ).all(axis=1)
         )
     ]
 
