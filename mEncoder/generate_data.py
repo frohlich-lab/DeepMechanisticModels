@@ -276,8 +276,9 @@ def generate_synthetic_data(data_name: str,
     # CONDITIONS
     conditions = pd.DataFrame({
         petab.CONDITION_ID:
-            list(measurements[petab.SIMULATION_CONDITION_ID].unique()) +
-            list(measurements[petab.PREEQUILIBRATION_CONDITION_ID].unique()),
+            sorted(set(measurements[petab.SIMULATION_CONDITION_ID].unique()).union(
+                set(measurements[petab.PREEQUILIBRATION_CONDITION_ID].unique())
+            )),
     })
     for fp in model.getFixedParameterIds():
         conditions[fp] = conditions[petab.CONDITION_ID].apply(
