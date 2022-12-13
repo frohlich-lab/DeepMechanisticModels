@@ -124,13 +124,13 @@ def generate_synthetic_data(data_name: str,
     embeddings = []
     while len(samples) < n_samples:
         # generate new fake data for sample
-        sample_data = np.random.random(encoder.data[len(samples), :].shape) / 10
+        sample_data = np.random.random(encoder.data[len(samples), :].shape) / 3
 
         # bias input data to generate bimodal population
         if len(samples) < n_samples / 2:
-            sample_data += 0.5 / n_features
+            sample_data += 1.0 / n_features
         else:
-            sample_data -= 0.5 / n_features
+            sample_data -= 1.0 / n_features
 
         encoder.data[len(samples), :] = sample_data
 
@@ -242,7 +242,8 @@ def generate_synthetic_data(data_name: str,
         )
     ]
 
-    # fix observable names so they are properly recognized in downstream processing
+    # fix observable names so they are properly recognized in downstream
+    # processing
     measurements[petab.OBSERVABLE_ID] = measurements[petab.OBSERVABLE_ID].apply(
         lambda x: x.replace('_obs', '')
     )
@@ -251,10 +252,10 @@ def generate_synthetic_data(data_name: str,
         measurements.apply(
             lambda x: f'sample_{x["Sample"]}' + ''.join(
                 [
-                    f'___{fp}__{x[fp]}'.replace('.', '_') if x[fp] > 0 else ''
+                    f'__{fp.replace("_0", "")}' if x[fp] > 0 else ''
                     for fp in model.getFixedParameterIds()
                 ]
-            ),
+            ).replace('__EGF__', '__'),
             axis=1
         )
 
@@ -281,21 +282,17 @@ def generate_synthetic_data(data_name: str,
             )),
     })
     for fp in model.getFixedParameterIds():
-        conditions[fp] = conditions[petab.CONDITION_ID].apply(
-            lambda x: float(next(
-                (cond for cond in x.split('___')[1:]
-                 if cond.startswith(fp)),
-                f'{fp}__0.0'
-            ).split('__')[1].replace('_', '.'))
-        )
-    conditions[petab.CONDITION_ID] = conditions[petab.CONDITION_ID].apply(
-        lambda x: x.replace('__', '_')
-    )
-    for col in [petab.SIMULATION_CONDITION_ID,
-                petab.PREEQUILIBRATION_CONDITION_ID]:
-        measurements[col] = measurements[col].apply(
-            lambda x: x.replace('__', '_')
-        )
+        if fp == 'EGF_0':
+            conditions[fp] = conditions[petab.CONDITION_ID].apply(
+                lambda x: '__' in x
+            )
+        else:
+            conditions[fp] = conditions[petab.CONDITION_ID].apply(
+                lambda x: float(
+                    fp.replace('_0', '')
+                    in (cond for cond in x.split('__')[1:])
+                )
+            )
 
     return conditions, measurements
 
