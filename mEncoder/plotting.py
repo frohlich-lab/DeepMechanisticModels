@@ -33,7 +33,7 @@ def plot_single_sample(
             df[petab.SIMULATION_CONDITION_ID].apply(
                 lambda x:
                     ('' if x.startswith('EGF_') else 'EGF+')
-                    + x.split('__')[1]
+                    + '__'.join(x.split('__')[1:])
             )
         df.rename(columns={
             petab.SIMULATION_CONDITION_ID: 'treatment'
