@@ -13,7 +13,7 @@ from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 mencoder_dir = basedir / 'mEncoder'
 
 PATHWAYS = ['EGFR_MAPK']
-DATASETS = ['synthetic_45', 'synthetic_90']
+DATASETS = ['synthetic_90']
 SPLITS = ['0_5',]
 
 

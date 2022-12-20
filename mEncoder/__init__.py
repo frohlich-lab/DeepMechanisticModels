@@ -83,7 +83,7 @@ def plot_and_save_fig(filename: str, figdir: Optional[Path] = None):
 
 
 def apply_solver_settings(solver):
-    solver.setMaxSteps(int(1e5))
+    solver.setMaxSteps(int(1e6))
     solver.setAbsoluteTolerance(1e-12)
     solver.setRelativeTolerance(1e-12)
     solver.setAbsoluteToleranceSteadyState(1e-8)

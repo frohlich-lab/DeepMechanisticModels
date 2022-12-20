@@ -30,9 +30,7 @@ class AutoEncoder:
                  n_params: int = 12):
         self.n_features = input_data.shape[1]
         assert n_latent < self.n_features
-        assert n_latent <= n_params
         assert input_data.ndim == 2
-        assert n_latent < self.n_features
         self.data = input_data
         self.n_latent = n_latent
         self.n_params = n_params

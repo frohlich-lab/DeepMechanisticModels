@@ -106,15 +106,15 @@ def generate_cross_sample_pretraining_problem(
 
     obj = AesaraObjective(
         ae.pypesto_subproblem.objective, ae.x_embedding,
-        ae.embedding_model_pars,
+        ae.embedding_model_pars, x_names=x_names
     )
 
     problem = Problem(
         objective=obj,
         x_names=x_names,
-        lb=[parameter_boundaries_scales[xname.split('_')[-1]][0]
+        lb=[parameter_boundaries_scales[xname.split('_')[-1]][0] - 2.0
             for xname in x_names],
-        ub=[parameter_boundaries_scales[xname.split('_')[-1]][1]
+        ub=[parameter_boundaries_scales[xname.split('_')[-1]][1] + 2.0
             for xname in x_names],
     )
     apply_objective_settings(problem, ae.pathway_name)
