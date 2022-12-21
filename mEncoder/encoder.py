@@ -2,15 +2,13 @@
 Materials for a simple linear encoder, and its analytical reverse.
 """
 
-import aesara.tensor as aet
-import aesara
+import jax.numpy as jnp
+import equinox as eqx
 import numpy as np
-from typing import List
-
-AFunction = aesara.compile.Function
+from typing import Union
 
 
-class AutoEncoder:
+class AutoEncoder(eqx.Module):
     """
     A simple linear autoencoder.
 
@@ -23,86 +21,47 @@ class AutoEncoder:
     :param n_params:
         number of parameters that to which the embedding will be inflated to
     """
+    n_features: int = eqx.static_field()
+    n_latent: int = eqx.static_field()
+    n_params: int = eqx.static_field()
+    n_encode_weights: int = eqx.static_field()
+    n_inflate_weights: int = eqx.static_field()
+    n_encoder_pars: int = eqx.static_field()
+    data: np.ndarray = eqx.static_field()
 
-    def __init__(self,
-                 input_data: np.ndarray,
-                 n_latent: int = 1,
-                 n_params: int = 12):
+    def __init__(self, input_data: np.ndarray, n_latent: int = 1, n_params: int = 12):
         self.n_features = input_data.shape[1]
-        assert n_latent < self.n_features
+        assert n_latent <= self.n_features
         assert input_data.ndim == 2
         self.data = input_data
         self.n_latent = n_latent
         self.n_params = n_params
         self.n_encode_weights = self.n_features * self.n_latent
         self.n_inflate_weights = self.n_latent * self.n_params
-        self.n_encoder_pars = self.n_encode_weights + \
-            self.n_inflate_weights
-
-        self.encode_weights = aet.specify_shape(aet.vector('encode_weights'),
-                                                (self.n_encode_weights,))
-
-        self.inflate_weights = aet.specify_shape(aet.vector('inflate_weights'),
-                                                 (self.n_inflate_weights,))
-
-        self.encoder_pars = aet.specify_shape(aet.vector('encoder_pars'),
-                                              (self.n_encoder_pars,))
+        self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights
 
         # self.par_modulation_scale = par_modulation_scale
 
         self.x_names = [
-            f'ecoder_{iw}_weight' for iw in range(self.n_encode_weights)
-        ] + [
-            f'inflate_{iw}_weight' for iw in range(self.n_inflate_weights)
-        ]
+            f"encoder_{iw}_weight" for iw in range(self.n_encode_weights)
+        ] + [f"inflate_{iw}_weight" for iw in range(self.n_inflate_weights)]
 
-    def encode(self, parameters: aet.vector):
+    def encode(self, parameters: jnp.ndarray):
         """
         Run the input through the encoder.
 
         :param parameters:
             parametrization of full autoencoder
         """
-        W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_features, self.n_latent))
-        return aet.dot(self.data, W)
+        weights = jnp.reshape(parameters, (self.n_features, self.n_latent))
+        return jnp.dot(self.data, weights)
 
-    def getW(self, parameters):
-        return aet.reshape(parameters[0:self.n_encode_weights],
-                           (self.n_features, self.n_latent))
+    def inflate_params(self, embedding: Union[np.ndarray, jnp.ndarray], parameters: jnp.ndarray):
+        """Inflate the input to parameters (partial parameter vector)"""
+        weights = jnp.reshape(parameters, (self.n_latent, self.n_params))
+        return jnp.dot(embedding, weights)
 
-    def initialW(self):
-        """ Calculate an initial encoder parameter set by PCA. """
-        LD = np.linalg.svd(self.data)[2].T
-        assert LD.shape[0] == self.n_features
-        return (LD[:, 0:self.n_latent]).flatten()
-
-    def regularize(self, parameters, l2=0.0, ortho=0.0):
-        """ Calculate regularization of encoder. """
-        W = self.getW(parameters)
-        return l2 * aet.nlinalg.norm(parameters, None) \
-            + ortho * aet.nlinalg.norm(
-            aet.dot(W.T, W) - aet.eye(self.n_latent), None
-        )
-
-    def inflate_params_restricted(self, embedding: np.ndarray,
-                                  parameters: aet.vector):
-        """ Inflate the input to parameters (partial parameter vector) """
-        W_p = aet.reshape(
-            parameters, (self.n_latent, self.n_params)
-        )
-        return aet.dot(embedding, W_p)
-
-    def inflate_params(self, embedding: np.ndarray, parameters: aet.vector):
-        """ Inflate the input to parameters (full parameter vector) """
-
-        return self.inflate_params_restricted(
-            embedding,
-            parameters[self.n_encode_weights:
-                       self.n_encode_weights + self.n_inflate_weights],
-        )
-
-    def encode_params(self, parameters: aet.vector):
+    def encode_params(self, parameters: jnp.ndarray):
         """
         Run the encoder and then inflate to parameters.
 
@@ -110,49 +69,3 @@ class AutoEncoder:
             parametrization of full autoencoder
         """
         return self.inflate_params(self.encode(parameters), parameters)
-    
-    def decode(self, embedded_data: np.ndarray, parameters: aet.vector):
-        """
-        Run the input through the analytical decoder.
-
-        :param embedded_data:
-            latent embedding of data
-
-        :param parameters:
-            parametrization of full autoencoder
-        """
-        W = aet.reshape(parameters[0:self.n_encode_weights],
-                        (self.n_features, self.n_latent))
-        return aet.dot(embedded_data, aet.nlinalg.pinv(W))
-
-    def compile_embedded_pars(self) -> AFunction:
-        """
-        Compile a theano function that computes the inflated parameters
-        """
-        return aesara.function(
-            [self.encoder_pars],
-            self.encode(self.encoder_pars)
-        )
-
-    def compute_embedded_pars(self,
-                              encoder_pars: np.ndarray) -> List:
-        """
-        Compute the inflated parameters
-        """
-        return self.compile_embedded_pars()(encoder_pars)
-
-    def compile_inflate_pars(self) -> AFunction:
-        """
-        Compile a theano function that computes the inflated parameters
-        """
-        return aesara.function(
-            [self.encoder_pars],
-            self.encode_params(self.encoder_pars)
-        )
-
-    def compute_inflated_pars(self,
-                              encoder_pars: np.ndarray) -> List:
-        """
-        Compute the inflated parameters
-        """
-        return self.compile_inflate_pars()(encoder_pars)

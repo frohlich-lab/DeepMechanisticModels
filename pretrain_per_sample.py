@@ -12,12 +12,16 @@ from pypesto.optimize import FidesOptimizer
 
 from mEncoder.petab_subproblem import load_petab
 from mEncoder.pretraining import (
-    generate_per_sample_pretraining_problems, pretrain,
-    store_and_plot_pretraining
+    generate_per_sample_pretraining_problems,
+    pretrain,
+    store_and_plot_pretraining,
 )
 from mEncoder import (
-    apply_objective_settings, pretrain_dir, data_dir, fig_dir,
-    PER_SAMPLE_OUTFILE_TEMP
+    apply_objective_settings,
+    pretrain_dir,
+    data_dir,
+    fig_dir,
+    PER_SAMPLE_OUTFILE_TEMP,
 )
 
 np.random.seed(0)
@@ -27,20 +31,20 @@ DATA = sys.argv[2]
 SAMPLE = sys.argv[3]
 
 datafiles = (
-    data_dir / f'{DATA}__{MODEL}__measurements.tsv',
-    data_dir / f'{DATA}__{MODEL}__conditions.tsv',
-    data_dir / f'{DATA}__{MODEL}__observables.tsv',
+    data_dir / f"{DATA}__{MODEL}__measurements.tsv",
+    data_dir / f"{DATA}__{MODEL}__conditions.tsv",
+    data_dir / f"{DATA}__{MODEL}__observables.tsv",
 )
 
 importer = generate_per_sample_pretraining_problems(
-    load_petab(datafiles, 'pw_' + MODEL, 0.0, [SAMPLE]),
-    MODEL, f'{DATA}__{MODEL}', SAMPLE
+    load_petab(datafiles, "pw_" + MODEL, 0.0, [SAMPLE]),
+    MODEL,
+    f"{DATA}__{MODEL}",
+    SAMPLE,
 )
 outdir = pretrain_dir / MODEL / DATA
-figdir = fig_dir / MODEL / DATA / 'pretraining_sample'
-output_prefix = os.path.splitext(
-    PER_SAMPLE_OUTFILE_TEMP.format(sample=SAMPLE)
-)[0]
+figdir = fig_dir / MODEL / DATA / "pretraining_sample"
+output_prefix = os.path.splitext(PER_SAMPLE_OUTFILE_TEMP.format(sample=SAMPLE))[0]
 problem = importer.create_problem()
 model = importer.create_model()
 apply_objective_settings(problem, MODEL)
@@ -50,7 +54,7 @@ optimizer = FidesOptimizer(
         fides.Options.FATOL: 1e-6,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 1e3
+        fides.Options.MAXITER: 1e3,
     }
 )
 result = pretrain(
@@ -58,6 +62,6 @@ result = pretrain(
     pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
     10,
     optimizer,
-    pypesto.engine.MultiThreadEngine(1)
+    pypesto.engine.MultiThreadEngine(1),
 )
 store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix)

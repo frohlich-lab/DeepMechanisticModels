@@ -16,13 +16,17 @@ ALPHA = float(sys.argv[6])
 JOB = int(sys.argv[7])
 
 mae = MechanisticAutoEncoder(
-    N_HIDDEN, (
-        data_dir / f'{DATA}__{MODEL}__measurements.tsv',
-        data_dir / f'{DATA}__{MODEL}__conditions.tsv',
-        data_dir / f'{DATA}__{MODEL}__observables.tsv',
+    N_HIDDEN,
+    (
+        data_dir / f"{DATA}__{MODEL}__measurements.tsv",
+        data_dir / f"{DATA}__{MODEL}__conditions.tsv",
+        data_dir / f"{DATA}__{MODEL}__observables.tsv",
     ),
-    pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    contextualization=CONTEXT, l1reg=ALPHA, n_threads=4
+    pathway_name=MODEL,
+    samples=training_samples(Wildcards(DATA, SAMPLES)),
+    contextualization=CONTEXT,
+    l1reg=ALPHA,
+    n_threads=4,
 )
 
 result = train(mae, SAMPLES, n_starts=1, seed=JOB, context=CONTEXT)

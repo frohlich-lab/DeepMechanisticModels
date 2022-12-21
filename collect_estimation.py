@@ -1,14 +1,14 @@
 import sys
 import os
 
-from pypesto.store import (
-    OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
-)
+from pypesto.store import OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.training import create_pypesto_problem
 from mEncoder import (
-    results_dir, data_dir, COLLECTED_ESTIMATION_OUTFILE_TEMP,
-    ESTIMATION_OUTFILE_TEMP
+    results_dir,
+    data_dir,
+    COLLECTED_ESTIMATION_OUTFILE_TEMP,
+    ESTIMATION_OUTFILE_TEMP,
 )
 from process_data import training_samples, Wildcards
 
@@ -22,13 +22,16 @@ N_HIDDEN = int(sys.argv[5])
 ALPHA = float(sys.argv[6])
 
 mae = MechanisticAutoEncoder(
-    N_HIDDEN, (
-        data_dir / f'{DATA}__{MODEL}__measurements.tsv',
-        data_dir / f'{DATA}__{MODEL}__conditions.tsv',
-        data_dir / f'{DATA}__{MODEL}__observables.tsv',
+    N_HIDDEN,
+    (
+        data_dir / f"{DATA}__{MODEL}__measurements.tsv",
+        data_dir / f"{DATA}__{MODEL}__conditions.tsv",
+        data_dir / f"{DATA}__{MODEL}__observables.tsv",
     ),
-    pathway_name=MODEL, samples=training_samples(Wildcards(DATA, SAMPLES)),
-    l1reg=ALPHA, contextualization=CONTEXT
+    pathway_name=MODEL,
+    samples=training_samples(Wildcards(DATA, SAMPLES)),
+    l1reg=ALPHA,
+    contextualization=CONTEXT,
 )
 
 problem = create_pypesto_problem(mae)
@@ -42,32 +45,30 @@ outfile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
     samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, context=CONTEXT
 )
 
-prefix = '__'.join(ESTIMATION_OUTFILE_TEMP.format(
-   samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job='JOB', context=CONTEXT
-).split('__')[:-1])
+prefix = "__".join(
+    ESTIMATION_OUTFILE_TEMP.format(
+        samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job="JOB", context=CONTEXT
+    ).split("__")[:-1]
+)
 
 for file in result_files:
-    if not file.startswith(prefix) or \
-            not file.endswith('.hdf5') or file == outfile:
+    if not file.startswith(prefix) or not file.endswith(".hdf5") or file == outfile:
         continue
     reader = OptimizationResultHDF5Reader(str(result_path / file))
     starts = reader.read().optimize_result.list
     for start in starts:
-        start['hess'] = None
+        start["hess"] = None
 
     optimizer_results.extend(starts)
 
-print(sorted([
-    r['fval']
-    for r in optimizer_results
-])[0:min(5, len(optimizer_results))])
+print(
+    sorted([r["fval"] for r in optimizer_results])[0 : min(5, len(optimizer_results))]
+)
 
 for istart, start in enumerate(optimizer_results):
-    start['id'] = str(istart)
+    start["id"] = str(istart)
 
-result = pypesto.Result(
-    problem=problem
-)
+result = pypesto.Result(problem=problem)
 optimize_result = pypesto.OptimizeResult()
 optimize_result.list = optimizer_results
 optimize_result.sort()

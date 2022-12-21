@@ -5,13 +5,13 @@ import petab
 from pathlib import Path
 
 PLOTNINE_THEME = {
-    'dpi': 300,
-    'legend_background': element_blank(),
-    'legend_key': element_blank(),
-    'panel_background': element_blank(),
-    'strip_background': element_blank(),
-    'strip_text': element_text(size=6),
-    'axis_line': element_line(size=1),
+    "dpi": 300,
+    "legend_background": element_blank(),
+    "legend_key": element_blank(),
+    "panel_background": element_blank(),
+    "strip_background": element_blank(),
+    "strip_text": element_text(size=6),
+    "axis_line": element_line(size=1),
 }
 
 
@@ -20,38 +20,28 @@ def plot_single_sample(
     simulation_df: pandas.DataFrame,
     figdir: Path,
     sample: str,
-    prefix: str
+    prefix: str,
 ):
     mdf = measurement_df.copy()
     sdf = simulation_df.copy()
 
     for df in [sdf, mdf]:
         df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
-            lambda x: x.replace('_obs', '')
+            lambda x: x.replace("_obs", "")
         )
-        df[petab.SIMULATION_CONDITION_ID] = \
-            df[petab.SIMULATION_CONDITION_ID].apply(
-                lambda x:
-                    ('' if x.split('__')[1].startswith('EGF') else 'EGF+')
-                    + x.split('__')[1]
-            )
-        df.rename(columns={
-            petab.SIMULATION_CONDITION_ID: 'treatment'
-        }, inplace=True)
+        df[petab.SIMULATION_CONDITION_ID] = df[petab.SIMULATION_CONDITION_ID].apply(
+            lambda x: ("" if x.split("__")[1].startswith("EGF") else "EGF+")
+            + x.split("__")[1]
+        )
+        df.rename(columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True)
 
-    mdf['ymax'] = \
-        mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
-    mdf['ymin'] = \
-        mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
+    mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
+    mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
 
-    kwargs = {
-        'x': 'time',
-        'color': 'treatment',
-        'group': 'treatment'
-    }
+    kwargs = {"x": "time", "color": "treatment", "group": "treatment"}
     plot = (
-        ggplot() +
-        geom_line(
+        ggplot()
+        + geom_line(
             data=sdf,
             mapping=aes(y=petab.SIMULATION, **kwargs),
             size=1,
@@ -61,14 +51,11 @@ def plot_single_sample(
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + geom_errorbar(
-            data=mdf,
-            mapping=aes(ymax='ymax', ymin='ymin', **kwargs)
-        )
-        + facet_grid((petab.OBSERVABLE_ID, 'treatment'))
-        + xlab('time [min]')
-        + ylab('measurement')
-        + ggtitle(f'cell line: {sample[1:]}')
+        + geom_errorbar(data=mdf, mapping=aes(ymax="ymax", ymin="ymin", **kwargs))
+        + facet_grid((petab.OBSERVABLE_ID, "treatment"))
+        + xlab("time [min]")
+        + ylab("measurement")
+        + ggtitle(f"cell line: {sample[1:]}")
         + theme(**PLOTNINE_THEME)
     )
 
@@ -77,22 +64,19 @@ def plot_single_sample(
 
 def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
     for sample in measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique():
-        print(f'plotting {sample} for {prefix}')
+        print(f"plotting {sample} for {prefix}")
         plot_single_sample(
             measurement_df[
-                measurement_df[petab.PREEQUILIBRATION_CONDITION_ID]
-                == sample
+                measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
             ],
-            simulation_df[
-                simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
-            ],
+            simulation_df[simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample],
             figdir / sample,
             sample,
-            prefix
+            prefix,
         )
 
 
-def save_plot(plot, figdir: Path, name: str, fmt: str = 'pdf'):
+def save_plot(plot, figdir: Path, name: str, fmt: str = "pdf"):
     plt.tight_layout()
     figdir.mkdir(exist_ok=True, parents=True)
-    plot.save(figdir / f'{name}.{fmt}')
+    plot.save(figdir / f"{name}.{fmt}")

@@ -1,74 +1,149 @@
 # exported from PySB model 'EGFR'
 
-from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, Annotation, MultiState, Tag, ANY, WILD
+from pysb import (
+    Model,
+    Monomer,
+    Parameter,
+    Expression,
+    Compartment,
+    Rule,
+    Observable,
+    Initial,
+    MatchOnce,
+    Annotation,
+    MultiState,
+    Tag,
+    ANY,
+    WILD,
+)
 
 Model()
 
-Monomer('EGF', ['inh'])
-Monomer('EGFR', ['Y1173', 'inh'], {'Y1173': ['u', 'p']})
-Monomer('ERBB2', ['Y1248', 'inh'], {'Y1248': ['u', 'p']})
+Monomer("EGF", ["inh"])
+Monomer("EGFR", ["Y1173", "inh"], {"Y1173": ["u", "p"]})
+Monomer("ERBB2", ["Y1248", "inh"], {"Y1248": ["u", "p"]})
 
-Parameter('EGF_0', 0.0)
-Parameter('EGFR_eq', 100.0)
-Parameter('INPUT_EGFR_eq', 0.0)
-Parameter('EGFR_degradation_kdeg', 0.0)
-Parameter('EGFR_dephosphorylation_Y1173_base_kcat', 0.0)
-Parameter('INPUT_EGFR_dephosphorylation_Y1173_base_kcat', 0.0)
-Parameter('EGFR_phosphorylation_Y1173_base_kr', 0.0)
-Parameter('ERBB2_eq', 100.0)
-Parameter('INPUT_ERBB2_eq', 0.0)
-Parameter('ERBB2_degradation_kdeg', 0.0)
-Parameter('ERBB2_dephosphorylation_Y1248_base_kcat', 0.0)
-Parameter('INPUT_ERBB2_dephosphorylation_Y1248_base_kcat', 0.0)
-Parameter('ERBB2_phosphorylation_Y1248_base_kr', 0.0)
-Parameter('EGFR_phosphorylation_Y1173_kr', 1.0)
-Parameter('ERBB2_phosphorylation_Y1248_kr', 1.0)
-Parameter('degradation_EGFR__Y1173_p_kr', 0.0)
-Parameter('INPUT_degradation_EGFR__Y1173_p_kr', 0.0)
-Parameter('degradation_ERBB2__Y1248_p_kr', 0.0)
-Parameter('INPUT_degradation_ERBB2__Y1248_p_kr', 0.0)
-Parameter('iMEK_0', 0.0)
-Parameter('iEGFR_0', 0.0)
-Parameter('iEGFR_EGFR_kd', 0.0)
-Parameter('INPUT_iEGFR_EGFR_kd', 0.0)
-Parameter('iPI3K_0', 0.0)
-Parameter('iPKC_0', 0.0)
+Parameter("EGF_0", 0.0)
+Parameter("EGFR_eq", 100.0)
+Parameter("INPUT_EGFR_eq", 0.0)
+Parameter("EGFR_degradation_kdeg", 0.0)
+Parameter("EGFR_dephosphorylation_Y1173_base_kcat", 0.0)
+Parameter("INPUT_EGFR_dephosphorylation_Y1173_base_kcat", 0.0)
+Parameter("EGFR_phosphorylation_Y1173_base_kr", 0.0)
+Parameter("ERBB2_eq", 100.0)
+Parameter("INPUT_ERBB2_eq", 0.0)
+Parameter("ERBB2_degradation_kdeg", 0.0)
+Parameter("ERBB2_dephosphorylation_Y1248_base_kcat", 0.0)
+Parameter("INPUT_ERBB2_dephosphorylation_Y1248_base_kcat", 0.0)
+Parameter("ERBB2_phosphorylation_Y1248_base_kr", 0.0)
+Parameter("EGFR_phosphorylation_Y1173_kr", 1.0)
+Parameter("ERBB2_phosphorylation_Y1248_kr", 1.0)
+Parameter("degradation_EGFR__Y1173_p_kr", 0.0)
+Parameter("INPUT_degradation_EGFR__Y1173_p_kr", 0.0)
+Parameter("degradation_ERBB2__Y1248_p_kr", 0.0)
+Parameter("INPUT_degradation_ERBB2__Y1248_p_kr", 0.0)
+Parameter("iMEK_0", 0.0)
+Parameter("iEGFR_0", 0.0)
+Parameter("iEGFR_EGFR_kd", 0.0)
+Parameter("INPUT_iEGFR_EGFR_kd", 0.0)
+Parameter("iPI3K_0", 0.0)
+Parameter("iPKC_0", 0.0)
 
-Expression('EGFR_init', EGFR_eq*INPUT_EGFR_eq)
-Expression('EGFR_degradation_rate', EGFR_degradation_kdeg)
-Expression('EGFR_synthesis_rate', EGFR_degradation_rate*EGFR_init)
-Expression('EGFR_dephosphorylation_Y1173_base_rate', EGFR_dephosphorylation_Y1173_base_kcat*INPUT_EGFR_dephosphorylation_Y1173_base_kcat)
-Expression('EGFR_phosphorylation_Y1173_base_rate', EGFR_dephosphorylation_Y1173_base_rate*EGFR_phosphorylation_Y1173_base_kr)
-Expression('ERBB2_init', ERBB2_eq*INPUT_ERBB2_eq)
-Expression('ERBB2_degradation_rate', ERBB2_degradation_kdeg)
-Expression('ERBB2_synthesis_rate', ERBB2_degradation_rate*ERBB2_init)
-Expression('ERBB2_dephosphorylation_Y1248_base_rate', ERBB2_dephosphorylation_Y1248_base_kcat*INPUT_ERBB2_dephosphorylation_Y1248_base_kcat)
-Expression('ERBB2_phosphorylation_Y1248_base_rate', ERBB2_dephosphorylation_Y1248_base_rate*ERBB2_phosphorylation_Y1248_base_kr)
-Expression('degradation_EGFR__Y1173_p_rate', EGFR_degradation_rate*INPUT_degradation_EGFR__Y1173_p_kr*degradation_EGFR__Y1173_p_kr)
-Expression('degradation_ERBB2__Y1248_p_rate', ERBB2_degradation_rate*INPUT_degradation_ERBB2__Y1248_p_kr*degradation_ERBB2__Y1248_p_kr)
+Expression("EGFR_init", EGFR_eq * INPUT_EGFR_eq)
+Expression("EGFR_degradation_rate", EGFR_degradation_kdeg)
+Expression("EGFR_synthesis_rate", EGFR_degradation_rate * EGFR_init)
+Expression(
+    "EGFR_dephosphorylation_Y1173_base_rate",
+    EGFR_dephosphorylation_Y1173_base_kcat
+    * INPUT_EGFR_dephosphorylation_Y1173_base_kcat,
+)
+Expression(
+    "EGFR_phosphorylation_Y1173_base_rate",
+    EGFR_dephosphorylation_Y1173_base_rate * EGFR_phosphorylation_Y1173_base_kr,
+)
+Expression("ERBB2_init", ERBB2_eq * INPUT_ERBB2_eq)
+Expression("ERBB2_degradation_rate", ERBB2_degradation_kdeg)
+Expression("ERBB2_synthesis_rate", ERBB2_degradation_rate * ERBB2_init)
+Expression(
+    "ERBB2_dephosphorylation_Y1248_base_rate",
+    ERBB2_dephosphorylation_Y1248_base_kcat
+    * INPUT_ERBB2_dephosphorylation_Y1248_base_kcat,
+)
+Expression(
+    "ERBB2_phosphorylation_Y1248_base_rate",
+    ERBB2_dephosphorylation_Y1248_base_rate * ERBB2_phosphorylation_Y1248_base_kr,
+)
+Expression(
+    "degradation_EGFR__Y1173_p_rate",
+    EGFR_degradation_rate
+    * INPUT_degradation_EGFR__Y1173_p_kr
+    * degradation_EGFR__Y1173_p_kr,
+)
+Expression(
+    "degradation_ERBB2__Y1248_p_rate",
+    ERBB2_degradation_rate
+    * INPUT_degradation_ERBB2__Y1248_p_kr
+    * degradation_ERBB2__Y1248_p_kr,
+)
 
-Observable('EGF_obs', EGF(inh=None))
-Observable('EGFR__Y1173_p_obs', EGFR(Y1173='p', inh=None))
-Observable('pEGFR_Y1173', EGFR(Y1173='p'))
-Observable('pERBB2_Y1248', ERBB2(Y1248='p'))
-Observable('target_EGFR', EGFR())
+Observable("EGF_obs", EGF(inh=None))
+Observable("EGFR__Y1173_p_obs", EGFR(Y1173="p", inh=None))
+Observable("pEGFR_Y1173", EGFR(Y1173="p"))
+Observable("pERBB2_Y1248", ERBB2(Y1248="p"))
+Observable("target_EGFR", EGFR())
 
-Expression('inh_EGFR', target_EGFR/(INPUT_iEGFR_EGFR_kd*iEGFR_EGFR_kd))
-Expression('EGFR_phosphorylation_Y1173_activation_rate', 1.0*EGFR_dephosphorylation_Y1173_base_rate*EGF_obs*EGFR_phosphorylation_Y1173_kr)
-Expression('ERBB2_phosphorylation_Y1248_activation_rate', 1.0*ERBB2_dephosphorylation_Y1248_base_rate*EGFR__Y1173_p_obs*ERBB2_phosphorylation_Y1248_kr/(inh_EGFR*iEGFR_0 + 1))
+Expression("inh_EGFR", target_EGFR / (INPUT_iEGFR_EGFR_kd * iEGFR_EGFR_kd))
+Expression(
+    "EGFR_phosphorylation_Y1173_activation_rate",
+    1.0
+    * EGFR_dephosphorylation_Y1173_base_rate
+    * EGF_obs
+    * EGFR_phosphorylation_Y1173_kr,
+)
+Expression(
+    "ERBB2_phosphorylation_Y1248_activation_rate",
+    1.0
+    * ERBB2_dephosphorylation_Y1248_base_rate
+    * EGFR__Y1173_p_obs
+    * ERBB2_phosphorylation_Y1248_kr
+    / (inh_EGFR * iEGFR_0 + 1),
+)
 
-Rule('synthesis_EGFR', None >> EGFR(Y1173='u', inh=None), EGFR_synthesis_rate)
-Rule('degradation_EGFR', EGFR() >> None, EGFR_degradation_rate)
-Rule('EGFR_base_regulation_Y1173_p', EGFR(Y1173='p') | EGFR(Y1173='u'), EGFR_dephosphorylation_Y1173_base_rate, EGFR_phosphorylation_Y1173_base_rate)
-Rule('synthesis_ERBB2', None >> ERBB2(Y1248='u', inh=None), ERBB2_synthesis_rate)
-Rule('degradation_ERBB2', ERBB2() >> None, ERBB2_degradation_rate)
-Rule('ERBB2_base_regulation_Y1248_p', ERBB2(Y1248='p') | ERBB2(Y1248='u'), ERBB2_dephosphorylation_Y1248_base_rate, ERBB2_phosphorylation_Y1248_base_rate)
-Rule('EGFR_phosphorylation_Y1173_activation', EGFR(Y1173='u') >> EGFR(Y1173='p'), EGFR_phosphorylation_Y1173_activation_rate)
-Rule('ERBB2_phosphorylation_Y1248_activation', ERBB2(Y1248='u') >> ERBB2(Y1248='p'), ERBB2_phosphorylation_Y1248_activation_rate)
-Rule('degradation_EGFR__Y1173_p', EGFR(Y1173='p') >> None, degradation_EGFR__Y1173_p_rate)
-Rule('degradation_ERBB2__Y1248_p', ERBB2(Y1248='p') >> None, degradation_ERBB2__Y1248_p_rate)
+Rule("synthesis_EGFR", None >> EGFR(Y1173="u", inh=None), EGFR_synthesis_rate)
+Rule("degradation_EGFR", EGFR() >> None, EGFR_degradation_rate)
+Rule(
+    "EGFR_base_regulation_Y1173_p",
+    EGFR(Y1173="p") | EGFR(Y1173="u"),
+    EGFR_dephosphorylation_Y1173_base_rate,
+    EGFR_phosphorylation_Y1173_base_rate,
+)
+Rule("synthesis_ERBB2", None >> ERBB2(Y1248="u", inh=None), ERBB2_synthesis_rate)
+Rule("degradation_ERBB2", ERBB2() >> None, ERBB2_degradation_rate)
+Rule(
+    "ERBB2_base_regulation_Y1248_p",
+    ERBB2(Y1248="p") | ERBB2(Y1248="u"),
+    ERBB2_dephosphorylation_Y1248_base_rate,
+    ERBB2_phosphorylation_Y1248_base_rate,
+)
+Rule(
+    "EGFR_phosphorylation_Y1173_activation",
+    EGFR(Y1173="u") >> EGFR(Y1173="p"),
+    EGFR_phosphorylation_Y1173_activation_rate,
+)
+Rule(
+    "ERBB2_phosphorylation_Y1248_activation",
+    ERBB2(Y1248="u") >> ERBB2(Y1248="p"),
+    ERBB2_phosphorylation_Y1248_activation_rate,
+)
+Rule(
+    "degradation_EGFR__Y1173_p", EGFR(Y1173="p") >> None, degradation_EGFR__Y1173_p_rate
+)
+Rule(
+    "degradation_ERBB2__Y1248_p",
+    ERBB2(Y1248="p") >> None,
+    degradation_ERBB2__Y1248_p_rate,
+)
 
 Initial(EGF(inh=None), EGF_0, fixed=True)
-Initial(EGFR(Y1173='u', inh=None), EGFR_init)
-Initial(ERBB2(Y1248='u', inh=None), ERBB2_init)
-
+Initial(EGFR(Y1173="u", inh=None), EGFR_init)
+Initial(ERBB2(Y1248="u", inh=None), ERBB2_init)
