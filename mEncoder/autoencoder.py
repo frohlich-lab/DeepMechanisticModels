@@ -1,9 +1,7 @@
-import jax
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
 import pandas as pd
-from functools import partial
 
 import petab
 import pypesto
@@ -212,7 +210,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         #         .values
         #    )
         # else:
-        self.data_pca = self.pca.transform(input_data)[:, :n_latent]
+        self.data_pca = self.pca.transform(input_data)
 
         self.n_samples, self.n_features = self.data_pca.shape
         self.n_model_inputs = int(
@@ -249,14 +247,14 @@ class MechanisticAutoEncoder(AutoEncoder):
 
     def embedding(self, params: np.ndarray) -> np.ndarray:
         encode_weights, inflate_weights, kin_params = jnp.split(
-            params, np.array((self.n_inflate_weights, self.n_inflate_weights + self.n_encode_weights))
+            params, np.array((self.n_encode_weights, self.n_inflate_weights + self.n_encode_weights))
         )
         return jnp.concatenate([
-            params[-self.n_kin_params:], self.inflate_params(self.encode(encode_weights), inflate_weights).flatten()
+            kin_params, self.inflate_params(self.encode(encode_weights), inflate_weights).flatten()
         ])
 
     def inflate(self, params: jnp.ndarray) -> jnp.ndarray:
         inflate_weights, kin_params = jnp.split(params, np.array((self.n_inflate_weights,)))
         return jnp.concatenate([
-            kin_params, self.inflate_params(self.data_pca, inflate_weights).flatten()
+            kin_params, self.inflate_params(self.data_pca[:, :self.n_latent], inflate_weights).flatten()
         ])
