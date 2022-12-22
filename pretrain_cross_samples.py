@@ -4,7 +4,6 @@ pretraining
 """
 
 import sys
-import os
 
 import pandas as pd
 import numpy as np
@@ -12,61 +11,24 @@ import scipy.linalg as la
 import fides
 
 from pypesto.optimize import FidesOptimizer
+from pathlib import Path
 
-from mEncoder.autoencoder import MechanisticAutoEncoder
-from process_data import training_samples, Wildcards
-from mEncoder.pretraining import (
-    generate_cross_sample_pretraining_problem,
-    pretrain,
-    store_and_plot_pretraining,
-)
-from mEncoder import (
-    MODEL_FEATURE_PREFIX,
-    parameter_boundaries_scales,
-    pretrain_dir,
-    data_dir,
-    ESTIMATION_OUTFILE_TEMP,
-)
+from mEncoder.pretraining import generate_cross_sample_pretraining_problem, pretrain, store_and_plot_pretraining
+from mEncoder import MODEL_FEATURE_PREFIX
+from common import  CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, PER_SAMPLE_OUTFILE_PARS
+from util import load_from_argv
 
 from jax.config import config
 config.update("jax_enable_x64", True)
 # config.update("jax_disable_jit", True)
 
-MODEL = sys.argv[1]
-DATA = sys.argv[2]
-CONTEXT = sys.argv[3]
-SAMPLES = sys.argv[4]
-N_HIDDEN = int(sys.argv[5])
-ALPHA = float(sys.argv[6])
-JOB = int(sys.argv[7])
+conf, mae, problem = load_from_argv(sys.argv)
 
-samples = training_samples(Wildcards(DATA, SAMPLES))
-mae = MechanisticAutoEncoder(
-    N_HIDDEN,
-    (
-        data_dir / f"{DATA}__{MODEL}__measurements.tsv",
-        data_dir / f"{DATA}__{MODEL}__conditions.tsv",
-        data_dir / f"{DATA}__{MODEL}__observables.tsv",
-    ),
-    pathway_name=MODEL,
-    samples=samples,
-    l1reg=ALPHA,
-    contextualization=CONTEXT,
-    n_threads=4,
-)
-
-problem = generate_cross_sample_pretraining_problem(mae)
+pypesto_problem = generate_cross_sample_pretraining_problem(mae, problem)
 pretrained_samples = {}
 
-outdir = pretrain_dir / MODEL / DATA
-output_prefix = os.path.splitext(
-    ESTIMATION_OUTFILE_TEMP.format(
-        context=CONTEXT, samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job=JOB
-    )
-)[0]
-
-for sample in samples:
-    df = pd.read_csv(pretrain_dir / MODEL / DATA / f"{sample}.csv", index_col=[0])
+for sample in mae.sample_names:
+    df = pd.read_csv(PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__, sample=sample), index_col=[0])
     pretrained_samples[sample] = df[
         [col for col in df.columns if not col.startswith(MODEL_FEATURE_PREFIX)]
     ]
@@ -126,14 +88,14 @@ def startpoints(**kwargs):
         w = la.lstsq(mae.data_pca[:, : mae.n_latent], par_combo[inputs].values)[
             0
         ].flatten()
-        assert f"inflate_{len(w)-1}_weight" in problem.x_names
+        assert f"inflate_{len(w)-1}_weight" in pypesto_problem.x_names
         # compute INPUT parameters as difference to mean
-        for ix, xname in enumerate(problem.x_names):
+        for ix, xname in enumerate(pypesto_problem.x_names):
             if xname.startswith("inflate") and xname.endswith("weight"):
                 xi = w[int(xname.split("_")[1])]
             else:
                 xi = means[xname]
-            lb, ub, _ = parameter_boundaries_scales[xname.split("_")[-1]]
+            lb, ub, _ = problem.bounds[xname.split("_")[-1]]
             xs[istart, ix] = (
                 xi if not np.isnan(xi) else np.random.random() * (ub - lb) + lb
             )
@@ -180,8 +142,11 @@ optimizer = FidesOptimizer(
         fides.Options.MAXITER: 1e3,
     },
 )
-np.random.seed(JOB)
-result = pretrain(problem, startpoints, 1, optimizer)
+np.random.seed(conf.job)
+result = pretrain(pypesto_problem, startpoints, 1, optimizer)
+
+rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
+pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
 store_and_plot_pretraining(
-    result, outdir=outdir, prefix=output_prefix, plot_waterfall=False
+    result, pfile=pfile, rfile=rfile, plot_waterfall=False
 )

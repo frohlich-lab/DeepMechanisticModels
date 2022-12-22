@@ -9,26 +9,20 @@ from amici.petab_objective import rdatas_to_simulation_df
 from pypesto import Result
 from pypesto.visualize import waterfall
 
-from process_data import training_samples, test_samples, Wildcards
 from mEncoder.pretraining import (
-    generate_cross_sample_pretraining_problem,
-    generate_per_sample_pretraining_problems,
+    generate_cross_sample_pretraining_problem, generate_per_sample_pretraining_problems,
 )
 from mEncoder.petab_subproblem import load_petab
-from mEncoder import (
-    pretrain_dir,
-    data_dir,
-    fig_dir,
-    apply_objective_settings,
-)
 from mEncoder.analysis import (
-    process_simulation,
-    load_mae,
-    plot_loss_vs_regularization,
-    load_optimize_result_pretraining_cross_samples,
+    process_simulation, plot_loss_vs_regularization, load_optimize_result_pretraining_cross_samples,
     evaluate_simulations,
 )
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
+from common import (
+    training_samples, test_samples, Wildcards, pretrain_dir, data_dir, fig_dir, tpl_evaluation_file
+)
+from util import load_petab_base_files, load_from_kwargs
+from cytof.problem import CytofProblem
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
@@ -43,12 +37,6 @@ indir = pretrain_dir / MODEL / DATA
 cross_sample_dir = outdir / "pretrain_cross_sample"
 cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
-datafiles = (
-    data_dir / f"{DATA}__{MODEL}__measurements.tsv",
-    data_dir / f"{DATA}__{MODEL}__conditions.tsv",
-    data_dir / f"{DATA}__{MODEL}__observables.tsv",
-)
-
 samples = {
     "train": training_samples(Wildcards(DATA, SAMPLES)),
     "test": test_samples(Wildcards(DATA, SAMPLES)),
@@ -57,17 +45,25 @@ samples = {
 
 def evaluate_pretraining_per_sample(dataset):
     evaluations = []
-
+    problem = CytofProblem(MODEL)
+    petab_base_files = load_petab_base_files(MODEL, DATA)
     for sample in samples[dataset]:
+        petab_base_importer = load_petab(
+            problem,
+            DATA,
+            0.0,
+            **petab_base_files,
+        )
+
         importer = generate_per_sample_pretraining_problems(
-            load_petab(datafiles, "pw_" + MODEL, 0.0, [sample]),
-            MODEL,
-            f"{DATA}__{MODEL}",
+            petab_base_importer,
+            problem,
+            DATA,
             sample,
         )
         problem_sample = importer.create_problem()
         df = pd.read_csv(indir / f"{sample}.csv", index_col=[0])
-        apply_objective_settings(problem_sample, MODEL)
+        problem.apply_objective_settings(problem_sample.objective)
 
         ress = []
         fvals = []
@@ -109,9 +105,16 @@ def evaluate_pretraining_per_sample(dataset):
 def evaluate_petraining_cross_sample(dataset):
     evaluations = []
     for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
-        mae = load_mae(dataset, DATA, MODEL, context, SAMPLES, latent_dim, l1reg)
+        conf, mae, problem = load_from_kwargs(
+            model=MODEL,
+            data=DATA,
+            context=context,
+            samples=SAMPLES,
+            n_hidden=latent_dim,
+            alpha=l1reg,
+        )
 
-        problem_cross_sample = generate_cross_sample_pretraining_problem(mae)
+        problem_cross_sample = generate_cross_sample_pretraining_problem(mae, problem)
         result = load_optimize_result_pretraining_cross_samples(
             MODEL, DATA, context, SAMPLES, latent_dim, l1reg
         )
@@ -133,7 +136,7 @@ def evaluate_petraining_cross_sample(dataset):
             obj,
             x,
             samples[dataset],
-            mae.petab_importer.petab_problem,
+            mae.petab_importer.petab_importer,
             context,
             SAMPLES,
             dataset,
@@ -194,14 +197,14 @@ def evaluate_average(dataset):
 for dataset in ["train", "test"]:
     # cross sample
     df = evaluate_petraining_cross_sample(dataset)
-    df.to_csv(outdir / f"{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.csv")
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='cross_sample'))
     plot_loss_vs_regularization(df)
     plt.savefig(outdir / f"{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.pdf")
 
     # average
     df = evaluate_average(dataset)
-    df.to_csv(outdir / f"{SAMPLES}_evaluate_average_{dataset}.csv")
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
 
     # per sample
     df = evaluate_pretraining_per_sample(dataset)
-    df.to_csv(outdir / f"{SAMPLES}_evaluate_pretrain_per_sample_{dataset}.csv")
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))

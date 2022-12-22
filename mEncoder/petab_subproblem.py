@@ -2,89 +2,26 @@ import petab
 
 import pandas as pd
 import numpy as np
+import pysb
 
 from amici.petab_import import PysbPetabProblem
 from pypesto.petab.pysb_importer import PetabImporterPysb
 
-from . import parameter_boundaries_scales, MODEL_FEATURE_PREFIX, load_pathway, basedir
+from . import MODEL_FEATURE_PREFIX
+from .problem import Problem
 
-from typing import Tuple, Sequence
-from pathlib import Path
+from typing import List, Sequence
 
 
-def load_petab(
-    datafiles: Tuple[Path, Path, Path],
-    pathway_name: str,
+def generate_parameter_table(
+    problem: Problem,
+    model: pysb.Model,
+    condition_table: pd.DataFrame,
+    measurement_table: pd.DataFrame,
+    observable_table: pd.DataFrame,
+    features: List[pysb.Parameter],
     l1reg: float,
-    samples: Sequence[str] = None,
-) -> PetabImporterPysb:
-    """
-    Imports data from a csv and converts it to the petab format. This
-    function is used to connect the mechanistic model to the specified data
-    in order to defines the loss function of the autoencoder up to the
-    inflated parameters
-
-    :param datafiles:
-        tuple of paths to measurements, conditions and observables files
-
-    :param pathway_name:
-        name of pathway to use for model
-
-    :param l1reg:
-        TBD
-    """
-    measurement_table = pd.read_csv(datafiles[0], index_col=0, sep="\t")
-    condition_table = pd.read_csv(datafiles[1], index_col=0, sep="\t")
-    observable_table = pd.read_csv(datafiles[2], index_col=0, sep="\t")
-
-    # TEMPORARY: filter out baseline data
-    measurement_table = measurement_table[
-        measurement_table[petab.SIMULATION_CONDITION_ID]
-        != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID]
-    ]
-
-    if samples:
-        measurement_table = measurement_table[
-            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].apply(
-                lambda x: x in samples
-            )
-        ]
-        condition_table = condition_table.loc[
-            [c for c in condition_table.index if c.split("__")[0] in samples], :
-        ]
-
-    model = load_pathway(pathway_name)
-
-    features = [
-        par for par in model.parameters if par.name.startswith(MODEL_FEATURE_PREFIX)
-    ]
-
-    # CONDITION TABLE
-    # this defines the different samples. here we define the mapping from
-    # input parameters to model parameters
-
-    preeq_conds = dict()
-    for cond in list(condition_table.index):
-        candidates = measurement_table[
-            measurement_table[petab.SIMULATION_CONDITION_ID] == cond
-        ][petab.PREEQUILIBRATION_CONDITION_ID].unique()
-        if len(candidates) > 1:
-            raise RuntimeError(
-                "Found multiple different preequilibration "
-                f"conditions {candidates} for condition "
-                f"{cond}, which is not supported."
-            )
-        if len(candidates) == 0:
-            preeq_conds[cond] = cond
-        else:
-            preeq_conds[cond] = candidates[0]
-
-    for feature in features:
-        condition_table[feature.name] = [
-            f"{feature.name}__{preeq_conds[s]}" for s in condition_table.index
-        ]
-
-    # PARAMETER TABLE
+) -> pd.DataFrame:
     # this defines the full set of parameters including boundaries, nominal
     # values, scale, priors and whether they will be estimated or not.
     params = [
@@ -112,12 +49,12 @@ def load_petab(
         {
             petab.PARAMETER_ID: par,
             petab.LOWER_BOUND: transforms[
-                parameter_boundaries_scales[par.split("_")[-1]][2]
-            ](parameter_boundaries_scales[par.split("_")[-1]][0]),
+                problem.bounds[par.split("_")[-1]][2]
+            ](problem.bounds[par.split("_")[-1]][0]),
             petab.UPPER_BOUND: transforms[
-                parameter_boundaries_scales[par.split("_")[-1]][2]
-            ](parameter_boundaries_scales[par.split("_")[-1]][1]),
-            petab.PARAMETER_SCALE: parameter_boundaries_scales[par.split("_")[-1]][2],
+                problem.bounds[par.split("_")[-1]][2]
+            ](problem.bounds[par.split("_")[-1]][1]),
+            petab.PARAMETER_SCALE: problem.bounds[par.split("_")[-1]][2],
             petab.NOMINAL_VALUE: model.parameters[par].value
             if par in model.parameters.keys()
             else 1e3
@@ -162,8 +99,8 @@ def load_petab(
     # piece of codes allows disabling estimation for (non-input) parameters by
     # setting equal upper and lower bounds, primarily for debugging purposes
     parameter_table.loc[np.logical_not(input_pars), petab.ESTIMATE] = (
-        parameter_table.loc[np.logical_not(input_pars), petab.LOWER_BOUND]
-        != parameter_table.loc[np.logical_not(input_pars), petab.UPPER_BOUND]
+            parameter_table.loc[np.logical_not(input_pars), petab.LOWER_BOUND]
+            != parameter_table.loc[np.logical_not(input_pars), petab.UPPER_BOUND]
     ).apply(lambda x: int(x))
 
     parameter_table.set_index(petab.PARAMETER_ID, inplace=True)
@@ -176,15 +113,87 @@ def load_petab(
         for name in parameter_table.index
     ]
     parameter_table[petab.OBJECTIVE_PRIOR_PARAMETERS] = [
-        f"0.0;{1/l1reg}"
+        f"0.0;{1 / l1reg}"
         if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0
         else np.NaN
         for name in parameter_table.index
     ]
 
-    data_name = "__".join(datafiles[0].stem.split("__")[:-1])
+    return parameter_table
 
-    problem = PysbPetabProblem(
+
+def load_petab(
+    problem: Problem,
+    dataset: str,
+    l1reg: float,
+    measurement_table: pd.DataFrame,
+    condition_table: pd.DataFrame,
+    observable_table: pd.DataFrame,
+    samples: Sequence[str] = None,
+) -> PetabImporterPysb:
+    """
+    Imports data from a csv and converts it to the petab format. This
+    function is used to connect the mechanistic model to the specified data
+    in order to define the loss function of the autoencoder up to the
+    inflated parameters
+    """
+
+    # TEMPORARY: filter out baseline data
+    measurement_table = measurement_table[
+        measurement_table[petab.SIMULATION_CONDITION_ID]
+        != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID]
+    ]
+
+    if samples:
+        measurement_table = measurement_table[
+            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples)
+        ]
+        condition_table = condition_table.loc[
+            [c for c in condition_table.index if c.split("__")[0] in samples], :
+        ]
+
+    model = problem.load_pysb()
+
+    features = [
+        par for par in model.parameters if par.name.startswith(MODEL_FEATURE_PREFIX)
+    ]
+
+    # CONDITION TABLE
+    # this defines the different samples. here we define the mapping from
+    # input parameters to model parameters
+
+    preeq_conds = dict()
+    for cond in list(condition_table.index):
+        candidates = measurement_table[
+            measurement_table[petab.SIMULATION_CONDITION_ID] == cond
+        ][petab.PREEQUILIBRATION_CONDITION_ID].unique()
+        if len(candidates) > 1:
+            raise RuntimeError(
+                f"Found multiple different preequilibration conditions {candidates} for condition {cond}, which is not "
+                f"supported."
+            )
+        if len(candidates) == 0:
+            preeq_conds[cond] = cond
+        else:
+            preeq_conds[cond] = candidates[0]
+
+    for feature in features:
+        condition_table[feature.name] = [
+            f"{feature.name}__{preeq_conds[s]}" for s in condition_table.index
+        ]
+
+    # PARAMETER TABLE
+    parameter_table = generate_parameter_table(
+        problem,
+        model,
+        condition_table,
+        measurement_table,
+        observable_table,
+        features,
+        l1reg,
+    )
+
+    petab_problem = PysbPetabProblem(
         measurement_df=measurement_table,
         condition_df=condition_table,
         observable_df=observable_table,
@@ -192,12 +201,12 @@ def load_petab(
         pysb_model=model,
     )
 
-    filter_observables(problem)
+    filter_observables(petab_problem)
     # petab.lint_problem(problem)
 
     return PetabImporterPysb(
-        problem,
-        output_folder=str(basedir / "amici_models" / f"{model.name}_{data_name}_petab"),
+        petab_problem,
+        output_folder=str(problem.amici_dir / f"{problem.pathway_name}_{dataset}_petab"),
     )
 
 

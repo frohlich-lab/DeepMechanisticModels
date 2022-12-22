@@ -1,4 +1,4 @@
-from .mechanistic_model import (
+from mEncoder.mechanistic_model import (
     add_monomer_synth_deg,
     generate_pathway,
     add_activation,
@@ -17,7 +17,7 @@ active_erk = ["ERK__Y204_p"]
 active_akt = ["AKT1__T308_p", "AKT2__T309_p", "AKT3__T305_p"]
 
 
-def add_EGFR(model):
+def add_egfr(model):
     rtkfs = ["EGF"]
 
     # EGFR
@@ -40,7 +40,7 @@ def add_EGFR(model):
     add_degradation(model, active_rtks)
 
 
-def add_MAPK(model):
+def add_mapk(model):
     # mapk_cascade = [
     #     ('MAP2K1', {'S218_S222': (active_rtks, active_erk)}),
     #     ('MAP2K2', {'S222_S226': (active_rtks, active_erk)}),
@@ -68,7 +68,7 @@ def add_MAPK(model):
     #            model.monomers['ERK'](Y204='p'))
 
 
-def add_MTOR_AKT(model):
+def add_mtore_akt(model):
     add_monomer_synth_deg("MTOR", asites=["C"], asite_states=["c0", "c1", "c2"])
 
     # AKT
@@ -110,7 +110,7 @@ def add_MTOR_AKT(model):
     )
 
 
-def add_STAT(model):
+def add_stat(model):
     stat_cascade = [
         ("SRC", {"Y419": active_rtks}),
         ("STAT1", {"Y727": active_erk}),
@@ -122,7 +122,7 @@ def add_STAT(model):
     generate_pathway(model, stat_cascade)
 
 
-def add_S6(model):
+def add_s6(model):
     # S6
     s6_cascade = [
         ("RPS6KB1", {"S412": ["MTOR__C_c1"], "T252": ["PDPK1__S241_p"]}),  # p70S6K

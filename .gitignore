@@ -151,5 +151,5 @@ cache
 *.hdf5
 pretraining/*
 *.tsv
-aesara/*
 *.png
+cytof/amici_models/*

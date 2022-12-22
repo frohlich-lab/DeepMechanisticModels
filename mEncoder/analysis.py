@@ -45,43 +45,6 @@ def process_simulation(
     )
 
 
-def load_mae(dataset, data, model, context, samples, latent_dim, l1reg):
-    samples_train = training_samples(Wildcards(data, samples))
-
-    datafiles = (
-        data_dir / f"{data}__{model}__measurements.tsv",
-        data_dir / f"{data}__{model}__conditions.tsv",
-        data_dir / f"{data}__{model}__observables.tsv",
-    )
-
-    mae_train = MechanisticAutoEncoder(
-        latent_dim,
-        datafiles,
-        contextualization=context,
-        pathway_name=model,
-        samples=samples_train,
-        l1reg=l1reg,
-    )
-
-    if dataset == "train":
-        return mae_train
-
-    samples_test = test_samples(Wildcards(data, samples))
-
-    return MechanisticAutoEncoder(
-        latent_dim,
-        datafiles,
-        pathway_name=model,
-        contextualization=context,
-        samples=samples_test,
-        l1reg=l1reg,
-        features=mae_train.features,
-        imputer=mae_train.imputer,
-        scaler=mae_train.scaler,
-        pca=mae_train.pca,
-    )
-
-
 def result_file_pretraining_cross_sample(
     job_id, model, context, data, samples, hidden_layers, alpha
 ) -> Path:

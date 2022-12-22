@@ -1,0 +1,55 @@
+import re
+
+
+def get_samples(data_name):
+    if data_name == 'dream_cytof':
+        return [
+            "c184A1",
+            "cBT20",
+            "cBT474",
+            "cBT549",
+            "cCAL148",
+            "cCAL851",
+            "cCAL51",
+            "cDU4475",
+            "cEFM192A",
+            "cEVSAT",
+            "cHBL100",
+            "cHCC1187",
+            "cHCC1395",
+            "cHCC1419",
+            "cHCC1500",
+            "cHCC1569",
+            "cHCC1599",
+            "cHCC1937",
+            "cHCC1954",
+            "cHCC2157",
+            "cHCC2185",
+            "cHCC3153",
+            "cHCC38",
+            "cHCC70",
+            "cHDQP1",
+            "cJIMT1",
+            "cMCF10A",
+            "cMCF10F",
+            "cMCF7",
+            "cMDAMB134VI",
+            "cMDAMB157",
+            "cMDAMB175VII",
+            "cMDAMB361",
+            "cMDAMB415",
+            "cMDAMB453",
+            "cMDAkb2",
+            "cMFM223",
+            "cMPE600",
+            "cMX1",
+            "cOCUBM",
+            "cT47D",
+            "cUACC812",
+            "cUACC893",
+            "cZR7530",
+        ]
+    elif m := re.match(r'synthetic_([0-9]+)$', data_name):
+        return [f'sample_{isample}' for isample in range(int(m.group(1)))]
+
+    raise ValueError(f'{data_name} is not a valid data name')

@@ -2,26 +2,72 @@ import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
 import pandas as pd
-
 import petab
-import pypesto
 import pypesto.petab
 
-from typing import Tuple, Sequence, Optional, List
-from pathlib import Path
+from typing import Sequence, Optional, List
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
 
-from . import MODEL_FEATURE_PREFIX, apply_objective_settings, data_dir
+from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
+from .problem import Problem
 from .petab_subproblem import load_petab
+
+
+def contextualize_measurements(measurement_table: pd.DataFrame, contextualization: str) -> pd.DataFrame:
+    baseline_measurements = measurement_table.copy()
+
+    if contextualization in ["baseline", "init"]:
+        baseline_measurements = baseline_measurements[
+            baseline_measurements[petab.TIME] == 0
+            ]
+
+    if contextualization == "baseline":
+        baseline_measurements = baseline_measurements[
+            baseline_measurements[petab.SIMULATION_CONDITION_ID]
+            == baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
+            ]
+    elif contextualization == "init":
+        baseline_measurements = baseline_measurements[
+            baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                lambda x: x.endswith("__EGF")
+            )
+        ]
+    else:
+        baseline_measurements = baseline_measurements[
+            baseline_measurements[petab.SIMULATION_CONDITION_ID]
+            != baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
+            ]
+        baseline_measurements[
+            petab.SIMULATION_CONDITION_ID
+        ] = baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
+            lambda x: x.split("__")[1]
+        )
+
+    if contextualization == "dynamic":
+        pivot_columns = (
+            petab.OBSERVABLE_ID,
+            petab.SIMULATION_CONDITION_ID,
+            petab.TIME,
+        )
+    else:
+        pivot_columns = petab.OBSERVABLE_ID
+
+    input_data = baseline_measurements.pivot_table(
+        index=petab.PREEQUILIBRATION_CONDITION_ID,
+        columns=pivot_columns,
+        values=petab.MEASUREMENT,
+        aggfunc=np.nanmean,
+    )
+    return input_data
 
 
 class MechanisticAutoEncoder(AutoEncoder):
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
-    features: str = eqx.static_field()
+    features: List[str] = eqx.static_field()
     imputer: KNNImputer = eqx.static_field()
     scaler: StandardScaler = eqx.static_field()
     pca: PCA = eqx.static_field()
@@ -38,9 +84,12 @@ class MechanisticAutoEncoder(AutoEncoder):
 
     def __init__(
         self,
+        problem: Problem,
+        dataset: str,
         n_latent: int,
-        datafiles: Tuple[Path, Path, Path],
-        pathway_name: str,
+        measurement_table: pd.DataFrame,
+        observable_table: pd.DataFrame,
+        condition_table: pd.DataFrame,
         contextualization: str,
         samples: Sequence[str],
         l1reg: float = 0.0,
@@ -53,9 +102,6 @@ class MechanisticAutoEncoder(AutoEncoder):
         """
         loads the mechanistic model as theano operator with loss as output and
         decoder output as input
-
-        :param datafiles:
-            tuple of paths to measurements, conditions and observables files
 
         :param pathway_name:
             name of pathway to use for model
@@ -71,55 +117,10 @@ class MechanisticAutoEncoder(AutoEncoder):
             is also intended to rescale the inputs accordingly.
 
         """
-        self.data_name = "__".join(datafiles[0].stem.split("__")[:-1])
-        self.pathway_name = pathway_name
+        self.data_name = dataset
+        self.pathway_name = problem.pathway_name
 
-        full_measurements = pd.read_csv(datafiles[0], index_col=0, sep="\t")
-
-        baseline_measurements = full_measurements.copy()
-
-        if contextualization in ["baseline", "init"]:
-            baseline_measurements = baseline_measurements[
-                baseline_measurements[petab.TIME] == 0
-            ]
-
-        if contextualization == "baseline":
-            baseline_measurements = baseline_measurements[
-                baseline_measurements[petab.SIMULATION_CONDITION_ID]
-                == baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-            ]
-        elif contextualization == "init":
-            baseline_measurements = baseline_measurements[
-                baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                    lambda x: x.endswith("__EGF")
-                )
-            ]
-        else:
-            baseline_measurements = baseline_measurements[
-                baseline_measurements[petab.SIMULATION_CONDITION_ID]
-                != baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-            ]
-            baseline_measurements[
-                petab.SIMULATION_CONDITION_ID
-            ] = baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                lambda x: x.split("__")[1]
-            )
-
-        if contextualization == "dynamic":
-            pivot_columns = (
-                petab.OBSERVABLE_ID,
-                petab.SIMULATION_CONDITION_ID,
-                petab.TIME,
-            )
-        else:
-            pivot_columns = petab.OBSERVABLE_ID
-
-        input_data = baseline_measurements.pivot_table(
-            index=petab.PREEQUILIBRATION_CONDITION_ID,
-            columns=pivot_columns,
-            values=petab.MEASUREMENT,
-            aggfunc=np.nanmean,
-        )
+        input_data = contextualize_measurements(measurement_table, contextualization)
 
         if features:
             # for prediction, use feature set computed on training data
@@ -138,7 +139,13 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         self.l1reg = l1reg
         self.petab_importer = load_petab(
-            datafiles, "pw_" + pathway_name, l1reg, samples
+            problem,
+            dataset,
+            l1reg,
+            measurement_table,
+            condition_table,
+            observable_table,
+            samples
         )
 
         self.pypesto_subproblem = self.petab_importer.create_problem()
@@ -187,17 +194,8 @@ class MechanisticAutoEncoder(AutoEncoder):
         # generate PCA embedding for feature selection
         if pca is None:
             # use n_comps such that 90% of variance is explained
-            n_pca = (
-                np.nonzero(
-                    np.cumsum(
-                        PCA(n_components=input_data.shape[0])
-                        .fit(input_data)
-                        .explained_variance_ratio_
-                    )
-                    > 0.9
-                )[0][0]
-                + 1
-            )
+            var_expl = PCA(n_components=input_data.shape[0]).fit(input_data).explained_variance_ratio_
+            n_pca = np.nonzero(np.cumsum(var_expl) > 0.9)[0][0] + 1
             pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(input_data)
 
         self.pca = pca
@@ -229,14 +227,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             input_data=self.data_pca, n_latent=n_latent, n_params=self.n_model_inputs
         )
 
-        apply_objective_settings(self.pypesto_subproblem, pathway_name)
-        if isinstance(
-            self.pypesto_subproblem.objective, pypesto.objective.AmiciObjective
-        ):
-            amici_objective = self.pypesto_subproblem.objective
-        else:
-            amici_objective = self.pypesto_subproblem.objective._objectives[0]
-        amici_objective.n_threads = n_threads
+        problem.apply_objective_settings(self.pypesto_subproblem.objective, n_threads=n_threads)
 
         self.x_names = self.x_names + [
             name

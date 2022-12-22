@@ -5,7 +5,7 @@ Materials for a simple linear encoder, and its analytical reverse.
 import jax.numpy as jnp
 import equinox as eqx
 import numpy as np
-from typing import Union
+from typing import Union, List
 
 
 class AutoEncoder(eqx.Module):
@@ -28,6 +28,7 @@ class AutoEncoder(eqx.Module):
     n_inflate_weights: int = eqx.static_field()
     n_encoder_pars: int = eqx.static_field()
     data: np.ndarray = eqx.static_field()
+    x_names: List[str] = eqx.static_field()
 
     def __init__(self, input_data: np.ndarray, n_latent: int = 1, n_params: int = 12):
         self.n_features = input_data.shape[1]

@@ -1,18 +1,18 @@
 from . import (
-    load_model,
-    parameter_boundaries_scales,
     MODEL_FEATURE_PREFIX,
     plot_and_save_fig,
-    basedir,
 )
+from .problem import Problem
 
 from .encoder import AutoEncoder
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+import jax
 
 from sklearn import decomposition
+from pathlib import Path
 
 import amici
 import petab
@@ -21,30 +21,19 @@ from typing import Tuple
 
 
 def generate_synthetic_data(
+    problem: Problem,
+    data_dir: Path,
     data_name: str,
-    pathway_name: str,
     latent_dimension: int = 2,
     n_samples: int = 45,
     n_features: int = 100,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates sample data using the mechanistic model.
-
-    :param pathway_name:
-        name of pathway to use for model
-
-    :param latent_dimension:
-        number of latent dimensions that is used to generate the parameters
-        that vary across samples
-
-    :param n_samples:
-        number of samples to generate
-
-    :return:
-        path to csv where generated data was saved
     """
-    model, solver = load_model(
-        "pw_" + pathway_name,
+    model, solver = problem.load_amici(
+        problem.load_pysb(),
+        amici_dir=data_dir / "amici_models",
         force_compile=True,
         add_observables=True,
         name_suffix=f"_{data_name}",
@@ -53,12 +42,13 @@ def generate_synthetic_data(
     solver.setAbsoluteTolerance(1e-12)
     solver.setRelativeTolerance(1e-12)
 
+    bounds = problem.bounds
     # setup model parameter scales
     model.setParameterScale(
         amici.parameterScalingFromIntVector(
             [
                 amici.ParameterScaling.none
-                if parameter_boundaries_scales[par_id.split("_")[-1]][2] == "lin"
+                if bounds[par_id.split("_")[-1]][2] == "lin"
                 else amici.ParameterScaling.log10
                 for par_id in model.getParameterIds()
             ]
@@ -109,7 +99,7 @@ def generate_synthetic_data(
         for par_id in model.getParameterIds():
             if par_id in sample_par_names:
                 continue
-            lb, ub, _ = parameter_boundaries_scales[par_id.split("_")[-1]]
+            lb, ub, _ = bounds[par_id.split("_")[-1]]
             static_pars[par_id] = np.random.random() * (ub - lb) + lb
             if par_id == "MEK_phosphorylation_S222_base_kr":
                 static_pars[par_id] -= 5.0
@@ -130,7 +120,7 @@ def generate_synthetic_data(
     # generate sparse encoder/decoder parameters
     tt_pars = np.random.random(encoder.n_encoder_pars)
     for ip, name in enumerate(encoder.x_names):
-        lb, ub, _ = parameter_boundaries_scales[name.split("_")[-1]]
+        lb, ub, _ = bounds[name.split("_")[-1]]
         lb /= 10
         ub /= 10
         # sparsity
@@ -139,8 +129,16 @@ def generate_synthetic_data(
         else:
             tt_pars[ip] = tt_pars[ip] * (ub - lb) + lb
 
+    encode_weights, inflate_weights = np.split(tt_pars, (encoder.n_encode_weights,))
+    pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
+        data_dir / f"{data_name}__{problem.pathway_name}__reference_weights.csv"
+    )
+
     samples = []
     embeddings = []
+
+    encode = jax.jit(encoder.encode)
+    inflate = jax.jit(encoder.inflate_params)
     while len(samples) < n_samples:
         # generate new fake data for sample
         sample_data = np.random.random(encoder.data[len(samples), :].shape) / 3
@@ -154,8 +152,9 @@ def generate_synthetic_data(
         encoder.data[len(samples), :] = sample_data
 
         # generate parameters from fake data
-        embedding = encoder.compute_embedded_pars(tt_pars)[len(samples), :]
-        sample_par_vals = encoder.compute_inflated_pars(tt_pars)[len(samples), :]
+        embedding = encode(encode_weights)[len(samples), :]
+        sample_par_vals = np.asarray(inflate(embedding, inflate_weights), dtype=np.float64)
+        assert len(sample_par_vals) == len(sample_par_names)
         sample_pars = dict(zip(sample_par_names, sample_par_vals))
 
         # set parameters in model
@@ -175,8 +174,7 @@ def generate_synthetic_data(
             embeddings.append(embedding)
 
     # prepare petab
-    datadir = basedir / "data"
-    datadir.mkdir(exist_ok=True, parents=True)
+    data_dir.mkdir(exist_ok=True, parents=True)
 
     df = pd.concat(samples)
     df.loc[
@@ -191,7 +189,7 @@ def generate_synthetic_data(
     ).boxplot(
         rot=90
     )
-    plot_and_save_fig(f"{data_name}__{pathway_name}.pdf", datadir)
+    plot_and_save_fig(f"{data_name}__{problem.pathway_name}.pdf", data_dir)
 
     fig, ax = plt.subplots(1, 1)
     embeddings = np.vstack(embeddings)
@@ -200,9 +198,9 @@ def generate_synthetic_data(
     pd.DataFrame(
         embeddings,
         index=[f"sample_{isample}" for isample in range(embeddings.shape[0])],
-    ).to_csv(datadir / f"{data_name}__{pathway_name}__embeddings.csv")
+    ).to_csv(data_dir / f"{data_name}__{problem.pathway_name}__embeddings.csv")
 
-    plot_and_save_fig(f"{data_name}__{pathway_name}__embedding.pdf", datadir)
+    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__embedding.pdf", data_dir)
 
     inputs = df.loc[
         (df.time == 0)
@@ -216,7 +214,7 @@ def generate_synthetic_data(
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(f"{data_name}__{pathway_name}__input_pca.pdf", datadir)
+    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__input_pca.pdf", data_dir)
 
     inputs = df[
         [
@@ -229,11 +227,11 @@ def generate_synthetic_data(
     inputs = pd.melt(inputs, id_vars=["Sample"])
     inputs.index = inputs["variable"] + inputs["Sample"].apply(lambda x: f"_sample_{x}")
     ref = pd.concat([pd.Series(static_pars), inputs.value])
-    ref.to_csv(datadir / f"{data_name}__{pathway_name}__reference_inputs.csv")
+    ref.to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_inputs.csv")
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0], axes[1])
-    plot_and_save_fig(f"{data_name}__{pathway_name}__data_pca.pdf", datadir)
+    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__data_pca.pdf", data_dir)
 
     # create petab & save to csv
     # MEASUREMENTS

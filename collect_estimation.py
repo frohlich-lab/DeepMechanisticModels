@@ -1,60 +1,27 @@
 import sys
 import os
+import re
+from pathlib import Path
 
 from pypesto.store import OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
-from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.training import create_pypesto_problem
-from mEncoder import (
-    results_dir,
-    data_dir,
-    COLLECTED_ESTIMATION_OUTFILE_TEMP,
-    ESTIMATION_OUTFILE_TEMP,
-)
-from process_data import training_samples, Wildcards
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from util import load_from_argv
 
 import pypesto.visualize
 
-MODEL = sys.argv[1]
-DATA = sys.argv[2]
-CONTEXT = sys.argv[3]
-SAMPLES = sys.argv[4]
-N_HIDDEN = int(sys.argv[5])
-ALPHA = float(sys.argv[6])
+conf, mae, problem = load_from_argv(sys.argv)
+pypesto_problem = create_pypesto_problem(mae, problem)
 
-mae = MechanisticAutoEncoder(
-    N_HIDDEN,
-    (
-        data_dir / f"{DATA}__{MODEL}__measurements.tsv",
-        data_dir / f"{DATA}__{MODEL}__conditions.tsv",
-        data_dir / f"{DATA}__{MODEL}__observables.tsv",
-    ),
-    pathway_name=MODEL,
-    samples=training_samples(Wildcards(DATA, SAMPLES)),
-    l1reg=ALPHA,
-    contextualization=CONTEXT,
-)
-
-problem = create_pypesto_problem(mae)
+outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
+indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent
+inpattern = TRAINING_OUTFILE_RESULTS.format(job='[0-9]+').format(**conf.__dict__).replace('.', '\\.')
 
 optimizer_results = []
-
-result_path = results_dir / MODEL / DATA
-result_files = os.listdir(result_path)
-
-outfile = result_path / COLLECTED_ESTIMATION_OUTFILE_TEMP.format(
-    samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, context=CONTEXT
-)
-
-prefix = "__".join(
-    ESTIMATION_OUTFILE_TEMP.format(
-        samples=SAMPLES, n_hidden=N_HIDDEN, alpha=ALPHA, job="JOB", context=CONTEXT
-    ).split("__")[:-1]
-)
-
-for file in result_files:
-    if not file.startswith(prefix) or not file.endswith(".hdf5") or file == outfile:
+for file in os.listdir(indir):
+    if not re.match(inpattern, file):
         continue
-    reader = OptimizationResultHDF5Reader(str(result_path / file))
+    reader = OptimizationResultHDF5Reader(str(indir / str(file)))
     starts = reader.read().optimize_result.list
     for start in starts:
         start["hess"] = None
@@ -62,7 +29,7 @@ for file in result_files:
     optimizer_results.extend(starts)
 
 print(
-    sorted([r["fval"] for r in optimizer_results])[0 : min(5, len(optimizer_results))]
+    sorted([r["fval"] for r in optimizer_results])[0: min(5, len(optimizer_results))]
 )
 
 for istart, start in enumerate(optimizer_results):

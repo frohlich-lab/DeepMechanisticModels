@@ -3,10 +3,10 @@ Per sample pretraining.
 """
 
 import sys
-import os
 import fides
 import pypesto
 import numpy as np
+from pathlib import Path
 
 from pypesto.optimize import FidesOptimizer
 
@@ -16,13 +16,14 @@ from mEncoder.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
-from mEncoder import (
-    apply_objective_settings,
+from common import (
     pretrain_dir,
-    data_dir,
     fig_dir,
-    PER_SAMPLE_OUTFILE_TEMP,
+    PER_SAMPLE_OUTFILE_PARS,
+    PER_SAMPLE_OUTFILE_RESULTS,
 )
+from util import load_petab_base_files
+from cytof.problem import CytofProblem
 
 np.random.seed(0)
 
@@ -30,24 +31,28 @@ MODEL = sys.argv[1]
 DATA = sys.argv[2]
 SAMPLE = sys.argv[3]
 
-datafiles = (
-    data_dir / f"{DATA}__{MODEL}__measurements.tsv",
-    data_dir / f"{DATA}__{MODEL}__conditions.tsv",
-    data_dir / f"{DATA}__{MODEL}__observables.tsv",
+problem = CytofProblem(MODEL)
+
+petab_base_importer = load_petab(
+    problem,
+    DATA,
+    0.0,
+    **load_petab_base_files(MODEL, DATA),
 )
 
 importer = generate_per_sample_pretraining_problems(
-    load_petab(datafiles, "pw_" + MODEL, 0.0, [SAMPLE]),
-    MODEL,
-    f"{DATA}__{MODEL}",
+    petab_base_importer,
+    problem,
+    DATA,
     SAMPLE,
 )
+
 outdir = pretrain_dir / MODEL / DATA
 figdir = fig_dir / MODEL / DATA / "pretraining_sample"
-output_prefix = os.path.splitext(PER_SAMPLE_OUTFILE_TEMP.format(sample=SAMPLE))[0]
-problem = importer.create_problem()
+pypesto_problem = importer.create_problem()
 model = importer.create_model()
-apply_objective_settings(problem, MODEL)
+
+problem.apply_objective_settings(pypesto_problem.objective)
 
 optimizer = FidesOptimizer(
     options={
@@ -58,10 +63,11 @@ optimizer = FidesOptimizer(
     }
 )
 result = pretrain(
-    problem,
+    pypesto_problem,
     pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
     10,
     optimizer,
-    pypesto.engine.MultiThreadEngine(1),
 )
-store_and_plot_pretraining(result, outdir=outdir, prefix=output_prefix)
+results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=SAMPLE))
+pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=SAMPLE))
+store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)

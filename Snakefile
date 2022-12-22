@@ -1,20 +1,16 @@
 import os
+from pathlib import Path
 
-from mEncoder import (
-    basedir, data_dir, pretrain_dir, fig_dir, results_dir,
-    PER_SAMPLE_OUTFILE_TEMP, COLLECTED_ESTIMATION_OUTFILE_TEMP,
-    ESTIMATION_OUTFILE_TEMP
+from common import (
+    PER_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, TRAINING_OUTFILE_RESULTS,
+    COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
+    tpl_evaluation_file, EVALUATION_TRAINING, EVALUATE_ALL
 )
-from process_data import (
-    per_sample_pretraining_train, per_sample_pretraining_test
-)
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS
 
+basedir = Path(__file__).parent
 mencoder_dir = basedir / 'mEncoder'
-
-PATHWAYS = ['EGFR_MAPK']
-DATASETS = ['synthetic_90']
-SPLITS = ['0_5',]
+cytof_dir = basedir / 'cytof'
 
 
 STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
@@ -26,13 +22,15 @@ rule process_data:
         script='process_data.py',
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
-        pathway=basedir / 'pathways' / 'pw_{model}.py',
-        pathways=mencoder_dir / 'pathways.py',
+        pathway=cytof_dir / 'pw_{model}.py',
+        pathways=cytof_dir / 'pathways.py',
     output:
         datafiles=expand(
-            str(data_dir / '{{data}}__{{model}}__{file}.tsv'),
-            file=['conditions', 'measurements', 'observables']
-        )
+            tpl_petab_file,
+            model='{model}',
+            data='{data}',
+            file=['measurements', 'conditions', 'observables']
+        ),
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -47,8 +45,7 @@ rule compile_mechanistic_model:
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
-        model= basedir / 'amici_models' / '{model}_{data}__{model}_petab' /
-            '{model}' / '{model}.py',
+        model= basedir / 'amici_models' / '{model}_{data}__{model}_petab' / '{model}' / '{model}.py',
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -61,9 +58,9 @@ rule pretrain_per_sample:
         script='pretrain_per_sample.py',
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles,
+        data=rules.process_data.output.datafiles
     output:
-        pretraining=pretrain_dir / '{model}' / '{data}' / PER_SAMPLE_OUTFILE_TEMP
+        pretraining=PER_SAMPLE_OUTFILE_PARS
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -81,9 +78,10 @@ rule pretrain_cross_sample:
         bounds=os.path.join('mEncoder', '__init__.py'),
         pretrain_per_sample=per_sample_pretraining_train,
         model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles,
+        data=rules.process_data.output.datafiles
     output:
-        pretraining=pretrain_dir / '{model}' / '{data}' / ESTIMATION_OUTFILE_TEMP
+        pars=CROSS_SAMPLE_OUTFILE_PARS,
+        results=CROSS_SAMPLE_OUTFILE_RESULTS
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -93,23 +91,21 @@ rule pretrain_cross_sample:
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+',
     shell:
-        'AESARA_FLAGS="compiledir=./aesara/{wildcards.model}_{wildcards.context}_{wildcards.data}_{wildcards.samples}_{wildcards.n_hidden}_{wildcards.job}" '
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} '
-        '{wildcards.job}'
+        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
 
 
 rule estimate_parameters:
     input:
-        script='run_estimation.py',
+        script='train.py',
         encoder=mencoder_dir / 'encoder.py',
         training=mencoder_dir / 'training.py',
         autoencoder=mencoder_dir /'autoencoder.py',
-        dataset=rules.process_data.output.datafiles,
-        pretrain_inflate=rules.pretrain_cross_sample.output.pretraining,
+        data=rules.process_data.output.datafiles,
+        pretrain_inflate=rules.pretrain_cross_sample.output.pars,
         model=rules.compile_mechanistic_model.output.model,
     output:
-        result=results_dir / '{model}' / '{data}' / ESTIMATION_OUTFILE_TEMP
+        result=TRAINING_OUTFILE_RESULTS
     wildcard_constraints:
         model='[\w_]+',
         data='[\w]+',
@@ -119,23 +115,20 @@ rule estimate_parameters:
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
     shell:
-        'AESARA_FLAGS="compiledir=./aesara/{wildcards.model}_{wildcards.data}_{wildcards.samples}_{wildcards.n_hidden}__{wildcards.alpha}_{wildcards.job}" '
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} '
-        '{wildcards.job}'
+        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
 
 rule collect_estimation_results:
     input:
         script='collect_estimation.py',
-        trace=expand(os.path.join(
-            results_dir, '{{model}}', '{{data}}',
-            ESTIMATION_OUTFILE_TEMP.format(
+        trace=expand(
+            TRAINING_OUTFILE_RESULTS.format(
                 context='{{context}}', samples='{{samples}}',
                 n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
-            )
-        ), job=STARTS)
+            ), job=STARTS
+        )
     output:
-        result=results_dir / '{model}' / '{data}' / COLLECTED_ESTIMATION_OUTFILE_TEMP
+        result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
@@ -154,18 +147,13 @@ rule evaluate_pretraining:
         cross_sample=expand(
             rules.pretrain_cross_sample.output.pretraining,
             model='{model}', data='{data}', context=CONTEXTS,
-            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples=SPLITS, job=STARTS
+            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
         ),
         pretrain_per_sample=per_sample_pretraining_test,
     output:
-        plot=expand(
-            fig_dir / '{{model}}' / '{{data}}' /
-            '{{samples}}_evaluate_pretrain_cross_sample_{dataset}.pdf',
-            dataset=['train', 'test']
-        ),
         csv=expand(
-            fig_dir / '{{model}}' / '{{data}}' /
-            '{{samples}}_evaluate_{mode}_{dataset}.csv',
+            tpl_evaluation_file,
+            model='{model}', data='{data}', samples='{samples}',
             mode=['pretrain_per_sample', 'pretrain_cross_sample', 'average'],
             dataset=['train', 'test']
         )
@@ -174,7 +162,6 @@ rule evaluate_pretraining:
         data='[\w_]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'pip install pytz --upgrade; pip install tzdata --upgrade; '
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 rule evaluate_training:
@@ -183,17 +170,12 @@ rule evaluate_training:
         cross_sample=expand(
             rules.collect_estimation_results.output.result,
             model='{model}', data='{data}', context=CONTEXTS,
-            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples=SPLITS,
+            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}',
         ),
     output:
-        plot=expand(
-            fig_dir / '{{model}}' / '{{data}}' /
-            '{{samples}}_evaluate_training_{dataset}.pdf',
-            dataset=['train', 'test']
-        ),
         csv=expand(
-            fig_dir / '{{model}}' / '{{data}}' /
-            '{{samples}}_evaluate_training_{dataset}.csv',
+            EVALUATION_TRAINING,
+            model='{model}',data='{data}', samples='{samples}',
             dataset=['train', 'test']
         )
     wildcard_constraints:
@@ -201,7 +183,6 @@ rule evaluate_training:
         data='[\w_]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'pip install pytz --upgrade; pip install tzdata --upgrade; '
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 rule evaluate_all:
@@ -210,14 +191,13 @@ rule evaluate_all:
         pretraining=rules.evaluate_pretraining.output.csv,
         training=rules.evaluate_training.output.csv,
     output:
-        plot=fig_dir / '{model}' / '{data}' / '{samples}_evaluate_all.pdf',
+        plot=EVALUATE_ALL,
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
-        '{wildcards.samples}'
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 rule train_and_evaluate:
     input:
