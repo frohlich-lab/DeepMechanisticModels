@@ -153,3 +153,4 @@ pretraining/*
 *.tsv
 *.png
 cytof/amici_models/*
+data/amici_models/*
