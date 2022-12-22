@@ -33,7 +33,7 @@ rule process_data:
         ),
     wildcard_constraints:
         model='[\w_]+',
-        data='[\w]+',
+        data='\w+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -48,7 +48,7 @@ rule compile_mechanistic_model:
         model= basedir / 'amici_models' / '{model}_{data}__{model}_petab' / '{model}' / '{model}.py',
     wildcard_constraints:
         model='[\w_]+',
-        data='[\w]+',
+        data='\w+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -63,7 +63,7 @@ rule pretrain_per_sample:
         pretraining=PER_SAMPLE_OUTFILE_PARS
     wildcard_constraints:
         model='[\w_]+',
-        data='[\w]+',
+        data='\w+',
         sample='[\w_]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
@@ -84,8 +84,8 @@ rule pretrain_cross_sample:
         results=CROSS_SAMPLE_OUTFILE_RESULTS
     wildcard_constraints:
         model='[\w_]+',
-        data='[\w]+',
-        context='[\w]+',
+        data='\w+',
+        context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
@@ -108,8 +108,8 @@ rule estimate_parameters:
         result=TRAINING_OUTFILE_RESULTS
     wildcard_constraints:
         model='[\w_]+',
-        data='[\w]+',
-        context='[\w]+',
+        data='\w+',
+        context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
@@ -132,7 +132,7 @@ rule collect_estimation_results:
     wildcard_constraints:
         model='[\w_]+',
         data='[\w_]+',
-        context='[\w]+',
+        context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
