@@ -159,7 +159,7 @@ def store_and_plot_pretraining(
     outdir = rfile.parent
     outdir.mkdir(parents=True, exist_ok=True)
 
-    run_name = rfile.stem.split(".")[0]
+    run_name = rfile.stem
     writer = OptimizationResultHDF5Writer(str(rfile))
     writer.write(result, overwrite=True)
 
@@ -175,8 +175,3 @@ def store_and_plot_pretraining(
         waterfall(result, scale_y="log10", offset_y=0.0)
         plt.tight_layout()
         plt.savefig(outdir / f'{run_name}_waterfall.pdf')
-
-    if result.problem.dim_full < 2e3:
-        parameters(result)
-        plt.tight_layout()
-        plt.savefig(outdir / f'{run_name}_parameters.pdf')

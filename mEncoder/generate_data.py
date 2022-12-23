@@ -139,7 +139,7 @@ def generate_synthetic_data(
 
     encode_weights, inflate_weights = np.split(tt_pars, (encoder.n_encode_weights,))
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
-        data_dir / f"{data_name}__{problem.pathway_name}__reference_weights.csv"
+        data_dir / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
     )
 
     samples = []
@@ -191,7 +191,7 @@ def generate_synthetic_data(
     ).boxplot(
         rot=90
     )
-    plot_and_save_fig(f"{data_name}__{problem.pathway_name}.pdf", data_dir)
+    plot_and_save_fig(f"{problem.pathway_name}__{data_name}.pdf", data_dir)
 
     fig, ax = plt.subplots(1, 1)
     embeddings = np.vstack(embeddings)
@@ -200,9 +200,9 @@ def generate_synthetic_data(
     pd.DataFrame(
         embeddings,
         index=[f"sample_{isample}" for isample in range(embeddings.shape[0])],
-    ).to_csv(data_dir / f"{data_name}__{problem.pathway_name}__embeddings.csv")
+    ).to_csv(data_dir / f"{problem.pathway_name}__{data_name}__embeddings.csv")
 
-    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__embedding.pdf", data_dir)
+    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__embedding.pdf", data_dir)
 
     inputs = df.loc[
         (df.time == 0)
@@ -218,13 +218,13 @@ def generate_synthetic_data(
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__input_pca.pdf", data_dir)
-    inputs.to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_inputs.csv")
-    pd.Series(static_pars).to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_pars.csv")
+    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__input_pca.pdf", data_dir)
+    inputs.to_csv(data_dir / f"{problem.pathway_name}__{data_name}__reference_inputs.csv")
+    pd.Series(static_pars).to_csv(data_dir / f"{problem.pathway_name}__{data_name}__reference_pars.csv")
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0], axes[1])
-    plot_and_save_fig(f"{data_name}__{problem.pathway_name}__data_pca.pdf", data_dir)
+    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__data_pca.pdf", data_dir)
 
     # create petab & save to csv
     # MEASUREMENTS

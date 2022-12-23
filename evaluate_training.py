@@ -18,6 +18,9 @@ from util import load_mae
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
+from jax.config import config
+config.update("jax_enable_x64", True)
+
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
 SAMPLES = sys.argv[3]

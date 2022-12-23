@@ -20,12 +20,15 @@ from mEncoder.analysis import (
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
 from common import (
     training_samples, test_samples, Wildcards, pretrain_dir, data_dir, fig_dir, tpl_evaluation_file,
-    CROSS_SAMPLE_OUTFILE_RESULTS
+    CROSS_SAMPLE_OUTFILE_RESULTS, MEASUREMENTS_FILE, CONDITIONS_FILE, OBSERVABLES_FILE
 )
 from util import load_petab_base_files, load_mae
 from cytof.problem import CytofProblem
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
+
+from jax.config import config
+config.update("jax_enable_x64", True)
 
 
 MODEL = sys.argv[1]
@@ -44,14 +47,14 @@ samples = {
 }
 
 
-def evaluate_pretraining_per_sample(dataset):
+def evaluate_pretraining_per_sample(dataset, model, data):
     evaluations = []
-    problem = CytofProblem(MODEL)
-    petab_base_files = load_petab_base_files(MODEL, DATA)
+    problem = CytofProblem(model)
+    petab_base_files = load_petab_base_files(model, data)
     for sample in samples[dataset]:
         petab_base_importer = load_petab(
             problem,
-            DATA,
+            data,
             0.0,
             **petab_base_files,
         )
@@ -152,13 +155,9 @@ def evaluate_petraining_cross_sample(dataset):
     return pd.DataFrame(evaluations)
 
 
-def evaluate_average(dataset):
-    df_meas = pd.read_csv(
-        data_dir / f"{DATA}__{MODEL}__measurements.tsv", sep="\t", index_col=0
-    )
-    df_obs = pd.read_csv(
-        data_dir / f"{DATA}__{MODEL}__observables.tsv", sep="\t", index_col=0
-    )
+def evaluate_average(dataset, model, data):
+    df_meas = pd.read_csv(MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0)
+    df_obs = pd.read_csv(OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0)
     df_meas = df_meas[df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)]
 
     df_train = df_meas[
@@ -197,16 +196,16 @@ def evaluate_average(dataset):
 
 
 for dataset in ["train", "test"]:
+    # average
+    df = evaluate_average(dataset, MODEL, DATA)
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
+
+    # per sample
+    df = evaluate_pretraining_per_sample(dataset, MODEL, DATA)
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
+
     # cross sample
     df = evaluate_petraining_cross_sample(dataset)
     df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='cross_sample'))
     plot_loss_vs_regularization(df)
     plt.savefig(outdir / f"{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.pdf")
-
-    # average
-    df = evaluate_average(dataset)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
-
-    # per sample
-    df = evaluate_pretraining_per_sample(dataset)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
