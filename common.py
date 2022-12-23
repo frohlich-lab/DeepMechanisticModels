@@ -44,14 +44,14 @@ EVALUATE_ALL = str(fig_dir / '{model}' / '{data}' / '{samples}_evaluate_all.pdf'
 def training_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
     split, n_splits = wildcards.samples.split("_")
-    splits = np.split(np.asarray(samples), int(n_splits))
+    splits = np.array_split(np.asarray(samples), int(n_splits))
     return list(np.concatenate([s for i, s in enumerate(splits) if i != int(split)]))
 
 
 def test_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
     split, n_splits = wildcards.samples.split("_")
-    splits = np.split(np.asarray(samples), int(n_splits))
+    splits = np.array_split(np.asarray(samples), int(n_splits))
     return list(splits[int(split)])
 
 

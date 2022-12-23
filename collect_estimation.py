@@ -15,11 +15,13 @@ pypesto_problem = create_pypesto_problem(mae, problem)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
 indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent
-inpattern = TRAINING_OUTFILE_RESULTS.format(job='[0-9]+').format(**conf.__dict__).replace('.', '\\.')
+inpattern = str(Path(TRAINING_OUTFILE_RESULTS.replace('{job}', '[0-9]+').format(**conf.__dict__)).stem)
 
 optimizer_results = []
 for file in os.listdir(indir):
-    if not re.match(inpattern, file):
+    if not str(file).endswith('.hdf5'):
+        continue
+    if not re.match(inpattern, str(file)):
         continue
     reader = OptimizationResultHDF5Reader(str(indir / str(file)))
     starts = reader.read().optimize_result.list

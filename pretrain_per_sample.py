@@ -56,10 +56,10 @@ problem.apply_objective_settings(pypesto_problem.objective)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 1e-6,
+        fides.Options.FATOL: 0.0,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 1e3,
+        fides.Options.MAXITER: 100,
     }
 )
 result = pretrain(

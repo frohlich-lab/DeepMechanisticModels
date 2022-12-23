@@ -22,7 +22,7 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 # config.update("jax_disable_jit", True)
 
-conf, mae, problem = load_from_argv(sys.argv)
+conf, mae, problem = load_from_argv(sys.argv, dataset='train', n_threads=4)
 
 pypesto_problem = generate_cross_sample_pretraining_problem(mae, problem)
 pretrained_samples = {}
@@ -139,7 +139,7 @@ optimizer = FidesOptimizer(
         fides.Options.FRTOL: 0,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 3600 * 10,
-        fides.Options.MAXITER: 1e3,
+        fides.Options.MAXITER: 25,
     },
 )
 np.random.seed(conf.job)

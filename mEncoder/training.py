@@ -64,10 +64,10 @@ def train(
     opt = FidesOptimizer(
         hessian_update=fides.HybridFixed(),
         options={
-            fides.Options.FATOL: 1e-6,
+            fides.Options.FATOL: 0.0,
             fides.Options.XTOL: 1e-8,
             fides.Options.MAXTIME: 3600 * 10,
-            fides.Options.MAXITER: 1e3,
+            fides.Options.MAXITER: 1e2,
         },
         verbose=logging.INFO,
     )

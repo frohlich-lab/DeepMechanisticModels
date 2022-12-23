@@ -19,9 +19,10 @@ from mEncoder.analysis import (
 )
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
 from common import (
-    training_samples, test_samples, Wildcards, pretrain_dir, data_dir, fig_dir, tpl_evaluation_file
+    training_samples, test_samples, Wildcards, pretrain_dir, data_dir, fig_dir, tpl_evaluation_file,
+    CROSS_SAMPLE_OUTFILE_RESULTS
 )
-from util import load_petab_base_files, load_from_kwargs
+from util import load_petab_base_files, load_mae
 from cytof.problem import CytofProblem
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
@@ -105,18 +106,19 @@ def evaluate_pretraining_per_sample(dataset):
 def evaluate_petraining_cross_sample(dataset):
     evaluations = []
     for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
-        conf, mae, problem = load_from_kwargs(
+        conf, mae, problem = load_mae(
             model=MODEL,
             data=DATA,
             context=context,
             samples=SAMPLES,
             n_hidden=latent_dim,
             alpha=l1reg,
+            dataset=dataset,
         )
 
         problem_cross_sample = generate_cross_sample_pretraining_problem(mae, problem)
         result = load_optimize_result_pretraining_cross_samples(
-            MODEL, DATA, context, SAMPLES, latent_dim, l1reg
+            CROSS_SAMPLE_OUTFILE_RESULTS.replace('{job}', '([0-9]+)').format(**conf.__dict__)
         )
 
         r = Result()
@@ -136,7 +138,7 @@ def evaluate_petraining_cross_sample(dataset):
             obj,
             x,
             samples[dataset],
-            mae.petab_importer.petab_importer,
+            mae.petab_importer.petab_problem,
             context,
             SAMPLES,
             dataset,

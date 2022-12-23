@@ -8,7 +8,7 @@ from common import (
 )
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS
 
-basedir = Path(__file__).parent
+basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'mEncoder'
 cytof_dir = basedir / 'cytof'
 
@@ -45,7 +45,7 @@ rule compile_mechanistic_model:
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
-        model= basedir / 'amici_models' / '{model}_{data}__{model}_petab' / '{model}' / '{model}.py',
+        model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py',
     wildcard_constraints:
         model='[\w_]+',
         data='\w+',
@@ -123,7 +123,7 @@ rule collect_estimation_results:
         script='collect_estimation.py',
         trace=expand(
             TRAINING_OUTFILE_RESULTS.format(
-                context='{{context}}', samples='{{samples}}',
+                context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
                 n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
             ), job=STARTS
         )
@@ -145,7 +145,7 @@ rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
         cross_sample=expand(
-            rules.pretrain_cross_sample.output.pretraining,
+            rules.pretrain_cross_sample.output.results,
             model='{model}', data='{data}', context=CONTEXTS,
             n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
         ),

@@ -100,11 +100,13 @@ def generate_synthetic_data(
             if par_id in sample_par_names:
                 continue
             lb, ub, _ = bounds[par_id.split("_")[-1]]
+            lb += 1
+            ub -= 1
             static_pars[par_id] = np.random.random() * (ub - lb) + lb
             if par_id == "MEK_phosphorylation_S222_base_kr":
-                static_pars[par_id] -= 5.0
+                static_pars[par_id] -= 3.0
             if par_id == "iMEK_MEK_kd":
-                static_pars[par_id] -= 5.0
+                static_pars[par_id] -= 3.0
             model.setParameterById(par_id, static_pars[par_id])
 
         rdatas = amici.runAmiciSimulations(model, solver, [edata_base])
@@ -118,16 +120,22 @@ def generate_synthetic_data(
     )
 
     # generate sparse encoder/decoder parameters
-    tt_pars = np.random.random(encoder.n_encoder_pars)
+    tt_pars = np.random.random(encoder.n_encoder_pars)  # uniform between 0 and 1
     for ip, name in enumerate(encoder.x_names):
         lb, ub, _ = bounds[name.split("_")[-1]]
         lb /= 10
         ub /= 10
+        # xavier glorot initialization
+        if name.startswith('encoder'):
+            n_inout = encoder.n_features + encoder.n_latent
+        else:
+            n_inout = encoder.n_latent + encoder.n_params
+        ub = np.sqrt(6.0 / n_inout)
+        lb = -ub
+        tt_pars[ip] = tt_pars[ip] * (ub - lb) + lb
         # sparsity
         if np.random.binomial(1, 0.3):
             tt_pars[ip] = 0
-        else:
-            tt_pars[ip] = tt_pars[ip] * (ub - lb) + lb
 
     encode_weights, inflate_weights = np.split(tt_pars, (encoder.n_encode_weights,))
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
@@ -141,13 +149,7 @@ def generate_synthetic_data(
     inflate = jax.jit(encoder.inflate_params)
     while len(samples) < n_samples:
         # generate new fake data for sample
-        sample_data = np.random.random(encoder.data[len(samples), :].shape) / 3
-
-        # bias input data to generate bimodal population
-        if len(samples) < n_samples / 2:
-            sample_data += 1.0 / n_features
-        else:
-            sample_data -= 1.0 / n_features
+        sample_data = np.random.random(encoder.data[len(samples), :].shape)
 
         encoder.data[len(samples), :] = sample_data
 
@@ -208,26 +210,17 @@ def generate_synthetic_data(
             df.loc[:, [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"]]
             == 0
         ).all(axis=1),
-        [col for col in df.columns if col.startswith(MODEL_FEATURE_PREFIX)],
+        [col for col in df.columns if col.startswith(MODEL_FEATURE_PREFIX) or col == "Sample"],
     ]
+    inputs.Sample = inputs.Sample.apply(lambda x: f"sample_{x}")
+    inputs.set_index("Sample", inplace=True)
 
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
     plot_and_save_fig(f"{data_name}__{problem.pathway_name}__input_pca.pdf", data_dir)
-
-    inputs = df[
-        [
-            col
-            for col in df.columns
-            if col.startswith(MODEL_FEATURE_PREFIX) or col == "Sample"
-        ]
-    ]
-
-    inputs = pd.melt(inputs, id_vars=["Sample"])
-    inputs.index = inputs["variable"] + inputs["Sample"].apply(lambda x: f"_sample_{x}")
-    ref = pd.concat([pd.Series(static_pars), inputs.value])
-    ref.to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_inputs.csv")
+    inputs.to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_inputs.csv")
+    pd.Series(static_pars).to_csv(data_dir / f"{data_name}__{problem.pathway_name}__reference_pars.csv")
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0], axes[1])

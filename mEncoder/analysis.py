@@ -1,11 +1,12 @@
+import os
+import re
+
 import petab
 import numpy as np
 import pypesto.objective
 import seaborn as sns
 import matplotlib.pyplot as plt
 
-from mEncoder import data_dir, pretrain_dir, ESTIMATION_OUTFILE_TEMP
-from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.plotting import plot_cross_samples
 
 from pypesto.store import OptimizationResultHDF5Reader
@@ -13,8 +14,6 @@ from pypesto.C import MODE_RES
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from pathlib import Path
-
-from process_data import training_samples, test_samples, Wildcards
 
 
 def process_simulation(
@@ -45,34 +44,17 @@ def process_simulation(
     )
 
 
-def result_file_pretraining_cross_sample(
-    job_id, model, context, data, samples, hidden_layers, alpha
-) -> Path:
-    indir = pretrain_dir / model / data
-    output_prefix = Path(
-        ESTIMATION_OUTFILE_TEMP.format(
-            context=context,
-            samples=samples,
-            n_hidden=hidden_layers,
-            alpha=alpha,
-            job=job_id,
-        )
-    ).stem
-    return indir / f"{output_prefix}.hdf5"
-
-
-def load_optimize_result_pretraining_cross_samples(
-    model, data, context, samples, hidden_layers, alpha
-):
+def load_optimize_result_pretraining_cross_samples(pattern):
     result = OptimizeResult()
-    for job in range(100):
-        rfile = result_file_pretraining_cross_sample(
-            job, model, context, data, samples, hidden_layers, alpha
-        )
-        if not rfile.exists():
+    indir = Path(pattern).parent
+    for file in os.listdir(indir):
+        if not str(file).endswith('.hdf5'):
             continue
-        r = OptimizationResultHDF5Reader(str(rfile)).read().optimize_result.list[0]
-        r["id"] = str(job)
+        m = re.match(str(Path(pattern).stem), str(file))
+        if not m:
+            continue
+        r = OptimizationResultHDF5Reader(str(indir / str(file))).read().optimize_result.list[0]
+        r["id"] = m.group(1)
         result.append(r)
 
     if result.list is not None:
