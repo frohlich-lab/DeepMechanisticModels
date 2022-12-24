@@ -7,7 +7,7 @@ import petab
 
 from amici.petab_objective import rdatas_to_simulation_df
 from pypesto import Result
-from pypesto.visualize import waterfall
+from pypesto.visualize import waterfall, parameters
 
 from mEncoder.pretraining import (
     generate_cross_sample_pretraining_problem, generate_per_sample_pretraining_problems,
@@ -124,13 +124,19 @@ def evaluate_petraining_cross_sample(dataset):
             CROSS_SAMPLE_OUTFILE_RESULTS.replace('{job}', '([0-9]+)').format(**conf.__dict__)
         )
 
-        r = Result()
+        r = Result(problem=problem_cross_sample)
         r.optimize_result = result
 
         waterfall(r)
         plt.tight_layout()
+        run_name = f'{SAMPLES}_a{l1reg}_n{latent_dim}_c{context}'
         plt.savefig(
-            cross_sample_dir / f"{SAMPLES}_a{l1reg}_n{latent_dim}_waterfall.pdf"
+            cross_sample_dir / f'{run_name}_waterfall.pdf'
+        )
+        parameters(r)
+        plt.tight_layout()
+        plt.savefig(
+            cross_sample_dir / f'{run_name}_parameters.pdf'
         )
 
         x = problem_cross_sample.objective.infun(result.list[0]["x"])

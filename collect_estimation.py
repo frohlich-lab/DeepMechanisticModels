@@ -1,11 +1,13 @@
 import sys
 import os
 import re
+import matplotlib.pyplot as plt
 from pathlib import Path
 
 from pypesto.store import OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
+from pypesto.visualize import waterfall, parameters
 from mEncoder.training import create_pypesto_problem
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, basedir
 from util import load_from_argv
 
 import pypesto.visualize
@@ -37,7 +39,7 @@ print(
 for istart, start in enumerate(optimizer_results):
     start["id"] = str(istart)
 
-result = pypesto.Result(problem=problem)
+result = pypesto.Result(problem=pypesto_problem)
 optimize_result = pypesto.OptimizeResult()
 optimize_result.list = optimizer_results
 optimize_result.sort()
@@ -46,3 +48,16 @@ result.optimize_result = optimize_result
 
 writer = OptimizationResultHDF5Writer(outfile)
 writer.write(result, overwrite=True)
+
+
+of = Path(outfile)
+outdir = of.parent
+run_name = of.stem
+
+waterfall(result, scale_y="log10", offset_y=0.0)
+plt.tight_layout()
+plt.savefig(outdir / f'{run_name}_waterfall.pdf')
+
+parameters(result)
+plt.tight_layout()
+plt.savefig(outdir / f'{run_name}_parameters.pdf')
