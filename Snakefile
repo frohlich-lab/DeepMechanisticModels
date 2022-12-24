@@ -154,7 +154,7 @@ rule evaluate_pretraining:
         csv=expand(
             tpl_evaluation_file,
             model='{model}', data='{data}', samples='{samples}',
-            mode=['pretrain_per_sample', 'pretrain_cross_sample', 'average'],
+            mode=['per_sample', 'cross_sample', 'average'],
             dataset=['train', 'test']
         )
     wildcard_constraints:
