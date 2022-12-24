@@ -19,6 +19,9 @@ import petab
 
 from typing import Tuple
 
+from jax.config import config
+config.update("jax_enable_x64", True)
+
 
 def generate_synthetic_data(
     problem: Problem,
@@ -145,17 +148,20 @@ def generate_synthetic_data(
     samples = []
     embeddings = []
 
-    encode = jax.jit(encoder.encode)
+    encode_sample = jax.jit(encoder.encode_sample)
+    decode = jax.jit(encoder.decode)
     inflate = jax.jit(encoder.inflate_params)
     while len(samples) < n_samples:
         # generate new fake data for sample
-        sample_data = np.random.random(encoder.data[len(samples), :].shape)
+        embedding = np.random.random(latent_dimension) * 2 - 1
+        sample_data = np.array(decode(embedding, encode_weights))
+        mat = encode_weights.reshape((n_features, latent_dimension))
+        assert np.allclose(sample_data, embedding.dot(np.linalg.pinv(mat)))
+        assert np.allclose(sample_data.dot(mat), embedding)
+        assert np.allclose(embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat))
+        assert np.allclose(np.asarray(encode_sample(sample_data, encode_weights)), embedding)
 
-        encoder.data[len(samples), :] = sample_data
-
-        # generate parameters from fake data
-        embedding = encode(encode_weights)[len(samples), :]
-        sample_par_vals = np.asarray(inflate(embedding, inflate_weights), dtype=np.float64)
+        sample_par_vals = np.array(inflate(embedding, inflate_weights))
         assert len(sample_par_vals) == len(sample_par_names)
         sample_pars = dict(zip(sample_par_names, sample_par_vals))
 
