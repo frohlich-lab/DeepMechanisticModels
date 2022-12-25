@@ -159,7 +159,7 @@ rule evaluate_pretraining:
         )
     wildcard_constraints:
         model='\w+',
-        data='[\w\.]+',
+        data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
@@ -180,7 +180,7 @@ rule evaluate_training:
         )
     wildcard_constraints:
         model='\w+',
-        data='[\w\.]+',
+        data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
@@ -194,7 +194,7 @@ rule evaluate_all:
         plot=EVALUATE_ALL,
     wildcard_constraints:
         model='\w+',
-        data='[\w\.]+',
+        data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
