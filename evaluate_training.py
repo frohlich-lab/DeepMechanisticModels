@@ -11,15 +11,12 @@ from mEncoder.analysis import (
     evaluate_simulations,
 )
 from common import (
-    training_samples, test_samples, Wildcards, results_dir, data_dir, fig_dir, COLLECTED_TRAINING_RESULTS,
+    training_samples, test_samples, Wildcards, results_dir, fig_dir, COLLECTED_TRAINING_RESULTS,
     EVALUATION_TRAINING
 )
 from util import load_mae
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
-
-from jax.config import config
-config.update("jax_enable_x64", True)
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]

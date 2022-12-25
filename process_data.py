@@ -89,10 +89,10 @@ if __name__ == "__main__":
         measurement_table, condition_table = problem.load_preprocess_petab_tables(model)
 
     elif DATA.startswith("synthetic"):
-        N_HIDDEN = 4
+        N_HIDDEN = 6
         N_SAMPLES = int(DATA.split("_")[1])
         condition_table, measurement_table = generate_synthetic_data(
-            problem, data_dir, DATA, N_HIDDEN, N_SAMPLES
+            problem, data_dir, DATA, N_HIDDEN, N_SAMPLES, std=float(DATA.split("_")[2])
         )
     else:
         raise RuntimeError("Unknown dataset!")

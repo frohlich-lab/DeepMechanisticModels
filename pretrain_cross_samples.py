@@ -15,12 +15,8 @@ from pathlib import Path
 
 from mEncoder.pretraining import generate_cross_sample_pretraining_problem, pretrain, store_and_plot_pretraining
 from mEncoder import MODEL_FEATURE_PREFIX
-from common import  CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, PER_SAMPLE_OUTFILE_PARS
+from common import CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, PER_SAMPLE_OUTFILE_PARS
 from util import load_from_argv
-
-from jax.config import config
-config.update("jax_enable_x64", True)
-# config.update("jax_disable_jit", True)
 
 conf, mae, problem = load_from_argv(sys.argv, dataset='train', n_threads=4)
 

@@ -30,6 +30,7 @@ def generate_synthetic_data(
     latent_dimension: int = 2,
     n_samples: int = 45,
     n_features: int = 100,
+    std: float = 0.1,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates sample data using the mechanistic model.
@@ -173,6 +174,8 @@ def generate_synthetic_data(
         rdatas = amici.runAmiciSimulations(model, solver, edatas)
         if all([r.status == amici.AMICI_SUCCESS for r in rdatas]):
             sample = amici.getSimulationObservablesAsDataFrame(model, edatas, rdatas)
+            for obs in model.getObservableIds():
+                sample[obs] = np.random.normal(sample[obs], std)
             sample["Sample"] = len(samples)
             for pid, val in sample_pars.items():
                 sample[pid] = val

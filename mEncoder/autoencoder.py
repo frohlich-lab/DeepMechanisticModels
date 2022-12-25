@@ -15,6 +15,9 @@ from .encoder import AutoEncoder
 from .problem import Problem
 from .petab_subproblem import load_petab
 
+from jax.config import config
+config.update("jax_enable_x64", True)
+
 
 def contextualize_measurements(measurement_table: pd.DataFrame, contextualization: str) -> pd.DataFrame:
     baseline_measurements = measurement_table.copy()

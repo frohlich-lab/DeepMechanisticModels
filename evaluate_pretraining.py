@@ -19,16 +19,13 @@ from mEncoder.analysis import (
 )
 from mEncoder.plotting import plot_single_sample, plot_cross_samples
 from common import (
-    training_samples, test_samples, Wildcards, pretrain_dir, data_dir, fig_dir, tpl_evaluation_file,
-    CROSS_SAMPLE_OUTFILE_RESULTS, MEASUREMENTS_FILE, CONDITIONS_FILE, OBSERVABLES_FILE
+    training_samples, test_samples, Wildcards, pretrain_dir, fig_dir, tpl_evaluation_file,
+    CROSS_SAMPLE_OUTFILE_RESULTS, MEASUREMENTS_FILE, OBSERVABLES_FILE
 )
 from util import load_petab_base_files, load_mae
 from cytof.problem import CytofProblem
 
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
-
-from jax.config import config
-config.update("jax_enable_x64", True)
 
 
 MODEL = sys.argv[1]
