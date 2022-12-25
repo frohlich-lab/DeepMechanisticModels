@@ -32,8 +32,8 @@ rule process_data:
             file=['measurements', 'conditions', 'observables']
         ),
     wildcard_constraints:
-        model='[\w_]+',
-        data='\w+',
+        model='\w+',
+        data='[\w\.]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -47,8 +47,8 @@ rule compile_mechanistic_model:
     output:
         model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py',
     wildcard_constraints:
-        model='[\w_]+',
-        data='\w+',
+        model='\w+',
+        data='[\w\.]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -62,9 +62,9 @@ rule pretrain_per_sample:
     output:
         pretraining=PER_SAMPLE_OUTFILE_PARS
     wildcard_constraints:
-        model='[\w_]+',
-        data='\w+',
-        sample='[\w_]+',
+        model='\w+',
+        data='[\w\.]+',
+        sample='\w+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.sample}'
@@ -83,8 +83,8 @@ rule pretrain_cross_sample:
         pars=CROSS_SAMPLE_OUTFILE_PARS,
         results=CROSS_SAMPLE_OUTFILE_RESULTS
     wildcard_constraints:
-        model='[\w_]+',
-        data='\w+',
+        model='\w+',
+        data='[\w\.]+',
         context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
@@ -107,8 +107,8 @@ rule estimate_parameters:
     output:
         result=TRAINING_OUTFILE_RESULTS
     wildcard_constraints:
-        model='[\w_]+',
-        data='\w+',
+        model='\w+',
+        data='[\w\.]+',
         context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
@@ -130,8 +130,8 @@ rule collect_estimation_results:
     output:
         result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
-        model='[\w_]+',
-        data='[\w_]+',
+        model='\w+',
+        data='[\w\.]+',
         context='\w+',
         n_hidden='[0-9]+',
         job='[0-9]+',
@@ -158,8 +158,8 @@ rule evaluate_pretraining:
             dataset=['train', 'test']
         )
     wildcard_constraints:
-        model='[\w_]+',
-        data='[\w_]+',
+        model='\w+',
+        data='[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
@@ -179,8 +179,8 @@ rule evaluate_training:
             dataset=['train', 'test']
         )
     wildcard_constraints:
-        model='[\w_]+',
-        data='[\w_]+',
+        model='\w+',
+        data='[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
@@ -193,8 +193,8 @@ rule evaluate_all:
     output:
         plot=EVALUATE_ALL,
     wildcard_constraints:
-        model='[\w_]+',
-        data='[\w_]+',
+        model='\w+',
+        data='[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
