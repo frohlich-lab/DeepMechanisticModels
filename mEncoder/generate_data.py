@@ -29,7 +29,7 @@ def generate_synthetic_data(
     data_name: str,
     latent_dimension: int = 2,
     n_samples: int = 45,
-    n_features: int = 100,
+    n_features: int = 200,
     std: float = 0.1,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
