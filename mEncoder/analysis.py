@@ -2,6 +2,7 @@ import os
 import re
 
 import petab
+import amici
 import numpy as np
 import pypesto.objective
 import seaborn as sns
@@ -14,6 +15,9 @@ from pypesto.C import MODE_RES
 from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from pathlib import Path
+
+from jax.config import config
+import jax.numpy as jnp
 
 
 def process_simulation(
@@ -82,8 +86,19 @@ def evaluate_simulations(
 
     if isinstance(obj, pypesto.objective.AggregatedObjective):
         amici_model = obj._objectives[0].amici_model
+        amici_solver = obj._objectives[0].amici_solver
     else:
         amici_model = obj.amici_model
+        amici_solver = obj.amici_solver
+
+    for r in res["rdatas"]:
+        if r["status"] != amici.AMICI_SUCCESS:
+            print(f'AMICI failed for {r["id"]}')
+            x = jnp.ones((1,), dtype=jnp.float64)
+            print(f'JAX dtype: {x.dtype} ')
+            print(f'AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, '
+                  f'{amici_solver.getRelativeTolerance():.2e} rtol')
+            return
 
     simulation_df = rdatas_to_simulation_df(
         res["rdatas"],
