@@ -191,17 +191,18 @@ def load_ids_from_uniprot(measurement_table_proteomics):
         with open(up_id_json, "w") as fp:
             json.dump(up_ids, fp)
 
-    measurement_table_proteomics[
-        petab.OBSERVABLE_ID
+    measurement_table_proteomics.loc[
+        petab.OBSERVABLE_ID, :
     ] = measurement_table_proteomics[petab.OBSERVABLE_ID].apply(
         lambda x: up_ids.get(x, "")
     )
+    return measurement_table_proteomics
 
 
 def process_petab_proteomics(measurement_table_proteomics: pd.DataFrame):
-    measurement_table_proteomics = measurement_table_proteomics[
-        measurement_table_proteomics[petab.OBSERVABLE_ID] != ""
-        ]
+    measurement_table_proteomics = measurement_table_proteomics.loc[
+        measurement_table_proteomics[petab.OBSERVABLE_ID] != "", :
+    ]
 
     measurement_table_proteomics.dropna(
         axis=0, subset=[petab.MEASUREMENT], inplace=True
@@ -218,6 +219,7 @@ def process_petab_proteomics(measurement_table_proteomics: pd.DataFrame):
     ] = measurement_table_proteomics[petab.PREEQUILIBRATION_CONDITION_ID]
 
     measurement_table_proteomics[petab.TIME] = 0.0
+    return measurement_table_proteomics
 
 
 def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) -> pd.DataFrame:
@@ -235,10 +237,10 @@ def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) ->
     )
 
     # ignore "full" for now
-    condition_table = condition_table[
+    condition_table = condition_table.loc[
         condition_table[petab.CONDITION_ID].apply(
             lambda x: "full" not in x.split("__")
-        )
+        ), :
     ]
 
     perturbations = np.unique(
@@ -253,10 +255,10 @@ def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) ->
     for pert in perturbations:
         if model.parameters.get(f"{pert}_0") is None:
             # remove condition
-            condition_table = condition_table[
+            condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
                     lambda x: pert not in x.split("__")
-                )
+                ), :
             ]
             continue
         condition_table[f"{pert}_0"] = condition_table[petab.CONDITION_ID].apply(
@@ -274,8 +276,8 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     measurement_table_cytof = process_petab_cytof(measurement_table_cytof, id_vars)
 
     measurement_table_proteomics = load_proteomics_from_synapse()
-    load_ids_from_uniprot(measurement_table_proteomics)
-    process_petab_proteomics(measurement_table_proteomics)
+    measurement_table_proteomics = load_ids_from_uniprot(measurement_table_proteomics)
+    measurement_table_proteomics = process_petab_proteomics(measurement_table_proteomics)
 
     # ignore proteomics data for now
     measurement_table = pd.concat(

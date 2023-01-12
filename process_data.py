@@ -26,7 +26,7 @@ def observable_id_to_model_expr(obs_id: str, dataset: str, model: pysb.Model) ->
         the name of the corresponding observable in the model
     """
 
-    if dataset == "cytof":
+    if dataset == "dream_cytof":
         obs_id = obs_id.replace("-", "_").upper()
         palias = {
             r"^P\.STAT5": "STAT5A_Y694",
@@ -85,9 +85,7 @@ if __name__ == "__main__":
     data_dir.mkdir(exist_ok=True, parents=True)
 
     if DATA == "dream_cytof":
-
         measurement_table, condition_table = problem.load_preprocess_petab_tables(model)
-
     elif DATA.startswith("synthetic"):
         N_HIDDEN = 6
         N_SAMPLES = int(DATA.split("_")[1])
@@ -100,12 +98,12 @@ if __name__ == "__main__":
 
     # filter measurements for removed conditions
     condition_ids = condition_table[petab.CONDITION_ID].unique()
-    measurement_table = measurement_table[
+    measurement_table = measurement_table.loc[
         measurement_table.apply(
             lambda x: x[petab.SIMULATION_CONDITION_ID] in condition_ids
             and x[petab.PREEQUILIBRATION_CONDITION_ID] in condition_ids,
             axis=1,
-        )
+        ), :
     ]
 
     observable_ids = [
