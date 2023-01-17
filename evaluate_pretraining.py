@@ -31,7 +31,7 @@ from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
 SAMPLES = sys.argv[3]
-STARTS = sys.argv[4]
+N_STARTS = sys.argv[4]
 
 outdir = fig_dir / MODEL / DATA
 indir = pretrain_dir / MODEL / DATA
@@ -120,7 +120,7 @@ def evaluate_petraining_cross_sample(dataset):
         problem_cross_sample = generate_cross_sample_pretraining_problem(mae, problem)
         result = load_optimize_result_pretraining_cross_samples(
             CROSS_SAMPLE_OUTFILE_RESULTS.replace('{job}', '([0-9]+)').format(**conf.__dict__),
-            STARTS
+            N_STARTS
         )
 
         r = Result(problem=problem_cross_sample)

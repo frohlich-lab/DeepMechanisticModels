@@ -48,7 +48,7 @@ def process_simulation(
     )
 
 
-def load_optimize_result_pretraining_cross_samples(pattern: str, starts: int):
+def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
     result = OptimizeResult()
     indir = Path(pattern).parent
     for file in os.listdir(indir):
@@ -59,7 +59,7 @@ def load_optimize_result_pretraining_cross_samples(pattern: str, starts: int):
         if not m:
             continue
 
-        if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= starts:
+        if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= n_starts:
             continue
 
         r = OptimizationResultHDF5Reader(str(indir / str(file))).read().optimize_result.list[0]

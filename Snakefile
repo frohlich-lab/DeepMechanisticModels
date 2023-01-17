@@ -13,7 +13,8 @@ mencoder_dir = basedir / 'mEncoder'
 cytof_dir = basedir / 'cytof'
 
 
-STARTS = [str(i) for i in range(int(config.get("num_starts", "10")))]
+N_STARTS = int(config.get("num_starts", "10"))
+STARTS = [str(i) for i in range(N_STARTS)]
 
 singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter_estimation:main")
 
@@ -139,7 +140,7 @@ rule collect_estimation_results:
         alpha='[0-9\.]+'
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {STARTS}'
+        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {N_STARTS}'
 
 rule evaluate_pretraining:
     input:
@@ -162,7 +163,7 @@ rule evaluate_pretraining:
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {STARTS}'
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {N_STARTS}'
 
 rule evaluate_training:
     input:
