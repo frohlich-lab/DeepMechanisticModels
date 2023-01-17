@@ -31,7 +31,7 @@ from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
 SAMPLES = sys.argv[3]
-N_STARTS = sys.argv[4]
+N_STARTS = int(sys.argv[4])
 
 outdir = fig_dir / MODEL / DATA
 indir = pretrain_dir / MODEL / DATA
