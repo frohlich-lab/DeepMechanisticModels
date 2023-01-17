@@ -25,6 +25,10 @@ for file in os.listdir(indir):
         continue
     if not re.match(inpattern, str(file)):
         continue
+
+    # ignore previous results, conf.job is set to NSTARTS
+    if int(str(os.path.splitext(file)[0]).split('__')[-1]) > conf.job:
+        continue
     reader = OptimizationResultHDF5Reader(str(indir / str(file)))
     starts = reader.read().optimize_result.list
     for start in starts:

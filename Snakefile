@@ -139,7 +139,7 @@ rule collect_estimation_results:
         alpha='[0-9\.]+'
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha}'
+        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {STARTS}'
 
 rule evaluate_pretraining:
     input:
@@ -162,7 +162,7 @@ rule evaluate_pretraining:
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {STARTS}'
 
 rule evaluate_training:
     input:

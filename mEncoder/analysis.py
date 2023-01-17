@@ -48,15 +48,20 @@ def process_simulation(
     )
 
 
-def load_optimize_result_pretraining_cross_samples(pattern):
+def load_optimize_result_pretraining_cross_samples(pattern: str, starts: int):
     result = OptimizeResult()
     indir = Path(pattern).parent
     for file in os.listdir(indir):
         if not str(file).endswith('.hdf5'):
             continue
+
         m = re.match(str(Path(pattern).stem), str(file))
         if not m:
             continue
+
+        if int(str(os.path.splitext(file)[0]).split('__')[-1]) > starts:
+            continue
+
         r = OptimizationResultHDF5Reader(str(indir / str(file))).read().optimize_result.list[0]
         r["id"] = m.group(1)
         result.append(r)
