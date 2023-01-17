@@ -27,8 +27,11 @@ for file in os.listdir(indir):
         continue
 
     # ignore previous results, conf.job is set to NSTARTS
-    if int(str(os.path.splitext(file)[0]).split('__')[-1]) > conf.job:
+    if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= conf.job:
+        print(f'ignoring old results from {file} (njobs={conf.job})')
         continue
+
+    print(f'loading results from {file}')
     reader = OptimizationResultHDF5Reader(str(indir / str(file)))
     starts = reader.read().optimize_result.list
     for start in starts:
