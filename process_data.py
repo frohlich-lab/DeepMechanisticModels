@@ -90,8 +90,11 @@ if __name__ == "__main__":
         N_HIDDEN = 6
         N_SAMPLES = int(DATA.split("_")[1])
         condition_table, measurement_table = generate_synthetic_data(
-            problem, data_dir, DATA, latent_dimension=N_HIDDEN, n_samples=N_SAMPLES,
-            std=float(DATA.split("_")[2]), n_features=200
+            problem, data_dir, DATA, latent_dimension=N_HIDDEN,
+            n_samples=N_SAMPLES,
+            std_measurements=float(DATA.split("_")[2]),
+            std_features=float(DATA.split("_")[3]),
+            n_features=200
         )
     else:
         raise RuntimeError("Unknown dataset!")

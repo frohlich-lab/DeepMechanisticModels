@@ -1,3 +1,5 @@
+import numpy.random
+
 from . import (
     MODEL_FEATURE_PREFIX,
     plot_and_save_fig,
@@ -30,7 +32,8 @@ def generate_synthetic_data(
     latent_dimension: int = 2,
     n_samples: int = 45,
     n_features: int = 200,
-    std: float = 0.1,
+    std_measurements: float = 0.1,
+    std_features: float = 0.1,
 ) -> Tuple[pd.DataFrame, pd.DataFrame]:
     """
     Generates sample data using the mechanistic model.
@@ -50,12 +53,12 @@ def generate_synthetic_data(
     # setup model parameter scales
     model.setParameterScale(
         amici.parameterScalingFromIntVector(
-            [
+            amici.IntVector([
                 amici.ParameterScaling.none
                 if bounds[par_id.split("_")[-1]][2] == "lin"
                 else amici.ParameterScaling.log10
                 for par_id in model.getParameterIds()
-            ]
+            ])
         )
     )
 
@@ -125,10 +128,12 @@ def generate_synthetic_data(
 
     # generate sparse encoder/decoder parameters
     tt_pars = np.random.random(encoder.n_encoder_pars)  # uniform between 0 and 1
+    pars_varying = np.random.binomial(1, 0.8, (encoder.n_params,))
+    inflate_mat = np.asarray(
+        encoder.x_names[encoder.n_encode_weights:]
+    ).reshape((encoder.n_latent, encoder.n_params))
+    zero_weights = inflate_mat[:, np.logical_not(pars_varying)]
     for ip, name in enumerate(encoder.x_names):
-        lb, ub, _ = bounds[name.split("_")[-1]]
-        lb /= 10
-        ub /= 10
         # xavier glorot initialization
         if name.startswith('encoder'):
             n_inout = encoder.n_features + encoder.n_latent
@@ -138,12 +143,15 @@ def generate_synthetic_data(
         lb = -ub
         tt_pars[ip] = tt_pars[ip] * (ub - lb) + lb
         # sparsity
-        if np.random.binomial(1, 0.3):
+
+        if name in zero_weights:
             tt_pars[ip] = 0
 
-    encode_weights, inflate_weights = np.split(tt_pars, (encoder.n_encode_weights,))
+    encode_weights, inflate_weights = np.split(tt_pars,
+                                               (encoder.n_encode_weights,))
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
-        data_dir / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
+        data_dir /
+        f"{problem.pathway_name}__{data_name}__reference_weights.csv"
     )
 
     samples = []
@@ -166,6 +174,9 @@ def generate_synthetic_data(
         assert len(sample_par_vals) == len(sample_par_names)
         sample_pars = dict(zip(sample_par_names, sample_par_vals))
 
+        for can_be_nonzero, value in zip(pars_varying, sample_par_vals):
+            assert (value == 0.0) == np.logical_not(can_be_nonzero)
+
         # set parameters in model
         for par_id, val in {**static_pars, **sample_pars}.items():
             model.setParameterById(par_id, val)
@@ -175,12 +186,13 @@ def generate_synthetic_data(
         if all([r.status == amici.AMICI_SUCCESS for r in rdatas]):
             sample = amici.getSimulationObservablesAsDataFrame(model, edatas, rdatas)
             for obs in model.getObservableIds():
-                sample[obs] = np.random.normal(sample[obs], std)
+                sample[obs] = np.random.normal(sample[obs], std_measurements)
             sample["Sample"] = len(samples)
             for pid, val in sample_pars.items():
                 sample[pid] = val
             for ifeature, value in enumerate(sample_data):
-                sample[f"feature{ifeature}"] = value
+                sample[f"feature{ifeature}"] = \
+                    value + numpy.random.normal(0.0, std_features)
             samples.append(sample)
             embeddings.append(embedding)
 
