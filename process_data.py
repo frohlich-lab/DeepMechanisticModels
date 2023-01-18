@@ -48,7 +48,7 @@ def observable_id_to_model_expr(obs_id: str, dataset: str, model: pysb.Model) ->
             r"^P\.BTK": "BTK_Y551",
             r"^P\.CREB": "CREB1_S133",
         }
-    elif re.match(r'synthetic_[0-9]+_[0-9\.]+$', dataset):
+    elif re.match(r'synthetic_[0-9]+_[0-9\.]+_[0-9\.]+$', dataset):
         palias = {}
     else:
         raise ValueError("Dataset not supported!")
