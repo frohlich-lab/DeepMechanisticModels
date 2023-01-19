@@ -159,9 +159,10 @@ def add_monomer_synth_deg(
                 ]
                 if with_basal_activation:
                     kr = Parameter(f"{m_name}_{label[1]}_{site}_base_kr")
+                    kmod = get_autoencoder_modulator(kr)
                     rates += [
                         Expression(
-                            f"{m_name}_{label[1]}_{site}_base_rate", kr * rates[0]
+                            f"{m_name}_{label[1]}_{site}_base_rate", kmod * kr * rates[0]
                         )
                     ]
 
@@ -295,6 +296,7 @@ def add_activation(
     rstate = {s: valid_states[1] for s in sites}
 
     kr = Parameter(f"{m_name}_{forward}_{site}_kr", 1.0)
+    kmod = get_autoencoder_modulator(kr)
     if len(site.split("_")) > 1:
         koff = 0.0
         for s in site.split("_"):
@@ -302,21 +304,23 @@ def add_activation(
         koff /= len(site.split("_"))
     else:
         koff = model.expressions[f"{m_name}_{reverse}_{site}_base_rate"]
-    rate_expr = kr * koff
+    rate_expr = kmod * kr * koff
 
     num = 0.0
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         if len(activators) > 1:
             weight = Parameter(f"{m_name}_{forward}_{site}_{activator}_kw")
-            factor *= weight
+            kmod = get_autoencoder_modulator(weight)
+            factor *= weight * kmod
 
         num += factor
 
     denum = 1.0
     for deactivator in deactivators:
         weight = Parameter(f"{m_name}_deactivation_{site}_{deactivator}_kw")
-        denum += add_or_get_modulator_obs(model, deactivator) * weight
+        kmod = get_autoencoder_modulator(weight)
+        denum += add_or_get_modulator_obs(model, deactivator) * weight * kmod
 
     rate = rate_expr * num / denum
 
