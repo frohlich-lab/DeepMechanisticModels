@@ -7,7 +7,7 @@ from util import load_from_argv
 from pypesto.store import OptimizationResultHDF5Writer
 from pathlib import Path
 
-conf, mae, problem = load_from_argv(sys.argv, dataset='train', n_threads=4)
+conf, mae, problem = load_from_argv(sys.argv, dataset='train')
 
 pretraining_file = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
 

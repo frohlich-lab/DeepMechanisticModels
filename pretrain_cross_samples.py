@@ -18,7 +18,7 @@ from mEncoder import MODEL_FEATURE_PREFIX
 from common import CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, PER_SAMPLE_OUTFILE_PARS
 from util import load_from_argv
 
-conf, mae, problem = load_from_argv(sys.argv, dataset='train', n_threads=4)
+conf, mae, problem = load_from_argv(sys.argv, dataset='train')
 
 pypesto_problem = generate_cross_sample_pretraining_problem(mae, problem)
 pretrained_samples = {}
