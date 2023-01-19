@@ -377,8 +377,6 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
     for target in targets:
         if target in model.observables.keys():
             target_obs = model.observables[target]
-        elif target in model.monomers.keys():
-            target_obs = Observable(f"target_{target}", model.monomers[target])
         else:
             continue
         kd = Parameter(f"{name}_{target}_kd", 0.0)
@@ -404,19 +402,10 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
             continue
         target, observable = next(
             (
-                next(
-                    (mp.monomer.name, s)
-                    for cp in s.reaction_pattern.complex_patterns
-                    for mp in cp.monomer_patterns
-                    if mp.monomer.name in targets
-                )
+                (s.name, s)
                 for s in expr.expr.free_symbols
                 if isinstance(s, Observable)
-                and any(
-                    mp.monomer.name in targets
-                    for cp in s.reaction_pattern.complex_patterns
-                    for mp in cp.monomer_patterns
-                )
+                and s.name in targets
             ),
             (None, None),
         )

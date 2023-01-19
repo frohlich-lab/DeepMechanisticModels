@@ -50,6 +50,10 @@ def evaluate_pretraining_per_sample(dataset, model, data):
     problem = CytofProblem(model)
     petab_base_files = load_petab_base_files(model, data)
     for sample in samples[dataset]:
+        rfile = indir / f"{sample}.csv"
+        if not rfile.exists():
+            continue
+
         petab_base_importer = load_petab(
             problem,
             data,
@@ -63,8 +67,9 @@ def evaluate_pretraining_per_sample(dataset, model, data):
             DATA,
             sample,
         )
+
         problem_sample = importer.create_problem()
-        df = pd.read_csv(indir / f"{sample}.csv", index_col=[0])
+        df = pd.read_csv(rfile, index_col=[0])
         problem.apply_objective_settings(problem_sample.objective)
 
         ress = []
@@ -201,13 +206,13 @@ def evaluate_average(dataset, model, data):
 
 
 for dataset in ["train", "test"]:
-    # average
-    df = evaluate_average(dataset, MODEL, DATA)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
-
     # per sample
     df = evaluate_pretraining_per_sample(dataset, MODEL, DATA)
     df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
+
+    # average
+    df = evaluate_average(dataset, MODEL, DATA)
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
 
     # cross sample
     df = evaluate_petraining_cross_sample(dataset)
