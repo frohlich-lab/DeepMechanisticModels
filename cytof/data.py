@@ -284,4 +284,4 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
         [measurement_table_cytof, measurement_table_proteomics]
     )
     condition_table = build_condition_table(measurement_table, model)
-    return measurement_table, condition_table
+    return measurement_table.copy(), condition_table.copy()
