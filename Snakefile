@@ -190,7 +190,7 @@ rule evaluate_all:
     input:
         script='evaluate_all.py',
         pretraining=rules.evaluate_pretraining.output.csv,
-        training=rules.evaluate_training.output.csv,
+        #training=rules.evaluate_training.output.csv,
     output:
         plot=EVALUATE_ALL,
     wildcard_constraints:

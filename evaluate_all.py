@@ -22,9 +22,9 @@ for dataset in ["train", "test"]:
         index_col=0
     )
     # training
-    training = pd.read_csv(
-        EVALUATION_TRAINING.format(dataset=dataset, model=MODEL, data=DATA, samples=SAMPLES), index_col=0
-    )
+    # training = pd.read_csv(
+    #     EVALUATION_TRAINING.format(dataset=dataset, model=MODEL, data=DATA, samples=SAMPLES), index_col=0
+    # )
 
     # average
     avg = pd.read_csv(
@@ -40,7 +40,8 @@ for dataset in ["train", "test"]:
     )
     ps[dataset] = np.power(10, df_ps.rmse.apply(np.log10).mean())
 
-    dfd = pd.concat([training, pretraining])
+    # dfd = pd.concat([training, pretraining])
+    dfd = pd.concat([pretraining])
     dfd["dataset"] = dataset
     dfs.append(dfd)
 

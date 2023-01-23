@@ -151,7 +151,7 @@ def store_and_plot_pretraining(
     result: pypesto.Result, rfile: Path, pfile: Path, plot_waterfall: bool = True
 ):
     """
-    Store optimziation results in HDF5 as well as csv for later reuse. Also
+    Store optimiziation results in HDF5 as well as csv for later reuse. Also
     saves some visualization for debugging purposes.
     """
     # store full results as hdf5
