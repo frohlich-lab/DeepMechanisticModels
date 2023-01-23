@@ -35,7 +35,7 @@ def add_egfr(model):
             "EGFR",
             #'ERBB2'
         ],
-        add_baseline_activation="none",
+        add_baseline_activation="first",
     )
     add_degradation(model, active_rtks)
 
