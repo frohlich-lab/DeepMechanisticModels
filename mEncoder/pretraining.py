@@ -119,7 +119,7 @@ def generate_cross_sample_pretraining_problem(ae: MechanisticAutoEncoder, proble
 
 
 def pretrain(
-    problem: Problem, startpoint_method: Callable, nstarts: int, optimizer, hfile, engine=None
+    problem: Problem, startpoint_method: Callable, nstarts: int, optimizer, hfile=None, engine=None
 ) -> pypesto.Result:
     """
     Pretrain the provided problem via optimization.
@@ -136,14 +136,17 @@ def pretrain(
     """
 
     optimize_options = OptimizeOptions(allow_failed_starts=False)
-    history_options = HistoryOptions(
-        trace_record=True,
-        trace_record_grad=False,
-        trace_record_hess=False,
-        trace_record_res=False,
-        trace_record_sres=False,
-        storage_file=str(hfile),
-    )
+    if hfile is not None:
+        history_options = HistoryOptions(
+            trace_record=True,
+            trace_record_grad=False,
+            trace_record_hess=False,
+            trace_record_res=False,
+            trace_record_sres=False,
+            storage_file=str(hfile),
+        )
+    else:
+        history_options = None
 
     return minimize(
         problem,
