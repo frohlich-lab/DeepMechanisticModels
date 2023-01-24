@@ -16,7 +16,6 @@ from pypesto import OptimizeResult
 from amici.petab_objective import rdatas_to_simulation_df
 from pathlib import Path
 
-from jax.config import config
 import jax.numpy as jnp
 
 
@@ -34,7 +33,7 @@ def process_simulation(
     mdf = measurement_df[idx]
     sdf = simulation_df[idx]
 
-    res = (mdf[petab.MEASUREMENT] - sdf[petab.SIMULATION]) / mdf[petab.NOISE_PARAMETERS]
+    res = (mdf[petab.MEASUREMENT] - sdf[petab.SIMULATION])
 
     evaluations.append(
         {
