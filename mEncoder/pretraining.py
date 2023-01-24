@@ -2,6 +2,7 @@ import pypesto
 from amici.petab_import import PysbPetabProblem
 from pypesto.petab.pysb_importer import PetabImporterPysb
 from pypesto.optimize import OptimizeOptions, minimize
+from pypesto.history import HistoryOptions
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall, parameters
 from pypesto.objective.jax import JaxObjective
@@ -118,7 +119,7 @@ def generate_cross_sample_pretraining_problem(ae: MechanisticAutoEncoder, proble
 
 
 def pretrain(
-    problem: Problem, startpoint_method: Callable, nstarts: int, optimizer, engine=None
+    problem: Problem, startpoint_method: Callable, nstarts: int, optimizer, hfile, engine=None
 ) -> pypesto.Result:
     """
     Pretrain the provided problem via optimization.
@@ -135,6 +136,14 @@ def pretrain(
     """
 
     optimize_options = OptimizeOptions(allow_failed_starts=False)
+    history_options = HistoryOptions(
+        trace_record=True,
+        trace_record_grad=False,
+        trace_record_hess=False,
+        trace_record_res=False,
+        trace_record_sres=False,
+        storage_file=str(hfile),
+    )
 
     return minimize(
         problem,
@@ -142,6 +151,7 @@ def pretrain(
         n_starts=nstarts,
         options=optimize_options,
         startpoint_method=startpoint_method,
+        history_options=history_options,
         engine=engine,
         filename=None,
     )
