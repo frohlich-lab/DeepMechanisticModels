@@ -10,7 +10,7 @@ MODEL_FEATURE_PREFIX = "INPUT_"
 
 Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
-basedir: Path = Path(__file__).resolve().parents[0]
+basedir: Path = Path(__file__).resolve().parent
 fig_dir = basedir / "figures"
 results_dir = basedir / "results"
 data_dir = basedir / "data"
