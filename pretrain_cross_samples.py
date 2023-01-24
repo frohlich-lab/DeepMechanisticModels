@@ -15,7 +15,9 @@ from pathlib import Path
 
 from mEncoder.pretraining import generate_cross_sample_pretraining_problem, pretrain, store_and_plot_pretraining
 from mEncoder import MODEL_FEATURE_PREFIX
-from common import CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, PER_SAMPLE_OUTFILE_PARS
+from common import (
+    CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, CROSS_SAMPLE_OUTFILE_TRACE, PER_SAMPLE_OUTFILE_PARS
+)
 from util import load_from_argv
 
 conf, mae, problem = load_from_argv(sys.argv, dataset='train')
@@ -135,11 +137,12 @@ optimizer = FidesOptimizer(
         fides.Options.FRTOL: 0,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 3600 * 10,
-        fides.Options.MAXITER: 25,
+        fides.Options.MAXITER: 50,
     },
 )
 np.random.seed(conf.job)
-result = pretrain(pypesto_problem, startpoints, 1, optimizer)
+hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
+result = pretrain(pypesto_problem, startpoints, 1, optimizer, hfile)
 
 rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))

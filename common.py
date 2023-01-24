@@ -25,6 +25,7 @@ defaults = {
 tpl_results_file = ("__".join(defaults.values()))
 CROSS_SAMPLE_OUTFILE_PARS = str(pretrain_dir / '{model}' / '{data}' / (tpl_results_file + '.csv'))
 CROSS_SAMPLE_OUTFILE_RESULTS = str(pretrain_dir / '{model}' / '{data}' / (tpl_results_file + '.hdf5'))
+CROSS_SAMPLE_OUTFILE_TRACE = str(pretrain_dir / '{model}' / '{data}' / (tpl_results_file + '_trace.hdf5'))
 
 TRAINING_OUTFILE_RESULTS = str(results_dir / '{model}' / '{data}' / (tpl_results_file + '.hdf5'))
 COLLECTED_TRAINING_RESULTS = str(

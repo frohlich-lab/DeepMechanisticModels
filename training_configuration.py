@@ -1,7 +1,7 @@
 ALPHAS = {1e-4, 1e-2, 1e-0, 1e2}
-LATENT_DIMS = {4, 8, 16, 32}
-CONTEXTS = {'baseline', 'init', 'dynamic', }
-# CONTEXTS = {'baseline', }
+LATENT_DIMS = {8, 16, 32}
+# CONTEXTS = {'baseline', 'init', 'dynamic', }
+CONTEXTS = {'baseline', }
 PATHWAYS = {'EGFR_MAPK', }
 DATASETS = {'dream_cytof', }
 # DATASETS = {
