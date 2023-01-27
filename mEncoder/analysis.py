@@ -58,6 +58,9 @@ def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
         if not m:
             continue
 
+        if str(os.path.splitext(file)[0]).endswith('trace'):
+            continue
+
         if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= n_starts:
             continue
 
