@@ -192,7 +192,11 @@ rule evaluate_all:
         pretraining=rules.evaluate_pretraining.output.csv,
         #training=rules.evaluate_training.output.csv,
     output:
-        plot=EVALUATE_ALL,
+        plot=expand(
+            EVALUATE_ALL,
+            model='{model}', data='{data}', samples='{samples}',
+            group=('observable', 'time', 'condition', 'sample', 'all')
+        )
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',

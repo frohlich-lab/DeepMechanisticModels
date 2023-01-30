@@ -1,6 +1,7 @@
 import sys
 import pandas as pd
 import numpy as np
+import petab
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -31,17 +32,15 @@ for dataset in ["train", "test"]:
         tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'),
         index_col=0
     )
-    avgs[dataset] = np.power(10, avg.rmse.apply(np.log10).mean())
 
     # per sample
     df_ps = pd.read_csv(
         tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'),
         index_col=0
     )
-    ps[dataset] = np.power(10, df_ps.rmse.apply(np.log10).mean())
 
     # dfd = pd.concat([training, pretraining])
-    dfd = pd.concat([pretraining])
+    dfd = pd.concat([pretraining, avg, df_ps])
     dfd["dataset"] = dataset
     dfs.append(dfd)
 
@@ -50,15 +49,24 @@ df.rename(columns={"alpha": "l1 regularization", "layers": "latent dim"}, inplac
 df.loc[df["type"] == "cross_sample", "type"] = "pca embedding"
 df.loc[df["type"] == "full", "type"] = "end-to-end"
 
-g = sns.FacetGrid(data=df, row="dataset", col="latent dim")
-g.map_dataframe(
-    sns.lineplot, x="l1 regularization", y="rmse", style="type", hue="context"
-)
-g.set(yscale="log", xscale="log")
-g.add_legend()
-for ids, dataset in enumerate(["train", "test"]):
-    for ax in g.axes[ids, :]:
-        ax.axhline(avgs[dataset], ls=":", c="r")
-        ax.axhline(ps[dataset], ls=":", c="b")
+for gb in ('observable', 'time', 'condition', 'sample', 'all'):
+    gbs = ("dataset", "type", "latent dim", "l1 regularization")
+    if gb != 'all':
+        gbs = (gb, *gbs)
+    df_gb = pd.DataFrame([
+        dict(zip(gbs, group), rmse=np.sqrt(group_df["res"].apply(lambda x: np.power(x, 2)).mean()))
+        for group, group_df in df.groupby(gbs)
+    ])
 
-plt.savefig(EVALUATE_ALL.format(model=MODEL, data=DATA, samples=SAMPLES))
+    if gb == 'all':
+        data = df_gb
+    else:
+        data = df_gb[df_gb.type == 'pca embedding']
+
+    g = sns.FacetGrid(data=data, row="dataset", col="latent dim")
+    g.map_dataframe(
+        sns.barplot, x=gb if gb != 'all' else "type", y="rmse", hue="l1 regularization"
+    )
+    g.set(yscale="log")
+    g.add_legend()
+    plt.savefig(EVALUATE_ALL.format(model=MODEL, data=DATA, samples=SAMPLES, group=gb))

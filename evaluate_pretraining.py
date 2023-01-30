@@ -171,23 +171,25 @@ def evaluate_average(dataset, model, data):
     df_meas = df_meas[df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)]
 
     df_train = df_meas[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].apply(
-            lambda x: x in samples["train"]
-        )
+        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
     ]
 
     df_train["condition"] = df_train[petab.SIMULATION_CONDITION_ID].apply(
         lambda x: x.split("__")[1]
     )
 
-    avg_model = df_train.groupby([petab.OBSERVABLE_ID, petab.TIME, "condition"]).agg(
+    avg_model = df_train.groupby([petab.OBSERVABLE_ID, "condition", petab.TIME, ]).agg(
         np.nanmean
     )
 
     df_sim = df_meas.copy()
+    df_sim = df_sim.loc[
+        df_sim[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset]), :
+    ]
+
     for ir, r in df_meas.iterrows():
         df_sim.loc[ir, petab.MEASUREMENT] = avg_model.loc[
-            (r.observableId, r.time, r[petab.SIMULATION_CONDITION_ID].split("__")[1]),
+            (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1], r.time),
             petab.MEASUREMENT,
         ]
 
@@ -206,13 +208,13 @@ def evaluate_average(dataset, model, data):
 
 
 for dataset in ["train", "test"]:
-    # per sample
-    df = evaluate_pretraining_per_sample(dataset, MODEL, DATA)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
-
     # average
     df = evaluate_average(dataset, MODEL, DATA)
     df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
+
+    # per sample
+    df = evaluate_pretraining_per_sample(dataset, MODEL, DATA)
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
 
     # cross sample
     df = evaluate_petraining_cross_sample(dataset)

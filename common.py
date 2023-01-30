@@ -39,7 +39,7 @@ OBSERVABLES_FILE = tpl_petab_file.format(file="observables", data="{data}", mode
 
 tpl_evaluation_file = str(fig_dir / '{model}' / '{data}' / "{samples}_pretrain_{mode}_{dataset}.csv")
 EVALUATION_TRAINING = str(fig_dir / '{model}' / '{data}' / "{samples}_training_{dataset}.csv")
-EVALUATE_ALL = str(fig_dir / '{model}' / '{data}' / '{samples}_evaluate_all.pdf')
+EVALUATE_ALL = str(fig_dir / '{model}' / '{data}' / '{samples}_evaluate_all_{group}.pdf')
 
 
 def training_samples(wildcards) -> List[str]:

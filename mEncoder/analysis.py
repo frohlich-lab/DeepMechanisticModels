@@ -33,18 +33,23 @@ def process_simulation(
     mdf = measurement_df[idx]
     sdf = simulation_df[idx]
 
-    res = (mdf[petab.MEASUREMENT] - sdf[petab.SIMULATION])
+    res = mdf.copy()
+    res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
 
-    evaluations.append(
-        {
-            "rmse": np.sqrt(np.power(res.values, 2).mean()),
-            "sample": sample,
-            "type": model_type,
-            "context": context,
-            "alpha": alpha,
-            "layers": hidden_layers,
-        }
-    )
+    for _, r in res.iterrows():
+        evaluations.append(
+            {
+                "res": r[petab.MEASUREMENT],
+                "sample": sample,
+                "type": model_type,
+                "context": context,
+                "alpha": alpha,
+                "layers": hidden_layers,
+                "observable": r[petab.OBSERVABLE_ID],
+                "condition": r[petab.SIMULATION_CONDITION_ID].split('__')[1],
+                "time": r[petab.TIME],
+            }
+        )
 
 
 def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
