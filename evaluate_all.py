@@ -81,6 +81,8 @@ for gb in ('observable', 'time', 'condition', 'sample', 'all'):
     g.map_dataframe(
         sns.lineplot, x="l1 regularization", y="rmse", style="dataset", hue="type"
     )
-    g.set(xscale='log', ylim=(0, 1))
+    g.set(xscale='log', ylim=(0,1.5))
     g.add_legend()
-    plt.savefig(EVALUATE_ALL.format(model=MODEL, data=DATA, samples=SAMPLES, group=gb))
+    rfile = EVALUATE_ALL.format(model=MODEL, data=DATA, samples=SAMPLES, group=gb)
+    plt.savefig(rfile)
+    data.to_csv(rfile.replace('.pdf', '.csv'))
