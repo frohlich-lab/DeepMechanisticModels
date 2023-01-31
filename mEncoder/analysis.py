@@ -141,7 +141,7 @@ def evaluate_simulations(
 def plot_loss_vs_regularization(df):
     dfa = df.groupby(["alpha", "layers", "context", "sample"]).agg({
         "res": lambda x: np.sqrt(np.mean(np.power(x, 2)))
-    }).rename(columns={"res": "rmse"})
+    }).rename(columns={"res": "rmse"}).reset_index()
     g = sns.FacetGrid(data=dfa, col="sample", col_wrap=5)
     g.map_dataframe(
         sns.lineplot,
