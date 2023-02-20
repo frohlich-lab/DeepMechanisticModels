@@ -36,6 +36,12 @@ for dataset in ["train", "test"]:
         index_col=0
     )
 
+    # model average
+    avg_model = pd.read_csv(
+        tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'),
+        index_col=0
+    )
+
     # per sample
     ps = pd.read_csv(
         tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'),
@@ -45,7 +51,7 @@ for dataset in ["train", "test"]:
     avg_ps_dfs = []
     # copy average/per sample
     for alpha, ldim, ctxt in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
-        for rdf in [avg, ps]:
+        for rdf in [avg, avg_model, ps]:
             avg_ps_df = rdf.copy()
             avg_ps_df['alpha'] = alpha
             avg_ps_df['layers'] = ldim
@@ -81,7 +87,7 @@ for gb in ('observable', 'time', 'condition', 'sample', 'all'):
     g.map_dataframe(
         sns.lineplot, x="l1 regularization", y="rmse", style="dataset", hue="type"
     )
-    g.set(xscale='log', ylim=(0,1.5))
+    g.set(xscale='log', ylim=(0, 1.5))
     g.add_legend()
     rfile = EVALUATE_ALL.format(model=MODEL, data=DATA, samples=SAMPLES, group=gb)
     plt.savefig(rfile)

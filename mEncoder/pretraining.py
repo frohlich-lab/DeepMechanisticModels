@@ -12,7 +12,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
-from typing import Callable
+from typing import Callable, List
 from pathlib import Path
 from pysb import Model
 
@@ -65,7 +65,7 @@ def generate_per_sample_pretraining_problems(
             (
                 not name.startswith(MODEL_FEATURE_PREFIX)
                 and (
-                    (not name.endswith("_scale") and not name.endswith("offset"))
+                    (not name.endswith(("_scale", "_offset")))
                     or name in spars
                 )
             )
@@ -79,6 +79,166 @@ def generate_per_sample_pretraining_problems(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=mdf,
+            condition_df=cdf,
+            pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
+        ),
+        output_folder=str(
+            problem.amici_dir / f"{pp.pysb_model.name}_{dataset}_petab"
+        ),
+    )
+
+
+def generate_per_sample_reg_pretraining_problem(
+    importer: PetabImporterPysb,
+    problem: Problem,
+    avg_pars: pd.DataFrame,
+    dataset: str,
+    sample: str,
+    alpha: float = 0.0,
+) -> PetabImporterPysb:
+    """
+    Creates a pypesto problem that can be used to train the
+    mechanistic model individually on every sample
+    """
+    # construct problem based on petab for pypesto subproblem
+    pp = importer.petab_problem
+    pp.parameter_df[petab.ESTIMATE] = [
+        not x.startswith(MODEL_FEATURE_PREFIX) and pp.parameter_df[petab.ESTIMATE][x]
+        for x in pp.parameter_df.index
+    ]
+    pp.parameter_df.loc[
+        pp.parameter_df[petab.ESTIMATE] == 0,
+        [petab.OBJECTIVE_PRIOR_TYPE, petab.OBJECTIVE_PRIOR_PARAMETERS],
+    ] = np.NaN
+
+    # create fresh model from scratch since the petab imported one already
+    # has the observables added and this might lead to issues.
+    clean_model = problem.load_pysb()
+
+    # subset measurements, conditions and parameters for specified sample
+    mdf = pp.measurement_df[
+        pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+    ]
+    cdf = pp.condition_df[[name.startswith(sample) for name in pp.condition_df.index]]
+    spars = (
+        set(
+            e
+            for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(lambda x: x.split(";"))
+            for e in t
+        )
+        if petab.OBSERVABLE_PARAMETERS in mdf
+        else {}
+    )
+    pdf = pp.parameter_df[
+        [
+            (
+                not name.startswith(MODEL_FEATURE_PREFIX)
+                and (
+                    (not name.endswith("_scale") and not name.endswith("offset"))
+                    or name in spars
+                )
+            )
+            or name.endswith(sample)
+            for name in pp.parameter_df.index
+        ]
+    ]
+    for pname in pdf.index:
+        if pname.startswith(MODEL_FEATURE_PREFIX):
+            pdf.loc[pname, petab.ESTIMATE] = True
+            if alpha > 0:
+                pdf.loc[pname, petab.OBJECTIVE_PRIOR_PARAMETERS] = f"0.0;{1 / alpha}"
+                pdf.loc[pname, petab.OBJECTIVE_PRIOR_TYPE] = petab.PARAMETER_SCALE_LAPLACE
+
+        if pname.endswith(("_scale", "_offset")):
+            continue
+
+        if pname not in avg_pars.columns:  # includes inputs
+            continue
+
+        pdf.loc[pname, petab.NOMINAL_VALUE] = np.power(10, avg_pars.loc[0, pname])
+        pdf.loc[pname, petab.ESTIMATE] = False
+
+    return PetabImporterPysb(
+        PysbPetabProblem(
+            parameter_df=pdf,
+            observable_df=pp.observable_df,
+            measurement_df=mdf,
+            condition_df=cdf,
+            pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
+        ),
+        output_folder=str(
+            problem.amici_dir / f"{pp.pysb_model.name}_{dataset}_petab"
+        ),
+    )
+
+
+def generate_average_pretraining_problem(
+    importer: PetabImporterPysb,
+    problem: Problem,
+    dataset: str,
+    samples: List[str],
+) -> PetabImporterPysb:
+    """
+    Creates a pypesto problem that can be used to train the mechanistic model on the average of all samples
+    """
+    # construct problem based on petab for pypesto subproblem
+    pp = importer.petab_problem
+    pp.parameter_df[petab.ESTIMATE] = [
+        not x.startswith(MODEL_FEATURE_PREFIX) and pp.parameter_df[petab.ESTIMATE][x]
+        for x in pp.parameter_df.index
+    ]
+    pp.parameter_df.loc[
+        pp.parameter_df[petab.ESTIMATE] == 0,
+        [petab.OBJECTIVE_PRIOR_TYPE, petab.OBJECTIVE_PRIOR_PARAMETERS],
+    ] = np.NaN
+
+    # create fresh model from scratch since the petab imported one already
+    # has the observables added and this might lead to issues.
+    clean_model = problem.load_pysb()
+
+    # subset measurements, conditions and parameters for specified sample
+    df_train = pp.measurement_df.loc[
+        pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples), :
+    ]
+
+    df_train[petab.SIMULATION_CONDITION_ID] = df_train[petab.SIMULATION_CONDITION_ID].apply(
+        lambda x: x.split("__")[1]
+    )
+
+    df_train[petab.PREEQUILIBRATION_CONDITION_ID] = 'baseline'
+
+    cdf = pp.condition_df.loc[[name.startswith(samples[0]) for name in pp.condition_df.index], :]
+    cdf.index = [name.replace(samples[0] + '__', '').replace(samples[0], 'baseline') for name in cdf.index]
+    cdf.drop(columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)], inplace=True)
+    spars = (
+        set(
+            e
+            for t in df_train[petab.OBSERVABLE_PARAMETERS].apply(lambda x: x.split(";"))
+            for e in t
+        )
+        if petab.OBSERVABLE_PARAMETERS in df_train
+        else {}
+    )
+    pdf = pp.parameter_df[
+        [
+            (
+                not name.startswith(MODEL_FEATURE_PREFIX)
+                and (
+                    (not name.endswith("_scale") and not name.endswith("offset"))
+                    or name in spars
+                )
+            )
+            or name.endswith(samples[0])
+            for name in pp.parameter_df.index
+        ]
+    ]
+    pdf.index = [name.replace('__' + samples[0], '') for name in pdf.index]
+
+    return PetabImporterPysb(
+        PysbPetabProblem(
+            parameter_df=pdf,
+            observable_df=pp.observable_df,
+            measurement_df=df_train,
             condition_df=cdf,
             pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
         ),
@@ -137,6 +297,8 @@ def pretrain(
 
     optimize_options = OptimizeOptions(allow_failed_starts=False)
     if hfile is not None:
+        if hfile.exists():
+            hfile.delete()
         history_options = HistoryOptions(
             trace_record=True,
             trace_record_grad=False,

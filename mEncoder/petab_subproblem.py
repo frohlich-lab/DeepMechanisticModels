@@ -74,13 +74,11 @@ def generate_parameter_table(
         param_defs.extend(
             [
                 {
-                    petab.PARAMETER_ID: f"{par.name}__{cond}"
-                    if par in features
-                    else par,
-                    petab.LOWER_BOUND: 0.1,
-                    petab.UPPER_BOUND: 10.0,
+                    petab.PARAMETER_ID: f"{par.name}__{cond}",
+                    petab.LOWER_BOUND: 1e-3,
+                    petab.UPPER_BOUND: 1e3,
                     petab.PARAMETER_SCALE: petab.LOG10,
-                    petab.NOMINAL_VALUE: 1.0 if par in features else 0.0,
+                    petab.NOMINAL_VALUE: 1.0,
                 }
                 for par in features + par_inputs
                 if par in features or par.endswith(f"__{cond}")
@@ -105,7 +103,7 @@ def generate_parameter_table(
 
     parameter_table.set_index(petab.PARAMETER_ID, inplace=True)
 
-    # add l2 regularization to input parameters (only if estimating them)
+    # add l1 regularization to input parameters (only if estimating them)
     parameter_table[petab.OBJECTIVE_PRIOR_TYPE] = [
         petab.PARAMETER_SCALE_LAPLACE
         if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0

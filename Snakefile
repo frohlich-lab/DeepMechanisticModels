@@ -35,6 +35,11 @@ rule process_data:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
+    resources:
+        mem="2GB",
+        runtime="15m",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -50,6 +55,11 @@ rule compile_mechanistic_model:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
+    resources:
+        mem="8GB",
+        runtime="1h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -66,6 +76,11 @@ rule pretrain_per_sample:
         model='\w+',
         data='[\w\.]+',
         sample='\w+',
+    resources:
+        mem="1GB",
+        runtime="6h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.sample}'
@@ -91,6 +106,11 @@ rule pretrain_cross_sample:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+',
+    resources:
+        mem="1GB",
+        runtime="6h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
@@ -115,6 +135,11 @@ rule estimate_parameters:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
+    resources:
+        mem="1GB",
+        runtime="6h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
@@ -138,6 +163,11 @@ rule collect_estimation_results:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
+    resources:
+        mem="8GB",
+        runtime="2h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {N_STARTS}'
@@ -162,6 +192,11 @@ rule evaluate_pretraining:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+    resources:
+        mem="12GB",
+        runtime="4h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {N_STARTS}'
 
@@ -183,6 +218,11 @@ rule evaluate_training:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+    resources:
+        mem="8GB",
+        runtime="4h",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
@@ -201,6 +241,11 @@ rule evaluate_all:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+    resources:
+        mem="2GB",
+        runtime="15m",
+        nodes="1",
+        cpus_per_task="1",
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 

@@ -11,6 +11,7 @@ from pypesto.visualize import waterfall, parameters
 
 from mEncoder.pretraining import (
     generate_cross_sample_pretraining_problem, generate_per_sample_pretraining_problems,
+    generate_average_pretraining_problem
 )
 from mEncoder.petab_subproblem import load_petab
 from mEncoder.analysis import (
@@ -207,7 +208,76 @@ def evaluate_average(dataset, model, data):
     return pd.DataFrame(evaluations)
 
 
+def evaluate_average_model(dataset, model, data):
+    df_meas = pd.read_csv(MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0)
+    df_obs = pd.read_csv(OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0)
+    df_meas = df_meas[df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)]
+
+    problem = CytofProblem(model)
+    petab_base_files = load_petab_base_files(model, data)
+    rfile = indir / f"model_average.csv"
+
+    petab_base_importer = load_petab(
+        problem,
+        data,
+        0.0,
+        **petab_base_files,
+    )
+
+    importer = generate_average_pretraining_problem(
+        petab_base_importer,
+        problem,
+        DATA,
+        training_samples(Wildcards(DATA, SAMPLES))
+    )
+    problem_sample = importer.create_problem()
+    df = pd.read_csv(rfile, index_col=[0])
+    problem.apply_objective_settings(problem_sample.objective)
+
+    ress = []
+    fvals = []
+    for ipar in range(len(df)):
+        x = problem_sample.get_reduced_vector(
+            df.values[0, :], problem_sample.x_free_indices
+        )
+        res = problem_sample.objective(x, return_dict=True)
+        ress.append(res)
+        fvals.append(res["fval"])
+
+    # Convert the simulation to PEtab format.
+    avg_model = rdatas_to_simulation_df(
+        ress[np.argmin(fvals)]["rdatas"],
+        model=problem_sample.objective.amici_model,
+        measurement_df=importer.petab_problem.measurement_df,
+    )
+
+    avg_model[petab.SIMULATION_CONDITION_ID] = df_meas[petab.SIMULATION_CONDITION_ID]
+    avg_model[petab.PREEQUILIBRATION_CONDITION_ID] = df_meas[petab.PREEQUILIBRATION_CONDITION_ID]
+
+    df_meas = df_meas[
+        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
+    ]
+    avg_model = avg_model[
+        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
+    ]
+
+    plot_cross_samples(df_meas, avg_model, outdir / "simulation" / dataset, "avg_model")
+
+    evaluations = []
+
+    for sample in samples[dataset]:
+        process_simulation(
+            evaluations, df_meas, avg_model, "none", sample, "avg_model", 0.0, 0.0
+        )
+
+    return pd.DataFrame(evaluations)
+
+
 for dataset in ["train", "test"]:
+    # model average
+    df = evaluate_average_model(dataset, MODEL, DATA)
+    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'))
+
     # average
     df = evaluate_average(dataset, MODEL, DATA)
     df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
