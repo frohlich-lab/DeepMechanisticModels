@@ -86,6 +86,27 @@ rule pretrain_per_sample:
         '{wildcards.sample}'
 
 
+rule pretrain_average_model:
+    input:
+        script='pretrain_average.py',
+        pretraining_code=mencoder_dir / 'pretraining.py',
+        model=rules.compile_mechanistic_model.output.model,
+        data=rules.process_data.output.datafiles
+    output:
+        pretraining=PER_SAMPLE_OUTFILE_PARS.format(model='{model}', data='{data}', sample='model_average')
+    wildcard_constraints:
+        model='\w+',
+        data='[\w\.]+',
+        sample='\w+',
+    resources:
+        mem="1GB",
+        runtime="6h",
+        nodes="1",
+        cpus_per_task="1",
+    shell:
+        'python3 {input.script} {wildcards.model} {wildcards.data}'
+
+
 rule pretrain_cross_sample:
     input:
         script='pretrain_cross_samples.py',
@@ -181,6 +202,7 @@ rule evaluate_pretraining:
             n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
         ),
         pretrain_per_sample=per_sample_pretraining_test,
+        pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
         csv=expand(
             tpl_evaluation_file,
