@@ -215,7 +215,7 @@ def evaluate_average_model(dataset, model, data):
 
     problem = CytofProblem(model)
     petab_base_files = load_petab_base_files(model, data)
-    rfile = indir / f"model_average.csv"
+    rfile = indir / f"model_average_{SAMPLES}.csv"
 
     petab_base_importer = load_petab(
         problem,
