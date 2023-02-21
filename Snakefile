@@ -277,3 +277,5 @@ rule train_and_evaluate:
              rules.evaluate_all.output.plot,
              model=PATHWAYS, data=DATASETS, samples=SPLITS
          ),
+
+ruleorder: pretrain_average_model > pretrain_per_sample
