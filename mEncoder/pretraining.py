@@ -297,8 +297,7 @@ def pretrain(
 
     optimize_options = OptimizeOptions(allow_failed_starts=False)
     if hfile is not None:
-        if hfile.exists():
-            hfile.delete()
+        Path.unlink(hfile, missing_ok=True)
         history_options = HistoryOptions(
             trace_record=True,
             trace_record_grad=False,
