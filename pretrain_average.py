@@ -73,8 +73,8 @@ result = pretrain(
     optimizer,
 )
 
-results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample='model_average'))
-pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample='model_average'))
+results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=f'model_average_{SAMPLES}'))
+pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=f'model_average_{SAMPLES}'))
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
 parameters(result)
 plt.tight_layout()

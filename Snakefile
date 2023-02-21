@@ -93,18 +93,18 @@ rule pretrain_average_model:
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
     output:
-        pretraining=PER_SAMPLE_OUTFILE_PARS.format(model='{model}', data='{data}', sample='model_average')
+        pretraining=PER_SAMPLE_OUTFILE_PARS.format(model='{model}', data='{data}', sample='model_average_{samples}')
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        sample='\w+',
+        samples='[0-9]+_[0-9]+',
     resources:
         mem="1GB",
         runtime="6h",
         nodes="1",
         cpus_per_task="1",
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data}'
+        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
 
 rule pretrain_cross_sample:
