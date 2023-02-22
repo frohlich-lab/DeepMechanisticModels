@@ -228,7 +228,8 @@ def evaluate_average_model(dataset, model, data):
         petab_base_importer,
         problem,
         DATA,
-        training_samples(Wildcards(DATA, SAMPLES))
+        training_samples(Wildcards(DATA, SAMPLES)) if dataset == "train" else
+        test_samples(Wildcards(DATA, SAMPLES))
     )
     problem_sample = importer.create_problem()
     df = pd.read_csv(rfile, index_col=[0])
