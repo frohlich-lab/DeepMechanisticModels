@@ -256,10 +256,10 @@ def evaluate_average_model(dataset, model, data):
     avg_model[petab.PREEQUILIBRATION_CONDITION_ID] = df_meas[petab.PREEQUILIBRATION_CONDITION_ID]
 
     df_meas = df_meas[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
+        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
     avg_model = avg_model[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
+        avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
 
     plot_cross_samples(df_meas, avg_model, outdir / "simulation" / dataset, "avg_model")
