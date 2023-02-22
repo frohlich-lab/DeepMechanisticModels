@@ -1,4 +1,4 @@
-ALPHAS = {1e-4, 1e-2, 1e-0, 1e2}
+ALPHAS = {1e-4, 1e-3, 1e-2, 1e-1, 1e-0, 1e1, 1e2, 1e3, 1e4}
 LATENT_DIMS = {8, 16, 32}
 # CONTEXTS = {'baseline', 'init', 'dynamic', }
 CONTEXTS = {'baseline', }
