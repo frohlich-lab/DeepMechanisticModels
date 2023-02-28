@@ -70,6 +70,9 @@ def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
             continue
 
         r = OptimizationResultHDF5Reader(str(indir / str(file))).read().optimize_result.list[0]
+        if r.x is None:
+            continue
+
         r["id"] = m.group(1)
         result.append(r)
 
