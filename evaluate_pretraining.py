@@ -189,10 +189,12 @@ def evaluate_average(dataset, model, data):
     ]
 
     for ir, r in df_meas.iterrows():
-        df_sim.loc[ir, petab.MEASUREMENT] = avg_model.loc[
-            (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1], r.time),
+        # pick closest time point to avoid issues with non-canonical time points
+        candidates = avg_model.loc[
+            (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1]),
             petab.MEASUREMENT,
         ]
+        df_sim.loc[ir, petab.MEASUREMENT] = candidates.iloc[np.argmin(np.abs(candidates.index - r.time))]
 
     df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
 
