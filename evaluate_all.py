@@ -60,6 +60,7 @@ for samples in SPLITS:
         # dfd = pd.concat([training, pretraining])
         dfd = pd.concat([pretraining, *avg_ps_dfs])
         dfd["dataset"] = dataset
+        dfd["samples"] = samples
         dfs.append(dfd)
 
 df = pd.concat(dfs).reset_index()
