@@ -251,7 +251,10 @@ rule evaluate_training:
 rule evaluate_all:
     input:
         script='evaluate_all.py',
-        pretraining=rules.evaluate_pretraining.output.csv,
+        pretraining=expand(
+            rules.evaluate_pretraining.output.csv,
+            model='{model}',data='{data}', samples=SPLITS
+        )
         #training=rules.evaluate_training.output.csv,
     output:
         plot=expand(
