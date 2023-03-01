@@ -69,7 +69,7 @@ df.loc[df["type"] == "cross_sample", "type"] = "pca embedding"
 df.loc[df["type"] == "full", "type"] = "end-to-end"
 
 for gb in ('observable', 'time', 'condition', 'sample', 'all'):
-    gbs = ["dataset", "type", "latent dim", "l1 regularization"]
+    gbs = ["dataset", "type", "context", "latent dim", "l1 regularization", "samples"]
     if gb != 'all':
         gbs = [gb, *gbs]
     df_gb = pd.DataFrame([
