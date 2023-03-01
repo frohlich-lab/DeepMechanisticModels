@@ -267,8 +267,8 @@ rule evaluate_all:
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     resources:
-        mem="2GB",
-        runtime="15m",
+        mem="4GB",
+        runtime="30m",
         nodes="1",
         cpus_per_task="1",
     shell:

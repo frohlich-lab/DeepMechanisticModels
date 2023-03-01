@@ -79,7 +79,7 @@ for gb in ('observable', 'time', 'condition', 'sample', 'all'):
 
     if gb == 'time':
         # filter non-canonical timepoints (not enough datapoints)
-        data = df_gb[np.logical_not(df_gb.time.isin([12, 14, 15, 16, 25, 35]))]
+        data = df_gb[np.logical_not(df_gb.time.isin([12, 14, 15, 16, 18, 25, 35]))]
     else:
         data = df_gb
 
