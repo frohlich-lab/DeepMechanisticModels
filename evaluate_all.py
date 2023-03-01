@@ -10,7 +10,6 @@ from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, SPLITS
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
-SAMPLES = sys.argv[3]
 
 outdir = fig_dir / MODEL / DATA
 
