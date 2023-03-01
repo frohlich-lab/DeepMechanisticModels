@@ -256,7 +256,7 @@ rule evaluate_all:
     output:
         plot=expand(
             EVALUATE_ALL,
-            model='{model}', data='{data}', samples='{samples}',
+            model='{model}', data='{data}',
             group=('observable', 'time', 'condition', 'sample', 'all')
         )
     wildcard_constraints:
@@ -269,7 +269,7 @@ rule evaluate_all:
         nodes="1",
         cpus_per_task="1",
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
+        'python3 {input.script} {wildcards.model} {wildcards.data}'
 
 rule train_and_evaluate:
     input:
