@@ -128,7 +128,7 @@ rule pretrain_cross_sample:
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+',
     resources:
-        mem="2GB",
+        mem="1.5GB",
         runtime="6h",
         nodes="1",
         cpus_per_task="1",
