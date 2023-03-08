@@ -216,7 +216,7 @@ rule evaluate_pretraining:
         samples='[0-9]+_[0-9]+',
     resources:
         mem="20GB",
-        runtime="12h",
+        runtime="24h",
         nodes="1",
         cpus_per_task="1",
     shell:
