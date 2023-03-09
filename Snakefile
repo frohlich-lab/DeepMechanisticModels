@@ -168,12 +168,12 @@ rule estimate_parameters:
 rule collect_estimation_results:
     input:
         script='collect_estimation.py',
-        #trace=expand(
-        #    TRAINING_OUTFILE_RESULTS.format(
-        #        context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
-        #        n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
-        #    ), job=STARTS
-        #)
+        trace=expand(
+            TRAINING_OUTFILE_RESULTS.format(
+                context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
+                n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
+            ), job=STARTS
+        )
     output:
         result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
