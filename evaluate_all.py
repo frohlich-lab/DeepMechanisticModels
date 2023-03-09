@@ -5,7 +5,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import itertools as itt
 
-from common import fig_dir, EVALUATE_ALL, tpl_evaluation_file
+from common import fig_dir, EVALUATE_ALL, EVALUATION_TRAINING, tpl_evaluation_file
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, SPLITS
 
 MODEL = sys.argv[1]
@@ -25,9 +25,9 @@ for samples in SPLITS:
         )
 
         # training
-        # training = pd.read_csv(
-        #     EVALUATION_TRAINING.format(dataset=dataset, model=MODEL, data=DATA, samples=SAMPLES), index_col=0
-        # )
+        training = pd.read_csv(
+            EVALUATION_TRAINING.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, ), index_col=0
+        )
 
         # average
         avg = pd.read_csv(

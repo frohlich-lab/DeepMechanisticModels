@@ -254,8 +254,8 @@ rule evaluate_all:
         pretraining=expand(
             rules.evaluate_pretraining.output.csv,
             model='{model}',data='{data}', samples=SPLITS
-        )
-        #training=rules.evaluate_training.output.csv,
+        ),
+        training=rules.evaluate_training.output.csv,
     output:
         plot=expand(
             EVALUATE_ALL,
