@@ -83,9 +83,13 @@ for gb in ('observable', 'time', 'condition', 'sample', 'all'):
     else:
         data = df_gb
 
-    g = sns.FacetGrid(data=data, row=gb if gb != 'all' else "dataset", col="latent dim")
+    g = sns.FacetGrid(
+        data=data if gb == 'all' else data[data["context"] == 'baseline'],
+        row=gb if gb != 'all' else "dataset", col="latent dim"
+    )
     g.map_dataframe(
-        sns.lineplot, x="l1 regularization", y="rmse", style="dataset", hue="type"
+        sns.lineplot, x="l1 regularization", y="rmse",
+        style="dataset" if gb != 'all' else 'context', hue="type"
     )
     g.set(xscale='log', ylim=(0, 1.5))
     g.add_legend()
