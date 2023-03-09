@@ -255,7 +255,10 @@ rule evaluate_all:
             rules.evaluate_pretraining.output.csv,
             model='{model}',data='{data}', samples=SPLITS
         ),
-        training=rules.evaluate_training.output.csv,
+        training=expand(
+            rules.evaluate_training.output.csv,
+            model='{model}',data='{data}',samples=SPLITS
+        ),
     output:
         plot=expand(
             EVALUATE_ALL,
