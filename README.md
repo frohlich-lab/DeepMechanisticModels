@@ -1,9 +1,9 @@
-# Mechanistic Autoencoders
+# Deep Mechanistic Models
 
-Mechanistic Autoencoders combine a machine learning component, which learns 
+Deep Mechanistic Models combine a machine learning component, which learns 
 a latent embedding of the baseline, with a mechanistic model component,
 which integrates prior knowledge and perturbation data. The machine 
-learning component is implemented using [aesara](https://aesara.readthedocs.io)
+learning component is implemented using [jax](https://jax.readthedocs.io/en/latest/)
 and the mechanistic component is implemented using [pysb](https://pysb.org).
 
 Training is implemented as [snakemake](https://snakemake.readthedocs.io/en/stable) workflow consisting of three steps:
