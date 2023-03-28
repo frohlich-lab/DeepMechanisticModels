@@ -11,4 +11,4 @@ DATASETS = {'dream_cytof', }
 #     'synthetic_64_1.0_0.01', 'synthetic_64_0.1_0.01', 'synthetic_64_0.01_0.01',
 #     'synthetic_128_0.5', 'synthetic_128_0.1', 'synthetic_128_0.05', 'synthetic_128_0.01',
 # }
-SPLITS = {'0_5'}
+SPLITS = {'0_5', '1_5', '2_5', '3_5', '4_5'}
