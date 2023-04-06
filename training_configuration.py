@@ -1,14 +1,12 @@
 ALPHAS = {1e-2, 1e-1, 1e-0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6}
-LATENT_DIMS = {2, 4, 8, 12, 16}
+LATENT_DIMS = {2, 4, 6, 8, 12, 16}
 CONTEXTS = {'baseline'}
-PATHWAYS = {'EGFR_MAPK', }
-DATASETS = {'dream_cytof', }
-# DATASETS = {
-#    'synthetic_16_0.5', 'synthetic_16_0.1', 'synthetic_16_0.05', 'synthetic_16_0.01',
-#     'synthetic_32_0.5', 'synthetic_32_0.1', 'synthetic_32_0.05', 'synthetic_32_0.01',
-#     'synthetic_64_1.0_1.0', 'synthetic_64_0.1_1.0', 'synthetic_64_0.01_1.0',
-#     'synthetic_64_1.0_0.1', 'synthetic_64_0.1_0.1', 'synthetic_64_0.01_0.1',
-#     'synthetic_64_1.0_0.01', 'synthetic_64_0.1_0.01', 'synthetic_64_0.01_0.01',
-#     'synthetic_128_0.5', 'synthetic_128_0.1', 'synthetic_128_0.05', 'synthetic_128_0.01',
-# }
+PATHWAYS = {'EGFR_MAPK'}
+# DATASETS = {'dream_cytof', }
+DATASETS = {
+    'synthetic_16_0.2_0.0',
+    'synthetic_32_0.2_0.0',
+    'synthetic_64_0.2_0.0',
+    'synthetic_128_0.2_0.0',
+}
 SPLITS = {'0_5', '1_5', '2_5', '3_5', '4_5'}

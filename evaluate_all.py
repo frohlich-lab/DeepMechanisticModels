@@ -64,12 +64,12 @@ for samples in SPLITS:
         dfs.append(dfd)
 
 df = pd.concat(dfs).reset_index()
-df.rename(columns={"alpha": "l1 regularization", "layers": "latent dim"}, inplace=True)
+df.rename(columns={"alpha": "l2 regularization", "layers": "latent dim"}, inplace=True)
 df.loc[df["type"] == "cross_sample", "type"] = "pca embedding"
 df.loc[df["type"] == "full", "type"] = "end-to-end"
 
 for gb in ('observable', 'time', 'condition', 'sample', 'all'):
-    gbs = ["dataset", "type", "context", "latent dim", "l1 regularization", "samples"]
+    gbs = ["dataset", "type", "context", "latent dim", "l2 regularization", "samples"]
     if gb != 'all':
         gbs = [gb, *gbs]
     df_gb = pd.DataFrame([
@@ -83,12 +83,15 @@ for gb in ('observable', 'time', 'condition', 'sample', 'all'):
     else:
         data = df_gb
 
+    if gb != 'all':
+        data = data[data["context"] == 'baseline']
+
     g = sns.FacetGrid(
-        data=data if gb == 'all' else data[data["context"] == 'baseline'],
-        row=gb if gb != 'all' else "dataset", col="latent dim"
+        data=data[data['type'].isin((''))],
+        row=gb if gb != 'all' else "dataset", col="type"
     )
     g.map_dataframe(
-        sns.lineplot, x="l1 regularization", y="rmse",
+        sns.lineplot, x="l2 regularization", y="rmse",
         style="dataset" if gb != 'all' else 'context', hue="type"
     )
     g.set(xscale='log', ylim=(0, 1.5))
