@@ -132,6 +132,7 @@ rule pretrain_cross_sample:
         runtime="6h",
         nodes="1",
         cpus_per_task="1",
+    retries: 1
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
@@ -156,6 +157,7 @@ rule estimate_parameters:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+'
+    retries: 1
     resources:
         mem="1GB",
         runtime="6h",
@@ -214,6 +216,7 @@ rule evaluate_pretraining:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+    retries: 1
     resources:
         mem="10GB",
         runtime="24h",
@@ -240,6 +243,7 @@ rule evaluate_training:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+    retries: 1
     resources:
         mem="10GB",
         runtime="24h",
