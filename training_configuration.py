@@ -11,10 +11,10 @@ CONTEXTS = {'baseline'}
 PATHWAYS = {'EGFR_MAPK'}
 # DATASETS = {'dream_cytof', }
 DATASETS = {
-    #'synthetic_16_0.2_0.0',
+    'synthetic_16_0.2_0.0',
     'synthetic_32_0.2_0.0',
-    #'synthetic_64_0.2_0.0',
-    #'synthetic_128_0.2_0.0',
+    'synthetic_64_0.2_0.0',
+    'synthetic_128_0.2_0.0',
 }
 SPLITS = {
     '0_5',
