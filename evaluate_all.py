@@ -6,10 +6,9 @@ import matplotlib.pyplot as plt
 import itertools as itt
 
 from common import fig_dir, EVALUATE_ALL, EVALUATION_TRAINING, tpl_evaluation_file
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, SPLITS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, SPLITS, DATASETS
 
 MODEL = sys.argv[1]
-DATA = sys.argv[2]
 
 outdir = fig_dir / MODEL / DATA
 
@@ -18,24 +17,24 @@ METHODS = ("pca embedding", "end-to-end")
 avgs = dict()
 ps = dict()
 dfs = []
-for samples in SPLITS:
+for samples, data in itt.product((SPLITS, DATASETS)):
     for dataset in ["train", "test"]:
         # cross sample pretraining
         pretraining = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='cross_sample'),
+            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='cross_sample'),
             index_col=0
         )
         pretraining['ref'] = 'meth'
 
         # training
         training = pd.read_csv(
-            EVALUATION_TRAINING.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, ), index_col=0
+            EVALUATION_TRAINING.format(samples=samples, model=MODEL, data=data, dataset=dataset, ), index_col=0
         )
         training['ref'] = 'meth'
 
         # average
         avg = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='average'),
+            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='average'),
             index_col=0
         )
         avg['ref'] = 'avg'
@@ -48,7 +47,7 @@ for samples in SPLITS:
 
         # per sample
         ps = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'),
+            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='per_sample'),
             index_col=0
         )
         ps['ref'] = 'sample'
@@ -100,7 +99,7 @@ def lineplot_ref_sample(data, *args, **kwargs):
     sns.lineplot(
         data[data['ref'] == 'sample'], *args, **kwargs
     )
-    
+
 
 for gb in ('observable', 'time', 'condition', 'sample', 'all'):
     gbs = ["ref", "dataset", "method", "context", "latent dim", "l2 regularization", "samples"]

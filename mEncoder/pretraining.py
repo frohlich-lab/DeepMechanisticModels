@@ -1,11 +1,12 @@
 import pypesto
-from amici.petab_import import PysbPetabProblem
+
 from pypesto.petab.pysb_importer import PetabImporterPysb
 from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.history import HistoryOptions
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall, parameters
 from pypesto.objective.jax import JaxObjective
+from petab.models.pysb_model import PySBModel
 
 import petab
 import pandas as pd
@@ -75,15 +76,15 @@ def generate_per_sample_pretraining_problems(
     ]
 
     return PetabImporterPysb(
-        PysbPetabProblem(
+        petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
+            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id)
         ),
         output_folder=str(
-            problem.amici_dir / f"{pp.pysb_model.name}_{dataset}_petab"
+            problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
     )
 
@@ -159,15 +160,15 @@ def generate_per_sample_reg_pretraining_problem(
         pdf.loc[pname, petab.ESTIMATE] = False
 
     return PetabImporterPysb(
-        PysbPetabProblem(
+        petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
+            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id),
         ),
         output_folder=str(
-            problem.amici_dir / f"{pp.pysb_model.name}_{dataset}_petab"
+            problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
     )
 
@@ -235,15 +236,15 @@ def generate_average_pretraining_problem(
     pdf.index = [name.replace('__' + samples[0], '') for name in pdf.index]
 
     return PetabImporterPysb(
-        PysbPetabProblem(
+        petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=df_train,
             condition_df=cdf,
-            pysb_model=Model(base=clean_model, name=pp.pysb_model.name),
+            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id)
         ),
         output_folder=str(
-            problem.amici_dir / f"{pp.pysb_model.name}_{dataset}_petab"
+            problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
     )
 

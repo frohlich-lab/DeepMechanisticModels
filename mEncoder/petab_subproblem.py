@@ -4,8 +4,8 @@ import pandas as pd
 import numpy as np
 import pysb
 
-from amici.petab_import import PysbPetabProblem
 from pypesto.petab.pysb_importer import PetabImporterPysb
+from petab.models.pysb_model import PySBModel
 
 from . import MODEL_FEATURE_PREFIX
 from .problem import Problem
@@ -191,12 +191,12 @@ def load_petab(
         l1reg,
     )
 
-    petab_problem = PysbPetabProblem(
+    petab_problem = petab.Problem(
         measurement_df=measurement_table,
         condition_df=condition_table,
         observable_df=observable_table,
         parameter_df=parameter_table,
-        pysb_model=model,
+        model=PySBModel(model, model.name),
     )
 
     filter_observables(petab_problem)
