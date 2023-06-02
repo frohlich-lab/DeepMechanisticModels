@@ -1,22 +1,24 @@
-import sys
-import pandas as pd
 import itertools as itt
+import sys
+
 import matplotlib.pyplot as plt
+import pandas as pd
 import pypesto
 from pypesto.store import OptimizationResultHDF5Reader
 
-from mEncoder.training import create_pypesto_problem
-from mEncoder.analysis import (
-    plot_loss_vs_regularization,
-    evaluate_simulations,
-)
 from common import (
-    training_samples, test_samples, Wildcards, results_dir, fig_dir, COLLECTED_TRAINING_RESULTS,
-    EVALUATION_TRAINING
+    COLLECTED_TRAINING_RESULTS,
+    EVALUATION_TRAINING,
+    Wildcards,
+    fig_dir,
+    results_dir,
+    test_samples,
+    training_samples,
 )
+from mEncoder.analysis import evaluate_simulations, plot_loss_vs_regularization
+from mEncoder.training import create_pypesto_problem
+from training_configuration import ALPHAS, CONTEXTS, LATENT_DIMS
 from util import load_mae
-
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
@@ -36,7 +38,9 @@ samples = {
 
 def evaluate_training(dataset):
     evaluations = []
-    for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+    for l1reg, latent_dim, context in itt.product(
+        ALPHAS, LATENT_DIMS, CONTEXTS
+    ):
         conf, mae, problem = load_mae(
             model=MODEL,
             data=DATA,
@@ -77,8 +81,12 @@ def evaluate_training(dataset):
     return pd.DataFrame(evaluations)
 
 
-for dataset in ('train', 'test'):
+for dataset in ("train", "test"):
     df = evaluate_training(dataset)
-    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, model=MODEL, data=DATA, samples=SAMPLES))
+    df.to_csv(
+        EVALUATION_TRAINING.format(
+            dataset=dataset, model=MODEL, data=DATA, samples=SAMPLES
+        )
+    )
     plot_loss_vs_regularization(df)
     plt.savefig(outdir / f"{SAMPLES}_evaluate_training_{dataset}.pdf")

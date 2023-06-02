@@ -3,27 +3,27 @@ Per sample pretraining.
 """
 
 import sys
-import fides
-import pypesto
-import numpy as np
 from pathlib import Path
 
+import fides
+import numpy as np
+import pypesto
 from pypesto.optimize import FidesOptimizer
 
+from common import (
+    PER_SAMPLE_OUTFILE_PARS,
+    PER_SAMPLE_OUTFILE_RESULTS,
+    fig_dir,
+    pretrain_dir,
+)
+from cytof.problem import CytofProblem
 from mEncoder.petab_subproblem import load_petab
 from mEncoder.pretraining import (
     generate_per_sample_pretraining_problems,
     pretrain,
     store_and_plot_pretraining,
 )
-from common import (
-    pretrain_dir,
-    fig_dir,
-    PER_SAMPLE_OUTFILE_PARS,
-    PER_SAMPLE_OUTFILE_RESULTS,
-)
 from util import load_petab_base_files
-from cytof.problem import CytofProblem
 
 np.random.seed(0)
 
@@ -68,6 +68,10 @@ result = pretrain(
     10,
     optimizer,
 )
-results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=SAMPLE))
-pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=SAMPLE))
+results_file = Path(
+    PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=SAMPLE)
+)
+pars_file = Path(
+    PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=SAMPLE)
+)
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)

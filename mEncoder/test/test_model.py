@@ -1,13 +1,13 @@
-from .. import load_model
-from ..autoencoder import load_petab, MechanisticAutoEncoder
-from ..training import generate_pypesto_objective, train
-from ..generate_data import generate_synthetic_data
-
-import amici
-import petab
 import itertools as itt
 
+import amici
 import numpy as np
+import petab
+
+from .. import load_model
+from ..autoencoder import MechanisticAutoEncoder, load_petab
+from ..generate_data import generate_synthetic_data
+from ..training import generate_pypesto_objective, train
 
 pathway_model = "FLT3_MAPK"
 
@@ -48,7 +48,9 @@ def test_pypesto_objective():
         x,
         eps=1e-3,
         x_indices=list(
-            itt.chain(range(5), range(mae.n_encoder_pars, mae.n_encoder_pars + 5))
+            itt.chain(
+                range(5), range(mae.n_encoder_pars, mae.n_encoder_pars + 5)
+            )
         ),
     )
     assert (fd_df["abs_err"] < 1e-2).all()

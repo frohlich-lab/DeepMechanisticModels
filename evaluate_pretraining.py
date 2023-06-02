@@ -1,33 +1,41 @@
-import sys
-import pandas as pd
-import numpy as np
 import itertools as itt
-import matplotlib.pyplot as plt
-import petab
+import sys
 
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import petab
 from amici.petab_objective import rdatas_to_simulation_df
 from pypesto import Result
-from pypesto.visualize import waterfall, parameters
+from pypesto.visualize import parameters, waterfall
 
-from mEncoder.pretraining import (
-    generate_cross_sample_pretraining_problem, generate_per_sample_pretraining_problems,
-    generate_average_pretraining_problem
+from common import (
+    CROSS_SAMPLE_OUTFILE_RESULTS,
+    MEASUREMENTS_FILE,
+    OBSERVABLES_FILE,
+    Wildcards,
+    fig_dir,
+    pretrain_dir,
+    test_samples,
+    tpl_evaluation_file,
+    training_samples,
+)
+from cytof.problem import CytofProblem
+from mEncoder.analysis import (
+    evaluate_simulations,
+    load_optimize_result_pretraining_cross_samples,
+    plot_loss_vs_regularization,
+    process_simulation,
 )
 from mEncoder.petab_subproblem import load_petab
-from mEncoder.analysis import (
-    process_simulation, plot_loss_vs_regularization, load_optimize_result_pretraining_cross_samples,
-    evaluate_simulations,
+from mEncoder.plotting import plot_cross_samples, plot_single_sample
+from mEncoder.pretraining import (
+    generate_average_pretraining_problem,
+    generate_cross_sample_pretraining_problem,
+    generate_per_sample_pretraining_problems,
 )
-from mEncoder.plotting import plot_single_sample, plot_cross_samples
-from common import (
-    training_samples, test_samples, Wildcards, pretrain_dir, fig_dir, tpl_evaluation_file,
-    CROSS_SAMPLE_OUTFILE_RESULTS, MEASUREMENTS_FILE, OBSERVABLES_FILE
-)
-from util import load_petab_base_files, load_mae
-from cytof.problem import CytofProblem
-
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS
-
+from training_configuration import ALPHAS, CONTEXTS, LATENT_DIMS
+from util import load_mae, load_petab_base_files
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]
@@ -112,7 +120,9 @@ def evaluate_pretraining_per_sample(dataset, model, data):
 
 def evaluate_petraining_cross_sample(dataset):
     evaluations = []
-    for l1reg, latent_dim, context in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS):
+    for l1reg, latent_dim, context in itt.product(
+        ALPHAS, LATENT_DIMS, CONTEXTS
+    ):
         conf, mae, problem = load_mae(
             model=MODEL,
             data=DATA,
@@ -123,10 +133,14 @@ def evaluate_petraining_cross_sample(dataset):
             dataset=dataset,
         )
 
-        problem_cross_sample = generate_cross_sample_pretraining_problem(mae, problem)
+        problem_cross_sample = generate_cross_sample_pretraining_problem(
+            mae, problem
+        )
         result = load_optimize_result_pretraining_cross_samples(
-            CROSS_SAMPLE_OUTFILE_RESULTS.replace('{job}', '([0-9]+)').format(**conf.__dict__),
-            N_STARTS
+            CROSS_SAMPLE_OUTFILE_RESULTS.replace("{job}", "([0-9]+)").format(
+                **conf.__dict__
+            ),
+            N_STARTS,
         )
 
         r = Result(problem=problem_cross_sample)
@@ -134,15 +148,11 @@ def evaluate_petraining_cross_sample(dataset):
 
         waterfall(r)
         plt.tight_layout()
-        run_name = f'{SAMPLES}_a{l1reg}_n{latent_dim}_c{context}'
-        plt.savefig(
-            cross_sample_dir / f'{run_name}_waterfall.pdf'
-        )
+        run_name = f"{SAMPLES}_a{l1reg}_n{latent_dim}_c{context}"
+        plt.savefig(cross_sample_dir / f"{run_name}_waterfall.pdf")
         parameters(r)
         plt.tight_layout()
-        plt.savefig(
-            cross_sample_dir / f'{run_name}_parameters.pdf'
-        )
+        plt.savefig(cross_sample_dir / f"{run_name}_parameters.pdf")
 
         x = problem_cross_sample.objective.infun(result.list[0]["x"])
 
@@ -167,9 +177,15 @@ def evaluate_petraining_cross_sample(dataset):
 
 
 def evaluate_average(dataset, model, data):
-    df_meas = pd.read_csv(MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0)
-    df_obs = pd.read_csv(OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0)
-    df_meas = df_meas[df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)]
+    df_meas = pd.read_csv(
+        MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0
+    )
+    df_obs = pd.read_csv(
+        OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0
+    )
+    df_meas = df_meas[
+        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
+    ]
 
     df_train = df_meas[
         df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
@@ -179,9 +195,13 @@ def evaluate_average(dataset, model, data):
         lambda x: x.split("__")[1]
     )
 
-    avg_model = df_train.groupby([petab.OBSERVABLE_ID, "condition", petab.TIME, ]).agg(
-        np.nanmean
-    )
+    avg_model = df_train.groupby(
+        [
+            petab.OBSERVABLE_ID,
+            "condition",
+            petab.TIME,
+        ]
+    ).agg(np.nanmean)
 
     df_sim = df_meas.copy()
     df_sim = df_sim.loc[
@@ -194,7 +214,9 @@ def evaluate_average(dataset, model, data):
             (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1]),
             petab.MEASUREMENT,
         ]
-        df_sim.loc[ir, petab.MEASUREMENT] = candidates.iloc[np.argmin(np.abs(candidates.index - r.time))]
+        df_sim.loc[ir, petab.MEASUREMENT] = candidates.iloc[
+            np.argmin(np.abs(candidates.index - r.time))
+        ]
 
     df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
 
@@ -211,9 +233,15 @@ def evaluate_average(dataset, model, data):
 
 
 def evaluate_average_model(dataset, model, data):
-    df_meas = pd.read_csv(MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0)
-    df_obs = pd.read_csv(OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0)
-    df_meas = df_meas[df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)]
+    df_meas = pd.read_csv(
+        MEASUREMENTS_FILE.format(model=model, data=data), sep="\t", index_col=0
+    )
+    df_obs = pd.read_csv(
+        OBSERVABLES_FILE.format(model=model, data=data), sep="\t", index_col=0
+    )
+    df_meas = df_meas[
+        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
+    ]
 
     problem = CytofProblem(model)
     petab_base_files = load_petab_base_files(model, data)
@@ -230,8 +258,9 @@ def evaluate_average_model(dataset, model, data):
         petab_base_importer,
         problem,
         DATA,
-        training_samples(Wildcards(DATA, SAMPLES)) if dataset == "train" else
-        test_samples(Wildcards(DATA, SAMPLES))
+        training_samples(Wildcards(DATA, SAMPLES))
+        if dataset == "train"
+        else test_samples(Wildcards(DATA, SAMPLES)),
     )
     problem_sample = importer.create_problem()
     df = pd.read_csv(rfile, index_col=[0])
@@ -254,8 +283,12 @@ def evaluate_average_model(dataset, model, data):
         measurement_df=importer.petab_problem.measurement_df,
     )
 
-    avg_model[petab.SIMULATION_CONDITION_ID] = df_meas[petab.SIMULATION_CONDITION_ID]
-    avg_model[petab.PREEQUILIBRATION_CONDITION_ID] = df_meas[petab.PREEQUILIBRATION_CONDITION_ID]
+    avg_model[petab.SIMULATION_CONDITION_ID] = df_meas[
+        petab.SIMULATION_CONDITION_ID
+    ]
+    avg_model[petab.PREEQUILIBRATION_CONDITION_ID] = df_meas[
+        petab.PREEQUILIBRATION_CONDITION_ID
+    ]
 
     df_meas = df_meas[
         df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
@@ -264,13 +297,22 @@ def evaluate_average_model(dataset, model, data):
         avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
 
-    plot_cross_samples(df_meas, avg_model, outdir / "simulation" / dataset, "avg_model")
+    plot_cross_samples(
+        df_meas, avg_model, outdir / "simulation" / dataset, "avg_model"
+    )
 
     evaluations = []
 
     for sample in samples[dataset]:
         process_simulation(
-            evaluations, df_meas, avg_model, "none", sample, "avg_model", 0.0, 0.0
+            evaluations,
+            df_meas,
+            avg_model,
+            "none",
+            sample,
+            "avg_model",
+            0.0,
+            0.0,
         )
 
     return pd.DataFrame(evaluations)
@@ -279,18 +321,52 @@ def evaluate_average_model(dataset, model, data):
 for dataset in ["train", "test"]:
     # model average
     df = evaluate_average_model(dataset, MODEL, DATA)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'))
+    df.to_csv(
+        tpl_evaluation_file.format(
+            samples=SAMPLES,
+            model=MODEL,
+            data=DATA,
+            dataset=dataset,
+            mode="avg_model",
+        )
+    )
 
     # average
     df = evaluate_average(dataset, MODEL, DATA)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='average'))
+    df.to_csv(
+        tpl_evaluation_file.format(
+            samples=SAMPLES,
+            model=MODEL,
+            data=DATA,
+            dataset=dataset,
+            mode="average",
+        )
+    )
 
     # per sample
     df = evaluate_pretraining_per_sample(dataset, MODEL, DATA)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='per_sample'))
+    df.to_csv(
+        tpl_evaluation_file.format(
+            samples=SAMPLES,
+            model=MODEL,
+            data=DATA,
+            dataset=dataset,
+            mode="per_sample",
+        )
+    )
 
     # cross sample
     df = evaluate_petraining_cross_sample(dataset)
-    df.to_csv(tpl_evaluation_file.format(samples=SAMPLES, model=MODEL, data=DATA, dataset=dataset, mode='cross_sample'))
+    df.to_csv(
+        tpl_evaluation_file.format(
+            samples=SAMPLES,
+            model=MODEL,
+            data=DATA,
+            dataset=dataset,
+            mode="cross_sample",
+        )
+    )
     plot_loss_vs_regularization(df)
-    plt.savefig(outdir / f"{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.pdf")
+    plt.savefig(
+        outdir / f"{SAMPLES}_evaluate_pretrain_cross_sample_{dataset}.pdf"
+    )

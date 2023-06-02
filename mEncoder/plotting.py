@@ -1,8 +1,9 @@
-import pandas
-from plotnine import *
-import matplotlib.pyplot as plt
-import petab
 from pathlib import Path
+
+import matplotlib.pyplot as plt
+import pandas
+import petab
+from plotnine import *
 
 PLOTNINE_THEME = {
     "dpi": 300,
@@ -29,11 +30,15 @@ def plot_single_sample(
         df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
             lambda x: x.replace("_obs", "")
         )
-        df[petab.SIMULATION_CONDITION_ID] = df[petab.SIMULATION_CONDITION_ID].apply(
+        df[petab.SIMULATION_CONDITION_ID] = df[
+            petab.SIMULATION_CONDITION_ID
+        ].apply(
             lambda x: ("" if x.split("__")[1].startswith("EGF") else "EGF+")
             + x.split("__")[1]
         )
-        df.rename(columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True)
+        df.rename(
+            columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True
+        )
 
     mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
     mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
@@ -51,7 +56,9 @@ def plot_single_sample(
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + geom_errorbar(data=mdf, mapping=aes(ymax="ymax", ymin="ymin", **kwargs))
+        + geom_errorbar(
+            data=mdf, mapping=aes(ymax="ymax", ymin="ymin", **kwargs)
+        )
         + facet_grid((petab.OBSERVABLE_ID, "treatment"))
         + xlab("time [min]")
         + ylab("measurement")
@@ -69,7 +76,9 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
             measurement_df[
                 measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
             ],
-            simulation_df[simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample],
+            simulation_df[
+                simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+            ],
             figdir / sample,
             sample,
             prefix,

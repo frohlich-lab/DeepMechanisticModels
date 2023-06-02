@@ -1,10 +1,10 @@
+from pathlib import Path
+from typing import List, Tuple
+
+import numpy as np
 import pandas as pd
 import petab
-import numpy as np
 import pysb
-
-from pathlib import Path
-from typing import Tuple, List
 
 from . import get_samples
 
@@ -58,6 +58,7 @@ SYNAPSE_FILES = [
 
 def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     import synapseclient
+
     syn = synapseclient.Synapse()
     syn.login()
     files = SYNAPSE_FILES
@@ -67,9 +68,11 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     for file in files:
         df = pd.read_csv(syn.get(file).path)
         for ids, data in df.groupby(group_ids):
-            if f"c{ids[1]}" not in get_samples('dream_cytof'):
+            if f"c{ids[1]}" not in get_samples("dream_cytof"):
                 continue
-            markers = [c for c in data.columns if c not in group_ids + ["cellID"]]
+            markers = [
+                c for c in data.columns if c not in group_ids + ["cellID"]
+            ]
             m = data[markers].median()
             std = data[markers].std()
             for sdf in [m, std]:
@@ -103,13 +106,17 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     return measurement_table_phospho, id_vars
 
 
-def process_petab_cytof(measurement_table_phospho: pd.DataFrame, id_vars: List[str]) -> pd.DataFrame:
+def process_petab_cytof(
+    measurement_table_phospho: pd.DataFrame, id_vars: List[str]
+) -> pd.DataFrame:
     measurement_table_phospho[
         [petab.OBSERVABLE_ID, "type"]
     ] = measurement_table_phospho[petab.OBSERVABLE_ID].to_list()
 
     measurement_table_phospho = (
-        measurement_table_phospho.set_index(["type", petab.OBSERVABLE_ID] + id_vars)
+        measurement_table_phospho.set_index(
+            ["type", petab.OBSERVABLE_ID] + id_vars
+        )
         .unstack("type")
         .droplevel(axis=1, level=0)
         .reset_index()
@@ -134,13 +141,15 @@ def process_petab_cytof(measurement_table_phospho: pd.DataFrame, id_vars: List[s
     measurement_table_phospho[
         petab.SIMULATION_CONDITION_ID
     ] = measurement_table_phospho.apply(
-        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}", axis=1
+        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}",
+        axis=1,
     )
     return measurement_table_phospho.drop(columns=["treatment", "fileID"])
 
 
 def load_proteomics_from_synapse() -> pd.DataFrame:
     import synapseclient
+
     syn = synapseclient.Synapse()
     syn.login()
     df_proteomics = pd.read_csv(syn.get("syn20690775").path, index_col=[0])
@@ -162,6 +171,7 @@ def load_ids_from_uniprot(measurement_table_proteomics):
     import json
     import urllib.parse
     import urllib.request
+
     up_id_json = "up_ids.json"
     if Path(up_id_json).exists():
         with open(up_id_json, "r") as fp:
@@ -173,7 +183,9 @@ def load_ids_from_uniprot(measurement_table_proteomics):
             "from": "ACC+ID",
             "to": "GENENAME",
             "format": "tab",
-            "query": " ".join(measurement_table_proteomics[petab.OBSERVABLE_ID].unique()),
+            "query": " ".join(
+                measurement_table_proteomics[petab.OBSERVABLE_ID].unique()
+            ),
         }
 
         data = urllib.parse.urlencode(params)
@@ -222,7 +234,9 @@ def process_petab_proteomics(measurement_table_proteomics: pd.DataFrame):
     return measurement_table_proteomics
 
 
-def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) -> pd.DataFrame:
+def build_condition_table(
+    measurement_table: pd.DataFrame, model: pysb.Model
+) -> pd.DataFrame:
     condition_table = pd.DataFrame(
         {
             petab.CONDITION_ID: np.unique(
@@ -240,7 +254,8 @@ def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) ->
     condition_table = condition_table.loc[
         condition_table[petab.CONDITION_ID].apply(
             lambda x: "full" not in x.split("__")
-        ), :
+        ),
+        :,
     ]
 
     perturbations = np.unique(
@@ -258,12 +273,13 @@ def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) ->
             condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
                     lambda x: pert not in x.split("__")
-                ), :
+                ),
+                :,
             ]
             continue
-        condition_table[f"{pert}_0"] = condition_table[petab.CONDITION_ID].apply(
-            lambda x: float(int(pert in x.split("__")))
-        )
+        condition_table[f"{pert}_0"] = condition_table[
+            petab.CONDITION_ID
+        ].apply(lambda x: float(int(pert in x.split("__"))))
 
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
@@ -273,11 +289,17 @@ def build_condition_table(measurement_table: pd.DataFrame, model: pysb.Model) ->
 
 def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     measurement_table_cytof, id_vars = load_cytof_from_synapse()
-    measurement_table_cytof = process_petab_cytof(measurement_table_cytof, id_vars)
+    measurement_table_cytof = process_petab_cytof(
+        measurement_table_cytof, id_vars
+    )
 
     measurement_table_proteomics = load_proteomics_from_synapse()
-    measurement_table_proteomics = load_ids_from_uniprot(measurement_table_proteomics)
-    measurement_table_proteomics = process_petab_proteomics(measurement_table_proteomics)
+    measurement_table_proteomics = load_ids_from_uniprot(
+        measurement_table_proteomics
+    )
+    measurement_table_proteomics = process_petab_proteomics(
+        measurement_table_proteomics
+    )
 
     # ignore proteomics data for now
     measurement_table = pd.concat(

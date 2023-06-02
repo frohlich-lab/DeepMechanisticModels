@@ -1,22 +1,20 @@
 import os
 import re
-
-import petab
-import amici
-import numpy as np
-import pypesto.objective
-import seaborn as sns
-import matplotlib.pyplot as plt
-
-from mEncoder.plotting import plot_cross_samples
-
-from pypesto.store import OptimizationResultHDF5Reader
-from pypesto.C import MODE_RES
-from pypesto import OptimizeResult
-from amici.petab_objective import rdatas_to_simulation_df
 from pathlib import Path
 
+import amici
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
+import numpy as np
+import petab
+import pypesto.objective
+import seaborn as sns
+from amici.petab_objective import rdatas_to_simulation_df
+from pypesto import OptimizeResult
+from pypesto.C import MODE_RES
+from pypesto.store import OptimizationResultHDF5Reader
+
+from mEncoder.plotting import plot_cross_samples
 
 
 def process_simulation(
@@ -46,7 +44,7 @@ def process_simulation(
                 "alpha": alpha,
                 "layers": hidden_layers,
                 "observable": r[petab.OBSERVABLE_ID],
-                "condition": r[petab.SIMULATION_CONDITION_ID].split('__')[1],
+                "condition": r[petab.SIMULATION_CONDITION_ID].split("__")[1],
                 "time": r[petab.TIME],
             }
         )
@@ -56,20 +54,24 @@ def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
     result = OptimizeResult()
     indir = Path(pattern).parent
     for file in os.listdir(indir):
-        if not str(file).endswith('.hdf5'):
+        if not str(file).endswith(".hdf5"):
             continue
 
         m = re.match(str(Path(pattern).stem), str(file))
         if not m:
             continue
 
-        if str(os.path.splitext(file)[0]).endswith('trace'):
+        if str(os.path.splitext(file)[0]).endswith("trace"):
             continue
 
-        if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= n_starts:
+        if int(str(os.path.splitext(file)[0]).split("__")[-1]) >= n_starts:
             continue
 
-        r = OptimizationResultHDF5Reader(str(indir / str(file))).read().optimize_result.list[0]
+        r = (
+            OptimizationResultHDF5Reader(str(indir / str(file)))
+            .read()
+            .optimize_result.list[0]
+        )
         if r.x is None:
             continue
 
@@ -96,7 +98,6 @@ def evaluate_simulations(
     evaluations,
     model_type,
 ):
-
     res = obj(x, mode=MODE_RES, return_dict=True)
 
     if isinstance(obj, pypesto.objective.AggregatedObjective):
@@ -110,9 +111,11 @@ def evaluate_simulations(
         if r["status"] != amici.AMICI_SUCCESS:
             print(f'AMICI failed for {r["id"]}')
             x = jnp.ones((1,), dtype=jnp.float64)
-            print(f'JAX dtype: {x.dtype} ')
-            print(f'AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, '
-                  f'{amici_solver.getRelativeTolerance():.2e} rtol')
+            print(f"JAX dtype: {x.dtype} ")
+            print(
+                f"AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, "
+                f"{amici_solver.getRelativeTolerance():.2e} rtol"
+            )
             return
 
     simulation_df = rdatas_to_simulation_df(
@@ -137,14 +140,19 @@ def evaluate_simulations(
         petab_problem.measurement_df,
         simulation_df,
         outdir / dataset,
-        "__".join([SAMPLES, context, str(latent_dim), str(l1reg), dataset, model_type]),
+        "__".join(
+            [SAMPLES, context, str(latent_dim), str(l1reg), dataset, model_type]
+        ),
     )
 
 
 def plot_loss_vs_regularization(df):
-    dfa = df.groupby(["alpha", "layers", "context", "sample"]).agg({
-        "res": lambda x: np.sqrt(np.mean(np.power(x, 2)))
-    }).rename(columns={"res": "rmse"}).reset_index()
+    dfa = (
+        df.groupby(["alpha", "layers", "context", "sample"])
+        .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
+        .rename(columns={"res": "rmse"})
+        .reset_index()
+    )
     g = sns.FacetGrid(data=dfa, col="sample", col_wrap=5)
     g.map_dataframe(
         sns.lineplot,

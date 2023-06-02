@@ -3,31 +3,31 @@ Per sample pretraining.
 """
 
 import sys
-import fides
-import pypesto
-import numpy as np
 from pathlib import Path
 
+import fides
+import matplotlib.pyplot as plt
+import numpy as np
+import pypesto
 from pypesto.optimize import FidesOptimizer
-from pypesto.visualize import waterfall, parameters
+from pypesto.visualize import parameters, waterfall
 
+from common import (
+    PER_SAMPLE_OUTFILE_PARS,
+    PER_SAMPLE_OUTFILE_RESULTS,
+    Wildcards,
+    fig_dir,
+    pretrain_dir,
+    training_samples,
+)
+from cytof.problem import CytofProblem
 from mEncoder.petab_subproblem import load_petab
 from mEncoder.pretraining import (
     generate_average_pretraining_problem,
     pretrain,
     store_and_plot_pretraining,
 )
-from common import (
-    pretrain_dir,
-    fig_dir,
-    training_samples,
-    Wildcards,
-    PER_SAMPLE_OUTFILE_PARS,
-    PER_SAMPLE_OUTFILE_RESULTS,
-)
 from util import load_petab_base_files
-from cytof.problem import CytofProblem
-import matplotlib.pyplot as plt
 
 np.random.seed(0)
 
@@ -48,7 +48,7 @@ importer = generate_average_pretraining_problem(
     petab_base_importer,
     problem,
     DATA,
-    training_samples(Wildcards(DATA, SAMPLES))
+    training_samples(Wildcards(DATA, SAMPLES)),
 )
 
 outdir = pretrain_dir / MODEL / DATA
@@ -73,8 +73,16 @@ result = pretrain(
     optimizer,
 )
 
-results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=f'model_average_{SAMPLES}'))
-pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=f'model_average_{SAMPLES}'))
+results_file = Path(
+    PER_SAMPLE_OUTFILE_RESULTS.format(
+        model=MODEL, data=DATA, sample=f"model_average_{SAMPLES}"
+    )
+)
+pars_file = Path(
+    PER_SAMPLE_OUTFILE_PARS.format(
+        model=MODEL, data=DATA, sample=f"model_average_{SAMPLES}"
+    )
+)
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
 parameters(result)
 plt.tight_layout()
@@ -83,6 +91,3 @@ plt.savefig(f"parameters_avg.pdf")
 waterfall(result)
 plt.tight_layout()
 plt.savefig(f"waterfall_avg.pdf")
-
-
-

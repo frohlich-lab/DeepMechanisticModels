@@ -1,11 +1,11 @@
+from abc import abstractmethod
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Tuple
+
+import amici
 import pypesto
 import pysb
-import amici
-
-from abc import abstractmethod
-from pathlib import Path
-from dataclasses import dataclass
-from typing import Tuple
 
 
 @dataclass
@@ -49,7 +49,9 @@ class Problem(object):
         ...
 
     @abstractmethod
-    def apply_objective_settings(self, objective: pypesto.ObjectiveBase, n_threads: int = 1):
+    def apply_objective_settings(
+        self, objective: pypesto.ObjectiveBase, n_threads: int = 1
+    ):
         ...
 
     @property
@@ -64,4 +66,4 @@ class Problem(object):
 
     @property
     def amici_dir(self) -> Path:
-        return self.base_dir / 'amici_models'
+        return self.base_dir / "amici_models"

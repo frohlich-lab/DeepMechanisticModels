@@ -1,16 +1,14 @@
-import petab
+from typing import List, Sequence
 
-import pandas as pd
 import numpy as np
+import pandas as pd
+import petab
 import pysb
-
-from pypesto.petab.pysb_importer import PetabImporterPysb
 from petab.models.pysb_model import PySBModel
+from pypesto.petab.pysb_importer import PetabImporterPysb
 
 from . import MODEL_FEATURE_PREFIX
 from .problem import Problem
-
-from typing import List, Sequence
 
 
 def generate_parameter_table(
@@ -25,7 +23,9 @@ def generate_parameter_table(
     # this defines the full set of parameters including boundaries, nominal
     # values, scale, priors and whether they will be estimated or not.
     params = [
-        par.name for par in model.parameters if par.name not in condition_table.columns
+        par.name
+        for par in model.parameters
+        if par.name not in condition_table.columns
     ]
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
@@ -34,9 +34,12 @@ def generate_parameter_table(
                 set(
                     [
                         par
-                        for pars in measurement_table[petab.OBSERVABLE_PARAMETERS]
+                        for pars in measurement_table[
+                            petab.OBSERVABLE_PARAMETERS
+                        ]
                         for par in pars.split(";")
-                        if par and any(obs in par for obs in observable_table.index)
+                        if par
+                        and any(obs in par for obs in observable_table.index)
                     ]
                 )
             )
@@ -97,8 +100,8 @@ def generate_parameter_table(
     # piece of codes allows disabling estimation for (non-input) parameters by
     # setting equal upper and lower bounds, primarily for debugging purposes
     parameter_table.loc[np.logical_not(input_pars), petab.ESTIMATE] = (
-            parameter_table.loc[np.logical_not(input_pars), petab.LOWER_BOUND]
-            != parameter_table.loc[np.logical_not(input_pars), petab.UPPER_BOUND]
+        parameter_table.loc[np.logical_not(input_pars), petab.LOWER_BOUND]
+        != parameter_table.loc[np.logical_not(input_pars), petab.UPPER_BOUND]
     ).apply(lambda x: int(x))
 
     parameter_table.set_index(petab.PARAMETER_ID, inplace=True)
@@ -153,7 +156,9 @@ def load_petab(
     model = problem.load_pysb()
 
     features = [
-        par for par in model.parameters if par.name.startswith(MODEL_FEATURE_PREFIX)
+        par
+        for par in model.parameters
+        if par.name.startswith(MODEL_FEATURE_PREFIX)
     ]
 
     # CONDITION TABLE
@@ -204,7 +209,9 @@ def load_petab(
 
     return PetabImporterPysb(
         petab_problem,
-        output_folder=str(problem.amici_dir / f"{problem.pathway_name}_{dataset}_petab"),
+        output_folder=str(
+            problem.amici_dir / f"{problem.pathway_name}_{dataset}_petab"
+        ),
     )
 
 

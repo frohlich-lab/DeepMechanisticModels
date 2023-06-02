@@ -1,12 +1,13 @@
+from pysb import Observable
+
 from mEncoder.mechanistic_model import (
+    add_activation,
+    add_degradation,
+    add_gf_bolus,
+    add_inhibitor,
     add_monomer_synth_deg,
     generate_pathway,
-    add_activation,
-    add_inhibitor,
-    add_gf_bolus,
-    add_degradation,
 )
-from pysb import Observable
 
 active_rtks = [
     "EGFR__Y1173_p",
@@ -75,14 +76,29 @@ def add_mtore_akt(model):
     akt_cascade = [
         ("PIK3CA", {"pip2": (active_rtks, active_erk)}),
         ("PDPK1", {"S241": ["PIK3CA__pip2_p"]}),
-        ("AKT1", {"T308": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT1__T308_p"]}),
-        ("AKT2", {"T309": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT2__T309_p"]}),
-        ("AKT3", {"T305": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT3__T305_p"]}),
+        (
+            "AKT1",
+            {"T308": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT1__T308_p"]},
+        ),
+        (
+            "AKT2",
+            {"T309": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT2__T309_p"]},
+        ),
+        (
+            "AKT3",
+            {"T305": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT3__T305_p"]},
+        ),
     ]
     generate_pathway(model, akt_cascade)
 
     add_activation(
-        model, "MTOR", "C", "activation", active_akt, [], site_states=["c0", "c2"]
+        model,
+        "MTOR",
+        "C",
+        "activation",
+        active_akt,
+        [],
+        site_states=["c0", "c2"],
     )
 
     add_activation(
@@ -125,8 +141,14 @@ def add_stat(model):
 def add_s6(model):
     # S6
     s6_cascade = [
-        ("RPS6KB1", {"S412": ["MTOR__C_c1"], "T252": ["PDPK1__S241_p"]}),  # p70S6K
-        ("RPS6", {"S235_S236": ["RPS6KA1__S380_p", "RPS6KB1__S412_p__T252_p"]}),  # S6
+        (
+            "RPS6KB1",
+            {"S412": ["MTOR__C_c1"], "T252": ["PDPK1__S241_p"]},
+        ),  # p70S6K
+        (
+            "RPS6",
+            {"S235_S236": ["RPS6KA1__S380_p", "RPS6KB1__S412_p__T252_p"]},
+        ),  # S6
     ]
     generate_pathway(model, s6_cascade)
 
@@ -139,7 +161,10 @@ def add_s6(model):
     # TFs
     EIF4_cascade = [
         ("EIF4EBP1", {"T37_T46": ["MTOR__C_c1", "GSK3B__S9_p", *active_erk]}),
-        ("CREB1", {"S133": ["AKT1__T308_p", "AKT2__T309_p", "RPS6KA1__S380_p"]}),
+        (
+            "CREB1",
+            {"S133": ["AKT1__T308_p", "AKT2__T309_p", "RPS6KA1__S380_p"]},
+        ),
     ]
     generate_pathway(model, EIF4_cascade)
 

@@ -1,27 +1,20 @@
-import numpy.random
-
-from . import (
-    MODEL_FEATURE_PREFIX,
-    plot_and_save_fig,
-)
-from .problem import Problem
-
-from .encoder import AutoEncoder
-
-import numpy as np
-import pandas as pd
-import matplotlib.pyplot as plt
-import jax
-
-from sklearn import decomposition
 from pathlib import Path
-
-import amici
-import petab
-
 from typing import Tuple
 
+import amici
+import jax
+import matplotlib.pyplot as plt
+import numpy as np
+import numpy.random
+import pandas as pd
+import petab
 from jax.config import config
+from sklearn import decomposition
+
+from . import MODEL_FEATURE_PREFIX, plot_and_save_fig
+from .encoder import AutoEncoder
+from .problem import Problem
+
 config.update("jax_enable_x64", True)
 
 
@@ -53,12 +46,14 @@ def generate_synthetic_data(
     # setup model parameter scales
     model.setParameterScale(
         amici.parameterScalingFromIntVector(
-            amici.IntVector([
-                amici.ParameterScaling.none
-                if bounds[par_id.split("_")[-1]][2] == "lin"
-                else amici.ParameterScaling.log10
-                for par_id in model.getParameterIds()
-            ])
+            amici.IntVector(
+                [
+                    amici.ParameterScaling.none
+                    if bounds[par_id.split("_")[-1]][2] == "lin"
+                    else amici.ParameterScaling.log10
+                    for par_id in model.getParameterIds()
+                ]
+            )
         )
     )
 
@@ -127,15 +122,17 @@ def generate_synthetic_data(
     )
 
     # generate sparse encoder/decoder parameters
-    tt_pars = np.random.random(encoder.n_encoder_pars)  # uniform between 0 and 1
+    tt_pars = np.random.random(
+        encoder.n_encoder_pars
+    )  # uniform between 0 and 1
     pars_varying = np.random.binomial(1, 0.8, (encoder.n_params,))
     inflate_mat = np.asarray(
-        encoder.x_names[encoder.n_encode_weights:]
+        encoder.x_names[encoder.n_encode_weights :]
     ).reshape((encoder.n_latent, encoder.n_params))
     zero_weights = inflate_mat[:, np.logical_not(pars_varying)]
     for ip, name in enumerate(encoder.x_names):
         # xavier glorot initialization
-        if name.startswith('encoder'):
+        if name.startswith("encoder"):
             n_inout = encoder.n_features + encoder.n_latent
         else:
             n_inout = encoder.n_latent + encoder.n_params
@@ -147,11 +144,11 @@ def generate_synthetic_data(
         if name in zero_weights:
             tt_pars[ip] = 0
 
-    encode_weights, inflate_weights = np.split(tt_pars,
-                                               (encoder.n_encode_weights,))
+    encode_weights, inflate_weights = np.split(
+        tt_pars, (encoder.n_encode_weights,)
+    )
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
-        data_dir /
-        f"{problem.pathway_name}__{data_name}__reference_weights.csv"
+        data_dir / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
     )
 
     samples = []
@@ -167,8 +164,12 @@ def generate_synthetic_data(
         mat = encode_weights.reshape((n_features, latent_dimension))
         assert np.allclose(sample_data, embedding.dot(np.linalg.pinv(mat)))
         assert np.allclose(sample_data.dot(mat), embedding)
-        assert np.allclose(embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat))
-        assert np.allclose(np.asarray(encode_sample(sample_data, encode_weights)), embedding)
+        assert np.allclose(
+            embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat)
+        )
+        assert np.allclose(
+            np.asarray(encode_sample(sample_data, encode_weights)), embedding
+        )
 
         sample_par_vals = np.array(inflate(embedding, inflate_weights))
         assert len(sample_par_vals) == len(sample_par_names)
@@ -184,15 +185,18 @@ def generate_synthetic_data(
         # run simulations, only add to samples if no integration error
         rdatas = amici.runAmiciSimulations(model, solver, edatas)
         if all([r.status == amici.AMICI_SUCCESS for r in rdatas]):
-            sample = amici.getSimulationObservablesAsDataFrame(model, edatas, rdatas)
+            sample = amici.getSimulationObservablesAsDataFrame(
+                model, edatas, rdatas
+            )
             for obs in model.getObservableIds():
                 sample[obs] = np.random.normal(sample[obs], std_measurements)
             sample["Sample"] = len(samples)
             for pid, val in sample_pars.items():
                 sample[pid] = val
             for ifeature, value in enumerate(sample_data):
-                sample[f"feature{ifeature}"] = \
-                    value + numpy.random.normal(0.0, std_features)
+                sample[f"feature{ifeature}"] = value + numpy.random.normal(
+                    0.0, std_features
+                )
             samples.append(sample)
             embeddings.append(embedding)
 
@@ -203,7 +207,10 @@ def generate_synthetic_data(
     df.loc[
         (df.time == 0)
         & (
-            df.loc[:, [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"]]
+            df.loc[
+                :,
+                [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"],
+            ]
             == 0
         ).all(axis=1),
         list(model.getObservableIds()),
@@ -223,15 +230,24 @@ def generate_synthetic_data(
         index=[f"sample_{isample}" for isample in range(embeddings.shape[0])],
     ).to_csv(data_dir / f"{problem.pathway_name}__{data_name}__embeddings.csv")
 
-    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__embedding.pdf", data_dir)
+    plot_and_save_fig(
+        f"{problem.pathway_name}__{data_name}__embedding.pdf", data_dir
+    )
 
     inputs = df.loc[
         (df.time == 0)
         & (
-            df.loc[:, [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"]]
+            df.loc[
+                :,
+                [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"],
+            ]
             == 0
         ).all(axis=1),
-        [col for col in df.columns if col.startswith(MODEL_FEATURE_PREFIX) or col == "Sample"],
+        [
+            col
+            for col in df.columns
+            if col.startswith(MODEL_FEATURE_PREFIX) or col == "Sample"
+        ],
     ]
     inputs.Sample = inputs.Sample.apply(lambda x: f"sample_{x}")
     inputs.set_index("Sample", inplace=True)
@@ -239,13 +255,21 @@ def generate_synthetic_data(
     fig, ax = plt.subplots(1, 1)
     plot_pca_inputs(inputs.values, ax)
 
-    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__input_pca.pdf", data_dir)
-    inputs.to_csv(data_dir / f"{problem.pathway_name}__{data_name}__reference_inputs.csv")
-    pd.Series(static_pars).to_csv(data_dir / f"{problem.pathway_name}__{data_name}__reference_pars.csv")
+    plot_and_save_fig(
+        f"{problem.pathway_name}__{data_name}__input_pca.pdf", data_dir
+    )
+    inputs.to_csv(
+        data_dir / f"{problem.pathway_name}__{data_name}__reference_inputs.csv"
+    )
+    pd.Series(static_pars).to_csv(
+        data_dir / f"{problem.pathway_name}__{data_name}__reference_pars.csv"
+    )
 
     fig, axes = plt.subplots(1, 2)
     plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0], axes[1])
-    plot_and_save_fig(f"{problem.pathway_name}__{data_name}__data_pca.pdf", data_dir)
+    plot_and_save_fig(
+        f"{problem.pathway_name}__{data_name}__data_pca.pdf", data_dir
+    )
 
     # create petab & save to csv
     # MEASUREMENTS
@@ -267,7 +291,8 @@ def generate_synthetic_data(
     )
 
     measurements.loc[
-        measurements[petab.OBSERVABLE_ID].apply(lambda x: x in features), "EGF_0"
+        measurements[petab.OBSERVABLE_ID].apply(lambda x: x in features),
+        "EGF_0",
     ] = 0
 
     measurements = measurements[
@@ -319,17 +344,17 @@ def generate_synthetic_data(
         axis=1,
     )
 
-    measurements[petab.PREEQUILIBRATION_CONDITION_ID] = measurements["Sample"].apply(
-        lambda x: f"sample_{x}"
-    )
+    measurements[petab.PREEQUILIBRATION_CONDITION_ID] = measurements[
+        "Sample"
+    ].apply(lambda x: f"sample_{x}")
 
     measurements.drop(
         columns=["Sample"] + list(model.getFixedParameterIds()), inplace=True
     )
 
-    measurements[petab.OBSERVABLE_PARAMETERS] = measurements[petab.OBSERVABLE_ID].apply(
-        lambda x: f"{x}_scale;{x}_offset"
-    )
+    measurements[petab.OBSERVABLE_PARAMETERS] = measurements[
+        petab.OBSERVABLE_ID
+    ].apply(lambda x: f"{x}_scale;{x}_offset")
 
     measurements[petab.NOISE_PARAMETERS] = "1.0"
 
@@ -338,14 +363,20 @@ def generate_synthetic_data(
         {
             petab.CONDITION_ID: sorted(
                 set(measurements[petab.SIMULATION_CONDITION_ID].unique()).union(
-                    set(measurements[petab.PREEQUILIBRATION_CONDITION_ID].unique())
+                    set(
+                        measurements[
+                            petab.PREEQUILIBRATION_CONDITION_ID
+                        ].unique()
+                    )
                 )
             ),
         }
     )
     for fp in model.getFixedParameterIds():
         if fp == "EGF_0":
-            conditions[fp] = conditions[petab.CONDITION_ID].apply(lambda x: "__" in x)
+            conditions[fp] = conditions[petab.CONDITION_ID].apply(
+                lambda x: "__" in x
+            )
         else:
             conditions[fp] = conditions[petab.CONDITION_ID].apply(
                 lambda x: float(
@@ -362,7 +393,9 @@ def plot_embedding(embedding: np.ndarray, ax: plt.Axes):
     ax.plot(embedding[middle:, 0], embedding[middle:, 1], "r*")
 
 
-def plot_pca_inputs(x: np.ndarray, embed_ax: plt.Axes, vexpl_ax: plt.Axes = None):
+def plot_pca_inputs(
+    x: np.ndarray, embed_ax: plt.Axes, vexpl_ax: plt.Axes = None
+):
     pca = decomposition.PCA(n_components=min(x.shape[1], 10))
     pca.fit(x)
     x_pca = pca.transform(x)
