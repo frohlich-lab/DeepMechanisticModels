@@ -3,7 +3,7 @@ import numpy as np
 import petab
 import dataclasses
 
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple, List, Union
 
 from common import (
     MEASUREMENTS_FILE, CONDITIONS_FILE, OBSERVABLES_FILE, Wildcards, training_samples, test_samples,
@@ -49,7 +49,7 @@ def load_mae(
     job: int = -1,
     dataset: str = 'train',
     n_threads: int = 1,
-) -> Tuple[Conf, MechanisticAutoEncoder, CytofProblem]:
+) -> Tuple[Conf, Union[MechanisticAutoEncoder, Tuple[MechanisticAutoEncoder,MechanisticAutoEncoder]], CytofProblem]:
     conf = Conf(
         model=model,
         data=data,
@@ -139,10 +139,11 @@ def load_mae(
         contextualization=conf.context,
         features=mae_train.features,
         imputer=mae_train.imputer,
-        scaler=mae_train.scaler,
         pca=mae_train.pca,
         n_threads=n_threads,
     )
+    if dataset == "train+test":
+        return conf, (mae_train, mae_test), problem
 
     return conf, mae_test, problem
 

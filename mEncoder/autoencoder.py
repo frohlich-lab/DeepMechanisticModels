@@ -19,7 +19,11 @@ from jax.config import config
 config.update("jax_enable_x64", True)
 
 
-def contextualize_measurements(measurement_table: pd.DataFrame, contextualization: str) -> pd.DataFrame:
+def contextualize_measurements(
+        measurement_table: pd.DataFrame,
+        observable_table: pd.DataFrame,
+        contextualization: str
+) -> pd.DataFrame:
     baseline_measurements = measurement_table.copy()
 
     if contextualization in ["baseline", "init"]:
@@ -50,6 +54,11 @@ def contextualize_measurements(measurement_table: pd.DataFrame, contextualizatio
         )
 
     if contextualization == "dynamic":
+        baseline_measurements = baseline_measurements[
+            baseline_measurements[petab.OBSERVABLE_ID].isin(
+                list(observable_table.index)
+            )
+        ]
         pivot_columns = (
             petab.OBSERVABLE_ID,
             petab.SIMULATION_CONDITION_ID,
@@ -72,7 +81,6 @@ class MechanisticAutoEncoder(AutoEncoder):
     pathway_name: str = eqx.static_field()
     features: List[str] = eqx.static_field()
     imputer: KNNImputer = eqx.static_field()
-    scaler: StandardScaler = eqx.static_field()
     pca: PCA = eqx.static_field()
     data_pca: np.ndarray = eqx.static_field()
     n_model_inputs: int = eqx.static_field()
@@ -98,7 +106,6 @@ class MechanisticAutoEncoder(AutoEncoder):
         l1reg: float = 0.0,
         features: Optional[Sequence[str]] = None,
         imputer: Optional[KNNImputer] = None,
-        scaler: Optional[StandardScaler] = None,
         pca: Optional[PCA] = None,
         n_threads=1,
     ):
@@ -123,7 +130,14 @@ class MechanisticAutoEncoder(AutoEncoder):
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
 
-        input_data = contextualize_measurements(measurement_table, contextualization)
+        input_data = contextualize_measurements(
+            measurement_table,
+            observable_table,
+            contextualization
+        )
+
+        # subset samples
+        input_data = input_data.loc[samples, :]
 
         if features:
             # for prediction, use feature set computed on training data
@@ -136,9 +150,6 @@ class MechanisticAutoEncoder(AutoEncoder):
             ]
 
         self.features = list(input_data.columns)
-
-        # subset samples
-        input_data = input_data.loc[samples, :]
 
         self.l1reg = l1reg
         self.petab_importer = load_petab(
@@ -177,19 +188,13 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         imputed = self.imputer.transform(input_data.values)
 
-        if scaler is None:
-            self.scaler = StandardScaler(with_std=False)
-            self.scaler.fit(imputed)
-        else:
-            self.scaler = scaler
-
         # zero center input data, this is equivalent to estimating biases
         # for linear autoencoders
         # https://link.springer.com/article/10.1007/BF00332918
         # https://arxiv.org/pdf/1901.08168.pdf
         # note: transform also normalizes to unit standard deviation
         input_data = pd.DataFrame(
-            self.scaler.transform(imputed),
+            imputed,
             index=input_data.index,
             columns=input_data.columns,
         )
