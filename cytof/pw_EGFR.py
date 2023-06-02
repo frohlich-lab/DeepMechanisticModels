@@ -1,7 +1,7 @@
 from pysb import Model
 
-from mEncoder.mechanistic_model import add_observables
 from cytof.pathways import add_egfr, add_inhibitors
+from mEncoder.mechanistic_model import add_observables
 
 model = Model("EGFR")
 

@@ -1,10 +1,18 @@
-import re
 import itertools as itt
-import sympy as sp
+import re
+from typing import Dict, Iterable, List, Optional, Tuple
 
-from typing import Iterable, Optional, Dict, Tuple, List
-from pysb import Monomer, Expression, Parameter, Rule, Model, Observable, Initial
 import pysb.bng
+import sympy as sp
+from pysb import (
+    Expression,
+    Initial,
+    Model,
+    Monomer,
+    Observable,
+    Parameter,
+    Rule,
+)
 
 
 def generate_pathway(
@@ -162,7 +170,8 @@ def add_monomer_synth_deg(
                     kmod = get_autoencoder_modulator(kr)
                     rates += [
                         Expression(
-                            f"{m_name}_{label[1]}_{site}_base_rate", kmod * kr * rates[0]
+                            f"{m_name}_{label[1]}_{site}_base_rate",
+                            kmod * kr * rates[0],
                         )
                     ]
 
@@ -279,7 +288,9 @@ def add_activation(
         if s not in mono.site_states or any(
             state not in mono.site_states[s] for state in valid_states
         ):
-            raise ValueError(f"{s} is not a valid target for " f"{activation_type}.")
+            raise ValueError(
+                f"{s} is not a valid target for " f"{activation_type}."
+            )
 
     if activation_type == "phosphorylation":
         forward = "phosphorylation"
@@ -332,7 +343,6 @@ def add_activation(
 
 
 def add_degradation(model: Model, targets):
-
     for target in targets:
         mono_name, site_conditions = site_states_from_string(target)
         kr = Parameter(f"degradation_{target}_kr")
@@ -395,7 +405,9 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
         # free A: [A] = [A]_0 / (1 + kD*[I])
 
         free_target[target] = Expression(
-            f"free_{target}", target_obs / (1 + inh / (kd * kmod)), _export=False
+            f"free_{target}",
+            target_obs / (1 + inh / (kd * kmod)),
+            _export=False,
         )
 
     if not free_target:
@@ -408,8 +420,7 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
             (
                 (s.name, s)
                 for s in expr.expr.free_symbols
-                if isinstance(s, Observable)
-                and s.name in targets
+                if isinstance(s, Observable) and s.name in targets
             ),
             (None, None),
         )
@@ -428,11 +439,12 @@ def add_gf_bolus(name: str):
 
 
 def cleanup_unused(model):
-
     model.reset_equations()
     pysb.bng.generate_equations(model)
 
-    observables = [obs.name for obs in model.expressions if obs.name.endswith("_obs")]
+    observables = [
+        obs.name for obs in model.expressions if obs.name.endswith("_obs")
+    ]
 
     dynamic_eq = sp.Matrix(model.odes)
 
@@ -489,7 +501,8 @@ def cleanup_unused(model):
         [
             expr
             for expr in model.expressions
-            if len(expr.expand_expr().free_symbols.intersection(unused_pars)) == 0
+            if len(expr.expand_expr().free_symbols.intersection(unused_pars))
+            == 0
             and not expr.name.startswith("_")
         ]
     )

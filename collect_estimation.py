@@ -1,37 +1,46 @@
-import sys
 import os
 import re
-import matplotlib.pyplot as plt
+import sys
 from pathlib import Path
 
-from pypesto.store import OptimizationResultHDF5Reader, OptimizationResultHDF5Writer
-from pypesto.visualize import waterfall, parameters
-from mEncoder.training import create_pypesto_problem
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, basedir
-from util import load_from_argv
-
+import matplotlib.pyplot as plt
 import pypesto.visualize
+from pypesto.store import (
+    OptimizationResultHDF5Reader,
+    OptimizationResultHDF5Writer,
+)
+from pypesto.visualize import parameters, waterfall
+
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, basedir
+from mEncoder.training import create_pypesto_problem
+from util import load_from_argv
 
 conf, mae, problem = load_from_argv(sys.argv)
 pypesto_problem = create_pypesto_problem(mae, problem)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
 indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent
-inpattern = str(Path(TRAINING_OUTFILE_RESULTS.replace('{job}', '[0-9]+').format(**conf.__dict__)).stem)
+inpattern = str(
+    Path(
+        TRAINING_OUTFILE_RESULTS.replace("{job}", "[0-9]+").format(
+            **conf.__dict__
+        )
+    ).stem
+)
 
 optimizer_results = []
 for file in os.listdir(indir):
-    if not str(file).endswith('.hdf5'):
+    if not str(file).endswith(".hdf5"):
         continue
     if not re.match(inpattern, str(file)):
         continue
 
     # ignore previous results, conf.job is set to NSTARTS
-    if int(str(os.path.splitext(file)[0]).split('__')[-1]) >= conf.job:
-        print(f'ignoring old results from {file} (njobs={conf.job})')
+    if int(str(os.path.splitext(file)[0]).split("__")[-1]) >= conf.job:
+        print(f"ignoring old results from {file} (njobs={conf.job})")
         continue
 
-    print(f'loading results from {file}')
+    print(f"loading results from {file}")
     reader = OptimizationResultHDF5Reader(str(indir / str(file)))
     starts = reader.read().optimize_result.list
     for start in starts:
@@ -40,7 +49,9 @@ for file in os.listdir(indir):
     optimizer_results.extend(starts)
 
 print(
-    sorted([r["fval"] for r in optimizer_results])[0: min(5, len(optimizer_results))]
+    sorted([r["fval"] for r in optimizer_results])[
+        0 : min(5, len(optimizer_results))
+    ]
 )
 
 for istart, start in enumerate(optimizer_results):
@@ -63,7 +74,7 @@ run_name = of.stem
 
 waterfall(result, scale_y="log10", offset_y=0.0)
 plt.tight_layout()
-plt.savefig(outdir / f'{run_name}_waterfall.pdf')
+plt.savefig(outdir / f"{run_name}_waterfall.pdf")
 
 # parameters(result)
 # plt.tight_layout()

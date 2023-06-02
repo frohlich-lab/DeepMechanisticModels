@@ -1,8 +1,8 @@
 import sys
 
+from cytof.problem import CytofProblem
 from mEncoder.petab_subproblem import load_petab
 from util import load_petab_base_files
-from cytof.problem import CytofProblem
 
 MODEL = sys.argv[1]
 DATA = sys.argv[2]

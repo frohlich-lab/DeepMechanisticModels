@@ -1,14 +1,27 @@
-import sys
-import pandas as pd
-import numpy as np
-import seaborn as sns
-import matplotlib.pyplot as plt
 import itertools as itt
+import sys
 
-from common import fig_dir, EVALUATE_ALL, EVALUATION_TRAINING, tpl_evaluation_file
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, SPLITS, DATASETS
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+from common import (
+    EVALUATE_ALL,
+    EVALUATION_TRAINING,
+    fig_dir,
+    tpl_evaluation_file,
+)
+from training_configuration import (
+    ALPHAS,
+    CONTEXTS,
+    DATASETS,
+    LATENT_DIMS,
+    SPLITS,
+)
 
 MODEL = sys.argv[1]
+DATA = sys.argv[2]
 
 outdir = fig_dir / MODEL / DATA
 
@@ -21,50 +34,76 @@ for samples, data in itt.product((SPLITS, DATASETS)):
     for dataset in ["train", "test"]:
         # cross sample pretraining
         pretraining = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='cross_sample'),
-            index_col=0
+            tpl_evaluation_file.format(
+                samples=samples,
+                model=MODEL,
+                data=data,
+                dataset=dataset,
+                mode="cross_sample",
+            ),
+            index_col=0,
         )
-        pretraining['ref'] = 'meth'
+        pretraining["ref"] = "meth"
 
         # training
         training = pd.read_csv(
-            EVALUATION_TRAINING.format(samples=samples, model=MODEL, data=data, dataset=dataset, ), index_col=0
+            EVALUATION_TRAINING.format(
+                samples=samples,
+                model=MODEL,
+                data=data,
+                dataset=dataset,
+            ),
+            index_col=0,
         )
-        training['ref'] = 'meth'
+        training["ref"] = "meth"
 
         # average
         avg = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='average'),
-            index_col=0
+            tpl_evaluation_file.format(
+                samples=samples,
+                model=MODEL,
+                data=data,
+                dataset=dataset,
+                mode="average",
+            ),
+            index_col=0,
         )
-        avg['ref'] = 'avg'
+        avg["ref"] = "avg"
 
         # model average
-        #avg_model = pd.read_csv(
+        # avg_model = pd.read_csv(
         #    tpl_evaluation_file.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'),
         #    index_col=0
-        #)
+        # )
 
         # per sample
         ps = pd.read_csv(
-            tpl_evaluation_file.format(samples=samples, model=MODEL, data=data, dataset=dataset, mode='per_sample'),
-            index_col=0
+            tpl_evaluation_file.format(
+                samples=samples,
+                model=MODEL,
+                data=data,
+                dataset=dataset,
+                mode="per_sample",
+            ),
+            index_col=0,
         )
-        ps['ref'] = 'sample'
+        ps["ref"] = "sample"
 
         avg_ps_dfs = []
         # copy average/per sample
-        for alpha, ldim, ctxt, method in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS, METHODS):
+        for alpha, ldim, ctxt, method in itt.product(
+            ALPHAS, LATENT_DIMS, CONTEXTS, METHODS
+        ):
             for rdf in [
                 avg,
-                #avg_model,
-                ps
+                # avg_model,
+                ps,
             ]:
                 avg_ps_df = rdf.copy()
-                avg_ps_df['alpha'] = alpha
-                avg_ps_df['layers'] = ldim
-                avg_ps_df['context'] = ctxt
-                avg_ps_df['type'] = method
+                avg_ps_df["alpha"] = alpha
+                avg_ps_df["layers"] = ldim
+                avg_ps_df["context"] = ctxt
+                avg_ps_df["type"] = method
                 avg_ps_dfs.append(avg_ps_df)
 
         # dfd = pd.concat([training, pretraining])
@@ -74,79 +113,102 @@ for samples, data in itt.product((SPLITS, DATASETS)):
         dfs.append(dfd)
 
 df = pd.concat(dfs).reset_index()
-df.rename(columns={
-    "alpha": "l2 regularization",
-    "layers": "latent dim",
-    "type": "method"
-}, inplace=True)
+df.rename(
+    columns={
+        "alpha": "l2 regularization",
+        "layers": "latent dim",
+        "type": "method",
+    },
+    inplace=True,
+)
 df.loc[df["method"] == "cross_sample", "method"] = "pca embedding"
 df.loc[df["method"] == "full", "method"] = "end-to-end"
 
 
 def lineplot_ref_average(data, *args, **kwargs):
-    sns.lineplot(
-        data[data['ref'] == 'avg'], *args, **kwargs
-    )
+    sns.lineplot(data[data["ref"] == "avg"], *args, **kwargs)
 
 
 def lineplot_methods(data, *args, **kwargs):
-    sns.lineplot(
-        data[data['ref'] == 'meth'], *args, **kwargs
-    )
+    sns.lineplot(data[data["ref"] == "meth"], *args, **kwargs)
 
 
 def lineplot_ref_sample(data, *args, **kwargs):
-    sns.lineplot(
-        data[data['ref'] == 'sample'], *args, **kwargs
+    sns.lineplot(data[data["ref"] == "sample"], *args, **kwargs)
+
+
+for gb in ("observable", "time", "condition", "sample", "all"):
+    gbs = [
+        "ref",
+        "dataset",
+        "method",
+        "context",
+        "latent dim",
+        "l2 regularization",
+        "samples",
+    ]
+    if gb != "all":
+        gbs = [gb, *gbs]
+    df_gb = pd.DataFrame(
+        [
+            dict(
+                zip(gbs, group),
+                rmse=np.sqrt(
+                    group_df["res"].apply(lambda x: np.power(x, 2)).mean()
+                ),
+            )
+            for group, group_df in df.groupby(gbs)
+        ]
     )
 
-
-for gb in ('observable', 'time', 'condition', 'sample', 'all'):
-    gbs = ["ref", "dataset", "method", "context", "latent dim", "l2 regularization", "samples"]
-    if gb != 'all':
-        gbs = [gb, *gbs]
-    df_gb = pd.DataFrame([
-        dict(zip(gbs, group), rmse=np.sqrt(group_df["res"].apply(lambda x: np.power(x, 2)).mean()))
-        for group, group_df in df.groupby(gbs)
-    ])
-
-    if gb == 'time':
+    if gb == "time":
         # filter non-canonical timepoints (not enough datapoints)
-        data = df_gb[np.logical_not(df_gb.time.isin([12, 14, 15, 16, 18, 25, 35]))]
+        data = df_gb[
+            np.logical_not(df_gb.time.isin([12, 14, 15, 16, 18, 25, 35]))
+        ]
     else:
         data = df_gb
 
     kwargs = dict()
 
-    if gb == 'all':
-        kwargs['row_order'] = ('train', 'test')
+    if gb == "all":
+        kwargs["row_order"] = ("train", "test")
         if len(data.context.unique()) > 1:
-            kwargs['style'] = 'context'
+            kwargs["style"] = "context"
     else:
-        data = data[data["context"] == 'baseline']
-        kwargs['style'] = 'dataset'
+        data = data[data["context"] == "baseline"]
+        kwargs["style"] = "dataset"
 
     g = sns.FacetGrid(
-        data=data,
-        row=gb if gb != 'all' else "dataset", col="method",
-        **kwargs
+        data=data, row=gb if gb != "all" else "dataset", col="method", **kwargs
     )
 
     g.map_dataframe(
-        lineplot_methods, x="l2 regularization", y="rmse",
-        hue="latent dim", errorbar='se'
+        lineplot_methods,
+        x="l2 regularization",
+        y="rmse",
+        hue="latent dim",
+        errorbar="se",
     )
     g.map_dataframe(
-        lineplot_ref_average, x="l2 regularization", y="rmse",
-        color='k', linestyle='--', errorbar=None
+        lineplot_ref_average,
+        x="l2 regularization",
+        y="rmse",
+        color="k",
+        linestyle="--",
+        errorbar=None,
     )
     g.map_dataframe(
-        lineplot_ref_sample, x="l2 regularization", y="rmse",
-        color='k', linestyle=':', errorbar=None
+        lineplot_ref_sample,
+        x="l2 regularization",
+        y="rmse",
+        color="k",
+        linestyle=":",
+        errorbar=None,
     )
-    g.set(xscale='log', ylim=(0, 1.5))
+    g.set(xscale="log", ylim=(0, 1.5))
     g.add_legend()
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(model=MODEL, data=DATA, group=gb)
     plt.savefig(rfile)
-    data.to_csv(rfile.replace('.pdf', '.csv'))
+    data.to_csv(rfile.replace(".pdf", ".csv"))

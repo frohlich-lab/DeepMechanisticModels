@@ -1,6 +1,7 @@
-import matplotlib.pyplot as plt
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
+import matplotlib.pyplot as plt
 
 
 def plot_and_save_fig(filename: str, figdir: Optional[Path] = None):

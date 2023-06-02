@@ -3,6 +3,7 @@
 import numpy as np
 import theano
 import theano.tensor as tt
+
 from ..encoder import AutoEncoder
 
 

@@ -1,14 +1,14 @@
 from pysb import Model
 
-from mEncoder.mechanistic_model import add_observables
 from cytof.pathways import (
     add_egfr,
+    add_inhibitors,
     add_mapk,
     add_mtore_akt,
-    add_stat,
     add_s6,
-    add_inhibitors,
+    add_stat,
 )
+from mEncoder.mechanistic_model import add_observables
 
 model = Model("EGFR_MAPK_AKT_STAT_S6")
 

@@ -1,15 +1,22 @@
-import sys
 import re
+import sys
+
+import pandas as pd
 import petab
 import pysb
 
-import pandas as pd
-
+from common import (
+    CONDITIONS_FILE,
+    MEASUREMENTS_FILE,
+    OBSERVABLES_FILE,
+    data_dir,
+)
 from mEncoder.generate_data import generate_synthetic_data
-from common import data_dir, CONDITIONS_FILE, MEASUREMENTS_FILE, OBSERVABLES_FILE
 
 
-def observable_id_to_model_expr(obs_id: str, dataset: str, model: pysb.Model) -> str:
+def observable_id_to_model_expr(
+    obs_id: str, dataset: str, model: pysb.Model
+) -> str:
     """
     Maps site definitions from data to model observables
 
@@ -48,7 +55,7 @@ def observable_id_to_model_expr(obs_id: str, dataset: str, model: pysb.Model) ->
             r"^P\.BTK": "BTK_Y551",
             r"^P\.CREB": "CREB1_S133",
         }
-    elif re.match(r'synthetic_[0-9]+_[0-9\.]+_[0-9\.]+$', dataset):
+    elif re.match(r"synthetic_[0-9]+_[0-9\.]+_[0-9\.]+$", dataset):
         palias = {}
     else:
         raise ValueError("Dataset not supported!")
@@ -80,21 +87,28 @@ if __name__ == "__main__":
     DATA = sys.argv[2]
 
     from cytof.problem import CytofProblem
+
     problem = CytofProblem(pathway_name=MODEL)
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
 
     if DATA == "dream_cytof":
-        measurement_table, condition_table = problem.load_preprocess_petab_tables(model)
+        (
+            measurement_table,
+            condition_table,
+        ) = problem.load_preprocess_petab_tables(model)
     elif DATA.startswith("synthetic"):
         N_HIDDEN = 6
         N_SAMPLES = int(DATA.split("_")[1])
         condition_table, measurement_table = generate_synthetic_data(
-            problem, data_dir, DATA, latent_dimension=N_HIDDEN,
+            problem,
+            data_dir,
+            DATA,
+            latent_dimension=N_HIDDEN,
             n_samples=N_SAMPLES,
             std_measurements=float(DATA.split("_")[2]),
             std_features=float(DATA.split("_")[3]),
-            n_features=200
+            n_features=200,
         )
     else:
         raise RuntimeError("Unknown dataset!")
@@ -106,7 +120,8 @@ if __name__ == "__main__":
             lambda x: x[petab.SIMULATION_CONDITION_ID] in condition_ids
             and x[petab.PREEQUILIBRATION_CONDITION_ID] in condition_ids,
             axis=1,
-        ), :
+        ),
+        :,
     ]
 
     observable_ids = [
@@ -123,7 +138,9 @@ if __name__ == "__main__":
         observable_id_to_model_expr(obs_id, DATA, model)
         for obs_id in observable_ids
     ]
-    observable_table[petab.OBSERVABLE_ID] = [f"{obs}_obs" for obs in observable_obs]
+    observable_table[petab.OBSERVABLE_ID] = [
+        f"{obs}_obs" for obs in observable_obs
+    ]
     measurement_table[petab.OBSERVABLE_ID] = measurement_table[
         petab.OBSERVABLE_ID
     ].apply(
@@ -143,14 +160,19 @@ if __name__ == "__main__":
     ]
 
     def obs_pars(x):
-        pars = f"{x[petab.OBSERVABLE_ID]}_scale;" f"{x[petab.OBSERVABLE_ID]}_offset"
+        pars = (
+            f"{x[petab.OBSERVABLE_ID]}_scale;"
+            f"{x[petab.OBSERVABLE_ID]}_offset"
+        )
         return pars
 
     measurement_table[petab.OBSERVABLE_PARAMETERS] = measurement_table.apply(
         obs_pars, axis=1
     )
 
-    measurement_file = data_dir / MEASUREMENTS_FILE.format(data=DATA, model=MODEL)
+    measurement_file = data_dir / MEASUREMENTS_FILE.format(
+        data=DATA, model=MODEL
+    )
     measurement_table.to_csv(measurement_file, sep="\t")
 
     condition_file = data_dir / CONDITIONS_FILE.format(data=DATA, model=MODEL)
