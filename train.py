@@ -41,7 +41,7 @@ writer.write(result, overwrite=True)
 
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    group="training",
+    group=f"training_{conf.context}_{conf.n_hidden}",
     config={
         **conf.__dict__,
         "fides": fides_options,

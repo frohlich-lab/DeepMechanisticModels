@@ -172,7 +172,7 @@ store_and_plot_pretraining(
 
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    group="pretraining",
+    group=f"pretraining_{conf.context}_{conf.n_hidden}",
     config={
         **conf.__dict__,
         "fides": fides_options,
