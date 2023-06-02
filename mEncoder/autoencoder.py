@@ -1,41 +1,40 @@
-import jax.numpy as jnp
+from typing import List, Optional, Sequence
+
 import equinox as eqx
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import petab
 import pypesto.petab
-
-from typing import Sequence, Optional, List
+from jax.config import config
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.impute import KNNImputer
-from sklearn.preprocessing import StandardScaler
 
 from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
-from .problem import Problem
 from .petab_subproblem import load_petab
+from .problem import Problem
 
-from jax.config import config
 config.update("jax_enable_x64", True)
 
 
 def contextualize_measurements(
-        measurement_table: pd.DataFrame,
-        observable_table: pd.DataFrame,
-        contextualization: str
+    measurement_table: pd.DataFrame,
+    observable_table: pd.DataFrame,
+    contextualization: str,
 ) -> pd.DataFrame:
     baseline_measurements = measurement_table.copy()
 
     if contextualization in ["baseline", "init"]:
         baseline_measurements = baseline_measurements[
             baseline_measurements[petab.TIME] == 0
-            ]
+        ]
 
     if contextualization == "baseline":
         baseline_measurements = baseline_measurements[
             baseline_measurements[petab.SIMULATION_CONDITION_ID]
             == baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-            ]
+        ]
     elif contextualization == "init":
         baseline_measurements = baseline_measurements[
             baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
@@ -46,7 +45,7 @@ def contextualize_measurements(
         baseline_measurements = baseline_measurements[
             baseline_measurements[petab.SIMULATION_CONDITION_ID]
             != baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-            ]
+        ]
         baseline_measurements[
             petab.SIMULATION_CONDITION_ID
         ] = baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
@@ -131,9 +130,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         self.pathway_name = problem.pathway_name
 
         input_data = contextualize_measurements(
-            measurement_table,
-            observable_table,
-            contextualization
+            measurement_table, observable_table, contextualization
         )
 
         # subset samples
@@ -159,7 +156,7 @@ class MechanisticAutoEncoder(AutoEncoder):
             measurement_table,
             condition_table,
             observable_table,
-            samples
+            samples,
         )
 
         self.pypesto_subproblem = self.petab_importer.create_problem()
@@ -202,9 +199,15 @@ class MechanisticAutoEncoder(AutoEncoder):
         # generate PCA embedding for feature selection
         if pca is None:
             # use n_comps such that 90% of variance is explained
-            var_expl = PCA(n_components=input_data.shape[0]).fit(input_data).explained_variance_ratio_
+            var_expl = (
+                PCA(n_components=input_data.shape[0])
+                .fit(input_data)
+                .explained_variance_ratio_
+            )
             n_pca = np.nonzero(np.cumsum(var_expl) > 0.9)[0][0] + 1
-            pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(input_data)
+            pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(
+                input_data
+            )
 
         self.pca = pca
 
@@ -223,7 +226,8 @@ class MechanisticAutoEncoder(AutoEncoder):
             sum(
                 name.startswith(MODEL_FEATURE_PREFIX)
                 for name in self.pypesto_subproblem.x_names
-            ) / self.n_samples
+            )
+            / self.n_samples
         )
         self.n_kin_params = (
             self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
@@ -232,10 +236,14 @@ class MechanisticAutoEncoder(AutoEncoder):
         self.sample_names = list(input_data.index)
         self.data_cols = [f"PC{i}" for i in range(self.data_pca.shape[1])]
         super().__init__(
-            input_data=self.data_pca, n_latent=n_latent, n_params=self.n_model_inputs
+            input_data=self.data_pca,
+            n_latent=n_latent,
+            n_params=self.n_model_inputs,
         )
 
-        problem.apply_objective_settings(self.pypesto_subproblem.objective, n_threads=n_threads)
+        problem.apply_objective_settings(
+            self.pypesto_subproblem.objective, n_threads=n_threads
+        )
 
         self.x_names = self.x_names + [
             name
@@ -246,14 +254,32 @@ class MechanisticAutoEncoder(AutoEncoder):
 
     def embedding(self, params: np.ndarray) -> np.ndarray:
         encode_weights, inflate_weights, kin_params = jnp.split(
-            params, np.array((self.n_encode_weights, self.n_inflate_weights + self.n_encode_weights))
+            params,
+            np.array(
+                (
+                    self.n_encode_weights,
+                    self.n_inflate_weights + self.n_encode_weights,
+                )
+            ),
         )
-        return jnp.concatenate([
-            kin_params, self.inflate_params(self.encode(encode_weights), inflate_weights).flatten()
-        ])
+        return jnp.concatenate(
+            [
+                kin_params,
+                self.inflate_params(
+                    self.encode(encode_weights), inflate_weights
+                ).flatten(),
+            ]
+        )
 
     def inflate(self, params: jnp.ndarray) -> jnp.ndarray:
-        inflate_weights, kin_params = jnp.split(params, np.array((self.n_inflate_weights,)))
-        return jnp.concatenate([
-            kin_params, self.inflate_params(self.data_pca[:, :self.n_latent], inflate_weights).flatten()
-        ])
+        inflate_weights, kin_params = jnp.split(
+            params, np.array((self.n_inflate_weights,))
+        )
+        return jnp.concatenate(
+            [
+                kin_params,
+                self.inflate_params(
+                    self.data_pca[:, : self.n_latent], inflate_weights
+                ).flatten(),
+            ]
+        )

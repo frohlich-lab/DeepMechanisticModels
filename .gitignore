@@ -154,3 +154,4 @@ pretraining/*
 *.png
 cytof/amici_models/*
 data/amici_models/*
+wandb/*

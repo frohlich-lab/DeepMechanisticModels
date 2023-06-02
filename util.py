@@ -1,17 +1,22 @@
-import pandas as pd
-import numpy as np
-import petab
 import dataclasses
+from typing import Dict, List, Tuple, Union
 
-from typing import Dict, Tuple, List, Union
-
-from common import (
-    MEASUREMENTS_FILE, CONDITIONS_FILE, OBSERVABLES_FILE, Wildcards, training_samples, test_samples,
-    PER_SAMPLE_OUTFILE_RESULTS
-)
-from cytof.problem import CytofProblem
+import numpy as np
+import pandas as pd
+import petab
 from amici.petab_objective import rdatas_to_simulation_df
 from pypesto.store import OptimizationResultHDF5Reader
+
+from common import (
+    CONDITIONS_FILE,
+    MEASUREMENTS_FILE,
+    OBSERVABLES_FILE,
+    PER_SAMPLE_OUTFILE_RESULTS,
+    Wildcards,
+    test_samples,
+    training_samples,
+)
+from cytof.problem import CytofProblem
 from mEncoder.autoencoder import MechanisticAutoEncoder
 from mEncoder.petab_subproblem import load_petab
 from mEncoder.pretraining import generate_per_sample_pretraining_problems
@@ -19,12 +24,21 @@ from mEncoder.pretraining import generate_per_sample_pretraining_problems
 
 def load_petab_base_files(model: str, dataset: str) -> Dict[str, pd.DataFrame]:
     return {
-        'measurement_table':
-            pd.read_csv(MEASUREMENTS_FILE.format(data=dataset, model=model), index_col=0, sep="\t"),
-        'condition_table':
-            pd.read_csv(CONDITIONS_FILE.format(data=dataset, model=model), index_col=0, sep="\t"),
-        'observable_table':
-            pd.read_csv(OBSERVABLES_FILE.format(data=dataset, model=model), index_col=0, sep="\t"),
+        "measurement_table": pd.read_csv(
+            MEASUREMENTS_FILE.format(data=dataset, model=model),
+            index_col=0,
+            sep="\t",
+        ),
+        "condition_table": pd.read_csv(
+            CONDITIONS_FILE.format(data=dataset, model=model),
+            index_col=0,
+            sep="\t",
+        ),
+        "observable_table": pd.read_csv(
+            OBSERVABLES_FILE.format(data=dataset, model=model),
+            index_col=0,
+            sep="\t",
+        ),
     }
 
 
@@ -42,14 +56,21 @@ class Conf(dict):
 def load_mae(
     model: str,
     data: str,
-    context: str = 'baseline',
-    samples: str = '0_5',
+    context: str = "baseline",
+    samples: str = "0_5",
     n_hidden: int = 4,
     alpha: float = 0.0,
     job: int = -1,
-    dataset: str = 'train',
+    dataset: str = "train",
     n_threads: int = 1,
-) -> Tuple[Conf, Union[MechanisticAutoEncoder, Tuple[MechanisticAutoEncoder,MechanisticAutoEncoder]], CytofProblem]:
+) -> Tuple[
+    Conf,
+    Union[
+        MechanisticAutoEncoder,
+        Tuple[MechanisticAutoEncoder, MechanisticAutoEncoder],
+    ],
+    CytofProblem,
+]:
     conf = Conf(
         model=model,
         data=data,
@@ -81,7 +102,9 @@ def load_mae(
             sample,
         )
         pypesto_problem = importer.create_problem()
-        rfile = PER_SAMPLE_OUTFILE_RESULTS.format(model=model, data=data, sample=sample)
+        rfile = PER_SAMPLE_OUTFILE_RESULTS.format(
+            model=model, data=data, sample=sample
+        )
         result = OptimizationResultHDF5Reader(rfile).read()
 
         problem.apply_objective_settings(pypesto_problem.objective)
@@ -95,25 +118,32 @@ def load_mae(
         )
 
         residuals_df = importer.petab_problem.measurement_df.copy()
-        residuals_df['residual'] = \
-            importer.petab_problem.measurement_df[petab.MEASUREMENT] - simulation_df[petab.SIMULATION]
+        residuals_df["residual"] = (
+            importer.petab_problem.measurement_df[petab.MEASUREMENT]
+            - simulation_df[petab.SIMULATION]
+        )
 
-        sigmas.update({
-            (sample, observable, condition): np.sqrt(np.mean(np.power(group_df['residual'], 2)))
-            for (observable, condition), group_df in
-            residuals_df.groupby([petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID])
-        })
+        sigmas.update(
+            {
+                (sample, observable, condition): np.sqrt(
+                    np.mean(np.power(group_df["residual"], 2))
+                )
+                for (observable, condition), group_df in residuals_df.groupby(
+                    [petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID]
+                )
+            }
+        )
 
-    measurement_df = petab_base_files['measurement_table'].copy()
+    measurement_df = petab_base_files["measurement_table"].copy()
     for (sample, observable, condition), sigma in sigmas.items():
         measurement_df.loc[
-            (measurement_df[petab.OBSERVABLE_ID] == observable) &
-            (measurement_df[petab.SIMULATION_CONDITION_ID] == condition) &
-            (measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample),
-            petab.NOISE_PARAMETERS
+            (measurement_df[petab.OBSERVABLE_ID] == observable)
+            & (measurement_df[petab.SIMULATION_CONDITION_ID] == condition)
+            & (measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample),
+            petab.NOISE_PARAMETERS,
         ] = sigma
 
-    petab_base_files['measurement_table'] = measurement_df
+    petab_base_files["measurement_table"] = measurement_df
 
     mae_train = MechanisticAutoEncoder(
         problem,
@@ -149,10 +179,15 @@ def load_mae(
 
 
 def load_from_argv(
-    argv: List[str],
-    n_threads=1,
-    dataset='train'
-) -> Tuple[Conf, MechanisticAutoEncoder, CytofProblem]:
+    argv: List[str], n_threads=1, dataset="train"
+) -> Tuple[
+    Conf,
+    Union[
+        MechanisticAutoEncoder,
+        Tuple[MechanisticAutoEncoder, MechanisticAutoEncoder],
+    ],
+    CytofProblem,
+]:
     argv.pop(0)  # remove script name
     return load_mae(
         model=argv.pop(0),

@@ -1,32 +1,27 @@
-import pypesto
-
-from pypesto.petab.pysb_importer import PetabImporterPysb
-from pypesto.optimize import OptimizeOptions, minimize
-from pypesto.history import HistoryOptions
-from pypesto.store import OptimizationResultHDF5Writer
-from pypesto.visualize import waterfall, parameters
-from pypesto.objective.jax import JaxObjective
-from petab.models.pysb_model import PySBModel
-
-import petab
-import pandas as pd
-import numpy as np
-import matplotlib.pyplot as plt
-
-from typing import Callable, List
 from pathlib import Path
+from typing import Callable, List
+
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import petab
+import pypesto
+from petab.models.pysb_model import PySBModel
+from pypesto.history import HistoryOptions
+from pypesto.objective.jax import JaxObjective
+from pypesto.optimize import OptimizeOptions, minimize
+from pypesto.petab.pysb_importer import PetabImporterPysb
+from pypesto.store import OptimizationResultHDF5Writer
+from pypesto.visualize import parameters, waterfall
 from pysb import Model
 
+from . import MODEL_FEATURE_PREFIX
 from .autoencoder import MechanisticAutoEncoder
 from .problem import Problem
-from . import MODEL_FEATURE_PREFIX
 
 
 def generate_per_sample_pretraining_problems(
-    importer: PetabImporterPysb,
-    problem: Problem,
-    dataset: str,
-    sample: str
+    importer: PetabImporterPysb, problem: Problem, dataset: str, sample: str
 ) -> PetabImporterPysb:
     """
     Creates a pypesto problem that can be used to train the
@@ -35,7 +30,8 @@ def generate_per_sample_pretraining_problems(
     # construct problem based on petab for pypesto subproblem
     pp = importer.petab_problem
     pp.parameter_df[petab.ESTIMATE] = [
-        not x.startswith(MODEL_FEATURE_PREFIX) and pp.parameter_df[petab.ESTIMATE][x]
+        not x.startswith(MODEL_FEATURE_PREFIX)
+        and pp.parameter_df[petab.ESTIMATE][x]
         for x in pp.parameter_df.index
     ]
     pp.parameter_df.loc[
@@ -51,11 +47,15 @@ def generate_per_sample_pretraining_problems(
     mdf = pp.measurement_df[
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     ]
-    cdf = pp.condition_df[[name.startswith(sample) for name in pp.condition_df.index]]
+    cdf = pp.condition_df[
+        [name.startswith(sample) for name in pp.condition_df.index]
+    ]
     spars = (
         set(
             e
-            for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(lambda x: x.split(";"))
+            for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(
+                lambda x: x.split(";")
+            )
             for e in t
         )
         if petab.OBSERVABLE_PARAMETERS in mdf
@@ -66,8 +66,7 @@ def generate_per_sample_pretraining_problems(
             (
                 not name.startswith(MODEL_FEATURE_PREFIX)
                 and (
-                    (not name.endswith(("_scale", "_offset")))
-                    or name in spars
+                    (not name.endswith(("_scale", "_offset"))) or name in spars
                 )
             )
             or name.endswith(sample)
@@ -81,7 +80,10 @@ def generate_per_sample_pretraining_problems(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id)
+            model=PySBModel(
+                Model(base=clean_model, name=pp.model.model_id),
+                pp.model.model_id,
+            ),
         ),
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
@@ -104,7 +106,8 @@ def generate_per_sample_reg_pretraining_problem(
     # construct problem based on petab for pypesto subproblem
     pp = importer.petab_problem
     pp.parameter_df[petab.ESTIMATE] = [
-        not x.startswith(MODEL_FEATURE_PREFIX) and pp.parameter_df[petab.ESTIMATE][x]
+        not x.startswith(MODEL_FEATURE_PREFIX)
+        and pp.parameter_df[petab.ESTIMATE][x]
         for x in pp.parameter_df.index
     ]
     pp.parameter_df.loc[
@@ -120,11 +123,15 @@ def generate_per_sample_reg_pretraining_problem(
     mdf = pp.measurement_df[
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     ]
-    cdf = pp.condition_df[[name.startswith(sample) for name in pp.condition_df.index]]
+    cdf = pp.condition_df[
+        [name.startswith(sample) for name in pp.condition_df.index]
+    ]
     spars = (
         set(
             e
-            for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(lambda x: x.split(";"))
+            for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(
+                lambda x: x.split(";")
+            )
             for e in t
         )
         if petab.OBSERVABLE_PARAMETERS in mdf
@@ -135,7 +142,10 @@ def generate_per_sample_reg_pretraining_problem(
             (
                 not name.startswith(MODEL_FEATURE_PREFIX)
                 and (
-                    (not name.endswith("_scale") and not name.endswith("offset"))
+                    (
+                        not name.endswith("_scale")
+                        and not name.endswith("offset")
+                    )
                     or name in spars
                 )
             )
@@ -147,8 +157,12 @@ def generate_per_sample_reg_pretraining_problem(
         if pname.startswith(MODEL_FEATURE_PREFIX):
             pdf.loc[pname, petab.ESTIMATE] = True
             if alpha > 0:
-                pdf.loc[pname, petab.OBJECTIVE_PRIOR_PARAMETERS] = f"0.0;{1 / alpha}"
-                pdf.loc[pname, petab.OBJECTIVE_PRIOR_TYPE] = petab.PARAMETER_SCALE_LAPLACE
+                pdf.loc[
+                    pname, petab.OBJECTIVE_PRIOR_PARAMETERS
+                ] = f"0.0;{1 / alpha}"
+                pdf.loc[
+                    pname, petab.OBJECTIVE_PRIOR_TYPE
+                ] = petab.PARAMETER_SCALE_LAPLACE
 
         if pname.endswith(("_scale", "_offset")):
             continue
@@ -156,7 +170,9 @@ def generate_per_sample_reg_pretraining_problem(
         if pname not in avg_pars.columns:  # includes inputs
             continue
 
-        pdf.loc[pname, petab.NOMINAL_VALUE] = np.power(10, avg_pars.loc[0, pname])
+        pdf.loc[pname, petab.NOMINAL_VALUE] = np.power(
+            10, avg_pars.loc[0, pname]
+        )
         pdf.loc[pname, petab.ESTIMATE] = False
 
     return PetabImporterPysb(
@@ -165,7 +181,10 @@ def generate_per_sample_reg_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id),
+            model=PySBModel(
+                Model(base=clean_model, name=pp.model.model_id),
+                pp.model.model_id,
+            ),
         ),
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
@@ -185,7 +204,8 @@ def generate_average_pretraining_problem(
     # construct problem based on petab for pypesto subproblem
     pp = importer.petab_problem
     pp.parameter_df[petab.ESTIMATE] = [
-        not x.startswith(MODEL_FEATURE_PREFIX) and pp.parameter_df[petab.ESTIMATE][x]
+        not x.startswith(MODEL_FEATURE_PREFIX)
+        and pp.parameter_df[petab.ESTIMATE][x]
         for x in pp.parameter_df.index
     ]
     pp.parameter_df.loc[
@@ -202,19 +222,29 @@ def generate_average_pretraining_problem(
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples), :
     ]
 
-    df_train[petab.SIMULATION_CONDITION_ID] = df_train[petab.SIMULATION_CONDITION_ID].apply(
-        lambda x: x.split("__")[1]
+    df_train[petab.SIMULATION_CONDITION_ID] = df_train[
+        petab.SIMULATION_CONDITION_ID
+    ].apply(lambda x: x.split("__")[1])
+
+    df_train[petab.PREEQUILIBRATION_CONDITION_ID] = "baseline"
+
+    cdf = pp.condition_df.loc[
+        [name.startswith(samples[0]) for name in pp.condition_df.index], :
+    ]
+    cdf.index = [
+        name.replace(samples[0] + "__", "").replace(samples[0], "baseline")
+        for name in cdf.index
+    ]
+    cdf.drop(
+        columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)],
+        inplace=True,
     )
-
-    df_train[petab.PREEQUILIBRATION_CONDITION_ID] = 'baseline'
-
-    cdf = pp.condition_df.loc[[name.startswith(samples[0]) for name in pp.condition_df.index], :]
-    cdf.index = [name.replace(samples[0] + '__', '').replace(samples[0], 'baseline') for name in cdf.index]
-    cdf.drop(columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)], inplace=True)
     spars = (
         set(
             e
-            for t in df_train[petab.OBSERVABLE_PARAMETERS].apply(lambda x: x.split(";"))
+            for t in df_train[petab.OBSERVABLE_PARAMETERS].apply(
+                lambda x: x.split(";")
+            )
             for e in t
         )
         if petab.OBSERVABLE_PARAMETERS in df_train
@@ -225,7 +255,10 @@ def generate_average_pretraining_problem(
             (
                 not name.startswith(MODEL_FEATURE_PREFIX)
                 and (
-                    (not name.endswith("_scale") and not name.endswith("offset"))
+                    (
+                        not name.endswith("_scale")
+                        and not name.endswith("offset")
+                    )
                     or name in spars
                 )
             )
@@ -233,7 +266,7 @@ def generate_average_pretraining_problem(
             for name in pp.parameter_df.index
         ]
     ]
-    pdf.index = [name.replace('__' + samples[0], '') for name in pdf.index]
+    pdf.index = [name.replace("__" + samples[0], "") for name in pdf.index]
 
     return PetabImporterPysb(
         petab.Problem(
@@ -241,7 +274,10 @@ def generate_average_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=df_train,
             condition_df=cdf,
-            model=PySBModel(Model(base=clean_model, name=pp.model.model_id), pp.model.model_id)
+            model=PySBModel(
+                Model(base=clean_model, name=pp.model.model_id),
+                pp.model.model_id,
+            ),
         ),
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
@@ -249,13 +285,15 @@ def generate_average_pretraining_problem(
     )
 
 
-def generate_cross_sample_pretraining_problem(ae: MechanisticAutoEncoder, problem: Problem) -> pypesto.Problem:
+def generate_cross_sample_pretraining_problem(
+    ae: MechanisticAutoEncoder, problem: Problem
+) -> pypesto.Problem:
     """
     Creates a pypesto problem that can be used to train population
     parameters as well as individual sample specific parameters. This is
     effectively just the unconstrained petab subproblem.
     """
-    x_names = ae.x_names[ae.n_encode_weights:]
+    x_names = ae.x_names[ae.n_encode_weights :]
 
     obj = JaxObjective(
         ae.pypesto_subproblem.objective,
@@ -266,21 +304,20 @@ def generate_cross_sample_pretraining_problem(ae: MechanisticAutoEncoder, proble
     pypesto_problem = pypesto.Problem(
         objective=obj,
         x_names=x_names,
-        lb=[
-            problem.bounds[xname.split("_")[-1]][0] - 2.0
-            for xname in x_names
-        ],
-        ub=[
-            problem.bounds[xname.split("_")[-1]][1] + 2.0
-            for xname in x_names
-        ],
+        lb=[problem.bounds[xname.split("_")[-1]][0] - 2.0 for xname in x_names],
+        ub=[problem.bounds[xname.split("_")[-1]][1] + 2.0 for xname in x_names],
     )
     problem.apply_objective_settings(pypesto_problem.objective)
     return pypesto_problem
 
 
 def pretrain(
-    problem: Problem, startpoint_method: Callable, nstarts: int, optimizer, hfile=None, engine=None
+    problem: Problem,
+    startpoint_method: Callable,
+    nstarts: int,
+    optimizer,
+    hfile=None,
+    engine=None,
 ) -> pypesto.Result:
     """
     Pretrain the provided problem via optimization.
@@ -301,7 +338,7 @@ def pretrain(
         Path.unlink(hfile, missing_ok=True)
         history_options = HistoryOptions(
             trace_record=True,
-            trace_record_grad=False,
+            trace_record_grad=True,
             trace_record_hess=False,
             trace_record_res=False,
             trace_record_sres=False,
@@ -323,7 +360,10 @@ def pretrain(
 
 
 def store_and_plot_pretraining(
-    result: pypesto.Result, rfile: Path, pfile: Path, plot_waterfall: bool = True
+    result: pypesto.Result,
+    rfile: Path,
+    pfile: Path,
+    plot_waterfall: bool = True,
 ):
     """
     Store optimiziation results in HDF5 as well as csv for later reuse. Also
@@ -349,4 +389,4 @@ def store_and_plot_pretraining(
     if plot_waterfall:
         waterfall(result, scale_y="log10", offset_y=0.0)
         plt.tight_layout()
-        plt.savefig(outdir / f'{run_name}_waterfall.pdf')
+        plt.savefig(outdir / f"{run_name}_waterfall.pdf")
