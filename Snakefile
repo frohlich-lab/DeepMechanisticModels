@@ -38,8 +38,8 @@ rule process_data:
     resources:
         mem="2GB",
         runtime="15m",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -58,8 +58,8 @@ rule compile_mechanistic_model:
     resources:
         mem="8GB",
         runtime="1h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
@@ -79,8 +79,8 @@ rule pretrain_per_sample:
     resources:
         mem="1GB",
         runtime="6h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} '
         '{wildcards.sample}'
@@ -101,8 +101,8 @@ rule pretrain_average_model:
     resources:
         mem="1GB",
         runtime="6h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
@@ -130,8 +130,8 @@ rule pretrain_cross_sample:
     resources:
         mem="1.5GB",
         runtime="6h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     retries: 1
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
@@ -161,8 +161,8 @@ rule estimate_parameters:
     resources:
         mem="1GB",
         runtime="6h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
@@ -189,8 +189,8 @@ rule collect_estimation_results:
     resources:
         mem="8GB",
         runtime="2h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
         '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {N_STARTS}'
@@ -220,8 +220,8 @@ rule evaluate_pretraining:
     resources:
         mem="10GB",
         runtime="24h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {N_STARTS}'
 
@@ -247,8 +247,8 @@ rule evaluate_training:
     resources:
         mem="10GB",
         runtime="24h",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
 
@@ -276,8 +276,8 @@ rule evaluate_all:
     resources:
         mem="4GB",
         runtime="30m",
-        nodes="1",
-        cpus_per_task="1",
+        nodes=1,
+        cpus_per_task=1,
     shell:
         'python3 {input.script} {wildcards.model} {wildcards.data}'
 
