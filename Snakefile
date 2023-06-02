@@ -16,7 +16,11 @@ cytof_dir = basedir / 'cytof'
 N_STARTS = int(config.get("num_starts", "10"))
 STARTS = [str(i) for i in range(N_STARTS)]
 
-singularity: config.get("singularity", r"docker://fabfroehlich/generic_parameter_estimation:main")
+singularity: "docker://fabfroehlich/generic_parameter_estimation:main"
+
+envvars:
+    "SYNAPSE_AUTH_TOKEN",
+    "WANDB_API_KEY"
 
 rule process_data:
     input:
