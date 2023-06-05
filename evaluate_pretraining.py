@@ -194,14 +194,10 @@ def evaluate_average(dataset, model, data):
     df_train["condition"] = df_train[petab.SIMULATION_CONDITION_ID].apply(
         lambda x: x.split("__")[1]
     )
-
-    avg_model = df_train.groupby(
-        [
-            petab.OBSERVABLE_ID,
-            "condition",
-            petab.TIME,
-        ]
-    ).agg(np.nanmean)
+    gb_cols = [petab.OBSERVABLE_ID, "condition", petab.TIME]
+    avg_model = (
+        df_train[gb_cols + [petab.MEASUREMENT]].groupby(gb_cols).agg(np.nanmean)
+    )
 
     df_sim = df_meas.copy()
     df_sim = df_sim.loc[
