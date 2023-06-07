@@ -22,23 +22,27 @@ pypesto_problem = create_pypesto_problem(model, problem)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
 indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent
-inpattern = str(
-    Path(
-        TRAINING_OUTFILE_RESULTS.replace("{job}", "[0-9]+").format(
-            **conf.__dict__
-        )
-    ).stem
+inpattern = (
+    str(
+        Path(
+            TRAINING_OUTFILE_RESULTS.replace("{job}", "([0-9]+)").format(
+                **conf.__dict__
+            )
+        ).stem
+    )
+    + ".hdf5"
 )
 
 optimizer_results = []
 for file in os.listdir(indir):
     if not str(file).endswith(".hdf5"):
         continue
-    if not re.match(inpattern, str(file)):
+    m = re.match(inpattern, str(file))
+    if not m:
         continue
 
     # ignore previous results with higher n_starts
-    if int(str(os.path.splitext(file)[0]).split("__")[-1]) >= conf.n_starts:
+    if int(str(m.group(1))) >= conf.n_starts:
         print(f"ignoring old results from {file} (njobs={conf.n_starts})")
         continue
 
