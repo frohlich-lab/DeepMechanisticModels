@@ -37,9 +37,9 @@ for file in os.listdir(indir):
     if not re.match(inpattern, str(file)):
         continue
 
-    # ignore previous results, conf.job is set to NSTARTS
-    if int(str(os.path.splitext(file)[0]).split("__")[-1]) >= conf.job:
-        print(f"ignoring old results from {file} (njobs={conf.job})")
+    # ignore previous results with higher n_starts
+    if int(str(os.path.splitext(file)[0]).split("__")[-1]) >= conf.n_starts:
+        print(f"ignoring old results from {file} (njobs={conf.n_starts})")
         continue
 
     print(f"loading results from {file}")
