@@ -207,7 +207,7 @@ rule collect_estimation_results:
         alpha='[0-9\.]+'
     resources:
         mem="8GB",
-        runtime="2h",
+        runtime="1h",
         nodes=1,
         cpus_per_task=1,
     shell:

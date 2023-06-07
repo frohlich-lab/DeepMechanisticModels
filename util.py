@@ -32,9 +32,9 @@ class Conf(dict):
     n_hidden: int = None
     alpha: float = None
     job: int = None
-    n_threads: int = None
+    n_threads: int = 1
     n_starts: int = None
-    use_pretraining: bool = None
+    use_pretraining: bool = True
 
 
 def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
