@@ -62,10 +62,16 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 )
 
 tpl_evaluation_file = str(
-    fig_dir / "{model}" / "{data}" / "{samples}_pretrain_{mode}_{dataset}.csv"
+    fig_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_pretrain_{mode}_{dataset}_{alpha}_{n_hidden}_{context}.csv"
 )
 EVALUATION_TRAINING = str(
-    fig_dir / "{model}" / "{data}" / "{samples}_training_{dataset}.csv"
+    fig_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_training_{dataset}_{alpha}_{n_hidden}_{context}.csv"
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 

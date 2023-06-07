@@ -69,8 +69,4 @@ def evaluate_training(dataset, conf):
 
 for dataset in ("train", "test"):
     df = evaluate_training(dataset, conf)
-    df.to_csv(
-        EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__).replace(
-            ".csv", f"__{conf.alpha}__{conf.n_hidden}__{conf.context}.csv"
-        )
-    )
+    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__))

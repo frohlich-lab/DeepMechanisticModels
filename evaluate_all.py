@@ -33,10 +33,13 @@ for samples in SPLITS:
                 pd.read_csv(
                     tpl_evaluation_file.format(
                         **conf.__dict__,
+                        alpha=alpha,
+                        n_hidden=ldim,
+                        context=ctxt,
                         samples=samples,
                         dataset=dataset,
                         mode="cross_sample",
-                    ).replace(".csv", f"_{alpha}_{ldim}_{ctxt}.csv"),
+                    ),
                     index_col=0,
                 )
             )
@@ -56,9 +59,12 @@ for samples in SPLITS:
                 pd.read_csv(
                     EVALUATION_TRAINING.format(
                         **conf.__dict__,
+                        alpha=alpha,
+                        n_hidden=ldim,
+                        context=ctxt,
                         samples=samples,
                         dataset=dataset,
-                    ).replace(".csv", f"_{alpha}_{ldim}_{ctxt}.csv"),
+                    ),
                     index_col=0,
                 )
             )

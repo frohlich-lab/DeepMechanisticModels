@@ -230,13 +230,12 @@ rule evaluate_pretraining:
         reference=expand(
             tpl_evaluation_file,
             model='{model}', data='{data}', samples='{samples}',
+            alpha=ALPHAS[0], n_hidden=LATENT_DIMS[0], context=CONTEXTS[0],
             mode=['per_sample', 'average'],
             dataset=['train', 'test']
         ),
         cross_sample=expand(
-            tpl_evaluation_file.replace(
-                ".csv",f"__{alpha}__{n_hidden}__{context}.csv"
-            ),
+            tpl_evaluation_file,
             model='{model}', data='{data}', samples='{samples}',
             alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
             mode='cross_sample',
@@ -271,9 +270,7 @@ rule evaluate_training:
         #),
     output:
         csv=expand(
-            EVALUATION_TRAINING.replace(
-                ".csv",f"__{alpha}__{n_hidden}__{context}.csv"
-            ),
+            EVALUATION_TRAINING,
             model='{model}',data='{data}', samples='{samples}',
             alpha='{alpha}',n_hidden='{n_hidden}',context='{context}',
             dataset=['train', 'test']

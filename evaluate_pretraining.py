@@ -354,7 +354,5 @@ for dataset in ["train", "test"]:
             **conf.__dict__,
             dataset=dataset,
             mode="cross_sample",
-        ).replace(
-            ".csv", f"__{conf.alpha}__{conf.n_hidden}__{conf.context}.csv"
         )
     )
