@@ -222,7 +222,7 @@ rule evaluate_references:
         #pretrain_per_sample=per_sample_pretraining_test,
         #pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
-        reference=expand(
+        csv=expand(
             EVALUATION_REFERENCE,
             model='{model}',data='{data}',samples='{samples}',
             mode=['per_sample', 'average'],
@@ -253,7 +253,7 @@ rule evaluate_pretraining:
         #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
         #),
     output:
-        expand(
+        csv=expand(
             EVALUATION_PRETRAINING,
             model='{model}', data='{data}', samples='{samples}',
             alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
@@ -325,7 +325,7 @@ rule evaluate_all:
             model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS
         ),
         reference=expand(
-            rules.evaluate_references.output.reference,
+            rules.evaluate_references.output.csv,
             model='{model}',data='{data}',samples=SPLITS
         )
     output:
