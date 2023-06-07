@@ -61,7 +61,10 @@ OBSERVABLES_FILE = tpl_petab_file.format(
     file="observables", data="{data}", model="{model}"
 )
 
-tpl_evaluation_file = str(
+EVALUATION_REFERENCE = str(
+    fig_dir / "{model}" / "{data}" / "{samples}_pretrain_{mode}_{dataset}.csv"
+)
+EVALUATION_PRETRAINING = str(
     fig_dir
     / "{model}"
     / "{data}"

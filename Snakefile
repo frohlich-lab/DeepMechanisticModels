@@ -4,7 +4,7 @@ from pathlib import Path
 from common import (
     PER_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    tpl_evaluation_file, EVALUATION_TRAINING, EVALUATE_ALL
+    EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE
 )
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS
 
@@ -216,6 +216,34 @@ rule collect_estimation_results:
             for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
         ) + ' --n_starts={N_STARTS}'
 
+rule evaluate_references:
+    input:
+        script='evaluate_reference.py',
+        #pretrain_per_sample=per_sample_pretraining_test,
+        #pretrain_average=rules.pretrain_average_model.output.pretraining
+    output:
+        reference=expand(
+            EVALUATION_REFERENCE,
+            model='{model}',data='{data}',samples='{samples}',
+            mode=['per_sample', 'average'],
+            dataset=['train', 'test']
+        ),
+    wildcard_constraints:
+        model='\w+',
+        data=r'[\w\.]+',
+        samples='[0-9]+_[0-9]+',
+    retries: 1
+    resources:
+        mem="10GB",
+        runtime="24h",
+        nodes=1,
+        cpus_per_task=1,
+    shell:
+        'python3 {input.script} ' + ' '.join(
+        f'--{arg}={{wildcards.{arg}}}'
+        for arg in ('model','data','samples',)
+        ) + ' --n_starts={N_STARTS}'
+
 rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
@@ -224,18 +252,9 @@ rule evaluate_pretraining:
         #    model='{model}', data='{data}', context=CONTEXTS,
         #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
         #),
-        #pretrain_per_sample=per_sample_pretraining_test,
-        #pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
-        reference=expand(
-            tpl_evaluation_file,
-            model='{model}', data='{data}', samples='{samples}',
-            alpha=ALPHAS[0], n_hidden=LATENT_DIMS[0], context=CONTEXTS[0],
-            mode=['per_sample', 'average'],
-            dataset=['train', 'test']
-        ),
-        cross_sample=expand(
-            tpl_evaluation_file,
+        expand(
+            EVALUATION_PRETRAINING,
             model='{model}', data='{data}', samples='{samples}',
             alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
             mode='cross_sample',
@@ -299,12 +318,16 @@ rule evaluate_all:
         script='evaluate_all.py',
         pretraining=expand(
             rules.evaluate_pretraining.output.csv,
-            model='{model}',data='{data}', samples=SPLITS
+            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS
         ),
         training=expand(
             rules.evaluate_training.output.csv,
-            model='{model}',data='{data}',samples=SPLITS
+            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS
         ),
+        reference=expand(
+            rules.evaluate_references.output.reference,
+            model='{model}',data='{data}',samples=SPLITS
+        )
     output:
         plot=expand(
             EVALUATE_ALL,

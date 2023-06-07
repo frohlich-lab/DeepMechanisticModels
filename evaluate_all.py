@@ -8,9 +8,10 @@ import seaborn as sns
 
 from common import (
     EVALUATE_ALL,
+    EVALUATION_PRETRAINING,
+    EVALUATION_REFERENCE,
     EVALUATION_TRAINING,
     fig_dir,
-    tpl_evaluation_file,
 )
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import ALPHAS, CONTEXTS, LATENT_DIMS, SPLITS
@@ -31,7 +32,7 @@ for samples in SPLITS:
         pretraining = pd.concat(
             (
                 pd.read_csv(
-                    tpl_evaluation_file.format(
+                    EVALUATION_PRETRAINING.format(
                         **conf.__dict__,
                         alpha=alpha,
                         n_hidden=ldim,
@@ -76,7 +77,7 @@ for samples in SPLITS:
 
         # average
         avg = pd.read_csv(
-            tpl_evaluation_file.format(
+            EVALUATION_REFERENCE.format(
                 **conf.__dict__,
                 samples=samples,
                 dataset=dataset,
@@ -88,13 +89,13 @@ for samples in SPLITS:
 
         # model average
         # avg_model = pd.read_csv(
-        #    tpl_evaluation_file.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'),
+        #    EVALUATION_REFERENCE.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'),
         #    index_col=0
         # )
 
         # per sample
         ps = pd.read_csv(
-            tpl_evaluation_file.format(
+            EVALUATION_REFERENCE.format(
                 **conf.__dict__,
                 samples=samples,
                 dataset=dataset,
