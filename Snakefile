@@ -267,7 +267,6 @@ rule evaluate_pretraining:
         context='\w+',
         n_hidden='[0-9]+',
         alpha='[0-9\.]+'
-    retries: 1
     resources:
         mem="1GB",
         runtime="1h",
@@ -301,7 +300,6 @@ rule evaluate_training:
         context='\w+',
         n_hidden='[0-9]+',
         alpha='[0-9\.]+'
-    retries: 1
     resources:
         mem="1GB",
         runtime="1h",
@@ -310,7 +308,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data',  'samples')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
         )
 
 rule evaluate_all:
