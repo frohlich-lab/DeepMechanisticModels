@@ -148,7 +148,8 @@ def generate_synthetic_data(
         tt_pars, (encoder.n_encode_weights,)
     )
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
-        data_dir / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
+        data_dir
+        / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
     )
 
     samples = []
@@ -209,7 +210,11 @@ def generate_synthetic_data(
         & (
             df.loc[
                 :,
-                [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"],
+                [
+                    x
+                    for x in list(model.getFixedParameterIds())
+                    if x != "EGF_0"
+                ],
             ]
             == 0
         ).all(axis=1),
@@ -239,7 +244,11 @@ def generate_synthetic_data(
         & (
             df.loc[
                 :,
-                [x for x in list(model.getFixedParameterIds()) if x != "EGF_0"],
+                [
+                    x
+                    for x in list(model.getFixedParameterIds())
+                    if x != "EGF_0"
+                ],
             ]
             == 0
         ).all(axis=1),
@@ -266,7 +275,9 @@ def generate_synthetic_data(
     )
 
     fig, axes = plt.subplots(1, 2)
-    plot_pca_inputs(df[list(model.getObservableIds())].values, axes[0], axes[1])
+    plot_pca_inputs(
+        df[list(model.getObservableIds())].values, axes[0], axes[1]
+    )
     plot_and_save_fig(
         f"{problem.pathway_name}__{data_name}__data_pca.pdf", data_dir
     )
@@ -300,7 +311,9 @@ def generate_synthetic_data(
         measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith("p"))
         | (
             # or total
-            measurements[petab.OBSERVABLE_ID].apply(lambda x: x.startswith("t"))
+            measurements[petab.OBSERVABLE_ID].apply(
+                lambda x: x.startswith("t")
+            )
             & (
                 # and baseline
                 measurements[[petab.TIME] + list(model.getFixedParameterIds())]
@@ -329,9 +342,9 @@ def generate_synthetic_data(
 
     # fix observable names so they are properly recognized in downstream
     # processing
-    measurements[petab.OBSERVABLE_ID] = measurements[petab.OBSERVABLE_ID].apply(
-        lambda x: x.replace("_obs", "")
-    )
+    measurements[petab.OBSERVABLE_ID] = measurements[
+        petab.OBSERVABLE_ID
+    ].apply(lambda x: x.replace("_obs", ""))
 
     measurements[petab.SIMULATION_CONDITION_ID] = measurements.apply(
         lambda x: f'sample_{x["Sample"]}'
@@ -362,7 +375,9 @@ def generate_synthetic_data(
     conditions = pd.DataFrame(
         {
             petab.CONDITION_ID: sorted(
-                set(measurements[petab.SIMULATION_CONDITION_ID].unique()).union(
+                set(
+                    measurements[petab.SIMULATION_CONDITION_ID].unique()
+                ).union(
                     set(
                         measurements[
                             petab.PREEQUILIBRATION_CONDITION_ID
@@ -380,7 +395,8 @@ def generate_synthetic_data(
         else:
             conditions[fp] = conditions[petab.CONDITION_ID].apply(
                 lambda x: float(
-                    fp.replace("_0", "") in (cond for cond in x.split("__")[1:])
+                    fp.replace("_0", "")
+                    in (cond for cond in x.split("__")[1:])
                 )
             )
 

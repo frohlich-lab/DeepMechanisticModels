@@ -10,14 +10,14 @@ from pypesto.history import HistoryOptions
 from pypesto.objective.jax import JaxObjective
 from pypesto.optimize import FidesOptimizer, OptimizeOptions, minimize
 
-from .autoencoder import MechanisticAutoEncoder
+from .autoencoder import DeepMechanisticModel
 from .problem import Problem
 
 trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
 
-def generate_pypesto_objective(ae: MechanisticAutoEncoder) -> JaxObjective:
+def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
     Creates a pypesto objective function (this is the loss function) that
     needs to be minimized to train the respective autoencoder
@@ -35,7 +35,7 @@ def generate_pypesto_objective(ae: MechanisticAutoEncoder) -> JaxObjective:
 
 
 def create_pypesto_problem(
-    ae: MechanisticAutoEncoder, problem: Problem
+    ae: DeepMechanisticModel, problem: Problem
 ) -> pypesto.Problem:
     """
     Creates a pypesto pypesto_probme that defines the optimization pypesto_probme that
@@ -56,7 +56,7 @@ def create_pypesto_problem(
 
 
 def train(
-    ae: MechanisticAutoEncoder,
+    ae: DeepMechanisticModel,
     pypesto_problem: pypesto.Problem,
     problem: Problem,
     pretraining_file: Path,
@@ -73,7 +73,7 @@ def train(
         fides.Options.FRTOL: 0,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 3600 * 10,
-        fides.Options.MAXITER: 100,
+        fides.Options.MAXITER: 1000,
     }
     opt = FidesOptimizer(
         hessian_update=fides.HybridFixed(),
@@ -87,7 +87,7 @@ def train(
         allow_failed_starts=True,
     )
 
-    if pretraining_file.exists():
+    if pretraining_file is not None and pretraining_file.exists():
         pretraining = pd.read_csv(pretraining_file, index_col=0)
         xi = pretraining.values[0, :]
     else:

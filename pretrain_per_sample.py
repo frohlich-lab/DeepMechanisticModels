@@ -2,10 +2,10 @@
 Per sample pretraining.
 """
 
-import sys
 from pathlib import Path
 
 import fides
+import fire
 import numpy as np
 import pypesto
 from pypesto.optimize import FidesOptimizer
@@ -17,38 +17,33 @@ from common import (
     pretrain_dir,
 )
 from cytof.problem import CytofProblem
-from mEncoder.petab_subproblem import load_petab
-from mEncoder.pretraining import (
+from dmm.petab_subproblem import load_petab
+from dmm.pretraining import (
     generate_per_sample_pretraining_problems,
     pretrain,
     store_and_plot_pretraining,
 )
-from util import load_petab_base_files
+from util import Conf, load_petab_base_files
 
 np.random.seed(0)
 
-MODEL = sys.argv[1]
-DATA = sys.argv[2]
-SAMPLE = sys.argv[3]
+conf = fire.Fire(Conf)
 
-problem = CytofProblem(MODEL)
+problem = CytofProblem(conf.model)
 
 petab_base_importer = load_petab(
-    problem,
-    DATA,
-    0.0,
-    **load_petab_base_files(MODEL, DATA),
+    problem, conf.data, 0.0, **load_petab_base_files(conf)
 )
 
 importer = generate_per_sample_pretraining_problems(
     petab_base_importer,
     problem,
-    DATA,
-    SAMPLE,
+    conf.data,
+    conf.sample,
 )
 
-outdir = pretrain_dir / MODEL / DATA
-figdir = fig_dir / MODEL / DATA / "pretraining_sample"
+outdir = pretrain_dir / conf.model / conf.data
+figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
 pypesto_problem = importer.create_problem()
 model = importer.create_model()
 
@@ -68,10 +63,6 @@ result = pretrain(
     10,
     optimizer,
 )
-results_file = Path(
-    PER_SAMPLE_OUTFILE_RESULTS.format(model=MODEL, data=DATA, sample=SAMPLE)
-)
-pars_file = Path(
-    PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample=SAMPLE)
-)
+results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
+pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)

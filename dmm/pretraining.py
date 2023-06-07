@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable, List
+from typing import Callable, List, Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,12 +11,13 @@ from pypesto.history import HistoryOptions
 from pypesto.objective.jax import JaxObjective
 from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.petab.pysb_importer import PetabImporterPysb
+from pypesto.startpoint import UniformStartpoints
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import parameters, waterfall
 from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
-from .autoencoder import MechanisticAutoEncoder
+from .autoencoder import DeepMechanisticModel
 from .problem import Problem
 
 
@@ -286,7 +287,7 @@ def generate_average_pretraining_problem(
 
 
 def generate_cross_sample_pretraining_problem(
-    ae: MechanisticAutoEncoder, problem: Problem
+    ae: DeepMechanisticModel, problem: Problem
 ) -> pypesto.Problem:
     """
     Creates a pypesto problem that can be used to train population
@@ -304,8 +305,12 @@ def generate_cross_sample_pretraining_problem(
     pypesto_problem = pypesto.Problem(
         objective=obj,
         x_names=x_names,
-        lb=[problem.bounds[xname.split("_")[-1]][0] - 2.0 for xname in x_names],
-        ub=[problem.bounds[xname.split("_")[-1]][1] + 2.0 for xname in x_names],
+        lb=[
+            problem.bounds[xname.split("_")[-1]][0] - 2.0 for xname in x_names
+        ],
+        ub=[
+            problem.bounds[xname.split("_")[-1]][1] + 2.0 for xname in x_names
+        ],
     )
     problem.apply_objective_settings(pypesto_problem.objective)
     return pypesto_problem
@@ -313,9 +318,9 @@ def generate_cross_sample_pretraining_problem(
 
 def pretrain(
     problem: Problem,
-    startpoint_method: Callable,
     nstarts: int,
     optimizer,
+    startpoint_method: Optional[Callable] = None,
     hfile=None,
     engine=None,
 ) -> pypesto.Result:
@@ -332,6 +337,11 @@ def pretrain(
     :param nstarts:
         number of local optimizations to perform
     """
+
+    if startpoint_method is None:
+        startpoint_method = UniformStartpoints(
+            check_fval=True, check_grad=True
+        )
 
     optimize_options = OptimizeOptions(allow_failed_starts=False)
     if hfile is not None:

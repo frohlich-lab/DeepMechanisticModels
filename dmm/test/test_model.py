@@ -5,7 +5,7 @@ import numpy as np
 import petab
 
 from .. import load_model
-from ..autoencoder import MechanisticAutoEncoder, load_petab
+from ..autoencoder import DeepMechanisticModel, load_petab
 from ..generate_data import generate_synthetic_data
 from ..training import generate_pypesto_objective, train
 
@@ -38,7 +38,7 @@ def test_pypesto_objective():
     datafiles = generate_synthetic_data(pathway_model)
     n_hidden = 2
 
-    mae = MechanisticAutoEncoder(n_hidden, datafiles, pathway_model)
+    mae = DeepMechanisticModel(n_hidden, datafiles, pathway_model)
     objective = generate_pypesto_objective(mae)
     x = np.random.random((mae.n_encoder_pars + mae.n_kin_params,))
     x[0 : mae.n_encoder_pars] /= 10
@@ -63,5 +63,5 @@ def test_pypesto_optimization():
     datafile = generate_synthetic_data(pathway_model)
     n_hidden = 2
 
-    mae = MechanisticAutoEncoder(n_hidden, datafile, pathway_model)
+    mae = DeepMechanisticModel(n_hidden, datafile, pathway_model)
     train(mae, maxiter=5)

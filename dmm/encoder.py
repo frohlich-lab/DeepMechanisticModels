@@ -75,7 +75,9 @@ class AutoEncoder(eqx.Module):
         return jnp.dot(sample, weights)
 
     def decode(
-        self, embedding: Union[np.ndarray, jnp.ndarray], parameters: jnp.ndarray
+        self,
+        embedding: Union[np.ndarray, jnp.ndarray],
+        parameters: jnp.ndarray,
     ):
         """
         Run the input through the decoder.
@@ -87,7 +89,9 @@ class AutoEncoder(eqx.Module):
         return jnp.dot(embedding, jnp.linalg.pinv(weights.T).T)
 
     def inflate_params(
-        self, embedding: Union[np.ndarray, jnp.ndarray], parameters: jnp.ndarray
+        self,
+        embedding: Union[np.ndarray, jnp.ndarray],
+        parameters: jnp.ndarray,
     ):
         """Inflate the input to parameters (partial parameter vector)"""
         weights = jnp.reshape(parameters, (self.n_latent, self.n_params))

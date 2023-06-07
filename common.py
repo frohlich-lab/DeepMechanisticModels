@@ -102,3 +102,27 @@ def per_sample_pretraining_test(wildcards) -> List[str]:
         )
         for sample in test_samples(wildcards)
     ]
+
+
+def select_values(data, percent=0.1):
+    # Convert the generator to a list
+    data_list = list(data)
+
+    # Generate log-spaced indices
+    num_values = len(data_list)
+    num_selected = int(num_values * percent)
+    indices = set(
+        np.logspace(
+            0,
+            np.log10(num_values - 1),
+            num=num_selected,
+            endpoint=True,
+            base=10,
+            dtype=int,
+        )
+    )
+
+    # Select values based on the indices
+    selected_values = [data_list[i] for i in indices]
+
+    return selected_values

@@ -1,6 +1,6 @@
 import itertools as itt
-import sys
 
+import fire
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,57 +12,67 @@ from common import (
     fig_dir,
     tpl_evaluation_file,
 )
-from training_configuration import (
-    ALPHAS,
-    CONTEXTS,
-    DATASETS,
-    LATENT_DIMS,
-    SPLITS,
-)
+from dmm.analysis import plot_loss_vs_regularization
+from training_configuration import ALPHAS, CONTEXTS, LATENT_DIMS, SPLITS
+from util import Conf
 
-MODEL = sys.argv[1]
-DATA = sys.argv[2]
+conf = fire.Fire(Conf)
 
-outdir = fig_dir / MODEL / DATA
+outdir = fig_dir / conf.model / conf.data
 
 METHODS = ("pca embedding", "end-to-end")
 
 avgs = dict()
 ps = dict()
 dfs = []
-for samples, data in itt.product((SPLITS, DATASETS)):
+for samples in SPLITS:
     for dataset in ["train", "test"]:
         # cross sample pretraining
-        pretraining = pd.read_csv(
-            tpl_evaluation_file.format(
-                samples=samples,
-                model=MODEL,
-                data=data,
-                dataset=dataset,
-                mode="cross_sample",
-            ),
-            index_col=0,
+        pretraining = pd.concat(
+            (
+                pd.read_csv(
+                    tpl_evaluation_file.format(
+                        **conf.__dict__,
+                        samples=samples,
+                        dataset=dataset,
+                        mode="cross_sample",
+                    ).replace(".csv", f"_{alpha}_{ldim}_{ctxt}.csv"),
+                    index_col=0,
+                )
+            )
+            for alpha, ldim, ctxt in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS)
         )
+        plot_loss_vs_regularization(pretraining)
+        plt.savefig(
+            outdir
+            / f"{conf.samples}_evaluate_pretrain_cross_sample_{dataset}.pdf"
+        )
+
         pretraining["ref"] = "meth"
 
         # training
-        training = pd.read_csv(
-            EVALUATION_TRAINING.format(
-                samples=samples,
-                model=MODEL,
-                data=data,
-                dataset=dataset,
-            ),
-            index_col=0,
+        training = pd.concat(
+            (
+                pd.read_csv(
+                    EVALUATION_TRAINING.format(
+                        **conf.__dict__,
+                        samples=samples,
+                        dataset=dataset,
+                    ).replace(".csv", f"_{alpha}_{ldim}_{ctxt}.csv"),
+                    index_col=0,
+                )
+            )
+            for alpha, ldim, ctxt in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS)
         )
+        plot_loss_vs_regularization(training)
+        plt.savefig(outdir / f"{conf.samples}_evaluate_training_{dataset}.pdf")
         training["ref"] = "meth"
 
         # average
         avg = pd.read_csv(
             tpl_evaluation_file.format(
+                **conf.__dict__,
                 samples=samples,
-                model=MODEL,
-                data=data,
                 dataset=dataset,
                 mode="average",
             ),
@@ -79,9 +89,8 @@ for samples, data in itt.product((SPLITS, DATASETS)):
         # per sample
         ps = pd.read_csv(
             tpl_evaluation_file.format(
+                **conf.__dict__,
                 samples=samples,
-                model=MODEL,
-                data=data,
                 dataset=dataset,
                 mode="per_sample",
             ),
@@ -209,6 +218,6 @@ for gb in ("observable", "time", "condition", "sample", "all"):
     g.set(xscale="log", ylim=(0, 1.5))
     g.add_legend()
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(model=MODEL, data=DATA, group=gb)
+    rfile = EVALUATE_ALL.format(**conf.__dict__, group=gb)
     plt.savefig(rfile)
     data.to_csv(rfile.replace(".pdf", ".csv"))

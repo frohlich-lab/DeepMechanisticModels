@@ -1,55 +1,64 @@
 """
 Per sample pretraining.
 """
+
+import sys
 from pathlib import Path
 
 import fides
-import fire
-import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import pypesto
 from pypesto.optimize import FidesOptimizer
-from pypesto.visualize import parameters, waterfall
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
     PER_SAMPLE_OUTFILE_RESULTS,
-    Wildcards,
     fig_dir,
     pretrain_dir,
-    training_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import (
-    generate_average_pretraining_problem,
+    generate_per_sample_reg_pretraining_problem,
     pretrain,
     store_and_plot_pretraining,
 )
-from util import Conf, load_petab_base_files
+from util import load_petab_base_files
 
 np.random.seed(0)
 
-conf = fire.Fire(Conf)
+MODEL = sys.argv[1]
+DATA = sys.argv[2]
+SAMPLES = sys.argv[3]
+ALPHA = float(sys.argv[4])
+SAMPLE = sys.argv[5]
 
-problem = CytofProblem(conf.model)
+problem = CytofProblem(MODEL)
 
 petab_base_importer = load_petab(
     problem,
-    conf.data,
+    DATA,
     0.0,
-    **load_petab_base_files(conf),
+    **load_petab_base_files(MODEL, DATA),
 )
 
-importer = generate_average_pretraining_problem(
+pars_file = Path(
+    PER_SAMPLE_OUTFILE_PARS.format(model=MODEL, data=DATA, sample="average")
+)
+avg_pars = pd.read_csv(pars_file)
+
+importer = generate_per_sample_reg_pretraining_problem(
     petab_base_importer,
     problem,
-    conf.data,
-    training_samples(Wildcards(conf.data, conf.samples)),
+    avg_pars,
+    DATA,
+    SAMPLE,
+    ALPHA,
 )
 
-outdir = pretrain_dir / conf.model / conf.data
-figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
+outdir = pretrain_dir / MODEL / DATA
+figdir = fig_dir / MODEL / DATA / "pretraining_sample"
 pypesto_problem = importer.create_problem()
 model = importer.create_model()
 
@@ -65,29 +74,18 @@ optimizer = FidesOptimizer(
 )
 result = pretrain(
     pypesto_problem,
+    pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
     10,
     optimizer,
 )
-
 results_file = Path(
     PER_SAMPLE_OUTFILE_RESULTS.format(
-        model=conf.model,
-        data=conf.data,
-        sample=f"model_average_{conf.samples}",
+        model=MODEL, data=DATA, sample=SAMPLE + f"__{SAMPLES}__{ALPHA}"
     )
 )
 pars_file = Path(
     PER_SAMPLE_OUTFILE_PARS.format(
-        model=conf.model,
-        data=conf.data,
-        sample=f"model_average_{conf.samples}",
+        model=MODEL, data=DATA, sample=SAMPLE + f"__{SAMPLES}__{ALPHA}"
     )
 )
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
-parameters(result)
-plt.tight_layout()
-plt.savefig(f"parameters_avg.pdf")
-
-waterfall(result)
-plt.tight_layout()
-plt.savefig(f"waterfall_avg.pdf")

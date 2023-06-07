@@ -1,19 +1,18 @@
-import sys
+import fire
 
 from cytof.problem import CytofProblem
-from mEncoder.petab_subproblem import load_petab
-from util import load_petab_base_files
+from dmm.petab_subproblem import load_petab
+from util import Conf, load_petab_base_files
 
-MODEL = sys.argv[1]
-DATA = sys.argv[2]
+conf = fire.Fire(Conf)
 
-problem = CytofProblem(MODEL)
+problem = CytofProblem(conf.model)
 
 importer = load_petab(
     problem,
-    DATA,
+    conf.data,
     0.0,
-    **load_petab_base_files(MODEL, DATA),
+    **load_petab_base_files(conf),
 )
 
 importer.create_model(force_compile=True)

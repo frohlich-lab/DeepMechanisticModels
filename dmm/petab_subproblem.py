@@ -70,10 +70,14 @@ def generate_parameter_table(
         if not par.startswith(MODEL_FEATURE_PREFIX)
     ]
 
-    par_inputs = [par for par in params if par.startswith(MODEL_FEATURE_PREFIX)]
+    par_inputs = [
+        par for par in params if par.startswith(MODEL_FEATURE_PREFIX)
+    ]
 
     # add additional input parameters for every base condition
-    for cond in measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].unique():
+    for cond in measurement_table[
+        petab.PREEQUILIBRATION_CONDITION_ID
+    ].unique():
         param_defs.extend(
             [
                 {
@@ -147,10 +151,13 @@ def load_petab(
 
     if samples:
         measurement_table = measurement_table[
-            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples)
+            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(
+                samples
+            )
         ]
         condition_table = condition_table.loc[
-            [c for c in condition_table.index if c.split("__")[0] in samples], :
+            [c for c in condition_table.index if c.split("__")[0] in samples],
+            :,
         ]
 
     model = problem.load_pysb()

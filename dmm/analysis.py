@@ -14,7 +14,7 @@ from pypesto import OptimizeResult
 from pypesto.C import MODE_RES
 from pypesto.store import OptimizationResultHDF5Reader
 
-from mEncoder.plotting import plot_cross_samples
+from dmm.plotting import plot_cross_samples
 
 
 def process_simulation(
@@ -50,7 +50,9 @@ def process_simulation(
         )
 
 
-def load_optimize_result_pretraining_cross_samples(pattern: str, n_starts: int):
+def load_optimize_result_pretraining_cross_samples(
+    pattern: str, n_starts: int
+):
     result = OptimizeResult()
     indir = Path(pattern).parent
     for file in os.listdir(indir):
@@ -141,7 +143,14 @@ def evaluate_simulations(
         simulation_df,
         outdir / dataset,
         "__".join(
-            [SAMPLES, context, str(latent_dim), str(l1reg), dataset, model_type]
+            [
+                SAMPLES,
+                context,
+                str(latent_dim),
+                str(l1reg),
+                dataset,
+                model_type,
+            ]
         ),
     )
 

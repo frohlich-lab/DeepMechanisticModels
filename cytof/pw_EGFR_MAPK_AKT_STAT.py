@@ -7,7 +7,7 @@ from cytof.pathways import (
     add_mtore_akt,
     add_stat,
 )
-from mEncoder.mechanistic_model import add_observables
+from dmm.mechanistic_model import add_observables
 
 model = Model("EGFR_MAPK_AKT_STAT")
 

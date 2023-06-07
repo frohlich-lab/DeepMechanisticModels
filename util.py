@@ -17,80 +17,62 @@ from common import (
     training_samples,
 )
 from cytof.problem import CytofProblem
-from mEncoder.autoencoder import MechanisticAutoEncoder
-from mEncoder.petab_subproblem import load_petab
-from mEncoder.pretraining import generate_per_sample_pretraining_problems
-
-
-def load_petab_base_files(model: str, dataset: str) -> Dict[str, pd.DataFrame]:
-    return {
-        "measurement_table": pd.read_csv(
-            MEASUREMENTS_FILE.format(data=dataset, model=model),
-            index_col=0,
-            sep="\t",
-        ),
-        "condition_table": pd.read_csv(
-            CONDITIONS_FILE.format(data=dataset, model=model),
-            index_col=0,
-            sep="\t",
-        ),
-        "observable_table": pd.read_csv(
-            OBSERVABLES_FILE.format(data=dataset, model=model),
-            index_col=0,
-            sep="\t",
-        ),
-    }
+from dmm.autoencoder import DeepMechanisticModel
+from dmm.petab_subproblem import load_petab
+from dmm.pretraining import generate_per_sample_pretraining_problems
 
 
 @dataclasses.dataclass
 class Conf(dict):
     model: str
     data: str
-    context: str
-    samples: str
-    n_hidden: int = 4
-    alpha: float = 0.0
-    job: int = 0
+    context: str = None
+    samples: str = None
+    sample: str = None
+    n_hidden: int = None
+    alpha: float = None
+    job: int = None
+    n_threads: int = None
+    n_starts: int = None
+    use_pretraining: bool = None
 
 
-def load_mae(
-    model: str,
-    data: str,
-    context: str = "baseline",
-    samples: str = "0_5",
-    n_hidden: int = 4,
-    alpha: float = 0.0,
-    job: int = -1,
+def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
+    return {
+        label: pd.read_csv(
+            file.format(data=conf.data, model=conf.model),
+            index_col=0,
+            sep="\t",
+        )
+        for label, file in (
+            ("measurement_table", MEASUREMENTS_FILE),
+            ("condition_table", CONDITIONS_FILE),
+            ("observable_table", OBSERVABLES_FILE),
+        )
+    }
+
+
+def load_models(
+    conf: Conf,
     dataset: str = "train",
-    n_threads: int = 1,
 ) -> Tuple[
-    Conf,
     Union[
-        MechanisticAutoEncoder,
-        Tuple[MechanisticAutoEncoder, MechanisticAutoEncoder],
+        DeepMechanisticModel,
+        Tuple[DeepMechanisticModel, DeepMechanisticModel],
     ],
     CytofProblem,
 ]:
-    conf = Conf(
-        model=model,
-        data=data,
-        context=context,
-        samples=samples,
-        n_hidden=n_hidden,
-        alpha=alpha,
-        job=job,
-    )
     problem = CytofProblem(conf.model)
 
-    petab_base_files = load_petab_base_files(conf.model, conf.data)
+    petab_base_files = load_petab_base_files(conf)
 
     samples = training_samples(Wildcards(conf.data, conf.samples))
 
     petab_base_importer = load_petab(
         problem,
-        data,
+        conf.data,
         0.0,
-        **load_petab_base_files(model, data),
+        **petab_base_files,
     )
 
     sigmas = {}
@@ -98,17 +80,19 @@ def load_mae(
         importer = generate_per_sample_pretraining_problems(
             petab_base_importer,
             problem,
-            data,
+            conf.data,
             sample,
         )
         pypesto_problem = importer.create_problem()
         rfile = PER_SAMPLE_OUTFILE_RESULTS.format(
-            model=model, data=data, sample=sample
+            model=conf.model, data=conf.data, sample=sample
         )
         result = OptimizationResultHDF5Reader(rfile).read()
 
         problem.apply_objective_settings(pypesto_problem.objective)
-        x = pypesto_problem.get_reduced_vector(result.optimize_result.list[0].x)
+        x = pypesto_problem.get_reduced_vector(
+            result.optimize_result.list[0].x
+        )
         res = pypesto_problem.objective(x, return_dict=True)
 
         simulation_df = rdatas_to_simulation_df(
@@ -145,58 +129,34 @@ def load_mae(
 
     petab_base_files["measurement_table"] = measurement_df
 
-    mae_train = MechanisticAutoEncoder(
+    dmm_train = DeepMechanisticModel(
         problem,
         conf.data,
         conf.n_hidden,
         **petab_base_files,
         samples=samples,
-        l1reg=conf.alpha,
+        l2reg=conf.alpha,
         contextualization=conf.context,
-        n_threads=n_threads,
+        n_threads=conf.n_threads,
     )
 
     if dataset == "train":
-        return conf, mae_train, problem
+        return dmm_train, problem
 
-    mae_test = MechanisticAutoEncoder(
+    dmm_test = DeepMechanisticModel(
         problem,
         conf.data,
         conf.n_hidden,
         **petab_base_files,
         samples=test_samples(Wildcards(conf.data, conf.samples)),
-        l1reg=conf.alpha,
+        l2reg=conf.alpha,
         contextualization=conf.context,
-        features=mae_train.features,
-        imputer=mae_train.imputer,
-        pca=mae_train.pca,
-        n_threads=n_threads,
+        features=dmm_train.features,
+        imputer=dmm_train.imputer,
+        pca=dmm_train.pca,
+        n_threads=conf.n_threads,
     )
     if dataset == "train+test":
-        return conf, (mae_train, mae_test), problem
+        return (dmm_train, dmm_test), problem
 
-    return conf, mae_test, problem
-
-
-def load_from_argv(
-    argv: List[str], n_threads=1, dataset="train"
-) -> Tuple[
-    Conf,
-    Union[
-        MechanisticAutoEncoder,
-        Tuple[MechanisticAutoEncoder, MechanisticAutoEncoder],
-    ],
-    CytofProblem,
-]:
-    argv.pop(0)  # remove script name
-    return load_mae(
-        model=argv.pop(0),
-        data=argv.pop(0),
-        context=argv.pop(0),
-        samples=argv.pop(0),
-        n_hidden=int(argv.pop(0)),
-        alpha=float(argv.pop(0)),
-        job=int(argv.pop(0) if argv else -1),
-        dataset=dataset,
-        n_threads=n_threads,
-    )
+    return dmm_test, problem

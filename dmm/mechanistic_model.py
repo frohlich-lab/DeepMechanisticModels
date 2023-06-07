@@ -51,7 +51,12 @@ def generate_pathway(
             else:
                 activators, deactivators = modulators
             add_activation(
-                model, p_name, site, "phosphorylation", activators, deactivators
+                model,
+                p_name,
+                site,
+                "phosphorylation",
+                activators,
+                deactivators,
             )
 
 

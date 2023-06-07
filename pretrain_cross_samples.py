@@ -3,10 +3,10 @@ Pretraining of population + individual parameters based on per sample
 pretraining
 """
 
-import sys
 from pathlib import Path
 
 import fides
+import fire
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
@@ -18,26 +18,27 @@ from common import (
     CROSS_SAMPLE_OUTFILE_RESULTS,
     CROSS_SAMPLE_OUTFILE_TRACE,
     PER_SAMPLE_OUTFILE_PARS,
+    select_values,
 )
-from mEncoder import MODEL_FEATURE_PREFIX
-from mEncoder.pretraining import (
+from dmm import MODEL_FEATURE_PREFIX
+from dmm.pretraining import (
     generate_cross_sample_pretraining_problem,
     pretrain,
     store_and_plot_pretraining,
 )
-from util import load_from_argv
+from util import Conf, load_models
 
-conf, (mae_train, mae_test), problem = load_from_argv(
-    sys.argv, dataset="train+test"
-)
+conf = fire.Fire(Conf)
+
+(model_train, model_test), problem = load_models(conf, dataset="train+test")
 
 pypesto_problem_train, pypesto_problem_test = (
     generate_cross_sample_pretraining_problem(mae, problem)
-    for mae in (mae_train, mae_test)
+    for mae in (model_train, model_test)
 )
 pretrained_samples = {}
 
-for sample in mae_train.sample_names:
+for sample in model_train.sample_names:
     df = pd.read_csv(
         PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__, sample=sample),
         index_col=[0],
@@ -77,13 +78,13 @@ def startpoints(**kwargs):
             ]
         )
         par_combo.index = list(pretrained_samples.keys())
-        par_combo = par_combo.reindex(mae_train.sample_names)
+        par_combo = par_combo.reindex(model_train.sample_names)
         means = par_combo.mean(skipna=True)
         par_combo -= means
 
         inputs = [
             "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
-            for p in mae_train.petab_importer.petab_problem.parameter_df.index
+            for p in model_train.petab_importer.petab_problem.parameter_df.index
             if p.startswith(MODEL_FEATURE_PREFIX)
             and p.endswith(par_combo.index[0])
         ]
@@ -102,7 +103,7 @@ def startpoints(**kwargs):
         #                 f"{MODEL_FEATURE_PREFIX}{col}_{sample}"
         #             ].values[0, 0]
         w = la.lstsq(
-            mae_train.data_pca[:, : mae_train.n_latent],
+            model_train.data_pca[:, : model_train.n_latent],
             par_combo[inputs].values,
         )[0].flatten()
         assert f"inflate_{len(w)-1}_weight" in pypesto_problem_train.x_names
@@ -120,34 +121,6 @@ def startpoints(**kwargs):
     return xs
 
 
-'''
-elif INIT == 'sampling':
-    def startpoints(**kwargs):
-        """
-        Custom startpoint routine for cross sample pretraining. This function
-        uses the results computed for the completely unconstrained problem
-        where the model is just fitted to each individual sample. For each
-        sample, a random local optimization result is picked. Then
-        shared population parameters are computed as mean over all samples and
-        sample specific input parameter are computed by substracting this mean
-        from the local solution.
-        """
-        n_starts = kwargs['n_starts']
-        lb = kwargs['lb']
-
-        dim = lb.size
-        xs = np.empty((n_starts, dim))
-
-        for istart in range(n_starts):
-            for ix, xname in enumerate(
-                    problem.get_reduced_vector(np.asarray(problem.x_names),
-                                               problem.x_free_indices)
-            ):
-                xs[istart, ix] = np.random.random()*(ub-lb) + lb
-
-        return xs
-'''
-
 fides_options = {
     fides.Options.FATOL: 0,
     fides.Options.FRTOL: 0,
@@ -162,7 +135,14 @@ optimizer = FidesOptimizer(
 )
 np.random.seed(conf.job)
 hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
-result = pretrain(pypesto_problem_train, startpoints, 1, optimizer, hfile)
+if conf.use_pretraining:
+    startpoint_method = startpoints
+else:
+    startpoint_method = None
+
+result = pretrain(
+    pypesto_problem_train, startpoint_method, 1, optimizer, hfile
+)
 
 rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
@@ -176,36 +156,50 @@ wandb.init(
     config={
         **conf.__dict__,
         "fides": fides_options,
+        "mode": "pretrain",
     },
     name="pretraining__" + rfile.stem,
 )
 
 wandb.define_metric("loss_train", summary="min", step_metric="iter")
-wandb.define_metric("loss_loss", summary="min", step_metric="iter")
+wandb.define_metric("loss_val", summary="min", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
-for iter, (fval_train, x, grad) in enumerate(
-    zip(
-        result.optimize_result.list[0].history.get_fval_trace(trim=True),
-        result.optimize_result.list[0].history.get_x_trace(trim=True),
-        result.optimize_result.list[0].history.get_grad_trace(trim=True),
-    )
+
+for iter, (fval_train, x, grad) in select_values(
+    enumerate(
+        zip(
+            result.optimize_result.list[0].history.get_fval_trace(trim=True),
+            result.optimize_result.list[0].history.get_x_trace(trim=True),
+            result.optimize_result.list[0].history.get_grad_trace(trim=True),
+        )
+    ),
+    0.1,
 ):
     loss_train, loss_val = (
         pp.objective.base_objective._objectives[0](pp.objective.jax_fun(x))
         for pp in (pypesto_problem_train, pypesto_problem_test)
     )
-    x_inflate, x_kinetic = np.split(x, (mae_train.n_inflate_weights,))
-    grad_inflate, grad_kinetic = np.split(grad, (mae_train.n_inflate_weights,))
     wandb.log(
         {
             "loss_train": loss_train,
             "loss_val": loss_val,
             "iter": iter,
-            "x_inflate": wandb.Histogram(x_inflate),
-            "x_kinetic": wandb.Histogram(x_kinetic),
-            "grad_inflate": wandb.Histogram(np.log(np.abs(grad_inflate))),
-            "grad_kinetic": wandb.Histogram(np.log(np.abs(grad_kinetic))),
+            **{
+                f"{val_type}_{xname}": None
+                if not np.all(np.isfinite(value))
+                else wandb.Histogram(value)
+                if val_type == "x"
+                else wandb.Histogram(np.log(np.abs(value)))
+                for val_type, values in (
+                    ("x", x),
+                    ("g", grad),
+                )
+                for xname, value in zip(
+                    ("inflate", "kinetic"),
+                    np.split(values, (model_train.n_inflate_weights,)),
+                )
+            },
         }
     )
 

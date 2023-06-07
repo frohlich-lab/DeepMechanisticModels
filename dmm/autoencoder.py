@@ -75,7 +75,7 @@ def contextualize_measurements(
     return input_data
 
 
-class MechanisticAutoEncoder(AutoEncoder):
+class DeepMechanisticModel(AutoEncoder):
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
     features: List[str] = eqx.static_field()
@@ -102,7 +102,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         condition_table: pd.DataFrame,
         contextualization: str,
         samples: Sequence[str],
-        l1reg: float = 0.0,
+        l2reg: float = 0.0,
         features: Optional[Sequence[str]] = None,
         imputer: Optional[KNNImputer] = None,
         pca: Optional[PCA] = None,
@@ -118,7 +118,7 @@ class MechanisticAutoEncoder(AutoEncoder):
         :param n_latent:
             number of nodes in the hidden layer of the encoder
 
-        :param l1reg:
+        :param l2reg:
             currently this parameter only influences the strength of l2
             regularization on the inflate layer (the respective gaussian
             prior has its standard deviation defined based on the value of
@@ -148,11 +148,11 @@ class MechanisticAutoEncoder(AutoEncoder):
 
         self.features = list(input_data.columns)
 
-        self.l1reg = l1reg
+        self.l1reg = l2reg
         self.petab_importer = load_petab(
             problem,
             dataset,
-            l1reg,
+            l2reg,
             measurement_table,
             condition_table,
             observable_table,

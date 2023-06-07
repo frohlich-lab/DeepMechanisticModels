@@ -222,7 +222,9 @@ def process_petab_proteomics(measurement_table_proteomics: pd.DataFrame):
 
     measurement_table_proteomics[
         petab.PREEQUILIBRATION_CONDITION_ID
-    ] = measurement_table_proteomics[petab.PREEQUILIBRATION_CONDITION_ID].apply(
+    ] = measurement_table_proteomics[
+        petab.PREEQUILIBRATION_CONDITION_ID
+    ].apply(
         lambda x: f'c{x.split("_")[0]}'
     )
 

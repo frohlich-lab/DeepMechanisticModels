@@ -9,7 +9,7 @@ from common import (
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS
 
 basedir = Path(os.getcwd())
-mencoder_dir = basedir / 'mEncoder'
+mencoder_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
 
 
@@ -45,7 +45,10 @@ rule process_data:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data')
+        )
 
 rule compile_mechanistic_model:
     input:
@@ -65,7 +68,10 @@ rule compile_mechanistic_model:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data')
+        )
 
 
 rule pretrain_per_sample:
@@ -86,8 +92,10 @@ rule pretrain_per_sample:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} '
-        '{wildcards.sample}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'samples')
+        )
 
 
 rule pretrain_average_model:
@@ -108,15 +116,18 @@ rule pretrain_average_model:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'samples')
+        )
 
 
 rule pretrain_cross_sample:
     input:
         script='pretrain_cross_samples.py',
-        pretraining=os.path.join('mEncoder', 'pretraining.py'),
-        autoencoder=os.path.join('mEncoder', 'autoencoder.py'),
-        bounds=os.path.join('mEncoder', '__init__.py'),
+        pretraining=mencoder_dir / 'pretraining.py',
+        autoencoder=mencoder_dir / 'autoencoder.py',
+        bounds=mencoder_dir / '__init__.py',
         pretrain_per_sample=per_sample_pretraining_train,
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
@@ -138,8 +149,10 @@ rule pretrain_cross_sample:
         cpus_per_task=1,
     retries: 1
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job',)
+        )
 
 
 rule estimate_parameters:
@@ -168,8 +181,10 @@ rule estimate_parameters:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {wildcards.job}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job',)
+        )
 
 rule collect_estimation_results:
     input:
@@ -196,19 +211,21 @@ rule collect_estimation_results:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.context} '
-        '{wildcards.samples} {wildcards.n_hidden} {wildcards.alpha} {N_STARTS}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
+        ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
-        cross_sample=expand(
-            rules.pretrain_cross_sample.output.results,
-            model='{model}', data='{data}', context=CONTEXTS,
-            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
-        ),
-        pretrain_per_sample=per_sample_pretraining_test,
-        pretrain_average=rules.pretrain_average_model.output.pretraining
+        #cross_sample=expand(
+        #    rules.pretrain_cross_sample.output.results,
+        #    model='{model}', data='{data}', context=CONTEXTS,
+        #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
+        #),
+        #pretrain_per_sample=per_sample_pretraining_test,
+        #pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
         csv=expand(
             tpl_evaluation_file,
@@ -227,16 +244,19 @@ rule evaluate_pretraining:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples} {N_STARTS}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
+        ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        cross_sample=expand(
-            rules.collect_estimation_results.output.result,
-            model='{model}', data='{data}', context=CONTEXTS,
-            n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}',
-        ),
+        #cross_sample=expand(
+        #    rules.collect_estimation_results.output.result,
+        #    model='{model}', data='{data}', context=CONTEXTS,
+        #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}',
+        #),
     output:
         csv=expand(
             EVALUATION_TRAINING,
@@ -254,7 +274,10 @@ rule evaluate_training:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data} {wildcards.samples}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data',  'samples')
+        )
 
 rule evaluate_all:
     input:
@@ -283,7 +306,10 @@ rule evaluate_all:
         nodes=1,
         cpus_per_task=1,
     shell:
-        'python3 {input.script} {wildcards.model} {wildcards.data}'
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data')
+        )
 
 rule train_and_evaluate:
     input:

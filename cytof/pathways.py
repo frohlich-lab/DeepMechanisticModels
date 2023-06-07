@@ -1,6 +1,6 @@
 from pysb import Observable
 
-from mEncoder.mechanistic_model import (
+from dmm.mechanistic_model import (
     add_activation,
     add_degradation,
     add_gf_bolus,
@@ -70,7 +70,9 @@ def add_mapk(model):
 
 
 def add_mtore_akt(model):
-    add_monomer_synth_deg("MTOR", asites=["C"], asite_states=["c0", "c1", "c2"])
+    add_monomer_synth_deg(
+        "MTOR", asites=["C"], asite_states=["c0", "c1", "c2"]
+    )
 
     # AKT
     akt_cascade = [
@@ -78,15 +80,24 @@ def add_mtore_akt(model):
         ("PDPK1", {"S241": ["PIK3CA__pip2_p"]}),
         (
             "AKT1",
-            {"T308": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT1__T308_p"]},
+            {
+                "T308": ["PDPK1__S241_p"],
+                "S473": ["MTOR__C_c2", "AKT1__T308_p"],
+            },
         ),
         (
             "AKT2",
-            {"T309": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT2__T309_p"]},
+            {
+                "T309": ["PDPK1__S241_p"],
+                "S473": ["MTOR__C_c2", "AKT2__T309_p"],
+            },
         ),
         (
             "AKT3",
-            {"T305": ["PDPK1__S241_p"], "S473": ["MTOR__C_c2", "AKT3__T305_p"]},
+            {
+                "T305": ["PDPK1__S241_p"],
+                "S473": ["MTOR__C_c2", "AKT3__T305_p"],
+            },
         ),
     ]
     generate_pathway(model, akt_cascade)

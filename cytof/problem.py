@@ -12,7 +12,7 @@ import pysb
 import pysb.export
 import sympy as sp
 
-from mEncoder.problem import ParameterBounds, Problem
+from dmm.problem import ParameterBounds, Problem
 
 from .data import load_dream_data
 

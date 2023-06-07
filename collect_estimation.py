@@ -11,8 +11,12 @@ from pypesto.store import (
 )
 from pypesto.visualize import parameters, waterfall
 
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, basedir
-from mEncoder.training import create_pypesto_problem
+from common import (
+    COLLECTED_TRAINING_RESULTS,
+    TRAINING_OUTFILE_RESULTS,
+    basedir,
+)
+from dmm.training import create_pypesto_problem
 from util import load_from_argv
 
 conf, mae, problem = load_from_argv(sys.argv)

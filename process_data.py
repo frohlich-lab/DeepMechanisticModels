@@ -1,6 +1,6 @@
 import re
-import sys
 
+import fire
 import pandas as pd
 import petab
 import pysb
@@ -11,7 +11,8 @@ from common import (
     OBSERVABLES_FILE,
     data_dir,
 )
-from mEncoder.generate_data import generate_synthetic_data
+from dmm.generate_data import generate_synthetic_data
+from util import Conf
 
 
 def observable_id_to_model_expr(
@@ -83,8 +84,7 @@ def observable_id_to_model_expr(
 
 
 if __name__ == "__main__":
-    MODEL = sys.argv[1]
-    DATA = sys.argv[2]
+    conf = fire.Fire(Conf)
 
     from cytof.problem import CytofProblem
 
@@ -92,22 +92,22 @@ if __name__ == "__main__":
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
 
-    if DATA == "dream_cytof":
+    if conf.data == "dream_cytof":
         (
             measurement_table,
             condition_table,
         ) = problem.load_preprocess_petab_tables(model)
-    elif DATA.startswith("synthetic"):
+    elif conf.data.startswith("synthetic"):
         N_HIDDEN = 6
-        N_SAMPLES = int(DATA.split("_")[1])
+        N_SAMPLES = int(conf.data.split("_")[1])
         condition_table, measurement_table = generate_synthetic_data(
             problem,
             data_dir,
-            DATA,
+            conf.data,
             latent_dimension=N_HIDDEN,
             n_samples=N_SAMPLES,
-            std_measurements=float(DATA.split("_")[2]),
-            std_features=float(DATA.split("_")[3]),
+            std_measurements=float(conf.data.split("_")[2]),
+            std_features=float(conf.data.split("_")[3]),
             n_features=200,
         )
     else:
@@ -127,7 +127,7 @@ if __name__ == "__main__":
     observable_ids = [
         obs_id
         for obs_id in measurement_table.loc[:, petab.OBSERVABLE_ID].unique()
-        if observable_id_to_model_expr(obs_id, DATA, model) != ""
+        if observable_id_to_model_expr(obs_id, conf.data, model) != ""
     ]
     observable_table = pd.DataFrame(
         {
@@ -135,7 +135,7 @@ if __name__ == "__main__":
         }
     )
     observable_obs = [
-        observable_id_to_model_expr(obs_id, DATA, model)
+        observable_id_to_model_expr(obs_id, conf.data, model)
         for obs_id in observable_ids
     ]
     observable_table[petab.OBSERVABLE_ID] = [
@@ -144,8 +144,8 @@ if __name__ == "__main__":
     measurement_table[petab.OBSERVABLE_ID] = measurement_table[
         petab.OBSERVABLE_ID
     ].apply(
-        lambda x: observable_id_to_model_expr(x, DATA, model) + "_obs"
-        if observable_id_to_model_expr(x, DATA, model) != ""
+        lambda x: observable_id_to_model_expr(x, conf.data, model) + "_obs"
+        if observable_id_to_model_expr(x, conf.data, model) != ""
         else x
     )
 
@@ -170,15 +170,13 @@ if __name__ == "__main__":
         obs_pars, axis=1
     )
 
-    measurement_file = data_dir / MEASUREMENTS_FILE.format(
-        data=DATA, model=MODEL
-    )
+    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.__dict__)
     measurement_table.to_csv(measurement_file, sep="\t")
 
-    condition_file = data_dir / CONDITIONS_FILE.format(data=DATA, model=MODEL)
+    condition_file = data_dir / CONDITIONS_FILE.format(**conf.__dict__)
     condition_table.set_index(petab.CONDITION_ID, inplace=True)
     condition_table.to_csv(condition_file, sep="\t")
 
-    observable_file = data_dir / OBSERVABLES_FILE.format(data=DATA, model=MODEL)
+    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.__dict__)
     observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
     observable_table.to_csv(observable_file, sep="\t")
