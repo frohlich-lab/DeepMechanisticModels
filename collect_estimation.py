@@ -1,8 +1,8 @@
 import os
 import re
-import sys
 from pathlib import Path
 
+import fire
 import matplotlib.pyplot as plt
 import pypesto.visualize
 from pypesto.store import (
@@ -11,16 +11,14 @@ from pypesto.store import (
 )
 from pypesto.visualize import parameters, waterfall
 
-from common import (
-    COLLECTED_TRAINING_RESULTS,
-    TRAINING_OUTFILE_RESULTS,
-    basedir,
-)
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
 from dmm.training import create_pypesto_problem
-from util import load_from_argv
+from util import Conf, load_models
 
-conf, mae, problem = load_from_argv(sys.argv)
-pypesto_problem = create_pypesto_problem(mae, problem)
+conf = fire.Fire(Conf)
+
+model, problem = load_models(conf, "train")
+pypesto_problem = create_pypesto_problem(model, problem)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
 indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent

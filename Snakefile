@@ -189,12 +189,12 @@ rule estimate_parameters:
 rule collect_estimation_results:
     input:
         script='collect_estimation.py',
-        trace=expand(
-            TRAINING_OUTFILE_RESULTS.format(
-                context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
-                n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
-            ), job=STARTS
-        )
+        #trace=expand(
+        #    TRAINING_OUTFILE_RESULTS.format(
+        #        context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
+        #        n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
+        #    ), job=STARTS
+        #)
     output:
         result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
@@ -281,11 +281,7 @@ rule evaluate_pretraining:
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        #cross_sample=expand(
-        #    rules.collect_estimation_results.output.result,
-        #    model='{model}', data='{data}', context=CONTEXTS,
-        #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}',
-        #),
+        training=rules.collect_estimation_results.output.result
     output:
         csv=expand(
             EVALUATION_TRAINING,
