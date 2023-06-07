@@ -234,8 +234,8 @@ rule evaluate_references:
         samples='[0-9]+_[0-9]+',
     retries: 1
     resources:
-        mem="10GB",
-        runtime="24h",
+        mem="1GB",
+        runtime="1h",
         nodes=1,
         cpus_per_task=1,
     shell:
@@ -269,8 +269,8 @@ rule evaluate_pretraining:
         alpha='[0-9\.]+'
     retries: 1
     resources:
-        mem="10GB",
-        runtime="24h",
+        mem="1GB",
+        runtime="1h",
         nodes=1,
         cpus_per_task=1,
     shell:
@@ -303,8 +303,8 @@ rule evaluate_training:
         alpha='[0-9\.]+'
     retries: 1
     resources:
-        mem="10GB",
-        runtime="24h",
+        mem="1GB",
+        runtime="1h",
         nodes=1,
         cpus_per_task=1,
     shell:
