@@ -227,16 +227,28 @@ rule evaluate_pretraining:
         #pretrain_per_sample=per_sample_pretraining_test,
         #pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
-        csv=expand(
+        reference=expand(
             tpl_evaluation_file,
             model='{model}', data='{data}', samples='{samples}',
-            mode=['per_sample', 'cross_sample', 'average'],
+            mode=['per_sample', 'average'],
             dataset=['train', 'test']
-        )
+        ),
+        cross_sample=expand(
+            tpl_evaluation_file.replace(
+                ".csv",f"__{alpha}__{n_hidden}__{context}.csv"
+            ),
+            model='{model}', data='{data}', samples='{samples}',
+            alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
+            mode='cross_sample',
+            dataset=['train', 'test']
+        ),
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+        context='\w+',
+        n_hidden='[0-9]+',
+        alpha='[0-9\.]+'
     retries: 1
     resources:
         mem="10GB",
@@ -259,14 +271,20 @@ rule evaluate_training:
         #),
     output:
         csv=expand(
-            EVALUATION_TRAINING,
+            EVALUATION_TRAINING.replace(
+                ".csv",f"__{alpha}__{n_hidden}__{context}.csv"
+            ),
             model='{model}',data='{data}', samples='{samples}',
+            alpha='{alpha}',n_hidden='{n_hidden}',context='{context}',
             dataset=['train', 'test']
         )
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
+        context='\w+',
+        n_hidden='[0-9]+',
+        alpha='[0-9\.]+'
     retries: 1
     resources:
         mem="10GB",
