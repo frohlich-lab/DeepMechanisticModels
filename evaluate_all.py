@@ -201,18 +201,22 @@ for gb in ("observable", "time", "condition", "sample", "all"):
     else:
         data = df_gb
 
-    kwargs = dict()
+    kwargs_fg = dict()
+    kwargs_lp = dict()
 
     if gb == "all":
-        kwargs["row_order"] = ("train", "test")
+        kwargs_fg["row_order"] = ("train", "test")
         if len(data.context.unique()) > 1:
-            kwargs["style"] = "context"
+            kwargs_lp["style"] = "context"
     else:
         data = data[data["context"] == "baseline"]
-        kwargs["style"] = "dataset"
+        kwargs_lp["style"] = "dataset"
 
     g = sns.FacetGrid(
-        data=data, row=gb if gb != "all" else "dataset", col="method", **kwargs
+        data=data,
+        row=gb if gb != "all" else "dataset",
+        col="method",
+        **kwargs_fg,
     )
 
     g.map_dataframe(
@@ -221,6 +225,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         y="rmse",
         hue="latent dim",
         errorbar="se",
+        **kwargs_lp,
     )
     g.map_dataframe(
         lineplot_ref_average,
