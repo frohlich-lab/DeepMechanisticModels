@@ -23,50 +23,54 @@ def contextualize_measurements(
     observable_table: pd.DataFrame,
     contextualization: str,
 ) -> pd.DataFrame:
-    baseline_measurements = measurement_table.copy()
+    input_measurements = measurement_table.copy()
 
-    if contextualization in ["baseline", "init"]:
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.TIME] == 0
+    if contextualization.startswith("transcriptomics"):
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "transcriptomics"
+        ]
+    elif contextualization.startswith("proteomics"):
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "proteomics"
+        ]
+    elif contextualization.startswith("cytof"):
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "cytof"
         ]
 
-    if contextualization == "baseline":
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.SIMULATION_CONDITION_ID]
-            == baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
+    if contextualization.startswith(
+        ("transcriptomics", "proteomics", "cytof_init")
+    ):
+        input_measurements = input_measurements[
+            input_measurements[petab.TIME] == 0
         ]
-    elif contextualization == "init":
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                lambda x: x.endswith("__EGF")
-            )
-        ]
-    else:
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.SIMULATION_CONDITION_ID]
-            != baseline_measurements[petab.PREEQUILIBRATION_CONDITION_ID]
-        ]
-        baseline_measurements[
-            petab.SIMULATION_CONDITION_ID
-        ] = baseline_measurements[petab.SIMULATION_CONDITION_ID].apply(
-            lambda x: x.split("__")[1]
-        )
 
-    if contextualization == "dynamic":
-        baseline_measurements = baseline_measurements[
-            baseline_measurements[petab.OBSERVABLE_ID].isin(
+    if contextualization.startswith("cytof_dynamic"):
+        input_measurements = input_measurements[
+            input_measurements[petab.OBSERVABLE_ID].isin(
                 list(observable_table.index)
             )
         ]
+        input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
+            petab.SIMULATION_CONDITION_ID
+        ].apply(lambda x: x.split("__")[1])
+
         pivot_columns = (
             petab.OBSERVABLE_ID,
             petab.SIMULATION_CONDITION_ID,
             petab.TIME,
         )
+    elif contextualization.startswith("cytof_init"):
+        input_measurements = input_measurements[
+            input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                lambda x: x.endswith("__EGF")
+            )
+        ]
+        pivot_columns = petab.OBSERVABLE_ID
     else:
         pivot_columns = petab.OBSERVABLE_ID
 
-    input_data = baseline_measurements.pivot_table(
+    input_data = input_measurements.pivot_table(
         index=petab.PREEQUILIBRATION_CONDITION_ID,
         columns=pivot_columns,
         values=petab.MEASUREMENT,
@@ -88,7 +92,7 @@ class DeepMechanisticModel(AutoEncoder):
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     data_cols: List[str] = eqx.static_field()
-    l1reg: float = eqx.static_field()
+    l2reg: float = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporterPysb = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
 
@@ -148,7 +152,7 @@ class DeepMechanisticModel(AutoEncoder):
 
         self.features = list(input_data.columns)
 
-        self.l1reg = l2reg
+        self.l2reg = l2reg
         self.petab_importer = load_petab(
             problem,
             dataset,
@@ -199,26 +203,34 @@ class DeepMechanisticModel(AutoEncoder):
         # generate PCA embedding for feature selection
         if pca is None:
             # use n_comps such that 90% of variance is explained
+
             var_expl = (
                 PCA(n_components=input_data.shape[0])
                 .fit(input_data)
                 .explained_variance_ratio_
             )
             n_pca = np.nonzero(np.cumsum(var_expl) > 0.9)[0][0] + 1
-            pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(
-                input_data
-            )
+
+            if contextualization.endswith("_pca"):
+                pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(
+                    input_data
+                )
+            else:
+                alpha = float(contextualization.split("_")[-1])
+                spca = SparsePCA(n_components=n_pca, alpha=alpha)
+                spca.fit(input_data)
+                X = input_data.values
+                P = spca.components_.T  # loadings
+                T = spca.transform(X)  # score
+                Xc = X - X.mean(axis=0)  # center data
+                explained_variance = np.trace(P @ T.T @ T @ P.T)
+                total_variance = np.trace(Xc.T @ Xc)
+                frac_expl_var = explained_variance / total_variance
+                print(f"Fraction of explained variance: {frac_expl_var}")
+
+                pca = spca
 
         self.pca = pca
-
-        # use this code to use reference embedding instead of pca
-        # if self.data_name.startswith("synthetic"):
-        #     self.data_pca = (
-        #         pd.read_csv(data_dir / f"{self.data_name}__embeddings.csv", index_col=[0])
-        #         .loc[samples, :]
-        #         .values
-        #    )
-        # else:
         self.data_pca = self.pca.transform(input_data)
 
         self.n_samples, self.n_features = self.data_pca.shape

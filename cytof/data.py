@@ -144,7 +144,11 @@ def process_petab_cytof(
         lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}",
         axis=1,
     )
-    return measurement_table_phospho.drop(columns=["treatment", "fileID"])
+    measurement_table_phospho.drop(
+        columns=["treatment", "fileID"], inplace=True
+    )
+    measurement_table_phospho["measurementType"] = "cytof"
+    return measurement_table_phospho
 
 
 def load_proteomics_from_synapse() -> pd.DataFrame:
@@ -159,12 +163,38 @@ def load_proteomics_from_synapse() -> pd.DataFrame:
         df_proteomics[petab.OBSERVABLE_ID].apply(lambda x: ";" not in x)
     ]
 
-    return pd.melt(
+    df_proteomics = pd.melt(
         df_proteomics,
         id_vars=[petab.OBSERVABLE_ID],
         var_name=petab.PREEQUILIBRATION_CONDITION_ID,
         value_name=petab.MEASUREMENT,
     )
+    df_proteomics["measurementType"] = "proteomics"
+    return df_proteomics
+
+
+def load_transcriptomics_from_synapse() -> pd.DataFrame:
+    import synapseclient
+
+    syn = synapseclient.Synapse()
+    syn.login()
+    df_transcriptomics = pd.read_csv(
+        syn.get("syn20631264").path, index_col=[0]
+    )
+    df_transcriptomics.drop(columns=["X"], inplace=True)
+    df_transcriptomics.rename(
+        columns={"cell_line": petab.PREEQUILIBRATION_CONDITION_ID},
+        inplace=True,
+    )
+
+    df_transcriptomics = pd.melt(
+        df_transcriptomics,
+        id_vars=petab.PREEQUILIBRATION_CONDITION_ID,
+        var_name=petab.OBSERVABLE_ID,
+        value_name=petab.MEASUREMENT,
+    )
+    df_transcriptomics["measurementType"] = "transcriptomics"
+    return df_transcriptomics
 
 
 def load_ids_from_uniprot(measurement_table_proteomics):
@@ -211,29 +241,34 @@ def load_ids_from_uniprot(measurement_table_proteomics):
     return measurement_table_proteomics
 
 
-def process_petab_proteomics(measurement_table_proteomics: pd.DataFrame):
-    measurement_table_proteomics = measurement_table_proteomics.loc[
-        measurement_table_proteomics[petab.OBSERVABLE_ID] != "", :
-    ]
+def process_petab_proteomics(df: pd.DataFrame):
+    df = df.loc[df[petab.OBSERVABLE_ID] != "", :]
 
-    measurement_table_proteomics.dropna(
-        axis=0, subset=[petab.MEASUREMENT], inplace=True
-    )
+    df.dropna(axis=0, subset=[petab.MEASUREMENT], inplace=True)
 
-    measurement_table_proteomics[
+    df[petab.PREEQUILIBRATION_CONDITION_ID] = df[
         petab.PREEQUILIBRATION_CONDITION_ID
-    ] = measurement_table_proteomics[
+    ].apply(lambda x: f'c{x.split("_")[0]}')
+
+    df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
+
+    df[petab.TIME] = 0.0
+    df[petab.NOISE_PARAMETERS] = np.NaN
+    return df
+
+
+def process_petab_transcriptomics(df: pd.DataFrame):
+    df.dropna(axis=0, subset=[petab.MEASUREMENT], inplace=True)
+
+    df[petab.PREEQUILIBRATION_CONDITION_ID] = df[
         petab.PREEQUILIBRATION_CONDITION_ID
-    ].apply(
-        lambda x: f'c{x.split("_")[0]}'
-    )
+    ].apply(lambda x: f'c{x.split("_")[0]}')
 
-    measurement_table_proteomics[
-        petab.SIMULATION_CONDITION_ID
-    ] = measurement_table_proteomics[petab.PREEQUILIBRATION_CONDITION_ID]
+    df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
 
-    measurement_table_proteomics[petab.TIME] = 0.0
-    return measurement_table_proteomics
+    df[petab.TIME] = 0.0
+    df[petab.NOISE_PARAMETERS] = np.NaN
+    return df
 
 
 def build_condition_table(
@@ -303,9 +338,17 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
         measurement_table_proteomics
     )
 
-    # ignore proteomics data for now
+    measurement_table_transcriptomics = load_transcriptomics_from_synapse()
+    measurement_table_transcriptomics = process_petab_transcriptomics(
+        measurement_table_transcriptomics
+    )
+
     measurement_table = pd.concat(
-        [measurement_table_cytof, measurement_table_proteomics]
+        [
+            measurement_table_cytof,
+            measurement_table_proteomics,
+            measurement_table_transcriptomics,
+        ]
     )
     condition_table = build_condition_table(measurement_table, model)
     return measurement_table.copy(), condition_table.copy()

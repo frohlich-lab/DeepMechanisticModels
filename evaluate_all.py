@@ -14,7 +14,13 @@ from common import (
     fig_dir,
 )
 from dmm.analysis import plot_loss_vs_regularization
-from training_configuration import ALPHAS, CONTEXTS, LATENT_DIMS, SPLITS
+from training_configuration import (
+    ALPHAS,
+    CONTEXTS,
+    LATENT_DIMS,
+    PRETRAIN,
+    SPLITS,
+)
 from util import Conf
 
 conf = fire.Fire(Conf)
@@ -41,6 +47,7 @@ for samples in SPLITS:
                                 context=ctxt,
                                 samples=samples,
                                 dataset=dataset,
+                                pretrain=pretrain,
                             ),
                         },
                         mode="cross_sample",
@@ -48,7 +55,9 @@ for samples in SPLITS:
                     index_col=0,
                 )
             )
-            for alpha, ldim, ctxt in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS)
+            for alpha, ldim, ctxt, pretrain in itt.product(
+                ALPHAS, LATENT_DIMS, CONTEXTS, PRETRAIN
+            )
         )
         plot_loss_vs_regularization(pretraining)
         plt.savefig(
@@ -71,13 +80,16 @@ for samples in SPLITS:
                                 context=ctxt,
                                 samples=samples,
                                 dataset=dataset,
+                                pretrain=pretrain,
                             ),
                         },
                     ),
                     index_col=0,
                 )
             )
-            for alpha, ldim, ctxt in itt.product(ALPHAS, LATENT_DIMS, CONTEXTS)
+            for alpha, ldim, ctxt in itt.product(
+                ALPHAS, LATENT_DIMS, CONTEXTS, PRETRAIN
+            )
         )
         plot_loss_vs_regularization(training)
         plt.savefig(outdir / f"{conf.samples}_evaluate_training_{dataset}.pdf")
@@ -123,8 +135,8 @@ for samples in SPLITS:
 
         avg_ps_dfs = []
         # copy average/per sample
-        for alpha, ldim, ctxt, method in itt.product(
-            ALPHAS, LATENT_DIMS, CONTEXTS, METHODS
+        for alpha, ldim, ctxt, method, pretrain in itt.product(
+            ALPHAS, LATENT_DIMS, CONTEXTS, METHODS, PRETRAIN
         ):
             for rdf in [
                 avg,
@@ -136,6 +148,7 @@ for samples in SPLITS:
                 avg_ps_df["layers"] = ldim
                 avg_ps_df["context"] = ctxt
                 avg_ps_df["type"] = method
+                avg_ps_df["pretrain"] = pretrain
                 avg_ps_dfs.append(avg_ps_df)
 
         # dfd = pd.concat([training, pretraining])

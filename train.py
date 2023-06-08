@@ -22,7 +22,7 @@ conf = fire.Fire(Conf)
 
 pretraining_file = (
     Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
-    if conf.use_pretraining
+    if conf.pretrain
     else None
 )
 
@@ -30,7 +30,19 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae, problem) for mae in (model_train, model_test)
 )
 
+rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 hfile = Path(TRAINING_OUTFILE_TRACE.format(**conf.__dict__))
+
+wandb.init(
+    project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+    group=f"training_{conf.context}_{conf.n_hidden}",
+    config={
+        **conf.__dict__,
+        "mode": "train",
+    },
+    name="training__" + rfile.stem,
+)
+
 result, fides_options = train(
     model_train,
     pypesto_problem_train,
@@ -41,21 +53,11 @@ result, fides_options = train(
     seed=conf.job,
 )
 
-rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+wandb.config.update({"fides": fides_options})
+
 rfile.parent.mkdir(exist_ok=True, parents=True)
 writer = OptimizationResultHDF5Writer(str(rfile))
 writer.write(result, overwrite=True)
-
-wandb.init(
-    project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    group=f"training_{conf.context}_{conf.n_hidden}",
-    config={
-        **conf.__dict__,
-        "fides": fides_options,
-        "mode": "train",
-    },
-    name="training__" + rfile.stem,
-)
 
 wandb.define_metric("loss_train", summary="min", step_metric="iter")
 wandb.define_metric("loss_val", summary="min", step_metric="iter")

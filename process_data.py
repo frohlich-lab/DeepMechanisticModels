@@ -88,7 +88,7 @@ if __name__ == "__main__":
 
     from cytof.problem import CytofProblem
 
-    problem = CytofProblem(pathway_name=MODEL)
+    problem = CytofProblem(pathway_name=conf.model)
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
 

@@ -34,7 +34,7 @@ class Conf(dict):
     job: int = None
     n_threads: int = 1
     n_starts: int = None
-    use_pretraining: bool = True
+    pretrain: bool = True
 
 
 def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:

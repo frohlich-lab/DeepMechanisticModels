@@ -6,7 +6,7 @@ from common import (
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE
 )
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS
+from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS, PRETRAIN
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -94,7 +94,7 @@ rule pretrain_per_sample:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'samples')
+            for arg in ('model', 'data', 'sample')
         )
 
 
@@ -142,6 +142,7 @@ rule pretrain_cross_sample:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         alpha='[0-9\.]+',
+        pretrain='True|False',
     resources:
         mem="1.5GB",
         runtime="6h",
@@ -151,7 +152,7 @@ rule pretrain_cross_sample:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job',)
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain')
         )
 
 
@@ -173,7 +174,8 @@ rule estimate_parameters:
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+'
+        alpha='[0-9\.]+',
+        pretrain='True|False',
     retries: 1
     resources:
         mem="1GB",
@@ -183,18 +185,18 @@ rule estimate_parameters:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job',)
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain')
         )
 
 rule collect_estimation_results:
     input:
         script='collect_estimation.py',
-        #trace=expand(
-        #    TRAINING_OUTFILE_RESULTS.format(
-        #        context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
-        #        n_hidden='{{n_hidden}}', alpha='{{alpha}}', job='{job}'
-        #    ), job=STARTS
-        #)
+        trace=expand(
+            TRAINING_OUTFILE_RESULTS.format(
+                context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
+                n_hidden='{{n_hidden}}', alpha='{{alpha}}', pretrain='{{pretrain}}', job='{job}'
+            ), job=STARTS
+        )
     output:
         result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
@@ -204,7 +206,8 @@ rule collect_estimation_results:
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+'
+        alpha='[0-9\.]+',
+        pretrain='True|False',
     resources:
         mem="8GB",
         runtime="1h",
@@ -213,14 +216,14 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_references:
     input:
         script='evaluate_reference.py',
-        #pretrain_per_sample=per_sample_pretraining_test,
-        #pretrain_average=rules.pretrain_average_model.output.pretraining
+        pretrain_per_sample=per_sample_pretraining_test,
+        pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
         csv=expand(
             EVALUATION_REFERENCE,
@@ -247,15 +250,15 @@ rule evaluate_references:
 rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
-        #cross_sample=expand(
-        #    rules.pretrain_cross_sample.output.results,
-        #    model='{model}', data='{data}', context=CONTEXTS,
-        #    n_hidden=LATENT_DIMS, alpha=ALPHAS, samples='{samples}', job=STARTS
-        #),
+        cross_sample=expand(
+            rules.pretrain_cross_sample.output.results,
+            model='{model}', data='{data}', context='{context}', pretrain='{pretrain}',
+            n_hidden='{n_hidden}', alpha='{alpha}', samples='{samples}', job=STARTS
+        ),
     output:
         csv=expand(
             EVALUATION_PRETRAINING,
-            model='{model}', data='{data}', samples='{samples}',
+            model='{model}', data='{data}', samples='{samples}', pretrain='{pretrain}',
             alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
             mode='cross_sample',
             dataset=['train', 'test']
@@ -266,7 +269,8 @@ rule evaluate_pretraining:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
-        alpha='[0-9\.]+'
+        alpha='[0-9\.]+',
+        pretrain='True|False',
     resources:
         mem="1GB",
         runtime="1h",
@@ -275,7 +279,7 @@ rule evaluate_pretraining:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
@@ -285,7 +289,7 @@ rule evaluate_training:
     output:
         csv=expand(
             EVALUATION_TRAINING,
-            model='{model}',data='{data}', samples='{samples}',
+            model='{model}',data='{data}', samples='{samples}', pretrain='{pretrain}',
             alpha='{alpha}',n_hidden='{n_hidden}',context='{context}',
             dataset=['train', 'test']
         )
@@ -295,7 +299,8 @@ rule evaluate_training:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
-        alpha='[0-9\.]+'
+        alpha='[0-9\.]+',
+        pretrain='True|False',
     resources:
         mem="1GB",
         runtime="1h",
@@ -304,7 +309,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
         )
 
 rule evaluate_all:
@@ -312,15 +317,17 @@ rule evaluate_all:
         script='evaluate_all.py',
         pretraining=expand(
             rules.evaluate_pretraining.output.csv,
-            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS
+            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS,
+            pretrain=PRETRAIN
         ),
         training=expand(
             rules.evaluate_training.output.csv,
-            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS
+            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS,
+            pretrain=PRETRAIN
         ),
         reference=expand(
             rules.evaluate_references.output.csv,
-            model='{model}',data='{data}',samples=SPLITS
+            model='{model}',data='{data}',samples=SPLITS,
         )
     output:
         plot=expand(

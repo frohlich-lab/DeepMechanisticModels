@@ -38,14 +38,21 @@ pypesto_problem_train, pypesto_problem_test = (
 )
 pretrained_samples = {}
 
-for sample in model_train.sample_names:
-    df = pd.read_csv(
-        PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__, sample=sample),
-        index_col=[0],
-    )
-    pretrained_samples[sample] = df[
-        [col for col in df.columns if not col.startswith(MODEL_FEATURE_PREFIX)]
-    ]
+if conf.pretrain:
+    for sample in model_train.sample_names:
+        df = pd.read_csv(
+            PER_SAMPLE_OUTFILE_PARS.format(
+                **{**conf.__dict__, **dict(sample=sample)}
+            ),
+            index_col=[0],
+        )
+        pretrained_samples[sample] = df[
+            [
+                col
+                for col in df.columns
+                if not col.startswith(MODEL_FEATURE_PREFIX)
+            ]
+        ]
 
 
 def startpoints(**kwargs):
@@ -135,20 +142,13 @@ optimizer = FidesOptimizer(
 )
 np.random.seed(conf.job)
 hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
-if conf.use_pretraining:
+if conf.pretrain:
     startpoint_method = startpoints
 else:
     startpoint_method = None
 
-result = pretrain(
-    pypesto_problem_train, startpoint_method, 1, optimizer, hfile
-)
-
 rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
-store_and_plot_pretraining(
-    result, pfile=pfile, rfile=rfile, plot_waterfall=False
-)
 
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
@@ -159,6 +159,18 @@ wandb.init(
         "mode": "pretrain",
     },
     name="pretraining__" + rfile.stem,
+)
+
+result = pretrain(
+    problem=pypesto_problem_train,
+    nstarts=1,
+    startpoint_method=startpoint_method,
+    optimizer=optimizer,
+    hfile=hfile,
+)
+
+store_and_plot_pretraining(
+    result, pfile=pfile, rfile=rfile, plot_waterfall=False
 )
 
 wandb.define_metric("loss_train", summary="min", step_metric="iter")

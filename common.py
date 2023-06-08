@@ -12,6 +12,7 @@ Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
 fig_dir = basedir / "figures"
+evaluations_dir = basedir / "evaluations"
 results_dir = basedir / "results"
 data_dir = basedir / "data"
 pretrain_dir = basedir / "pretraining"
@@ -24,7 +25,8 @@ PER_SAMPLE_OUTFILE_RESULTS = str(
 )
 
 defaults = {
-    x: f"{{{x}}}" for x in ["context", "samples", "n_hidden", "alpha", "job"]
+    x: f"{{{x}}}"
+    for x in ["context", "samples", "n_hidden", "alpha", "job", "pretrain"]
 }
 tpl_results_file = "__".join(defaults.values())
 CROSS_SAMPLE_OUTFILE_PARS = str(
@@ -62,19 +64,29 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 )
 
 EVALUATION_REFERENCE = str(
-    fig_dir / "{model}" / "{data}" / "{samples}_pretrain_{mode}_{dataset}.csv"
-)
-EVALUATION_PRETRAINING = str(
-    fig_dir
+    evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_pretrain_{mode}_{dataset}_{alpha}_{n_hidden}_{context}.csv"
+    / "{samples}_pretrain_{mode}_{dataset}.csv"
+)
+defaults = {
+    x: f"{{{x}}}"
+    for x in ["context", "samples", "n_hidden", "alpha", "pretrain"]
+}
+tpl_evaluation_file = "__".join(defaults.values())
+EVALUATION_PRETRAINING = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "pretraining"
+    / (tpl_evaluation_file + "csv")
 )
 EVALUATION_TRAINING = str(
-    fig_dir
+    evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_training_{dataset}_{alpha}_{n_hidden}_{context}.csv"
+    / "training"
+    / (tpl_evaluation_file + "csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 

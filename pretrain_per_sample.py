@@ -45,7 +45,6 @@ importer = generate_per_sample_pretraining_problems(
 outdir = pretrain_dir / conf.model / conf.data
 figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
 pypesto_problem = importer.create_problem()
-model = importer.create_model()
 
 problem.apply_objective_settings(pypesto_problem.objective)
 
@@ -58,10 +57,12 @@ optimizer = FidesOptimizer(
     }
 )
 result = pretrain(
-    pypesto_problem,
-    pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
-    10,
-    optimizer,
+    problem=pypesto_problem,
+    startpoint_method=pypesto.startpoint.UniformStartpoints(
+        check_fval=True, check_grad=True
+    ),
+    nstarts=10,
+    optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
