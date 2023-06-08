@@ -33,15 +33,16 @@ for samples in SPLITS:
             (
                 pd.read_csv(
                     EVALUATION_PRETRAINING.format(
-                        **conf.__dict__.update(
-                            dict(
+                        **{
+                            **conf.__dict__,
+                            **dict(
                                 alpha=alpha,
                                 n_hidden=ldim,
                                 context=ctxt,
                                 samples=samples,
                                 dataset=dataset,
-                            )
-                        ),
+                            ),
+                        },
                         mode="cross_sample",
                     ),
                     index_col=0,
@@ -62,15 +63,16 @@ for samples in SPLITS:
             (
                 pd.read_csv(
                     EVALUATION_TRAINING.format(
-                        **conf.__dict__.update(
-                            dict(
+                        **{
+                            **conf.__dict__,
+                            **dict(
                                 alpha=alpha,
                                 n_hidden=ldim,
                                 context=ctxt,
                                 samples=samples,
                                 dataset=dataset,
-                            )
-                        ),
+                            ),
+                        },
                     ),
                     index_col=0,
                 )
