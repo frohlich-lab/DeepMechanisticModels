@@ -86,9 +86,13 @@ for samples in SPLITS:
         # average
         avg = pd.read_csv(
             EVALUATION_REFERENCE.format(
-                **conf.__dict__,
-                samples=samples,
-                dataset=dataset,
+                **{
+                    **conf.__dict__,
+                    **dict(
+                        samples=samples,
+                        dataset=dataset,
+                    ),
+                },
                 mode="average",
             ),
             index_col=0,
@@ -104,9 +108,13 @@ for samples in SPLITS:
         # per sample
         ps = pd.read_csv(
             EVALUATION_REFERENCE.format(
-                **conf.__dict__,
-                samples=samples,
-                dataset=dataset,
+                **{
+                    **conf.__dict__,
+                    **dict(
+                        samples=samples,
+                        dataset=dataset,
+                    ),
+                },
                 mode="per_sample",
             ),
             index_col=0,
