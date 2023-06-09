@@ -20,10 +20,10 @@ def get_samples(data_name):
             "cHCC1419",
             "cHCC1500",
             "cHCC1569",
-            # "cHCC1599",
+            # "cHCC1599", outlier
             "cHCC1937",
             "cHCC1954",
-            "cHCC2157",
+            # "cHCC2157", no transcriptomic data
             "cHCC2185",
             "cHCC3153",
             "cHCC38",
@@ -31,7 +31,7 @@ def get_samples(data_name):
             "cHDQP1",
             "cJIMT1",
             "cMCF10A",
-            "cMCF10F",
+            # "cMCF10F", no transcriptomic data
             "cMCF7",
             "cMDAMB134VI",
             "cMDAMB157",
@@ -39,7 +39,7 @@ def get_samples(data_name):
             "cMDAMB361",
             "cMDAMB415",
             "cMDAMB453",
-            "cMDAkb2",
+            # "cMDAkb2", no transcriptomic data
             "cMFM223",
             "cMPE600",
             "cMX1",
