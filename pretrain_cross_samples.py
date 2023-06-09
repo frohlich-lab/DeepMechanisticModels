@@ -10,6 +10,7 @@ import fire
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
+from pypesto.C import MODE_RES
 from pypesto.optimize import FidesOptimizer
 
 import wandb
@@ -173,29 +174,36 @@ store_and_plot_pretraining(
     result, pfile=pfile, rfile=rfile, plot_waterfall=False
 )
 
-wandb.define_metric("loss_train", summary="min", step_metric="iter")
-wandb.define_metric("loss_val", summary="min", step_metric="iter")
+wandb.define_metric("rmse_train", summary="min", step_metric="iter")
+wandb.define_metric("rmse_val", summary="min", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
 
-for iter, (fval_train, x, grad) in select_values(
+for iter, (x, grad) in select_values(
     enumerate(
         zip(
-            result.optimize_result.list[0].history.get_fval_trace(trim=True),
             result.optimize_result.list[0].history.get_x_trace(trim=True),
             result.optimize_result.list[0].history.get_grad_trace(trim=True),
         )
     ),
-    0.1,
+    20,
 ):
-    loss_train, loss_val = (
-        pp.objective.base_objective._objectives[0](pp.objective.jax_fun(x))
+    rmse_train, rmse_val = (
+        np.sqrt(
+            np.mean(
+                np.square(
+                    pp.objective.base_objective._objectives[0](
+                        pp.objective.jax_fun(x), mode=MODE_RES
+                    )
+                )
+            )
+        )
         for pp in (pypesto_problem_train, pypesto_problem_test)
     )
     wandb.log(
         {
-            "loss_train": loss_train,
-            "loss_val": loss_val,
+            "rmse_train": rmse_train,
+            "rmse_val": rmse_val,
             "iter": iter,
             **{
                 f"{val_type}_{xname}": None
