@@ -131,6 +131,10 @@ def select_values(data, num_selected: int):
 
     # Generate log-spaced indices
     num_values = len(data_list)
+
+    if num_values <= 1:
+        return data_list
+
     indices = set(
         np.logspace(
             0,
