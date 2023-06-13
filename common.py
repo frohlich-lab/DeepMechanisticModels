@@ -79,14 +79,16 @@ EVALUATION_PRETRAINING = str(
     / "{model}"
     / "{data}"
     / "pretraining"
-    / (tpl_evaluation_file + "csv")
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
 )
 EVALUATION_TRAINING = str(
     evaluations_dir
     / "{model}"
     / "{data}"
     / "training"
-    / (tpl_evaluation_file + "csv")
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 

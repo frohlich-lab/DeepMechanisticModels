@@ -61,8 +61,7 @@ for samples in SPLITS:
         )
         plot_loss_vs_regularization(pretraining)
         plt.savefig(
-            outdir
-            / f"{conf.samples}_evaluate_pretrain_cross_sample_{dataset}.pdf"
+            outdir / f"{samples}_evaluate_pretrain_cross_sample_{dataset}.pdf"
         )
 
         pretraining["ref"] = "meth"
@@ -92,7 +91,7 @@ for samples in SPLITS:
             )
         )
         plot_loss_vs_regularization(training)
-        plt.savefig(outdir / f"{conf.samples}_evaluate_training_{dataset}.pdf")
+        plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
         training["ref"] = "meth"
 
         # average
@@ -198,9 +197,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         [
             dict(
                 zip(gbs, group),
-                rmse=np.sqrt(
-                    group_df["res"].apply(lambda x: np.power(x, 2)).mean()
-                ),
+                rmse=np.sqrt(np.square(group_df["res"]).mean()),
             )
             for group, group_df in df.groupby(gbs)
         ]
