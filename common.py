@@ -56,7 +56,7 @@ tpl_petab_file = str(data_dir / "{model}_{data}_{file}.tsv")
 MEASUREMENTS_FILE = tpl_petab_file.format(
     file="measurements", data="{data}", model="{model}"
 )
-MEASUREMENTS_FILE_RW = MEASUREMENTS_FILE.replace(".tsv", "_rw.tsv")
+MEASUREMENTS_FILE_RW = MEASUREMENTS_FILE.replace(".tsv", "_rw_{samples}.tsv")
 CONDITIONS_FILE = tpl_petab_file.format(
     file="conditions", data="{data}", model="{model}"
 )

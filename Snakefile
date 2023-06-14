@@ -133,7 +133,8 @@ rule reweight_data:
         script='reweight_data.py',
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles
+        data=rules.process_data.output.datafiles,
+        pretrain_per_sample=per_sample_pretraining_train,
     output:
         data=MEASUREMENTS_FILE_RW
     wildcard_constraints:
