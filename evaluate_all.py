@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
+import wandb
 from common import (
     EVALUATE_ALL,
     EVALUATION_PRETRAINING,
@@ -219,9 +220,10 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         if len(data.context.unique()) > 1:
             kwargs_lp["style"] = "context"
     else:
-        data = data[data["context"] == "baseline"]
+        data = data[data["context"] == "proteomics_pca"]
         kwargs_lp["style"] = "dataset"
 
+    fig = plt.figure()
     g = sns.FacetGrid(
         data=data,
         row=gb if gb != "all" else "dataset",
@@ -241,7 +243,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         lineplot_ref_average,
         x="l2 regularization",
         y="rmse",
-        color="k",
+        color="r",
         linestyle="--",
         errorbar=None,
     )
@@ -249,7 +251,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         lineplot_ref_sample,
         x="l2 regularization",
         y="rmse",
-        color="k",
+        color="b",
         linestyle=":",
         errorbar=None,
     )
@@ -258,4 +260,22 @@ for gb in ("observable", "time", "condition", "sample", "all"):
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(**conf.__dict__, group=gb)
     plt.savefig(rfile)
-    data.to_csv(rfile.replace(".pdf", ".csv"))
+    efile = rfile.replace(".pdf", ".csv")
+    data.to_csv(efile)
+
+    if gb == "all":
+        wandb.init(
+            project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+            config={
+                **conf.__dict__,
+            },
+        )
+
+        artifact = wandb.Artifact(
+            name=f"evaluate_all_{conf.model}_{conf.data}",
+            description="evaluate all",
+            type="evaluation",
+        )
+        artifact.add(wandb.Table(dataframe=data), "evaluate_all.csv")
+        wandb.log_artifact(artifact)
+        wandb.finish()

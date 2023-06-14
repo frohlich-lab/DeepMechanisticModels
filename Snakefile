@@ -1,16 +1,22 @@
 import os
+import itertools as itt
 from pathlib import Path
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE
+    EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
+    MEASUREMENTS_FILE_RW
 )
 from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS, PRETRAIN
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
+
+class SafeDict(dict):
+    def __missing__(self, key):
+        return '{' + key + '}'
 
 
 N_STARTS = int(config.get("num_starts", "10"))
@@ -105,7 +111,7 @@ rule pretrain_average_model:
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
     output:
-        pretraining=PER_SAMPLE_OUTFILE_PARS.format(model='{model}', data='{data}', sample='model_average_{samples}')
+        pretraining=PER_SAMPLE_OUTFILE_PARS.format(SafeDict(sample='model_average_{samples}'))
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
@@ -113,6 +119,30 @@ rule pretrain_average_model:
     resources:
         mem="1GB",
         runtime="6h",
+        nodes=1,
+        cpus_per_task=1,
+    shell:
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'samples')
+        )
+
+
+rule reweight_data:
+    input:
+        script='reweight_data.py',
+        pretraining_code=mencoder_dir / 'pretraining.py',
+        model=rules.compile_mechanistic_model.output.model,
+        data=rules.process_data.output.datafiles
+    output:
+        data=MEASUREMENTS_FILE_RW
+    wildcard_constraints:
+        model='\w+',
+        data='[\w\.]+',
+        samples='[0-9]+_[0-9]+',
+    resources:
+        mem="1GB",
+        runtime="1h",
         nodes=1,
         cpus_per_task=1,
     shell:
@@ -130,7 +160,8 @@ rule pretrain_cross_sample:
         bounds=mencoder_dir / '__init__.py',
         pretrain_per_sample=per_sample_pretraining_train,
         model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles
+        data=rules.process_data.output.datafiles,
+        data_rw=rules.reweight_data.output.data
     output:
         pars=CROSS_SAMPLE_OUTFILE_PARS,
         results=CROSS_SAMPLE_OUTFILE_RESULTS
@@ -163,6 +194,7 @@ rule estimate_parameters:
         training=mencoder_dir / 'training.py',
         autoencoder=mencoder_dir /'autoencoder.py',
         data=rules.process_data.output.datafiles,
+        data_rw=rules.reweight_data.output.data,
         pretrain_inflate=rules.pretrain_cross_sample.output.pars,
         model=rules.compile_mechanistic_model.output.model,
     output:
@@ -191,12 +223,10 @@ rule estimate_parameters:
 rule collect_estimation_results:
     input:
         script='collect_estimation.py',
-        trace=expand(
-            TRAINING_OUTFILE_RESULTS.format(
-                context='{{context}}', samples='{{samples}}', model='{{model}}', data='{{data}}',
-                n_hidden='{{n_hidden}}', alpha='{{alpha}}', pretrain='{{pretrain}}', job='{job}'
-            ), job=STARTS
-        )
+        trace=[
+            TRAINING_OUTFILE_RESULTS.format(SafeDict(job=job))
+            for job in STARTS
+        ]
     output:
         result=COLLECTED_TRAINING_RESULTS
     wildcard_constraints:
@@ -225,12 +255,10 @@ rule evaluate_references:
         pretrain_per_sample=per_sample_pretraining_test,
         pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
-        csv=expand(
-            EVALUATION_REFERENCE,
-            model='{model}',data='{data}',samples='{samples}',
-            mode=['per_sample', 'average'],
-            dataset=['train', 'test']
-        ),
+        csv=[
+            EVALUATION_REFERENCE.format(SafeDict(dataset=dataset, mode=mode))
+            for dataset, mode in itt.product(['train', 'test'], ['per_sample', 'average'])
+        ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
@@ -256,13 +284,10 @@ rule evaluate_pretraining:
             n_hidden='{n_hidden}', alpha='{alpha}', samples='{samples}', job=STARTS
         ),
     output:
-        csv=expand(
-            EVALUATION_PRETRAINING,
-            model='{model}', data='{data}', samples='{samples}', pretrain='{pretrain}',
-            alpha='{alpha}', n_hidden='{n_hidden}', context='{context}',
-            mode='cross_sample',
-            dataset=['train', 'test']
-        ),
+        csv=[
+            EVALUATION_PRETRAINING.format(SafeDict(dataset=dataset, mode='cross_sample'))
+            for dataset in ['train', 'test']
+        ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
@@ -287,12 +312,10 @@ rule evaluate_training:
         script='evaluate_training.py',
         training=rules.collect_estimation_results.output.result
     output:
-        csv=expand(
-            EVALUATION_TRAINING,
-            model='{model}',data='{data}', samples='{samples}', pretrain='{pretrain}',
-            alpha='{alpha}',n_hidden='{n_hidden}',context='{context}',
-            dataset=['train', 'test']
-        )
+        csv=[
+            EVALUATION_TRAINING.format(SafeDict(dataset=dataset))
+            for dataset in ['train', 'test']
+        ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
@@ -330,11 +353,10 @@ rule evaluate_all:
             model='{model}',data='{data}',samples=SPLITS,
         )
     output:
-        plot=expand(
-            EVALUATE_ALL,
-            model='{model}', data='{data}',
-            group=('observable', 'time', 'condition', 'sample', 'all')
-        )
+        plot=[
+            EVALUATE_ALL.format(SafeDict(group=group))
+            for group in ('observable', 'time', 'condition', 'sample', 'all')
+        ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',

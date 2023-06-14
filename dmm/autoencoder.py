@@ -8,7 +8,9 @@ import petab
 import pypesto.petab
 from jax.config import config
 from sklearn.decomposition import PCA, SparsePCA
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import KNNImputer
+from sklearn.preprocessing import StandardScaler
 
 from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
@@ -84,6 +86,7 @@ class DeepMechanisticModel(AutoEncoder):
     pathway_name: str = eqx.static_field()
     features: List[str] = eqx.static_field()
     imputer: KNNImputer = eqx.static_field()
+    scaler: StandardScaler = eqx.static_field()
     pca: PCA = eqx.static_field()
     data_pca: np.ndarray = eqx.static_field()
     n_model_inputs: int = eqx.static_field()
@@ -109,6 +112,7 @@ class DeepMechanisticModel(AutoEncoder):
         l2reg: float = 0.0,
         features: Optional[Sequence[str]] = None,
         imputer: Optional[KNNImputer] = None,
+        scaler: Optional[StandardScaler] = None,
         pca: Optional[PCA] = None,
         n_threads=1,
     ):
@@ -149,6 +153,26 @@ class DeepMechanisticModel(AutoEncoder):
             input_data = input_data.loc[
                 :, input_data.isna().sum() / input_data.shape[0] < 0.2
             ]
+            if contextualization.startswith("transcriptomics"):
+                # look at mean vs variance plot
+                # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
+                # plt.yscale('log')
+                # plt.show()
+
+                # filter low capture efficiency genes
+                input_data = input_data.loc[
+                    :,
+                    np.nanmin(input_data, axis=0)
+                    < np.nanmedian(input_data, axis=0),
+                ]
+            elif contextualization.startswith("proteomics"):
+                # look at mean vs variance plot
+                # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
+                # plt.yscale('log')
+                # plt.show()
+                input_data = input_data.loc[
+                    :, np.nanmedian(input_data, axis=0) > -2.5
+                ]
 
         self.features = list(input_data.columns)
 
@@ -178,6 +202,17 @@ class DeepMechanisticModel(AutoEncoder):
 
         input_data = input_data.loc[petab_samples, :]
 
+        if scaler is None and contextualization.endswith("_zpca"):
+            self.scaler = StandardScaler()
+            self.scaler.fit(input_data.values)
+        else:
+            self.scaler = scaler
+
+        if scaler is not None:
+            scaled = self.scaler.transform(input_data.values)
+        else:
+            scaled = input_data.values
+
         # impute missing values
         if imputer is None:
             # training, fit imputer to training data
@@ -187,7 +222,7 @@ class DeepMechanisticModel(AutoEncoder):
             # prediction, load imputer from training data
             self.imputer = imputer
 
-        imputed = self.imputer.transform(input_data.values)
+        imputed = self.imputer.transform(scaled)
 
         # zero center input data, this is equivalent to estimating biases
         # for linear autoencoders
@@ -211,7 +246,7 @@ class DeepMechanisticModel(AutoEncoder):
             )
             n_pca = np.nonzero(np.cumsum(var_expl) > 0.9)[0][0] + 1
 
-            if contextualization.endswith("_pca"):
+            if contextualization.endswith(("_pca", "_zpca")):
                 pca = PCA(n_components=max(n_pca, n_latent), whiten=True).fit(
                     input_data
                 )

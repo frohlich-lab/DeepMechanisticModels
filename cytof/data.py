@@ -159,10 +159,6 @@ def load_proteomics_from_synapse() -> pd.DataFrame:
     df_proteomics = pd.read_csv(syn.get("syn20690775").path, index_col=[0])
     df_proteomics[petab.OBSERVABLE_ID] = df_proteomics.index
 
-    df_proteomics = df_proteomics[
-        df_proteomics[petab.OBSERVABLE_ID].apply(lambda x: ";" not in x)
-    ]
-
     df_proteomics = pd.melt(
         df_proteomics,
         id_vars=[petab.OBSERVABLE_ID],
