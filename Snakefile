@@ -111,7 +111,7 @@ rule pretrain_average_model:
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
     output:
-        pretraining=PER_SAMPLE_OUTFILE_PARS.format(SafeDict(sample='model_average_{samples}'))
+        pretraining=PER_SAMPLE_OUTFILE_PARS.format_map(SafeDict(sample='model_average_{samples}'))
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
@@ -224,7 +224,7 @@ rule collect_estimation_results:
     input:
         script='collect_estimation.py',
         trace=[
-            TRAINING_OUTFILE_RESULTS.format(SafeDict(job=job))
+            TRAINING_OUTFILE_RESULTS.format_map(SafeDict(job=job))
             for job in STARTS
         ]
     output:
@@ -256,7 +256,7 @@ rule evaluate_references:
         pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
         csv=[
-            EVALUATION_REFERENCE.format(SafeDict(dataset=dataset, mode=mode))
+            EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
             for dataset, mode in itt.product(['train', 'test'], ['per_sample', 'average'])
         ]
     wildcard_constraints:
@@ -285,7 +285,7 @@ rule evaluate_pretraining:
         ),
     output:
         csv=[
-            EVALUATION_PRETRAINING.format(SafeDict(dataset=dataset, mode='cross_sample'))
+            EVALUATION_PRETRAINING.format_map(SafeDict(dataset=dataset, mode='cross_sample'))
             for dataset in ['train', 'test']
         ]
     wildcard_constraints:
@@ -313,7 +313,7 @@ rule evaluate_training:
         training=rules.collect_estimation_results.output.result
     output:
         csv=[
-            EVALUATION_TRAINING.format(SafeDict(dataset=dataset))
+            EVALUATION_TRAINING.format_map(SafeDict(dataset=dataset))
             for dataset in ['train', 'test']
         ]
     wildcard_constraints:
@@ -354,7 +354,7 @@ rule evaluate_all:
         )
     output:
         plot=[
-            EVALUATE_ALL.format(SafeDict(group=group))
+            EVALUATE_ALL.format_map(SafeDict(group=group))
             for group in ('observable', 'time', 'condition', 'sample', 'all')
         ]
     wildcard_constraints:
