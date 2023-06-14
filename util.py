@@ -36,7 +36,7 @@ def load_petab_base_files(
 ) -> Dict[str, pd.DataFrame]:
     return {
         label: pd.read_csv(
-            file.format(data=conf.data, model=conf.model),
+            file.format(**conf.__dict__),
             index_col=0,
             sep="\t",
         )
