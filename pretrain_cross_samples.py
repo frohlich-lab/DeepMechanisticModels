@@ -3,6 +3,7 @@ Pretraining of population + individual parameters based on per sample
 pretraining
 """
 
+import itertools as itt
 from pathlib import Path
 
 import fides
@@ -134,7 +135,7 @@ fides_options = {
     fides.Options.FRTOL: 0,
     fides.Options.XTOL: 1e-8,
     fides.Options.MAXTIME: 3600 * 10,
-    fides.Options.MAXITER: 100,
+    fides.Options.MAXITER: 10,
 }
 
 optimizer = FidesOptimizer(
@@ -176,6 +177,9 @@ store_and_plot_pretraining(
 
 wandb.define_metric("rmse_train", summary="min", step_metric="iter")
 wandb.define_metric("rmse_val", summary="min", step_metric="iter")
+for val_type, xname in itt.product(("x", "g"), ("inflate", "kinetic")):
+    wandb.define_metric(f"{val_type}_{xname}", step_metric="iter")
+wandb.define_metric("x_inflate", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
 

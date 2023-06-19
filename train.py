@@ -1,3 +1,4 @@
+import itertools as itt
 from pathlib import Path
 
 import fire
@@ -61,6 +62,10 @@ writer.write(result, overwrite=True)
 
 wandb.define_metric("rmse_train", summary="min", step_metric="iter")
 wandb.define_metric("rmse_val", summary="min", step_metric="iter")
+for val_type, xname in itt.product(
+    ("x", "g"), ("encode", "inflate", "kinetic")
+):
+    wandb.define_metric(f"{val_type}_{xname}", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
 for iter, (x, grad) in select_values(

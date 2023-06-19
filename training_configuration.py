@@ -18,9 +18,9 @@ LATENT_DIMS = (
     # 12
 )
 CONTEXTS = (
-    "proteomics_pca",
-    "transcriptomics_pca",
-    "cytof_init_pca",
+    # "proteomics_pca",
+    # "transcriptomics_pca",
+    # "cytof_init_pca",
     "proteomics_zpca",
     "transcriptomics_zpca",
     "cytof_init_zpca",

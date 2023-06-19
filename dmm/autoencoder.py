@@ -208,7 +208,7 @@ class DeepMechanisticModel(AutoEncoder):
         else:
             self.scaler = scaler
 
-        if scaler is not None:
+        if self.scaler is not None:
             scaled = self.scaler.transform(input_data.values)
         else:
             scaled = input_data.values
@@ -228,7 +228,6 @@ class DeepMechanisticModel(AutoEncoder):
         # for linear autoencoders
         # https://link.springer.com/article/10.1007/BF00332918
         # https://arxiv.org/pdf/1901.08168.pdf
-        # note: transform also normalizes to unit standard deviation
         input_data = pd.DataFrame(
             imputed,
             index=input_data.index,
