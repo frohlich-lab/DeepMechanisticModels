@@ -12,25 +12,33 @@ ALPHAS = (
 LATENT_DIMS = (
     2,
     4,
-    6,
+    # 6,
     # 8,
     # 10,
     # 12
 )
+CONTEXTS_FEATURES = (
+    ("cytof_init", "all"),
+    ("cytof_init", "rfe"),
+    ("cytof_init", "lasso"),
+    ("cytof_init", "elastic"),
+    ("cytof_init", "sequential"),
+    ("cytof_dynamic", "all"),
+    ("proteomics", "lasso"),
+    ("transcriptomics", "lasso"),
+)
 CONTEXTS = (
-    # "proteomics_pca",
-    # "transcriptomics_pca",
-    # "cytof_init_pca",
-    "proteomics_zpca",
-    "transcriptomics_zpca",
-    "cytof_init_zpca",
-    "cytof_dynamic_pca",
-    # "proteomics_spca_10.0",
-    # "proteomics_spca_1.0",
-    # "proteomics_spca_0.1",
-    # "transcriptomics_spca_10.0",
-    # "transcriptomics_spca_1.0",
-    # "transcriptomics_spca_0.1",
+    # "proteomics",
+    # "transcriptomics",
+    "cytof_init",
+    "cytof_dynamic",
+)
+FEATURES = (
+    "all",
+    "rfe",
+    "lasso",
+    "elastic",
+    "sequential",
 )
 PATHWAYS = ("EGFR_MAPK",)
 DATASETS = ("dream_cytof",)

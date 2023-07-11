@@ -16,6 +16,7 @@ evaluations_dir = basedir / "evaluations"
 results_dir = basedir / "results"
 data_dir = basedir / "data"
 pretrain_dir = basedir / "pretraining"
+features_dir = basedir / "features"
 
 PER_SAMPLE_OUTFILE_PARS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.csv"
@@ -24,9 +25,33 @@ PER_SAMPLE_OUTFILE_RESULTS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.hdf"
 )
 
+FEATURES_OUTFILFE = str(
+    features_dir
+    / "{model}"
+    / "{data}"
+    / "{dataset}"
+    / (
+        "__".join(
+            {
+                x: f"{{{x}}}" for x in ["context", "samples", "features"]
+            }.values()
+        )
+        + ".csv"
+    )
+)
+
+
 defaults = {
     x: f"{{{x}}}"
-    for x in ["context", "samples", "n_hidden", "alpha", "job", "pretrain"]
+    for x in [
+        "context",
+        "samples",
+        "n_hidden",
+        "alpha",
+        "job",
+        "pretrain",
+        "features",
+    ]
 }
 tpl_results_file = "__".join(defaults.values())
 CROSS_SAMPLE_OUTFILE_PARS = str(
@@ -72,7 +97,14 @@ EVALUATION_REFERENCE = str(
 )
 defaults = {
     x: f"{{{x}}}"
-    for x in ["context", "samples", "n_hidden", "alpha", "pretrain"]
+    for x in [
+        "context",
+        "samples",
+        "n_hidden",
+        "alpha",
+        "pretrain",
+        "features",
+    ]
 }
 tpl_evaluation_file = "__".join(defaults.values())
 EVALUATION_PRETRAINING = str(

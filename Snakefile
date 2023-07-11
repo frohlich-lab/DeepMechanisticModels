@@ -6,9 +6,9 @@ from common import (
     PER_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_PARS, CROSS_SAMPLE_OUTFILE_RESULTS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
-    MEASUREMENTS_FILE_RW
+    MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
 )
-from training_configuration import ALPHAS, LATENT_DIMS, CONTEXTS, PATHWAYS, DATASETS, SPLITS, PRETRAIN
+from training_configuration import ALPHAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -153,6 +153,32 @@ rule reweight_data:
         )
 
 
+rule select_features:
+    input:
+        script='select_features.py',
+        data=rules.process_data.output.datafiles,
+        data_rw=rules.reweight_data.output.data,
+    output:
+        data=[
+            FEATURES_OUTFILFE.format_map(SafeDict(dataset=dataset))
+            for dataset in ['train', 'val']
+        ]
+    wildcard_constraints:
+        model='\w+',
+        data='[\w\.]+',
+        samples='[0-9]+_[0-9]+',
+    resources:
+        mem="1GB",
+        runtime="10h",
+        nodes=1,
+        cpus_per_task=1,
+    shell:
+        'python3 {input.script} ' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data', 'context', 'features', 'samples')
+        )
+
+
 rule pretrain_cross_sample:
     input:
         script='pretrain_cross_samples.py',
@@ -162,7 +188,8 @@ rule pretrain_cross_sample:
         pretrain_per_sample=per_sample_pretraining_train,
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
-        data_rw=rules.reweight_data.output.data
+        data_rw=rules.reweight_data.output.data,
+        features=rules.select_features.output.data,
     output:
         pars=CROSS_SAMPLE_OUTFILE_PARS,
         results=CROSS_SAMPLE_OUTFILE_RESULTS
@@ -184,7 +211,7 @@ rule pretrain_cross_sample:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain', 'features')
         )
 
 
@@ -198,6 +225,7 @@ rule estimate_parameters:
         data_rw=rules.reweight_data.output.data,
         pretrain_inflate=rules.pretrain_cross_sample.output.pars,
         model=rules.compile_mechanistic_model.output.model,
+        features=rules.select_features.output.data,
     output:
         result=TRAINING_OUTFILE_RESULTS
     wildcard_constraints:
@@ -218,7 +246,7 @@ rule estimate_parameters:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain', 'features')
         )
 
 rule collect_estimation_results:
@@ -247,7 +275,7 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_references:
@@ -279,11 +307,10 @@ rule evaluate_references:
 rule evaluate_pretraining:
     input:
         script='evaluate_pretraining.py',
-        cross_sample=expand(
-            rules.pretrain_cross_sample.output.results,
-            model='{model}', data='{data}', context='{context}', pretrain='{pretrain}',
-            n_hidden='{n_hidden}', alpha='{alpha}', samples='{samples}', job=STARTS
-        ),
+        cross_sample=[
+            rules.pretrain_cross_sample.output.results.format_map(SafeDict(job=job))
+            for job in STARTS
+        ],
     output:
         csv=[
             EVALUATION_PRETRAINING.format_map(SafeDict(dataset=dataset, mode='cross_sample'))
@@ -305,7 +332,7 @@ rule evaluate_pretraining:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
@@ -333,22 +360,22 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
         )
 
 rule evaluate_all:
     input:
         script='evaluate_all.py',
-        pretraining=expand(
-            rules.evaluate_pretraining.output.csv,
-            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS,
-            pretrain=PRETRAIN
-        ),
-        training=expand(
-            rules.evaluate_training.output.csv,
-            model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,context=CONTEXTS,samples=SPLITS,
-            pretrain=PRETRAIN
-        ),
+        training=[
+            y
+            for x in [*rules.evaluate_pretraining.output.csv, *rules.evaluate_training.output.csv]
+            for context, features in CONTEXTS_FEATURES
+            for y in expand(
+                x.format_map(SafeDict(context=context, features=features)),
+                model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,samples=SPLITS,
+                pretrain=PRETRAIN
+            )
+        ],
         reference=expand(
             rules.evaluate_references.output.csv,
             model='{model}',data='{data}',samples=SPLITS,

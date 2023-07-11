@@ -220,7 +220,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         if len(data.context.unique()) > 1:
             kwargs_lp["style"] = "context"
     else:
-        data = data[data["context"] == "proteomics_pca"]
+        data = data[data["context"] == "proteomics_zpca"]
         kwargs_lp["style"] = "dataset"
 
     fig = plt.figure()

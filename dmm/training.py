@@ -98,12 +98,7 @@ def train(
         xi = np.array(xi)
 
     # use first couple of PCA components
-    w = np.vstack(
-        (
-            np.eye(ae.n_latent),
-            np.zeros((ae.n_features - ae.n_latent, ae.n_latent)),
-        )
-    ).flatten()
+    w = (ae.pca.components_.T / np.sqrt(ae.pca.explained_variance_)).flatten()
 
     pypesto_problem.x_guesses_full = np.expand_dims(np.hstack([w, xi]), 1).T
 

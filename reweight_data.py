@@ -63,7 +63,7 @@ for sample in samples:
     sigmas.update(
         {
             (sample, observable, condition): np.sqrt(
-                np.mean(np.power(group_df["residual"], 2))
+                np.mean(np.square(group_df["residual"]))
             )
             for (observable, condition), group_df in residuals_df.groupby(
                 [petab.OBSERVABLE_ID, petab.SIMULATION_CONDITION_ID]

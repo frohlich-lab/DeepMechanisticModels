@@ -16,7 +16,7 @@ class AutoEncoder(eqx.Module):
     """
     A simple linear autoencoder.
 
-    :param input_data:
+    :param features:
         input data for the encoder
 
     :param n_latent:
@@ -36,12 +36,12 @@ class AutoEncoder(eqx.Module):
     x_names: List[str] = eqx.static_field()
 
     def __init__(
-        self, input_data: np.ndarray, n_latent: int = 1, n_params: int = 12
+        self, features: np.ndarray, n_latent: int = 1, n_params: int = 12
     ):
-        self.n_features = input_data.shape[1]
+        self.n_features = features.shape[1]
         assert n_latent <= self.n_features
-        assert input_data.ndim == 2
-        self.data = input_data
+        assert features.ndim == 2
+        self.data = features
         self.n_latent = n_latent
         self.n_params = n_params
         self.n_encode_weights = self.n_features * self.n_latent

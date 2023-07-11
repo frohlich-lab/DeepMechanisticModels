@@ -14,7 +14,7 @@ from common import (
     select_values,
 )
 from dmm.training import create_pypesto_problem, train
-from util import Conf, load_models
+from util import Conf, load_models, rmse
 
 conf = fire.Fire(Conf)
 
@@ -77,22 +77,15 @@ for iter, (x, grad) in select_values(
     ),
     20,
 ):
-    rmse_train, rmse_val = (
-        np.sqrt(
-            np.mean(
-                np.square(
-                    pp.objective.base_objective._objectives[0](
-                        pp.objective.jax_fun(x), mode=MODE_RES
-                    )
-                )
-            )
-        )
-        for pp in (pypesto_problem_train, pypesto_problem_test)
-    )
+    rmses = dict()
+    for dataset, pp in zip(
+        ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
+    ):
+        rmses[dataset] = rmse(pp, x)
     wandb.log(
         {
-            "rmse_train": rmse_train,
-            "rmse_val": rmse_val,
+            "rmse_train": rmses["train"],
+            "rmse_val": rmses["test"],
             "iter": iter,
             **{
                 f"{val_type}_{xname}": None

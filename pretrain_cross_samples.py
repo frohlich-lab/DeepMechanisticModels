@@ -11,7 +11,6 @@ import fire
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
-from pypesto.C import MODE_RES
 from pypesto.optimize import FidesOptimizer
 
 import wandb
@@ -28,7 +27,7 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
-from util import Conf, load_models
+from util import Conf, load_models, rmse
 
 conf = fire.Fire(Conf)
 
@@ -112,7 +111,7 @@ def startpoints(**kwargs):
         #                 f"{MODEL_FEATURE_PREFIX}{col}_{sample}"
         #             ].values[0, 0]
         w = la.lstsq(
-            model_train.data_pca[:, : model_train.n_latent],
+            model_train.features_pca[:, : model_train.n_latent],
             par_combo[inputs].values,
         )[0].flatten()
         assert f"inflate_{len(w)-1}_weight" in pypesto_problem_train.x_names
@@ -135,7 +134,7 @@ fides_options = {
     fides.Options.FRTOL: 0,
     fides.Options.XTOL: 1e-8,
     fides.Options.MAXTIME: 3600 * 10,
-    fides.Options.MAXITER: 10,
+    fides.Options.MAXITER: 100,
 }
 
 optimizer = FidesOptimizer(
@@ -192,22 +191,16 @@ for iter, (x, grad) in select_values(
     ),
     20,
 ):
-    rmse_train, rmse_val = (
-        np.sqrt(
-            np.mean(
-                np.square(
-                    pp.objective.base_objective._objectives[0](
-                        pp.objective.jax_fun(x), mode=MODE_RES
-                    )
-                )
-            )
-        )
-        for pp in (pypesto_problem_train, pypesto_problem_test)
-    )
+    rmses = dict()
+    for dataset, pp in zip(
+        ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
+    ):
+        rmses[dataset] = rmse(pp, x)
+
     wandb.log(
         {
-            "rmse_train": rmse_train,
-            "rmse_val": rmse_val,
+            "rmse_train": rmses["train"],
+            "rmse_val": rmses["test"],
             "iter": iter,
             **{
                 f"{val_type}_{xname}": None

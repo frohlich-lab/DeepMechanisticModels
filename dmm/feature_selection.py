@@ -1,0 +1,260 @@
+import numpy as np
+import pandas as pd
+import petab
+from sklearn.cross_decomposition import CCA, PLSRegression
+from sklearn.decomposition import PCA, SparsePCA
+from sklearn.feature_selection import (
+    RFECV,
+    SelectFromModel,
+    SequentialFeatureSelector,
+)
+from sklearn.impute import KNNImputer
+from sklearn.linear_model import (
+    LinearRegression,
+    MultiTaskElasticNetCV,
+    MultiTaskLassoCV,
+)
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+
+def contextualize_measurements(
+    measurement_table: pd.DataFrame,
+    observable_table: pd.DataFrame,
+    contextualization: str,
+) -> pd.DataFrame:
+    if contextualization not in (
+        "transcriptomics",
+        "proteomics",
+        "cytof_init",
+        "cytof_dynamic",
+    ):
+        raise ValueError(f"Unknown contextualization: {contextualization}")
+
+    input_measurements = measurement_table.copy()
+
+    if contextualization == "transcriptomics":
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "transcriptomics"
+        ]
+    elif contextualization == "proteomics":
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "proteomics"
+        ]
+    elif contextualization.split("_")[0] == "cytof":
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "cytof"
+        ]
+
+    if contextualization in ("transcriptomics", "proteomics", "cytof_init"):
+        input_measurements = input_measurements[
+            input_measurements[petab.TIME] == 0
+        ]
+
+    if contextualization == "cytof_dynamic":
+        input_measurements = input_measurements[
+            input_measurements[petab.OBSERVABLE_ID].isin(
+                list(observable_table.index)
+            )
+        ]
+        input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
+            petab.SIMULATION_CONDITION_ID
+        ].apply(lambda x: x.split("__")[1])
+
+        pivot_columns = (
+            petab.OBSERVABLE_ID,
+            petab.SIMULATION_CONDITION_ID,
+            petab.TIME,
+        )
+    elif contextualization == "cytof_init":
+        input_measurements = input_measurements[
+            input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                lambda x: x.endswith("__EGF")
+            )
+        ]
+        pivot_columns = petab.OBSERVABLE_ID
+    else:
+        pivot_columns = petab.OBSERVABLE_ID
+
+    input_data = input_measurements.pivot_table(
+        index=petab.PREEQUILIBRATION_CONDITION_ID,
+        columns=pivot_columns,
+        values=petab.MEASUREMENT,
+        aggfunc=np.nanmean,
+    )
+    return input_data
+
+
+def load_data(
+    contextualization, samples, features, measurement_table, observable_table
+):
+    input_data = contextualize_measurements(
+        measurement_table, observable_table, contextualization
+    )
+
+    # subset samples
+    input_data = input_data.loc[samples, :]
+
+    if contextualization == "cytof_dynamic":
+        #  nn imputation
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
+            pairs = [
+                ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
+                ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
+            ] + [
+                ((marker, pert, time), (marker, pert, 17.0))
+                for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC")
+                for time in (14.0, 15.0, 16.0)
+            ]
+            for source, target in pairs:
+                if source not in input_data.columns:
+                    continue
+                mask = input_data.loc[:, target].isna()
+                input_data.loc[mask, target] = input_data.loc[mask, source]
+        #  regression imputation
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
+            for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC"):
+                mask = input_data.loc[:, (marker, pert, 7.0)].isna()
+                input_data.loc[mask, (marker, pert, 7.0)] = (
+                    input_data.loc[mask, (marker, pert, 9.0)] * 2.0 / 9.0
+                    + input_data.loc[mask, (marker, pert, 0.0)] * 7.0 / 9.0
+                )
+
+                mask = input_data.loc[:, (marker, pert, 13.0)].isna()
+                input_data.loc[mask, (marker, pert, 13.0)] = (
+                    input_data.loc[mask, (marker, pert, 9.0)] * 4.0 / 8.0
+                    + input_data.loc[mask, (marker, pert, 17.0)] * 4.0 / 8.0
+                )
+
+    if features:
+        # for prediction, use feature set computed on training data
+        input_data = input_data[features]
+    else:
+        # for training, compute feature set
+        # filter too many nans
+        input_data = input_data.loc[
+            :, input_data.isna().sum() / input_data.shape[0] < 0.2
+        ]
+        if contextualization == "transcriptomics":
+            # look at mean vs variance plot
+            # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
+            # plt.yscale('log')
+            # plt.show()
+
+            # filter low capture efficiency genes
+            input_data = input_data.loc[
+                :,
+                np.nanmin(input_data, axis=0)
+                < np.nanmedian(input_data, axis=0),
+            ]
+        elif contextualization == "proteomics":
+            # look at mean vs variance plot
+            # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
+            # plt.yscale('log')
+            # plt.show()
+            input_data = input_data.loc[
+                :, np.nanmedian(input_data, axis=0) > -2.5
+            ]
+        features = list(input_data.columns)
+
+    return input_data, features
+
+
+def build_preprocesser(
+    preprocess: str, input_data: np.ndarray, output_data: np.ndarray
+):
+    steps = [
+        ("scaler", StandardScaler()),
+        ("impute", KNNImputer()),
+    ]
+    if preprocess.startswith(("pca", "spca")):
+        inputs = Pipeline(steps).fit_transform(input_data)
+        var_expl = (
+            PCA(n_components=input_data.shape[0])
+            .fit(inputs)
+            .explained_variance_ratio_
+        )
+        n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
+        if preprocess.startswith("spca"):
+            pipe = Pipeline(
+                steps
+                + [
+                    ("spca", SparsePCA(n_components=n_pca)),
+                    ("reg", LinearRegression()),
+                ]
+            )
+            grid = GridSearchCV(
+                pipe,
+                param_grid={f"spca__alpha": np.logspace(-3, 3, 7)},
+                cv=5,
+                scoring="neg_mean_squared_error",
+            )
+            grid.fit(input_data, output_data)
+            steps.append(
+                (
+                    "pca",
+                    SparsePCA(
+                        n_components=n_pca,
+                        alpha=grid.best_params_["spca__alpha"],
+                    ),
+                )
+            )
+        else:
+            steps.append(("pca", PCA(n_components=n_pca)))
+    elif preprocess == "rfe":
+        steps.append(
+            (
+                "selector",
+                RFECV(estimator=LinearRegression(), min_features_to_select=6),
+            )
+        )
+    elif preprocess == "elastic":
+        steps.append(
+            (
+                "selector",
+                SelectFromModel(MultiTaskElasticNetCV(cv=5, n_alphas=20)),
+            )
+        )
+    elif preprocess == "lasso":
+        steps.append(
+            ("selector", SelectFromModel(MultiTaskLassoCV(cv=5, n_alphas=20)))
+        )
+    elif preprocess == "sequential":
+        steps.append(
+            (
+                "selector",
+                SequentialFeatureSelector(
+                    estimator=LinearRegression(),
+                    scoring="neg_mean_squared_error",
+                    cv=5,
+                ),
+            )
+        )
+    elif preprocess in ("pls", "cca"):
+        model = {
+            "pls": PLSRegression,
+            "cca": CCA,
+        }.get(preprocess)
+        pipe = Pipeline(steps + [("selector", model())])
+        grid = GridSearchCV(
+            pipe,
+            param_grid={"selector__n_components": np.arange(1, 20)},
+            cv=5,
+            scoring="neg_mean_squared_error",
+        )
+        grid.fit(input_data, output_data)
+        steps.append(
+            (
+                "selector",
+                model(
+                    n_components=grid.best_params_["selector__n_components"]
+                ),
+            )
+        )
+    elif preprocess == "all":
+        pass
+    else:
+        raise ValueError(f"Unknown preprocessing {preprocess}")
+
+    return Pipeline(steps)
