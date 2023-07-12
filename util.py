@@ -111,21 +111,25 @@ def load_models(
 
 
 def rmse(pp, xx):
-    x = pp.objective.jax_fun(xx)
-    obj = pp.objective.base_objective._objectives[0]
-    amici_model = obj.amici_model
-    petab_problem = obj.amici_object_builder.petab_problem
-    res = obj(x, mode=MODE_RES, return_dict=True)
-    simulation_df = rdatas_to_simulation_df(
-        res["rdatas"],
-        model=amici_model,
-        measurement_df=petab_problem.measurement_df,
-    )
-    return np.sqrt(
-        np.mean(
-            np.square(
-                simulation_df[petab.SIMULATION]
-                - petab_problem.measurement_df[petab.MEASUREMENT]
+    try:
+        x = pp.objective.jax_fun(xx)
+        obj = pp.objective.base_objective._objectives[0]
+        amici_model = obj.amici_model
+        petab_problem = obj.amici_object_builder.petab_problem
+        res = obj(x, mode=MODE_RES, return_dict=True)
+        simulation_df = rdatas_to_simulation_df(
+            res["rdatas"],
+            model=amici_model,
+            measurement_df=petab_problem.measurement_df,
+        )
+        return np.sqrt(
+            np.mean(
+                np.square(
+                    simulation_df[petab.SIMULATION]
+                    - petab_problem.measurement_df[petab.MEASUREMENT]
+                )
             )
         )
-    )
+    except Exception as e:
+        print(e)
+        return np.NaN
