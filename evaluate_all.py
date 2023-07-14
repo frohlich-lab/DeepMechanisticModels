@@ -172,6 +172,8 @@ df.rename(
 df.loc[df["method"] == "cross_sample", "method"] = "pca embedding"
 df.loc[df["method"] == "full", "method"] = "end-to-end"
 
+df["cf"] = df["context"] + "_" + df["features"]
+
 
 def lineplot_ref_average(data, *args, **kwargs):
     sns.lineplot(data[data["ref"] == "avg"], *args, **kwargs)
@@ -217,7 +219,6 @@ for gb in ("observable", "time", "condition", "sample", "all"):
 
     kwargs_fg = dict()
     kwargs_lp = dict()
-    df["cf"] = df["context"] + "_" + df["features"]
 
     if gb == "all":
         kwargs_fg["row_order"] = ("train", "test")
