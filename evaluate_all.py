@@ -17,7 +17,7 @@ from common import (
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import (
     ALPHAS,
-    CONTEXTS,
+    CONTEXTS_FEATURES,
     LATENT_DIMS,
     PRETRAIN,
     SPLITS,
@@ -49,6 +49,7 @@ for samples in SPLITS:
                                 samples=samples,
                                 dataset=dataset,
                                 pretrain=pretrain,
+                                features=features,
                             ),
                         },
                         mode="cross_sample",
@@ -56,8 +57,8 @@ for samples in SPLITS:
                     index_col=0,
                 )
             )
-            for alpha, ldim, ctxt, pretrain in itt.product(
-                ALPHAS, LATENT_DIMS, CONTEXTS, PRETRAIN
+            for alpha, ldim, pretrain, (ctxt, features) in itt.product(
+                ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
             )
         )
         plot_loss_vs_regularization(pretraining)
@@ -81,14 +82,15 @@ for samples in SPLITS:
                                 samples=samples,
                                 dataset=dataset,
                                 pretrain=pretrain,
+                                features=features,
                             ),
                         },
                     ),
                     index_col=0,
                 )
             )
-            for alpha, ldim, ctxt, pretrain in itt.product(
-                ALPHAS, LATENT_DIMS, CONTEXTS, PRETRAIN
+            for alpha, ldim, pretrain, ctxt, features in itt.product(
+                ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
             )
         )
         plot_loss_vs_regularization(training)
