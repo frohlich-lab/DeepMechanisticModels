@@ -137,8 +137,8 @@ for samples in SPLITS:
 
         avg_ps_dfs = []
         # copy average/per sample
-        for alpha, ldim, ctxt, method, pretrain in itt.product(
-            ALPHAS, LATENT_DIMS, CONTEXTS, METHODS, PRETRAIN
+        for alpha, ldim, method, pretrain, (ctxt, features) in itt.product(
+            ALPHAS, LATENT_DIMS, METHODS, PRETRAIN, CONTEXTS_FEATURES
         ):
             for rdf in [
                 avg,
@@ -151,6 +151,7 @@ for samples in SPLITS:
                 avg_ps_df["context"] = ctxt
                 avg_ps_df["type"] = method
                 avg_ps_df["pretrain"] = pretrain
+                avg_ps_df["features"] = features
                 avg_ps_dfs.append(avg_ps_df)
 
         # dfd = pd.concat([training, pretraining])
@@ -216,14 +217,16 @@ for gb in ("observable", "time", "condition", "sample", "all"):
 
     kwargs_fg = dict()
     kwargs_lp = dict()
+    df["cf"] = df["context"] + "_" + df["features"]
 
     if gb == "all":
         kwargs_fg["row_order"] = ("train", "test")
-        if len(data.context.unique()) > 1:
-            kwargs_lp["style"] = "context"
+        if len(data["cf"].unique()) > 1:
+            kwargs_lp["style"] = "latent dim"
     else:
-        data = data[data["context"] == "proteomics_zpca"]
+        data = data[(data["cf"] == "cytof_init_all")]
         kwargs_lp["style"] = "dataset"
+    kwargs_lp["palette"] = "tab10"
 
     fig = plt.figure()
     g = sns.FacetGrid(
@@ -237,7 +240,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         lineplot_methods,
         x="l2 regularization",
         y="rmse",
-        hue="latent dim",
+        hue="cf",
         errorbar="se",
         **kwargs_lp,
     )
