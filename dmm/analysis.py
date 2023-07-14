@@ -66,7 +66,8 @@ def load_optimize_result_pretraining_cross_samples(
         if str(os.path.splitext(file)[0]).endswith("trace"):
             continue
 
-        if int(str(os.path.splitext(file)[0]).split("__")[-2]) >= n_starts:
+        # ignore previous results with higher n_starts
+        if int(str(m.group(1))) >= n_starts:
             continue
 
         r = (
