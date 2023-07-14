@@ -89,7 +89,7 @@ for samples in SPLITS:
                     index_col=0,
                 )
             )
-            for alpha, ldim, pretrain, ctxt, features in itt.product(
+            for alpha, ldim, pretrain, (ctxt, features) in itt.product(
                 ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
             )
         )
