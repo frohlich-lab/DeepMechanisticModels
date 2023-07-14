@@ -157,8 +157,9 @@ def evaluate_simulations(
 
 
 def plot_loss_vs_regularization(df):
+    df["cf"] = df["context"] + "_" + df["features"]
     dfa = (
-        df.groupby(["alpha", "layers", "context", "sample"])
+        df.groupby(["alpha", "layers", "cf", "sample"])
         .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
         .rename(columns={"res": "rmse"})
         .reset_index()
@@ -168,9 +169,9 @@ def plot_loss_vs_regularization(df):
         sns.lineplot,
         x="alpha",
         y="rmse",
-        hue="layers",
-        palette="Blues",
-        style="context",
+        hue="cf",
+        palette="tab10",
+        style="layers",
     )
     [ax.set(yscale="log", xscale="log") for ax in g.axes]
     plt.tight_layout()

@@ -192,7 +192,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
         "ref",
         "dataset",
         "method",
-        "context",
+        "cf",
         "latent dim",
         "l2 regularization",
         "samples",
