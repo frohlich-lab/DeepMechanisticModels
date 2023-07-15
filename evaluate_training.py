@@ -59,6 +59,7 @@ def evaluate_training(dataset, conf):
         dataset,
         conf.alpha,
         conf.n_hidden,
+        conf.features,
         outdir / "simulation",
         evaluations,
         "full",

@@ -24,8 +24,14 @@ CONTEXTS_FEATURES = (
     ("cytof_init", "elastic"),
     ("cytof_init", "sequential"),
     ("cytof_dynamic", "all"),
+    ("proteomics", "rfe"),
     ("proteomics", "lasso"),
+    ("proteomics", "elastic"),
+    ("proteomics", "sequential"),
+    ("transcriptomics", "rfe"),
     ("transcriptomics", "lasso"),
+    ("transcriptomics", "elastic"),
+    ("transcriptomics", "sequential"),
 )
 CONTEXTS = (
     # "proteomics",

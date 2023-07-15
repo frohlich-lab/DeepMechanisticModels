@@ -73,6 +73,7 @@ def evaluate_petraining_cross_sample(dataset, conf):
         dataset,
         conf.alpha,
         conf.n_hidden,
+        conf.features,
         outdir / "simulation",
         evaluations,
         "cross_sample",

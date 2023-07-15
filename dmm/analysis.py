@@ -26,6 +26,7 @@ def process_simulation(
     model_type,
     alpha,
     hidden_layers,
+    features,
 ):
     idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     mdf = measurement_df[idx]
@@ -43,6 +44,7 @@ def process_simulation(
                 "context": context,
                 "alpha": alpha,
                 "layers": hidden_layers,
+                "features": features,
                 "observable": r[petab.OBSERVABLE_ID],
                 "condition": r[petab.SIMULATION_CONDITION_ID].split("__")[1],
                 "time": r[petab.TIME],
@@ -97,6 +99,7 @@ def evaluate_simulations(
     dataset,
     l1reg,
     latent_dim,
+    features,
     outdir,
     evaluations,
     model_type,
@@ -137,6 +140,7 @@ def evaluate_simulations(
             model_type,
             l1reg,
             latent_dim,
+            features,
         )
 
     plot_cross_samples(
