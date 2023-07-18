@@ -27,11 +27,11 @@ CONTEXTS_FEATURES = (
     ("proteomics", "rfe"),
     ("proteomics", "lasso"),
     ("proteomics", "elastic"),
-    ("proteomics", "sequential"),
+    # ("proteomics", "sequential"),
     ("transcriptomics", "rfe"),
     ("transcriptomics", "lasso"),
     ("transcriptomics", "elastic"),
-    ("transcriptomics", "sequential"),
+    # ("transcriptomics", "sequential"),
 )
 CONTEXTS = (
     # "proteomics",
