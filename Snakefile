@@ -204,7 +204,7 @@ rule pretrain_cross_sample:
         pretrain='True|False',
     resources:
         mem="1.5GB",
-        runtime="12h",
+        runtime="14h",
         nodes=1,
         cpus_per_task=1,
     retries: 1
@@ -239,8 +239,8 @@ rule estimate_parameters:
         pretrain='True|False',
     retries: 1
     resources:
-        mem="1GB",
-        runtime="12h",
+        mem="1.5GB",
+        runtime="14h",
         nodes=1,
         cpus_per_task=1,
     shell:
