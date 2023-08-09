@@ -201,7 +201,7 @@ for iteration in range(N_ITER + 1):
         if rmses["test"] < rmse_test_min:
             rmse_test_min = rmses["test"]
             opt_x = x.copy()
-            opt_fval = fval.copy()
+            opt_fval = fval
             opt_grads = grads.copy()
 
         wandb.log(
