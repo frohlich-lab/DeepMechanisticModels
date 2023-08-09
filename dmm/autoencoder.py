@@ -28,7 +28,7 @@ class DeepMechanisticModel(AutoEncoder):
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     feature_cols: List[str] = eqx.static_field()
-    l2reg: float = eqx.static_field()
+    l1reg: float = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporterPysb = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
 
@@ -41,7 +41,7 @@ class DeepMechanisticModel(AutoEncoder):
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
         features: pd.DataFrame,
-        l2reg: float = 0.0,
+        l1reg: float = 0.0,
         n_threads=1,
         pca: Optional[PCA] = None,
     ):
@@ -55,9 +55,9 @@ class DeepMechanisticModel(AutoEncoder):
         :param n_latent:
             number of nodes in the hidden layer of the encoder
 
-        :param l2reg:
-            currently this parameter only influences the strength of l2
-            regularization on the inflate layer (the respective gaussian
+        :param l1reg:
+            currently this parameter only influences the strength of l1
+            regularization on the inflate layer (the respective laplace
             prior has its standard deviation defined based on the value of
             this parameter). For bounded inflate functions, this parameter
             is also intended to rescale the inputs accordingly.
@@ -68,15 +68,15 @@ class DeepMechanisticModel(AutoEncoder):
 
         # subset samples
 
-        self.l2reg = l2reg
+        self.l1reg = l1reg
         self.petab_importer = load_petab(
-            problem,
-            dataset,
-            l2reg,
-            measurement_table,
-            condition_table,
-            observable_table,
-            list(features.index),
+            problem=problem,
+            dataset=dataset,
+            l1reg=l1reg,
+            measurement_table=measurement_table,
+            condition_table=condition_table,
+            observable_table=observable_table,
+            samples=list(features.index),
         )
 
         self.pypesto_subproblem = self.petab_importer.create_problem()

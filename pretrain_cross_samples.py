@@ -6,12 +6,14 @@ pretraining
 import itertools as itt
 from pathlib import Path
 
-import fides
 import fire
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
-from pypesto.optimize import FidesOptimizer
+from optax import adam, apply_updates, exponential_decay
+from pypesto import Result
+from pypesto.result.optimize import OptimizationResult, OptimizeResult
+from pypesto.startpoint import FunctionStartpoints
 
 import wandb
 from common import (
@@ -19,14 +21,9 @@ from common import (
     CROSS_SAMPLE_OUTFILE_RESULTS,
     CROSS_SAMPLE_OUTFILE_TRACE,
     PER_SAMPLE_OUTFILE_PARS,
-    select_values,
 )
 from dmm import MODEL_FEATURE_PREFIX
-from dmm.pretraining import (
-    generate_cross_sample_pretraining_problem,
-    pretrain,
-    store_and_plot_pretraining,
-)
+from dmm.pretraining import generate_cross_sample_pretraining_problem
 from util import Conf, load_models, rmse
 
 conf = fire.Fire(Conf)
@@ -129,18 +126,6 @@ def startpoints(**kwargs):
     return xs
 
 
-fides_options = {
-    fides.Options.FATOL: 0,
-    fides.Options.FRTOL: 0,
-    fides.Options.XTOL: 1e-8,
-    fides.Options.MAXTIME: 3600 * 10,
-    fides.Options.MAXITER: 100,
-}
-
-optimizer = FidesOptimizer(
-    hessian_update=fides.HybridFixed(),
-    options=fides_options,
-)
 np.random.seed(conf.job)
 hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
 if conf.pretrain:
@@ -151,27 +136,28 @@ else:
 rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
 
+sps = FunctionStartpoints(startpoint_method)(
+    n_starts=1,
+    problem=pypesto_problem_train,
+)
+
+schedule_config = dict(
+    init_value=1e-1,
+    transition_steps=10,
+    decay_rate=0.8,
+    end_value=1e-3,
+)
+
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    group=f"pretraining_{conf.context}_{conf.n_hidden}",
+    group=f"pretraining_{conf.context}_{conf.features}_{conf.n_hidden}",
     config={
         **conf.__dict__,
-        "fides": fides_options,
+        "adam_schedule": schedule_config,
         "mode": "pretrain",
     },
     name="pretraining__" + rfile.stem,
-)
-
-result = pretrain(
-    problem=pypesto_problem_train,
-    nstarts=1,
-    startpoint_method=startpoint_method,
-    optimizer=optimizer,
-    hfile=hfile,
-)
-
-store_and_plot_pretraining(
-    result, pfile=pfile, rfile=rfile, plot_waterfall=False
+    settings=wandb.Settings(start_method="fork"),
 )
 
 wandb.define_metric("rmse_train", summary="min", step_metric="iter")
@@ -181,43 +167,85 @@ for val_type, xname in itt.product(("x", "g"), ("inflate", "kinetic")):
 wandb.define_metric("x_inflate", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
+N_ITER = 1000
 
-for iter, (x, grad) in select_values(
-    enumerate(
-        zip(
-            result.optimize_result.list[0].history.get_x_trace(trim=True),
-            result.optimize_result.list[0].history.get_grad_trace(trim=True),
-        )
-    ),
-    20,
-):
-    rmses = dict()
-    for dataset, pp in zip(
-        ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
-    ):
-        rmses[dataset] = rmse(pp, x)
+x = sps[0, :]
+x0 = x.copy()
+fval = np.inf
+grads = np.NaN * np.ones_like(x)
 
-    wandb.log(
-        {
-            "rmse_train": rmses["train"],
-            "rmse_val": rmses["test"],
-            "iter": iter,
-            **{
-                f"{val_type}_{xname}": None
-                if not np.all(np.isfinite(value))
-                else wandb.Histogram(value)
-                if val_type == "x"
-                else wandb.Histogram(np.log(np.abs(value)))
-                for val_type, values in (
-                    ("x", x),
-                    ("g", grad),
-                )
-                for xname, value in zip(
-                    ("inflate", "kinetic"),
-                    np.split(values, (model_train.n_inflate_weights,)),
-                )
-            },
-        }
+schedule = exponential_decay(**schedule_config)
+opt = adam(schedule)
+opt_state = opt.init(x)
+
+opt_x = x.copy()
+opt_fval = fval.copy()
+opt_grads = grads.copy()
+rmse_test_min = np.inf
+
+for iteration in range(N_ITER + 1):
+    fval, grads = pypesto_problem_train.objective(x, sensi_orders=(0, 1))
+
+    updates, opt_state = opt.update(grads, opt_state)
+    x = apply_updates(x, updates)
+    print(
+        f"iter {iteration:4d} (lr={schedule(opt_state[1].count):.2e}): {fval:.2f}"
     )
+    if iteration % 10 == 0:
+        rmses = dict()
+        for dataset, pp in zip(
+            ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
+        ):
+            rmses[dataset] = rmse(pp, x)
+
+        if rmses["test"] < rmse_test_min:
+            rmse_test_min = rmses["test"]
+            opt_x = x.copy()
+            opt_fval = fval.copy()
+            opt_grads = grads.copy()
+
+        wandb.log(
+            {
+                "rmse_train": rmses["train"],
+                "rmse_val": rmses["test"],
+                "iter": iteration,
+                **{
+                    f"{val_type}_{xname}": None
+                    if not np.all(np.isfinite(value))
+                    else wandb.Histogram(value)
+                    if val_type == "x"
+                    else wandb.Histogram(np.log10(np.abs(value)))
+                    for val_type, values in (
+                        ("x", x),
+                        ("g", grads),
+                    )
+                    for xname, value in zip(
+                        ("inflate", "kinetic"),
+                        np.split(values, (model_train.n_inflate_weights,)),
+                    )
+                },
+            }
+        )
 
 wandb.finish()
+
+OResult = OptimizeResult()
+OResult.append(
+    OptimizationResult(
+        fval=opt_fval,
+        x=opt_x,
+        grad=opt_grads,
+        x0=x0,
+    )
+)
+result = Result(
+    problem=pypesto_problem_train,
+    optimize_result=OResult,
+)
+
+
+parameter_df = pd.Series(
+    opt_x,
+    index=pypesto_problem_train.x_names,
+)
+parameter_df.to_csv(pfile)

@@ -18,7 +18,7 @@ def generate_parameter_table(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     features: List[pysb.Parameter],
-    l2reg: float,
+    l1reg: float,
 ) -> pd.DataFrame:
     # this defines the full set of parameters including boundaries, nominal
     # values, scale, priors and whether they will be estimated or not.
@@ -112,14 +112,14 @@ def generate_parameter_table(
 
     # add l1 regularization to input parameters (only if estimating them)
     parameter_table[petab.OBJECTIVE_PRIOR_TYPE] = [
-        petab.PARAMETER_SCALE_NORMAL
-        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
+        petab.PARAMETER_SCALE_LAPLACE
+        if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0
         else np.NaN
         for name in parameter_table.index
     ]
     parameter_table[petab.OBJECTIVE_PRIOR_PARAMETERS] = [
-        f"0.0;{1 / np.sqrt(l2reg)}"
-        if name.startswith(MODEL_FEATURE_PREFIX) and l2reg > 0
+        f"0.0;{1 / l1reg}"
+        if name.startswith(MODEL_FEATURE_PREFIX) and l1reg > 0
         else np.NaN
         for name in parameter_table.index
     ]
@@ -194,13 +194,13 @@ def load_petab(
 
     # PARAMETER TABLE
     parameter_table = generate_parameter_table(
-        problem,
-        model,
-        condition_table,
-        measurement_table,
-        observable_table,
-        features,
-        l1reg,
+        problem=problem,
+        model=model,
+        condition_table=condition_table,
+        measurement_table=measurement_table,
+        observable_table=observable_table,
+        features=features,
+        l1reg=l1reg,
     )
 
     petab_problem = petab.Problem(

@@ -82,7 +82,7 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_train,
-        l2reg=conf.alpha,
+        l1reg=conf.alpha,
         n_threads=conf.n_threads,
     )
 
@@ -100,7 +100,7 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_test,
-        l2reg=conf.alpha,
+        l1reg=conf.alpha,
         n_threads=conf.n_threads,
         pca=dmm_train.pca,
     )
