@@ -179,7 +179,7 @@ opt = adam(schedule)
 opt_state = opt.init(x)
 
 opt_x = x.copy()
-opt_fval = fval.copy()
+opt_fval = fval
 opt_grads = grads.copy()
 rmse_test_min = np.inf
 
