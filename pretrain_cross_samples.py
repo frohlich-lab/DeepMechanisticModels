@@ -12,7 +12,7 @@ import pandas as pd
 import scipy.linalg as la
 from optax import adam, apply_updates, exponential_decay
 from pypesto import Result
-from pypesto.result.optimize import OptimizationResult, OptimizeResult
+from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.startpoint import FunctionStartpoints
 
 import wandb
@@ -231,7 +231,7 @@ wandb.finish()
 
 OResult = OptimizeResult()
 OResult.append(
-    OptimizationResult(
+    OptimizerResult(
         fval=opt_fval,
         x=opt_x,
         grad=opt_grads,

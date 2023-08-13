@@ -6,7 +6,7 @@ import numpy as np
 import pandas as pd
 from optax import adam, apply_updates, exponential_decay
 from pypesto import Result
-from pypesto.result.optimize import OptimizationResult, OptimizeResult
+from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
 
 import wandb
@@ -104,53 +104,52 @@ for iteration in range(N_ITER + 1):
     print(
         f"iter {iteration:4d} (lr={schedule(opt_state[1].count):.2e}): {fval:.2f}"
     )
-    if iteration % 10 == 0:
-        rmses = dict()
-        for dataset, pp in zip(
-            ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
-        ):
-            rmses[dataset] = rmse(pp, x)
+    rmses = dict()
+    for dataset, pp in zip(
+        ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
+    ):
+        rmses[dataset] = rmse(pp, x)
 
-        if rmses["test"] < rmse_test_min:
-            rmse_test_min = rmses["test"]
-            opt_x = x.copy()
-            opt_fval = fval
-            opt_grads = grads.copy()
+    if rmses["test"] < rmse_test_min:
+        rmse_test_min = rmses["test"]
+        opt_x = x.copy()
+        opt_fval = fval
+        opt_grads = grads.copy()
 
-        wandb.log(
-            {
-                "rmse_train": rmses["train"],
-                "rmse_val": rmses["test"],
-                "iter": iteration,
-                **{
-                    f"{val_type}_{xname}": None
-                    if not np.all(np.isfinite(value))
-                    else wandb.Histogram(value)
-                    if val_type == "x"
-                    else wandb.Histogram(np.log10(np.abs(value)))
-                    for val_type, values in (
-                        ("x", x),
-                        ("g", grads),
-                    )
-                    for xname, value in zip(
-                        ("encode", "inflate", "kinetic"),
-                        np.split(
-                            values,
-                            (
-                                model_train.n_encode_weights,
-                                model_train.n_encoder_pars,
-                            ),
+    wandb.log(
+        {
+            "rmse_train": rmses["train"],
+            "rmse_val": rmses["test"],
+            "iter": iteration,
+            **{
+                f"{val_type}_{xname}": None
+                if not np.all(np.isfinite(value))
+                else wandb.Histogram(value)
+                if val_type == "x"
+                else wandb.Histogram(np.log10(np.abs(value)))
+                for val_type, values in (
+                    ("x", x),
+                    ("g", grads),
+                )
+                for xname, value in zip(
+                    ("encode", "inflate", "kinetic"),
+                    np.split(
+                        values,
+                        (
+                            model_train.n_encode_weights,
+                            model_train.n_encoder_pars,
                         ),
-                    )
-                },
-            }
-        )
+                    ),
+                )
+            },
+        }
+    )
 
 wandb.finish()
 
 OResult = OptimizeResult()
 OResult.append(
-    OptimizationResult(
+    OptimizerResult(
         fval=opt_fval,
         x=opt_x,
         grad=opt_grads,
