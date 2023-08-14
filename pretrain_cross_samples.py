@@ -14,6 +14,7 @@ from optax import adam, apply_updates, exponential_decay
 from pypesto import Result
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.startpoint import FunctionStartpoints
+from pypesto.store import OptimizationResultHDF5Writer
 
 import wandb
 from common import (
@@ -243,6 +244,9 @@ result = Result(
     optimize_result=OResult,
 )
 
+rfile.parent.mkdir(exist_ok=True, parents=True)
+writer = OptimizationResultHDF5Writer(str(rfile))
+writer.write(result, overwrite=True)
 
 parameter_df = pd.Series(
     opt_x,

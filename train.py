@@ -10,11 +10,7 @@ from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
 
 import wandb
-from common import (
-    CROSS_SAMPLE_OUTFILE_PARS,
-    TRAINING_OUTFILE_RESULTS,
-    TRAINING_OUTFILE_TRACE,
-)
+from common import CROSS_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS
 from dmm.training import create_pypesto_problem
 from util import Conf, load_models, rmse
 

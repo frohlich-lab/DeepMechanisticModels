@@ -64,9 +64,6 @@ CROSS_SAMPLE_OUTFILE_TRACE = str(
     pretrain_dir / "{model}" / "{data}" / (tpl_results_file + "_trace.hdf5")
 )
 
-TRAINING_OUTFILE_TRACE = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_trace.hdf5")
-)
 TRAINING_OUTFILE_RESULTS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
 )
