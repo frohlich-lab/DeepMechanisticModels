@@ -1,13 +1,9 @@
 ALPHAS = (
-    1e-2,
-    # 1e-1,
     1e-0,
-    # 1e1,
+    1e1,
     1e2,
-    # 1e3,
+    1e3,
     1e4,
-    # 1e5,
-    1e6,
 )
 LATENT_DIMS = (
     2,
@@ -24,10 +20,12 @@ CONTEXTS_FEATURES = (
     ("cytof_init", "elastic"),
     ("cytof_init", "sequential"),
     ("cytof_dynamic", "all"),
+    ("proteomics", "all"),
     ("proteomics", "rfe"),
     ("proteomics", "lasso"),
     ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
+    ("transcriptomics", "all"),
     ("transcriptomics", "rfe"),
     ("transcriptomics", "lasso"),
     ("transcriptomics", "elastic"),

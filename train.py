@@ -33,7 +33,7 @@ rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 schedule_config = dict(
     init_value=1e-2,
     transition_steps=10,
-    decay_rate=0.8,
+    decay_rate=0.9,
     end_value=1e-3,
 )
 

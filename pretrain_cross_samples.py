@@ -143,9 +143,9 @@ sps = FunctionStartpoints(startpoint_method)(
 )
 
 schedule_config = dict(
-    init_value=1e-1,
+    init_value=1e-2,
     transition_steps=10,
-    decay_rate=0.8,
+    decay_rate=0.9,
     end_value=1e-3,
 )
 
@@ -168,7 +168,7 @@ for val_type, xname in itt.product(("x", "g"), ("inflate", "kinetic")):
 wandb.define_metric("x_inflate", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
-N_ITER = 1000
+N_ITER = 200
 
 x = sps[0, :]
 x0 = x.copy()
@@ -186,9 +186,6 @@ rmse_test_min = np.inf
 
 for iteration in range(N_ITER + 1):
     fval, grads = pypesto_problem_train.objective(x, sensi_orders=(0, 1))
-
-    updates, opt_state = opt.update(grads, opt_state)
-    x = apply_updates(x, updates)
     print(
         f"iter {iteration:4d} (lr={schedule(opt_state[1].count):.2e}): {fval:.2f}"
     )
@@ -227,6 +224,9 @@ for iteration in range(N_ITER + 1):
                 },
             }
         )
+
+    updates, opt_state = opt.update(grads, opt_state)
+    x = apply_updates(x, updates)
 
 wandb.finish()
 
