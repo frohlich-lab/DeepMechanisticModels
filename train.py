@@ -2,6 +2,7 @@ import itertools as itt
 from pathlib import Path
 
 import fire
+import git
 import numpy as np
 import pandas as pd
 from optax import adam, apply_updates, exponential_decay
@@ -37,6 +38,8 @@ schedule_config = dict(
     end_value=1e-3,
 )
 
+repo = git.Repo(search_parent_directories=True)
+
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
     group=f"training_{conf.context}_{conf.features}_{conf.n_hidden}",
@@ -46,7 +49,11 @@ wandb.init(
         "mode": "train",
     },
     name="training__" + rfile.stem,
-    settings=wandb.Settings(start_method="fork"),
+    settings=wandb.Settings(
+        start_method="fork",
+        git_commit=repo.head.object.hexsha,
+        git_url=repo.remotes.origin.url,
+    ),
 )
 
 wandb.define_metric("rmse_train", summary="min", step_metric="iter")
