@@ -32,7 +32,7 @@ pypesto_problem_train, pypesto_problem_test = (
 rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 
 schedule_config = dict(
-    init_value=1e-1,
+    init_value=1e-2,
     transition_steps=100,
     end_value=1e-3,
 )
@@ -57,14 +57,12 @@ wandb.init(
     ),
 )
 
-wandb.define_metric("rmse_train", summary="min", step_metric="iter")
-wandb.define_metric("rmse_val", summary="min", step_metric="iter")
+wandb.define_metric("rmse_train", summary="min")
+wandb.define_metric("rmse_val", summary="min")
 for val_type, xname in itt.product(
     ("x", "g"), ("encode", "inflate", "kinetic")
 ):
-    wandb.define_metric(f"{val_type}_{xname}", step_metric="iter")
-wandb.define_metric("x_inflate", step_metric="iter")
-wandb.define_metric("iter", summary="last", hidden=True)
+    wandb.define_metric(f"{val_type}_{xname}")
 
 
 schedule = linear_schedule(**schedule_config)
@@ -101,14 +99,12 @@ opt_fval = fval
 opt_grads = grads.copy()
 rmse_test_min = np.inf
 
-for iteration in range(N_ITER + 1):
+for epoch in range(N_ITER + 1):
     fval, grads = pypesto_problem_train.objective(x, sensi_orders=(0, 1))
     updates, opt_state = opt.update(grads, opt_state)
     x = apply_updates(x, updates)
-    print(
-        f"iter {iteration:4d} (lr={schedule(opt_state[1].count):.2e}): {fval:.2f}"
-    )
     rmses = dict()
+    wandb.log({"fval": fval}, step=epoch)
     for dataset, pp in zip(
         ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
     ):
@@ -124,7 +120,6 @@ for iteration in range(N_ITER + 1):
         {
             "rmse_train": rmses["train"],
             "rmse_val": rmses["test"],
-            "iter": iteration,
             **{
                 f"{val_type}_{xname}": None
                 if not np.all(np.isfinite(value))
@@ -146,7 +141,8 @@ for iteration in range(N_ITER + 1):
                     ),
                 )
             },
-        }
+        },
+        step=epoch,
     )
 
 wandb.finish()
@@ -158,6 +154,7 @@ OResult.append(
         x=opt_x,
         grad=opt_grads,
         x0=x0,
+        id=str(conf.job),
     )
 )
 result = Result(
