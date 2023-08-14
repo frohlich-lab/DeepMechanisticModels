@@ -11,7 +11,7 @@ import git
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
-from optax import adam, apply_updates, exponential_decay
+from optax import adam, apply_updates, linear_schedule
 from pypesto import Result
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.startpoint import FunctionStartpoints
@@ -144,10 +144,9 @@ sps = FunctionStartpoints(startpoint_method)(
 )
 
 schedule_config = dict(
-    init_value=1e-2,
-    transition_steps=10,
-    decay_rate=0.9,
-    end_value=1e-3,
+    init_value=1e-1,
+    transition_steps=100,
+    end_value=1e-2,
 )
 
 repo = git.Repo(search_parent_directories=True)
@@ -157,14 +156,16 @@ wandb.init(
     group=f"pretraining_{conf.context}_{conf.features}_{conf.n_hidden}",
     config={
         **conf.__dict__,
-        "adam_schedule": schedule_config,
+        "schedule_config": schedule_config,
+        "optimizer": "adam",
+        "scheduler": "linear",
         "mode": "pretrain",
     },
     name="pretraining__" + rfile.stem,
     settings=wandb.Settings(
         start_method="fork",
         git_commit=repo.head.object.hexsha,
-        git_url=repo.remotes.origin.url,
+        git_remote_url=repo.remotes.origin.url,
     ),
 )
 
@@ -182,7 +183,7 @@ x0 = x.copy()
 fval = np.inf
 grads = np.NaN * np.ones_like(x)
 
-schedule = exponential_decay(**schedule_config)
+schedule = linear_schedule(**schedule_config)
 opt = adam(schedule)
 opt_state = opt.init(x)
 

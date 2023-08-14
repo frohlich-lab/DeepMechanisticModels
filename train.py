@@ -5,7 +5,7 @@ import fire
 import git
 import numpy as np
 import pandas as pd
-from optax import adam, apply_updates, exponential_decay
+from optax import adam, apply_updates, linear_schedule
 from pypesto import Result
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
@@ -32,9 +32,8 @@ pypesto_problem_train, pypesto_problem_test = (
 rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 
 schedule_config = dict(
-    init_value=1e-2,
-    transition_steps=10,
-    decay_rate=0.9,
+    init_value=1e-1,
+    transition_steps=100,
     end_value=1e-3,
 )
 
@@ -45,7 +44,9 @@ wandb.init(
     group=f"training_{conf.context}_{conf.features}_{conf.n_hidden}",
     config={
         **conf.__dict__,
-        "adam_schedule": schedule_config,
+        "schedule_config": schedule_config,
+        "optimizer": "adam",
+        "scheduler": "linear",
         "mode": "train",
     },
     name="training__" + rfile.stem,
@@ -66,7 +67,7 @@ wandb.define_metric("x_inflate", step_metric="iter")
 wandb.define_metric("iter", summary="last", hidden=True)
 
 
-schedule = exponential_decay(**schedule_config)
+schedule = linear_schedule(**schedule_config)
 opt = adam(schedule)
 
 N_ITER = 100
