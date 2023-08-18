@@ -3,9 +3,6 @@ from typing import Dict, Tuple, Union
 
 import numpy as np
 import pandas as pd
-import petab
-from amici.petab_objective import rdatas_to_simulation_df
-from pypesto.C import MODE_RES
 
 from common import (
     CONDITIONS_FILE,
@@ -82,7 +79,6 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_train,
-        l1reg=conf.alpha,
         n_threads=conf.n_threads,
     )
 
@@ -100,7 +96,6 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_test,
-        l1reg=conf.alpha,
         n_threads=conf.n_threads,
         pca=dmm_train.pca,
     )
@@ -108,28 +103,3 @@ def load_models(
         return (dmm_train, dmm_test), problem
 
     return dmm_test, problem
-
-
-def rmse(pp, xx):
-    try:
-        x = pp.objective.jax_fun(xx)
-        obj = pp.objective.base_objective._objectives[0]
-        amici_model = obj.amici_model
-        petab_problem = obj.amici_object_builder.petab_problem
-        res = obj(x, mode=MODE_RES, return_dict=True)
-        simulation_df = rdatas_to_simulation_df(
-            res["rdatas"],
-            model=amici_model,
-            measurement_df=petab_problem.measurement_df,
-        )
-        return np.sqrt(
-            np.mean(
-                np.square(
-                    simulation_df[petab.SIMULATION]
-                    - petab_problem.measurement_df[petab.MEASUREMENT]
-                )
-            )
-        )
-    except Exception as e:
-        print(e)
-        return np.NaN

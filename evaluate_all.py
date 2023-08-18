@@ -1,4 +1,5 @@
 import itertools as itt
+import os
 
 import fire
 import matplotlib.pyplot as plt
@@ -72,25 +73,28 @@ for samples in SPLITS:
         training = pd.concat(
             (
                 pd.read_csv(
-                    EVALUATION_TRAINING.format(
-                        **{
-                            **conf.__dict__,
-                            **dict(
-                                alpha=alpha,
-                                n_hidden=ldim,
-                                context=ctxt,
-                                samples=samples,
-                                dataset=dataset,
-                                pretrain=pretrain,
-                                features=features,
-                            ),
-                        },
-                    ),
+                    efile,
                     index_col=0,
                 )
             )
             for alpha, ldim, pretrain, (ctxt, features) in itt.product(
                 ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
+            )
+            if os.path.exists(
+                efile := EVALUATION_TRAINING.format(
+                    **{
+                        **conf.__dict__,
+                        **dict(
+                            alpha=alpha,
+                            n_hidden=ldim,
+                            context=ctxt,
+                            samples=samples,
+                            dataset=dataset,
+                            pretrain=pretrain,
+                            features=features,
+                        ),
+                    },
+                )
             )
         )
         plot_loss_vs_regularization(training)

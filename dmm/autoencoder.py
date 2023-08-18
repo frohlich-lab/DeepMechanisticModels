@@ -28,7 +28,6 @@ class DeepMechanisticModel(AutoEncoder):
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     feature_cols: List[str] = eqx.static_field()
-    l1reg: float = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporterPysb = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
 
@@ -41,7 +40,6 @@ class DeepMechanisticModel(AutoEncoder):
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
         features: pd.DataFrame,
-        l1reg: float = 0.0,
         n_threads=1,
         pca: Optional[PCA] = None,
     ):
@@ -68,11 +66,9 @@ class DeepMechanisticModel(AutoEncoder):
 
         # subset samples
 
-        self.l1reg = l1reg
         self.petab_importer = load_petab(
             problem=problem,
             dataset=dataset,
-            l1reg=l1reg,
             measurement_table=measurement_table,
             condition_table=condition_table,
             observable_table=observable_table,
@@ -95,9 +91,7 @@ class DeepMechanisticModel(AutoEncoder):
         self.features = features.loc[petab_samples, :].values
 
         if pca is None:
-            self.pca = PCA(n_components=n_latent, whiten=True).fit(
-                self.features
-            )
+            self.pca = PCA(n_components=n_latent).fit(self.features)
         else:
             self.pca = pca
         self.features_pca = self.pca.transform(self.features)
@@ -135,7 +129,7 @@ class DeepMechanisticModel(AutoEncoder):
             and ix in self.pypesto_subproblem.x_free_indices
         ]
 
-    def embedding(self, params: np.ndarray) -> np.ndarray:
+    def embedding(self, params: np.ndarray) -> jnp.ndarray:
         encode_weights, inflate_weights, kin_params = jnp.split(
             params,
             np.array(
@@ -166,3 +160,48 @@ class DeepMechanisticModel(AutoEncoder):
                 ).flatten(),
             ]
         )
+
+    def orth_reg(self, params: jnp.ndarray, scale: float = 1.0):
+        """
+        Orthogonal regularization of the encoder weights.
+        """
+
+        encode_weights, inflate_weights, kin_params = jnp.split(
+            params,
+            np.array(
+                (
+                    self.n_encode_weights,
+                    self.n_encoder_pars,
+                )
+            ),
+        )
+        weights = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
+        return scale * jnp.sum(
+            jnp.abs(jnp.dot(weights.T, weights) - jnp.eye(self.n_latent))
+        )
+
+    def l1_inflate_reg(
+        self, params: jnp.ndarray, mode: str, scale: float = 1.0
+    ):
+        """
+        l1 regularization of the inflate output.
+        """
+        if mode == "train":
+            encode_weights, inflate_weights, kin_params = jnp.split(
+                params,
+                np.array(
+                    (
+                        self.n_encode_weights,
+                        self.n_inflate_weights + self.n_encode_weights,
+                    )
+                ),
+            )
+            inflate = self.inflate_params(
+                self.encode(encode_weights), inflate_weights
+            )
+        else:
+            inflate_weights, kin_params = jnp.split(
+                params, np.array((self.n_inflate_weights,))
+            )
+            inflate = self.inflate_params(self.features_pca, inflate_weights)
+        return scale * jnp.sum(jnp.abs(inflate))

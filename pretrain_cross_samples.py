@@ -3,21 +3,14 @@ Pretraining of population + individual parameters based on per sample
 pretraining
 """
 
-import itertools as itt
 from pathlib import Path
 
 import fire
-import git
 import numpy as np
 import pandas as pd
 import scipy.linalg as la
-from optax import adam, apply_updates, linear_schedule
-from pypesto import Result
-from pypesto.result.optimize import OptimizeResult, OptimizerResult
-from pypesto.startpoint import FunctionStartpoints
-from pypesto.store import OptimizationResultHDF5Writer
+from pypesto.startpoint import FunctionStartpoints, UniformStartpoints
 
-import wandb
 from common import (
     CROSS_SAMPLE_OUTFILE_PARS,
     CROSS_SAMPLE_OUTFILE_RESULTS,
@@ -26,7 +19,8 @@ from common import (
 )
 from dmm import MODEL_FEATURE_PREFIX
 from dmm.pretraining import generate_cross_sample_pretraining_problem
-from util import Conf, load_models, rmse
+from dmm.training import train
+from util import Conf, load_models
 
 conf = fire.Fire(Conf)
 
@@ -96,19 +90,6 @@ def startpoints(**kwargs):
             and p.endswith(par_combo.index[0])
         ]
 
-        # use this code to use reference inputs for initialization
-        # if DATA.startswith("synthetic"):
-        #     reference_inputs = pd.read_csv(
-        #         data_dir / f"{DATA}__{MODEL}__reference_inputs.csv", index_col=[0]
-        #     )
-        #     for col in par_combo.columns:
-        #         means[col] = reference_inputs.loc[col.replace("_obs", "")].values[0]
-        #         if col not in inputs:
-        #             continue
-        #         for sample in par_combo.index:
-        #             par_combo.loc[sample, col] = reference_inputs.loc[
-        #                 f"{MODEL_FEATURE_PREFIX}{col}_{sample}"
-        #             ].values[0, 0]
         w = la.lstsq(
             model_train.features_pca[:, : model_train.n_latent],
             par_combo[inputs].values,
@@ -131,14 +112,14 @@ def startpoints(**kwargs):
 np.random.seed(conf.job)
 hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
 if conf.pretrain:
-    startpoint_method = startpoints
+    startpoint_method = FunctionStartpoints(startpoints)
 else:
-    startpoint_method = None
+    startpoint_method = UniformStartpoints
 
 rfile = Path(CROSS_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
 pfile = Path(CROSS_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
 
-sps = FunctionStartpoints(startpoint_method)(
+sps = startpoint_method(
     n_starts=1,
     problem=pypesto_problem_train,
 )
@@ -149,112 +130,21 @@ schedule_config = dict(
     end_value=1e-2,
 )
 
-repo = git.Repo(search_parent_directories=True)
-
-wandb.init(
-    project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    group=f"pretraining_{conf.context}_{conf.features}_{conf.n_hidden}",
-    config={
-        **conf.__dict__,
-        "schedule_config": schedule_config,
-        "optimizer": "adam",
-        "scheduler": "linear",
-        "mode": "pretrain",
-    },
-    name="pretraining__" + rfile.stem,
-    settings=wandb.Settings(
-        start_method="fork",
-        git_commit=repo.head.object.hexsha,
-        git_remote_url=repo.remotes.origin.url,
-    ),
+result = train(
+    model_train,
+    problem_train=pypesto_problem_train,
+    problem_test=pypesto_problem_test,
+    rfile=rfile,
+    mode="pretrain",
+    conf=conf.__dict__,
+    schedule_config=schedule_config,
+    n_epoch=250,
+    x0=sps[0, :],
+    par_dims=(("inflate", "kinetic"), (model_train.n_inflate_weights,)),
 )
-
-wandb.define_metric("rmse_train", summary="min")
-wandb.define_metric("rmse_val", summary="min")
-for val_type, xname in itt.product(("x", "g"), ("inflate", "kinetic")):
-    wandb.define_metric(f"{val_type}_{xname}")
-
-N_ITER = 100
-
-x = sps[0, :]
-x0 = x.copy()
-fval = np.inf
-grads = np.NaN * np.ones_like(x)
-
-schedule = linear_schedule(**schedule_config)
-opt = adam(schedule)
-opt_state = opt.init(x)
-
-opt_x = x.copy()
-opt_fval = fval
-opt_grads = grads.copy()
-rmse_test_min = np.inf
-
-for epoch in range(N_ITER + 1):
-    fval, grads = pypesto_problem_train.objective(x, sensi_orders=(0, 1))
-    wandb.log({"fval": fval}, step=epoch)
-    if epoch % 10 == 0:
-        rmses = dict()
-        for dataset, pp in zip(
-            ("train", "test"), (pypesto_problem_train, pypesto_problem_test)
-        ):
-            rmses[dataset] = rmse(pp, x)
-
-        if rmses["test"] < rmse_test_min:
-            rmse_test_min = rmses["test"]
-            opt_x = x.copy()
-            opt_fval = fval
-            opt_grads = grads.copy()
-
-        wandb.log(
-            {
-                "rmse_train": rmses["train"],
-                "rmse_val": rmses["test"],
-                **{
-                    f"{val_type}_{xname}": None
-                    if not np.all(np.isfinite(value))
-                    else wandb.Histogram(value)
-                    if val_type == "x"
-                    else wandb.Histogram(np.log10(np.abs(value)))
-                    for val_type, values in (
-                        ("x", x),
-                        ("g", grads),
-                    )
-                    for xname, value in zip(
-                        ("inflate", "kinetic"),
-                        np.split(values, (model_train.n_inflate_weights,)),
-                    )
-                },
-            },
-            step=epoch,
-        )
-
-    updates, opt_state = opt.update(grads, opt_state)
-    x = apply_updates(x, updates)
-
-wandb.finish()
-
-OResult = OptimizeResult()
-OResult.append(
-    OptimizerResult(
-        fval=opt_fval,
-        x=opt_x,
-        grad=opt_grads,
-        x0=x0,
-        id=str(conf.job),
-    )
-)
-result = Result(
-    problem=pypesto_problem_train,
-    optimize_result=OResult,
-)
-
-rfile.parent.mkdir(exist_ok=True, parents=True)
-writer = OptimizationResultHDF5Writer(str(rfile))
-writer.write(result, overwrite=True)
 
 parameter_df = pd.Series(
-    opt_x,
+    result.optimize_result.list[0]["x"],
     index=pypesto_problem_train.x_names,
 )
 parameter_df.to_csv(pfile)
