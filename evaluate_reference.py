@@ -52,7 +52,6 @@ def evaluate_pretraining_per_sample(dataset, conf):
         petab_base_importer = load_petab(
             problem,
             conf.data,
-            0.0,
             **petab_base_files,
         )
 
@@ -92,6 +91,7 @@ def evaluate_pretraining_per_sample(dataset, conf):
             "per_sample",
             0.0,
             0,
+            "none",
         )
 
         plot_single_sample(
@@ -176,7 +176,6 @@ def evaluate_average_model(dataset, conf):
     petab_base_importer = load_petab(
         problem,
         conf.data,
-        0.0,
         **petab_base_files,
     )
 
@@ -239,6 +238,7 @@ def evaluate_average_model(dataset, conf):
             "avg_model",
             0.0,
             0.0,
+            "none",
         )
 
     return pd.DataFrame(evaluations)

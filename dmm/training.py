@@ -102,6 +102,9 @@ def train(
 
     wandb.define_metric("rmse_train", summary="min")
     wandb.define_metric("rmse_val", summary="min")
+    wandb.define_metric("l1_inflate", summary="min")
+    if mode == "train":
+        wandb.define_metric("orth_reg", summary="min")
     for val_type, xname in itt.product(("x", "g"), par_dims[0]):
         wandb.define_metric(f"{val_type}_{xname}")
 
