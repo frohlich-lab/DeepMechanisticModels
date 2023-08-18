@@ -66,7 +66,7 @@ train(
     rfile=rfile,
     mode="train",
     schedule_config=schedule_config,
-    n_epoch=250,
+    n_epoch=200,
     x0=x0,
     par_dims=(
         ("encode", "inflate", "kinetic"),

@@ -138,7 +138,7 @@ result = train(
     mode="pretrain",
     conf=conf.__dict__,
     schedule_config=schedule_config,
-    n_epoch=250,
+    n_epoch=200,
     x0=sps[0, :],
     par_dims=(("inflate", "kinetic"), (model_train.n_inflate_weights,)),
 )
