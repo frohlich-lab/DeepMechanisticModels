@@ -125,7 +125,7 @@ sps = startpoint_method(
 )
 
 schedule_config = dict(
-    init_value=1e-1,
+    init_value=1e-2,
     transition_steps=100,
     end_value=1e-2,
 )
@@ -138,7 +138,7 @@ result = train(
     mode="pretrain",
     conf=conf.__dict__,
     schedule_config=schedule_config,
-    n_epoch=200,
+    n_epoch=500,
     x0=sps[0, :],
     par_dims=(("inflate", "kinetic"), (model_train.n_inflate_weights,)),
 )

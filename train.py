@@ -25,6 +25,7 @@ pypesto_problem_train, pypesto_problem_test = (
 )
 
 if pretraining_file is not None and pretraining_file.exists():
+    print(f'Loading pretraining from "{pretraining_file}"')
     pretraining = pd.read_csv(pretraining_file, index_col=0)
     xi = pretraining.loc[
         pypesto_problem_train.x_names[model_train.n_encode_weights :]
@@ -66,7 +67,7 @@ train(
     rfile=rfile,
     mode="train",
     schedule_config=schedule_config,
-    n_epoch=200,
+    n_epoch=500,
     x0=x0,
     par_dims=(
         ("encode", "inflate", "kinetic"),
