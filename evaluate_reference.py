@@ -83,15 +83,15 @@ def evaluate_pretraining_per_sample(dataset, conf):
             measurement_df=importer.petab_problem.measurement_df,
         )
         process_simulation(
-            evaluations,
-            importer.petab_problem.measurement_df,
-            simulation_df,
-            "none",
-            sample,
-            "per_sample",
-            0.0,
-            0,
-            "none",
+            evaluations=evaluations,
+            measurement_df=importer.petab_problem.measurement_df,
+            simulation_df=simulation_df,
+            context="none",
+            sample=sample,
+            model_type="per_sample",
+            alpha=0.0,
+            hidden_layers=0,
+            features="none",
         )
 
         plot_single_sample(
@@ -152,15 +152,15 @@ def evaluate_average(dataset, conf):
 
     for sample in samples[dataset]:
         process_simulation(
-            evaluations,
-            df_meas,
-            df_sim,
-            "none",
-            sample,
-            "avg",
-            0.0,
-            0.0,
-            "none",
+            evaluations=evaluations,
+            measurement_df=df_meas,
+            simulation_df=df_sim,
+            context="none",
+            sample=sample,
+            model_type="avg",
+            alpha=0.0,
+            hidden_layers=0,
+            features="none",
         )
 
     return pd.DataFrame(evaluations)
@@ -238,15 +238,15 @@ def evaluate_average_model(dataset, conf):
 
     for sample in samples[dataset]:
         process_simulation(
-            evaluations,
-            df_meas,
-            avg_model,
-            "none",
-            sample,
-            "avg_model",
-            0.0,
-            0.0,
-            "none",
+            evaluations=evaluations,
+            measurement_df=df_meas,
+            simulation_df=avg_model,
+            context="none",
+            sample=sample,
+            model_type="avg_model",
+            alpha=0.0,
+            hidden_layers=0,
+            features="none",
         )
 
     return pd.DataFrame(evaluations)

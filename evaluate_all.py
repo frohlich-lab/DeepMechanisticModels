@@ -101,8 +101,24 @@ for samples in SPLITS:
         plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
         training["ref"] = "meth"
 
-        # average
-        avg = pd.read_csv(
+        # # average
+        # avg = pd.read_csv(
+        #     EVALUATION_REFERENCE.format(
+        #         **{
+        #             **conf.__dict__,
+        #             **dict(
+        #                 samples=samples,
+        #                 dataset=dataset,
+        #             ),
+        #         },
+        #         mode="average",
+        #     ),
+        #     index_col=0,
+        # )
+        # avg["ref"] = "avg"
+
+        # model average
+        avg_model = pd.read_csv(
             EVALUATION_REFERENCE.format(
                 **{
                     **conf.__dict__,
@@ -111,17 +127,11 @@ for samples in SPLITS:
                         dataset=dataset,
                     ),
                 },
-                mode="average",
+                mode="avg_model",
             ),
             index_col=0,
         )
-        avg["ref"] = "avg"
-
-        # model average
-        # avg_model = pd.read_csv(
-        #    EVALUATION_REFERENCE.format(samples=samples, model=MODEL, data=DATA, dataset=dataset, mode='avg_model'),
-        #    index_col=0
-        # )
+        avg_model["ref"] = "avg_model"
 
         # per sample
         ps = pd.read_csv(
@@ -145,8 +155,8 @@ for samples in SPLITS:
             ALPHAS, LATENT_DIMS, METHODS, PRETRAIN, CONTEXTS_FEATURES
         ):
             for rdf in [
-                avg,
-                # avg_model,
+                # avg,
+                avg_model,
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
@@ -180,7 +190,7 @@ df["cf"] = df["context"] + "_" + df["features"]
 
 
 def lineplot_ref_average(data, *args, **kwargs):
-    sns.lineplot(data[data["ref"] == "avg"], *args, **kwargs)
+    sns.lineplot(data[data["ref"] == "avg_model"], *args, **kwargs)
 
 
 def lineplot_methods(data, *args, **kwargs):
@@ -243,7 +253,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
 
     g.map_dataframe(
         lineplot_methods,
-        x="l2 regularization",
+        x="l1 regularization",
         y="rmse",
         hue="cf",
         errorbar="se",
@@ -251,7 +261,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
     )
     g.map_dataframe(
         lineplot_ref_average,
-        x="l2 regularization",
+        x="l1 regularization",
         y="rmse",
         color="r",
         linestyle="--",
@@ -259,7 +269,7 @@ for gb in ("observable", "time", "condition", "sample", "all"):
     )
     g.map_dataframe(
         lineplot_ref_sample,
-        x="l2 regularization",
+        x="l1 regularization",
         y="rmse",
         color="b",
         linestyle=":",
