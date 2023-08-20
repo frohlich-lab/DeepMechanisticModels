@@ -32,14 +32,14 @@ conf = fire.Fire(Conf)
 problem = CytofProblem(conf.model)
 
 petab_base_importer = load_petab(
-    problem, conf.data, 0.0, **load_petab_base_files(conf)
+    problem=problem, dataset=conf.data, **load_petab_base_files(conf)
 )
 
 importer = generate_per_sample_pretraining_problems(
-    petab_base_importer,
-    problem,
-    conf.data,
-    conf.sample,
+    importer=petab_base_importer,
+    problem=problem,
+    dataset=conf.data,
+    sample=conf.sample,
 )
 
 outdir = pretrain_dir / conf.model / conf.data
