@@ -140,9 +140,11 @@ def train(
             (L1IREG, L1EREG, OIREG, OEREG),
         ):
             if conf[label] > 0:
-                val, _ = value_and_grad(reg_fun, argnums=0)(x, mode=mode)
-                wandb.log({label: val}, step=epoch)
-                fval += conf[label] * val
+                v_reg, g_reg = value_and_grad(reg_fun, argnums=0)(
+                    x, mode=mode, scale=conf[label]
+                )
+                wandb.log({label: v_reg}, step=epoch)
+                grads += g_reg
 
         wandb.log({"fval": fval}, step=epoch)
         if epoch % 5 == 0:
