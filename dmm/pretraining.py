@@ -1,12 +1,18 @@
-from typing import List
+from pathlib import Path
+from typing import Callable, List, Optional
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petab
 import pypesto
 from petab.models.pysb_model import PySBModel
 from pypesto.objective.jax import JaxObjective
+from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.petab.pysb_importer import PetabImporterPysb
+from pypesto.startpoint import UniformStartpoints
+from pypesto.store import OptimizationResultHDF5Writer
+from pypesto.visualize import waterfall
 from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
@@ -307,3 +313,67 @@ def generate_cross_sample_pretraining_problem(
     )
     problem.apply_objective_settings(pypesto_problem.objective)
     return pypesto_problem
+
+
+def pretrain(
+    problem: Problem,
+    nstarts: int,
+    optimizer,
+    startpoint_method: Optional[Callable] = None,
+    hfile=None,
+    engine=None,
+) -> pypesto.Result:
+    """
+    Pretrain the provided problem via optimization.
+    :param problem:
+        problem that defines the pretraining optimization problem
+    :param startpoint_method:
+        function that generates the initial points for optimization. In most
+        cases this uses results from previous pretraining steps.
+    :param nstarts:
+        number of local optimizations to perform
+    """
+    if startpoint_method is None:
+        startpoint_method = UniformStartpoints(
+            check_fval=True, check_grad=True
+        )
+    optimize_options = OptimizeOptions(allow_failed_starts=False)
+    return minimize(
+        problem,
+        optimizer,
+        n_starts=nstarts,
+        options=optimize_options,
+        startpoint_method=startpoint_method,
+        engine=engine,
+        filename=None,
+    )
+
+
+def store_and_plot_pretraining(
+    result: pypesto.Result,
+    rfile: Path,
+    pfile: Path,
+    plot_waterfall: bool = True,
+):
+    """
+    Store optimiziation results in HDF5 as well as csv for later reuse. Also
+    saves some visualization for debugging purposes.
+    """
+    # store full results as hdf5
+    assert rfile.parent == pfile.parent
+    outdir = rfile.parent
+    outdir.mkdir(parents=True, exist_ok=True)
+    run_name = rfile.stem
+    writer = OptimizationResultHDF5Writer(str(rfile))
+    writer.write(result, overwrite=True)
+    # store parameter values, this will be used in subsequent steps
+    parameter_df = pd.DataFrame(
+        [r for r in result.optimize_result.get_for_key("x") if r is not None],
+        columns=result.problem.x_names,
+    )
+    parameter_df.to_csv(pfile)
+    # do plotting
+    if plot_waterfall:
+        waterfall(result, scale_y="log10", offset_y=0.0)
+        plt.tight_layout()
+        plt.savefig(outdir / f"{run_name}_waterfall.pdf")
