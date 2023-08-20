@@ -7,7 +7,6 @@ import fides
 import fire
 import matplotlib.pyplot as plt
 import numpy as np
-import pypesto
 from pypesto.optimize import FidesOptimizer
 from pypesto.visualize import parameters, waterfall
 
@@ -35,17 +34,16 @@ conf = fire.Fire(Conf)
 problem = CytofProblem(conf.model)
 
 petab_base_importer = load_petab(
-    problem,
-    conf.data,
-    0.0,
+    problem=problem,
+    dataset=conf.data,
     **load_petab_base_files(conf),
 )
 
 importer = generate_average_pretraining_problem(
-    petab_base_importer,
-    problem,
-    conf.data,
-    training_samples(Wildcards(conf.data, conf.samples)),
+    importer=petab_base_importer,
+    problem=problem,
+    dataset=conf.data,
+    samples=training_samples(Wildcards(conf.data, conf.samples)),
 )
 
 outdir = pretrain_dir / conf.model / conf.data
