@@ -1,35 +1,48 @@
 ALPHAS = (
+    1e-3,
+    1e-2,
     1e-1,
     1e-0,
     1e1,
     1e2,
-    1e3,
-    1e4,
+    # 1e3,
+    # 1e4,
 )
+BETAS = (
+    1e-2,
+    1e0,
+    1e2,
+)
+GAMMAS = (
+    1e-2,
+    1e0,
+    1e2,
+)
+
 LATENT_DIMS = (
     2,
     4,
-    6,
+    # 6,
     # 8,
     # 10,
     # 12
 )
 CONTEXTS_FEATURES = (
     ("cytof_init", "all"),
-    ("cytof_init", "rfe"),
-    ("cytof_init", "lasso"),
-    ("cytof_init", "elastic"),
-    ("cytof_init", "sequential"),
+    # ("cytof_init", "rfe"),
+    # ("cytof_init", "lasso"),
+    # ("cytof_init", "elastic"),
+    # ("cytof_init", "sequential"),
     ("cytof_dynamic", "all"),
     ("proteomics", "all"),
-    ("proteomics", "rfe"),
-    ("proteomics", "lasso"),
-    ("proteomics", "elastic"),
+    # ("proteomics", "rfe"),
+    # ("proteomics", "lasso"),
+    # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
     ("transcriptomics", "all"),
-    ("transcriptomics", "rfe"),
-    ("transcriptomics", "lasso"),
-    ("transcriptomics", "elastic"),
+    # ("transcriptomics", "rfe"),
+    # ("transcriptomics", "lasso"),
+    # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
 )
 CONTEXTS = (
@@ -43,7 +56,7 @@ FEATURES = (
     "rfe",
     "lasso",
     "elastic",
-    "sequential",
+    # "sequential",
 )
 PATHWAYS = ("EGFR_MAPK",)
 DATASETS = ("dream_cytof",)

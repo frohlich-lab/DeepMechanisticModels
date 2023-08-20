@@ -161,11 +161,14 @@ class DeepMechanisticModel(AutoEncoder):
             ]
         )
 
-    def orth_reg(self, params: jnp.ndarray, scale: float = 1.0):
+    def orth_encode_reg(
+        self, params: jnp.ndarray, mode: str, scale: float = 1.0
+    ):
         """
         Orthogonal regularization of the encoder weights.
         """
-
+        if mode != "train":
+            return 0.0
         encode_weights, inflate_weights, kin_params = jnp.split(
             params,
             np.array(
@@ -176,9 +179,32 @@ class DeepMechanisticModel(AutoEncoder):
             ),
         )
         weights = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
-        return scale * jnp.sum(
+        return scale * jnp.mean(
             jnp.abs(jnp.dot(weights.T, weights) - jnp.eye(self.n_latent))
         )
+
+    def orth_inflate_reg(
+        self, params: jnp.ndarray, mode: str, scale: float = 1.0
+    ):
+        """
+        Orthogonal regularization of the inflate weights.
+        """
+
+        if mode == "train":
+            _, weights, _ = jnp.split(
+                params,
+                np.array(
+                    (
+                        self.n_encode_weights,
+                        self.n_inflate_weights + self.n_encode_weights,
+                    )
+                ),
+            )
+        else:
+            weights, _ = jnp.split(params, np.array((self.n_inflate_weights,)))
+        w = jnp.reshape(weights, (self.n_latent, self.n_params))
+        m = jnp.dot(w, w.T)
+        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
 
     def l1_inflate_reg(
         self, params: jnp.ndarray, mode: str, scale: float = 1.0
@@ -204,4 +230,4 @@ class DeepMechanisticModel(AutoEncoder):
                 params, np.array((self.n_inflate_weights,))
             )
             inflate = self.inflate_params(self.features_pca, inflate_weights)
-        return scale * jnp.sum(jnp.abs(inflate))
+        return scale * jnp.mean(jnp.abs(inflate))

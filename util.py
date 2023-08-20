@@ -27,9 +27,11 @@ class Conf(dict):
     samples: str = None
     sample: str = None
     n_hidden: int = None
-    alpha: float = None
+    l1reg_inflate: float = 0.0
+    oreg_inflate: float = 0.0
+    oreg_encode: float = 0.0
     job: int = None
-    n_threads: int = 1
+    threads: int = 1
     n_starts: int = None
     pretrain: bool = True
 
@@ -79,7 +81,7 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_train,
-        n_threads=conf.n_threads,
+        n_threads=conf.threads,
     )
 
     if dataset == "train":
@@ -96,7 +98,7 @@ def load_models(
         conf.n_hidden,
         **petab_base_files,
         features=features_test,
-        n_threads=conf.n_threads,
+        n_threads=conf.threads,
         pca=dmm_train.pca,
     )
     if dataset == "train+test":

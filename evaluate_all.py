@@ -18,7 +18,9 @@ from common import (
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import (
     ALPHAS,
+    BETAS,
     CONTEXTS_FEATURES,
+    GAMMAS,
     LATENT_DIMS,
     PRETRAIN,
     SPLITS,
@@ -31,54 +33,51 @@ outdir = fig_dir / conf.model / conf.data
 
 METHODS = ("pca embedding", "end-to-end")
 
-avgs = dict()
-ps = dict()
 dfs = []
 for samples in SPLITS:
-    for dataset in ["train", "test"]:
+    for dataset in [
+        # "train",
+        "test"
+    ]:
         # cross sample pretraining
         pretraining = pd.concat(
-            (
-                pd.read_csv(
-                    EVALUATION_PRETRAINING.format(
-                        **{
-                            **conf.__dict__,
-                            **dict(
-                                alpha=alpha,
-                                n_hidden=ldim,
-                                context=ctxt,
-                                samples=samples,
-                                dataset=dataset,
-                                pretrain=pretrain,
-                                features=features,
-                            ),
-                        },
-                        mode="cross_sample",
-                    ),
-                    index_col=0,
-                )
+            pd.read_csv(efile, index_col=0)
+            for alpha, beta, ldim, pretrain, (ctxt, features) in itt.product(
+                ALPHAS, BETAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
             )
-            for alpha, ldim, pretrain, (ctxt, features) in itt.product(
-                ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
+            if os.path.exists(
+                efile := EVALUATION_PRETRAINING.format(
+                    **{
+                        **conf.__dict__,
+                        **dict(
+                            alpha=alpha,
+                            beta=beta,
+                            n_hidden=ldim,
+                            context=ctxt,
+                            samples=samples,
+                            dataset=dataset,
+                            pretrain=pretrain,
+                            features=features,
+                        ),
+                    },
+                    mode="cross_sample",
+                )
             )
         )
         plot_loss_vs_regularization(pretraining)
         plt.savefig(
             outdir / f"{samples}_evaluate_pretrain_cross_sample_{dataset}.pdf"
         )
-
         pretraining["ref"] = "meth"
 
         # training
         training = pd.concat(
-            (
-                pd.read_csv(
-                    efile,
-                    index_col=0,
-                )
-            )
-            for alpha, ldim, pretrain, (ctxt, features) in itt.product(
-                ALPHAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
+            pd.read_csv(efile, index_col=0)
+            for alpha, beta, gamma, ldim, pretrain, (
+                ctxt,
+                features,
+            ) in itt.product(
+                ALPHAS, BETAS, GAMMAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
             )
             if os.path.exists(
                 efile := EVALUATION_TRAINING.format(
@@ -86,6 +85,8 @@ for samples in SPLITS:
                         **conf.__dict__,
                         **dict(
                             alpha=alpha,
+                            beta=beta,
+                            gamma=gamma,
                             n_hidden=ldim,
                             context=ctxt,
                             samples=samples,
@@ -151,8 +152,22 @@ for samples in SPLITS:
 
         avg_ps_dfs = []
         # copy average/per sample
-        for alpha, ldim, method, pretrain, (ctxt, features) in itt.product(
-            ALPHAS, LATENT_DIMS, METHODS, PRETRAIN, CONTEXTS_FEATURES
+        for (
+            alpha,
+            beta,
+            gamma,
+            ldim,
+            method,
+            pretrain,
+            (ctxt, features),
+        ) in itt.product(
+            ALPHAS,
+            BETAS,
+            GAMMAS,
+            LATENT_DIMS,
+            METHODS,
+            PRETRAIN,
+            CONTEXTS_FEATURES,
         ):
             for rdf in [
                 # avg,
@@ -177,7 +192,7 @@ for samples in SPLITS:
 df = pd.concat(dfs).reset_index()
 df.rename(
     columns={
-        "alpha": "l2 regularization",
+        "alpha": "l1 regularization",
         "layers": "latent dim",
         "type": "method",
     },
@@ -185,8 +200,6 @@ df.rename(
 )
 df.loc[df["method"] == "cross_sample", "method"] = "pca embedding"
 df.loc[df["method"] == "full", "method"] = "end-to-end"
-
-df["cf"] = df["context"] + "_" + df["features"]
 
 
 def lineplot_ref_average(data, *args, **kwargs):
@@ -201,101 +214,79 @@ def lineplot_ref_sample(data, *args, **kwargs):
     sns.lineplot(data[data["ref"] == "sample"], *args, **kwargs)
 
 
-for gb in ("observable", "time", "condition", "sample", "all"):
-    gbs = [
-        "ref",
-        "dataset",
-        "method",
-        "cf",
-        "latent dim",
-        "l2 regularization",
-        "samples",
+gbs = [
+    "ref",
+    "dataset",
+    "method",
+    "context",
+    "latent dim",
+    "l1 regularization",
+    "samples",
+    "features",
+]
+data = pd.DataFrame(
+    [
+        dict(
+            zip(gbs, group),
+            rmse=np.sqrt(np.square(group_df["res"]).mean()),
+        )
+        for group, group_df in df.groupby(gbs)
     ]
-    if gb != "all":
-        gbs = [gb, *gbs]
-    df_gb = pd.DataFrame(
-        [
-            dict(
-                zip(gbs, group),
-                rmse=np.sqrt(np.square(group_df["res"]).mean()),
-            )
-            for group, group_df in df.groupby(gbs)
-        ]
-    )
+)
 
-    if gb == "time":
-        # filter non-canonical timepoints (not enough datapoints)
-        data = df_gb[
-            np.logical_not(df_gb.time.isin([12, 14, 15, 16, 18, 25, 35]))
-        ]
-    else:
-        data = df_gb
+fig = plt.figure()
+g = sns.FacetGrid(
+    data=data[data["dataset"] == "test"],
+    row="method",
+    col="context",
+    row_order=("pca embedding", "end-to-end"),
+)
 
-    kwargs_fg = dict()
-    kwargs_lp = dict()
+g.map_dataframe(
+    lineplot_methods,
+    x="l1 regularization",
+    y="rmse",
+    hue="features",
+    errorbar="se",
+    style="latent dim",
+    palette="tab10",
+)
+g.map_dataframe(
+    lineplot_ref_average,
+    x="l1 regularization",
+    y="rmse",
+    color="r",
+    linestyle="--",
+    errorbar=None,
+)
+g.map_dataframe(
+    lineplot_ref_sample,
+    x="l1 regularization",
+    y="rmse",
+    color="b",
+    linestyle=":",
+    errorbar=None,
+)
+g.set(xscale="log", ylim=(0, 1.5))
+g.add_legend()
+plt.tight_layout()
+rfile = EVALUATE_ALL.format(**conf.__dict__, group="all")
+plt.savefig(rfile)
+efile = rfile.replace(".pdf", ".csv")
+data.to_csv(efile)
 
-    if gb == "all":
-        kwargs_fg["row_order"] = ("train", "test")
-        if len(data["cf"].unique()) > 1:
-            kwargs_lp["style"] = "latent dim"
-    else:
-        data = data[(data["cf"] == "cytof_init_all")]
-        kwargs_lp["style"] = "dataset"
-    kwargs_lp["palette"] = "tab10"
+wandb.init(
+    project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+    config={
+        **conf.__dict__,
+    },
+)
 
-    fig = plt.figure()
-    g = sns.FacetGrid(
-        data=data,
-        row=gb if gb != "all" else "dataset",
-        col="method",
-        **kwargs_fg,
-    )
-
-    g.map_dataframe(
-        lineplot_methods,
-        x="l1 regularization",
-        y="rmse",
-        hue="cf",
-        errorbar="se",
-        **kwargs_lp,
-    )
-    g.map_dataframe(
-        lineplot_ref_average,
-        x="l1 regularization",
-        y="rmse",
-        color="r",
-        linestyle="--",
-        errorbar=None,
-    )
-    g.map_dataframe(
-        lineplot_ref_sample,
-        x="l1 regularization",
-        y="rmse",
-        color="b",
-        linestyle=":",
-        errorbar=None,
-    )
-    g.set(xscale="log", ylim=(0, 1.5))
-    g.add_legend()
-    plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group=gb)
-    plt.savefig(rfile)
-    efile = rfile.replace(".pdf", ".csv")
-    data.to_csv(efile)
-
-    if gb == "all":
-        wandb.init(
-            project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-            config={
-                **conf.__dict__,
-            },
-        )
-
-        artifact = wandb.Artifact(
-            name=f"evaluate_all_{conf.model}_{conf.data}",
-            description="evaluate all",
-            type="evaluation",
-        )
-        artifact.add(wandb.Table(dataframe=data), "evaluate_all.csv")
-        wandb.log_artifact(artifact)
-        wandb.finish()
+artifact = wandb.Artifact(
+    name=f"evaluate_all_{conf.model}_{conf.data}",
+    description="evaluate all",
+    type="evaluation",
+)
+artifact.add(wandb.Table(dataframe=data), "evaluate_all.csv")
+wandb.log_artifact(artifact)
+wandb.finish()

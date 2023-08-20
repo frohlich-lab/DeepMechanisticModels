@@ -14,7 +14,6 @@ from pypesto.startpoint import FunctionStartpoints, UniformStartpoints
 from common import (
     CROSS_SAMPLE_OUTFILE_PARS,
     CROSS_SAMPLE_OUTFILE_RESULTS,
-    CROSS_SAMPLE_OUTFILE_TRACE,
     PER_SAMPLE_OUTFILE_PARS,
 )
 from dmm import MODEL_FEATURE_PREFIX
@@ -110,7 +109,6 @@ def startpoints(**kwargs):
 
 
 np.random.seed(conf.job)
-hfile = Path(CROSS_SAMPLE_OUTFILE_TRACE.format(**conf.__dict__))
 if conf.pretrain:
     startpoint_method = FunctionStartpoints(startpoints)
 else:

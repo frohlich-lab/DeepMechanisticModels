@@ -53,7 +53,7 @@ def evaluate_petraining_cross_sample(dataset, conf):
 
     waterfall(r)
     plt.tight_layout()
-    run_name = f"{conf.samples}_a{conf.alpha}_n{conf.n_hidden}_c{conf.context}"
+    run_name = f"{conf.samples}_a{conf.l1reg_inflate}_n{conf.n_hidden}_c{conf.context}"
     plt.savefig(cross_sample_dir / f"{run_name}_waterfall.pdf")
     parameters(r)
     plt.tight_layout()
@@ -64,19 +64,21 @@ def evaluate_petraining_cross_sample(dataset, conf):
     obj = problem_cross_sample.objective.base_objective
 
     evaluate_simulations(
-        obj,
-        x,
-        samples[dataset],
-        model.petab_importer.petab_problem,
-        conf.context,
-        conf.samples,
-        dataset,
-        conf.alpha,
-        conf.n_hidden,
-        conf.features,
-        outdir / "simulation",
-        evaluations,
-        "cross_sample",
+        obj=obj,
+        x=x,
+        samples=samples[dataset],
+        petab_problem=model.petab_importer.petab_problem,
+        context=conf.context,
+        split=conf.samples,
+        dataset=dataset,
+        l1reg_inflate=conf.l1reg_inflate,
+        oreg_inflate=conf.beta,
+        oreg_encode=conf.gamma,
+        latent_dim=conf.n_hidden,
+        features=conf.features,
+        outdir=outdir / "simulation",
+        evaluations=evaluations,
+        model_type="cross_sample",
     )
 
     return pd.DataFrame(evaluations)

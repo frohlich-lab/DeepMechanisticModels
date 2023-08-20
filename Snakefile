@@ -8,7 +8,7 @@ from common import (
     EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
 )
-from training_configuration import ALPHAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
+from training_configuration import ALPHAS, BETAS, GAMMAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -200,19 +200,21 @@ rule pretrain_cross_sample:
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+',
+        l1reg_inflate='[0-9\.]+',
+        oreg_inflate='[0-9\.]+',
         pretrain='True|False',
     resources:
-        mem="1.5GB",
-        runtime="14h",
+        mem="1GB",
+        runtime="6h",
         nodes=1,
-        cpus_per_task=1,
+        cpus_per_task=2,
+        threads=2,
     retries: 1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain', 'features')
-        )
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'job', 'pretrain', 'features')
+        ) + ' --threads={threads}'
 
 
 rule estimate_parameters:
@@ -235,19 +237,22 @@ rule estimate_parameters:
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+',
+        l1reg_inflate='[0-9\.]+',
+        oreg_inflate='[0-9\.]+',
+        oreg_encode='[0-9\.]+',
         pretrain='True|False',
     retries: 1
     resources:
-        mem="1.5GB",
-        runtime="14h",
+        mem="1GB",
+        runtime="6h",
         nodes=1,
-        cpus_per_task=1,
+        cpus_per_task=2,
+        threads=2,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'job', 'pretrain', 'features')
-        )
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'job', 'pretrain', 'features')
+        ) + ' --threads={threads}'
 
 rule collect_estimation_results:
     input:
@@ -265,7 +270,7 @@ rule collect_estimation_results:
         n_hidden='[0-9]+',
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
-        alpha='[0-9\.]+',
+        l1reg_inflate='[0-9\.]+',
         pretrain='True|False',
     resources:
         mem="8GB",
@@ -275,7 +280,7 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_references:
@@ -322,7 +327,8 @@ rule evaluate_pretraining:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
-        alpha='[0-9\.]+',
+        l1reg_inflate='[0-9\.]+',
+        oreg_inflate='[0-9\.]+',
         pretrain='True|False',
     resources:
         mem="1GB",
@@ -332,7 +338,7 @@ rule evaluate_pretraining:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
@@ -350,7 +356,9 @@ rule evaluate_training:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
-        alpha='[0-9\.]+',
+        l1reg_inflate='[0-9\.]+',
+        oreg_inflate='[0-9\.]+',
+        oreg_encode='[0-9\.]+',
         pretrain='True|False',
     resources:
         mem="1GB",
@@ -360,7 +368,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'alpha', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'pretrain', 'features')
         )
 
 rule evaluate_all:
@@ -372,7 +380,7 @@ rule evaluate_all:
             for context, features in CONTEXTS_FEATURES
             for y in expand(
                 x.format_map(SafeDict(context=context, features=features)),
-                model='{model}',data='{data}',alpha=ALPHAS,n_hidden=LATENT_DIMS,samples=SPLITS,
+                model='{model}',data='{data}',l1reg_inflate=ALPHAS,oreg_inflate=BETAS,oreg_encode=GAMMAS,n_hidden=LATENT_DIMS,samples=SPLITS,
                 pretrain=PRETRAIN
             )
         ],

@@ -1,7 +1,4 @@
-import itertools as itt
-
 import fire
-import matplotlib.pyplot as plt
 import pandas as pd
 import pypesto
 from pypesto.store import OptimizationResultHDF5Reader
@@ -50,19 +47,21 @@ def evaluate_training(dataset, conf):
     obj = problem.objective.base_objective
 
     evaluate_simulations(
-        obj,
-        x,
-        samples[dataset],
-        model.petab_importer.petab_problem,
-        conf.context,
-        conf.samples,
-        dataset,
-        conf.alpha,
-        conf.n_hidden,
-        conf.features,
-        outdir / "simulation",
-        evaluations,
-        "full",
+        obj=obj,
+        x=x,
+        samples=samples[dataset],
+        petab_problem=model.petab_importer.petab_problem,
+        context=conf.context,
+        split=conf.samples,
+        dataset=dataset,
+        l1reg_inflate=conf.l1reg_inflate,
+        oreg_inflate=conf.beta,
+        oreg_encode=conf.gamma,
+        latent_dim=conf.n_hidden,
+        features=conf.features,
+        outdir=outdir / "simulation",
+        evaluations=evaluations,
+        model_type="full",
     )
 
     return pd.DataFrame(evaluations)

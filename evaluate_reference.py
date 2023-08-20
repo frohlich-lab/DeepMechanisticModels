@@ -89,7 +89,9 @@ def evaluate_pretraining_per_sample(dataset, conf):
             context="none",
             sample=sample,
             model_type="per_sample",
-            alpha=0.0,
+            l1reg_inflate=0.0,
+            oreg_encode=0.0,
+            oreg_inflate=0.0,
             hidden_layers=0,
             features="none",
         )
@@ -158,7 +160,9 @@ def evaluate_average(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg",
-            alpha=0.0,
+            l1reg_inflate=0.0,
+            oreg_encode=0.0,
+            oreg_inflate=0.0,
             hidden_layers=0,
             features="none",
         )
@@ -244,7 +248,9 @@ def evaluate_average_model(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg_model",
-            alpha=0.0,
+            l1reg_inflate=0.0,
+            oreg_encode=0.0,
+            oreg_inflate=0.0,
             hidden_layers=0,
             features="none",
         )

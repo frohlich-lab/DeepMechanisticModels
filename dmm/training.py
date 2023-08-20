@@ -11,7 +11,6 @@ from jax import value_and_grad
 from optax import adam, apply_updates, linear_schedule
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
-from pypesto.objective import AggregatedObjective
 from pypesto.objective.jax import JaxObjective
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
@@ -63,6 +62,11 @@ def create_pypesto_problem(
     )
 
 
+OIREG = "oreg_inflate"
+OEREG = "oreg_encode"
+L1REG = "l1reg_inflate"
+
+
 def train(
     model: DeepMechanisticModel,
     problem_train: pypesto.Problem,
@@ -102,9 +106,11 @@ def train(
 
     wandb.define_metric("rmse_train", summary="min")
     wandb.define_metric("rmse_val", summary="min")
-    wandb.define_metric("l1_inflate", summary="min")
+    wandb.define_metric("fval", summary="min")
+    wandb.define_metric(L1REG, summary="min")
+    wandb.define_metric(OIREG, summary="min")
     if mode == "train":
-        wandb.define_metric("orth_reg", summary="min")
+        wandb.define_metric(OEREG, summary="min")
     for val_type, xname in itt.product(("x", "g"), par_dims[0]):
         wandb.define_metric(f"{val_type}_{xname}")
 
@@ -122,19 +128,18 @@ def train(
     for epoch in range(n_epoch + 1):
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
 
-        if mode == "train":
-            oval, ograds = value_and_grad(model.orth_reg, argnums=0)(
-                x, scale=1000
-            )
-            wandb.log({"orth_reg": oval}, step=epoch)
-            grads += ograds
-
-        if conf["alpha"] > 0:
-            lval, lgrads = value_and_grad(model.l1_inflate_reg, argnums=0)(
-                x, mode=mode, scale=conf["alpha"]
-            )
-            wandb.log({"l1_inflate": lval}, step=epoch)
-            grads += lgrads
+        for reg_fun, label in zip(
+            (
+                model.l1_inflate_reg,
+                model.orth_inflate_reg,
+                model.orth_encode_reg,
+            ),
+            (L1REG, OIREG, OEREG),
+        ):
+            if conf[label] > 0:
+                val, _ = value_and_grad(reg_fun, argnums=0)(x, mode=mode)
+                wandb.log({label: val}, step=epoch)
+                fval += conf[label] * val
 
         wandb.log({"fval": fval}, step=epoch)
         if epoch % 5 == 0:

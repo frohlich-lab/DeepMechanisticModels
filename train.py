@@ -31,6 +31,7 @@ if pretraining_file is not None and pretraining_file.exists():
         pypesto_problem_train.x_names[model_train.n_encode_weights :]
     ].values[:, 0]
 else:
+    print(f"randomly initializing training")
     xi = []
     for xname in pypesto_problem_train.x_names:
         lb, ub, _ = problem.bounds[xname.split("_")[-1]]

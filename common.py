@@ -47,10 +47,11 @@ defaults = {
         "context",
         "samples",
         "n_hidden",
-        "alpha",
         "job",
         "pretrain",
         "features",
+        "l1reg_inflate",
+        "oreg_inflate",
     ]
 }
 tpl_results_file = "__".join(defaults.values())
@@ -60,18 +61,21 @@ CROSS_SAMPLE_OUTFILE_PARS = str(
 CROSS_SAMPLE_OUTFILE_RESULTS = str(
     pretrain_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
 )
-CROSS_SAMPLE_OUTFILE_TRACE = str(
-    pretrain_dir / "{model}" / "{data}" / (tpl_results_file + "_trace.hdf5")
-)
 
 TRAINING_OUTFILE_RESULTS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
+    results_dir
+    / "{model}"
+    / "{data}"
+    / (tpl_results_file + "__{oreg_encode}.hdf5")
 )
 COLLECTED_TRAINING_RESULTS = str(
     results_dir
     / "{model}"
     / "{data}"
-    / (tpl_results_file.format(**{**defaults, "job": "full"}) + ".hdf5")
+    / (
+        tpl_results_file.format(**{**defaults, "job": "full"})
+        + "__{oreg_encode}.hdf5"
+    )
 )
 
 tpl_petab_file = str(data_dir / "{model}_{data}_{file}.tsv")
@@ -98,9 +102,10 @@ defaults = {
         "context",
         "samples",
         "n_hidden",
-        "alpha",
         "pretrain",
         "features",
+        "l1reg_inflate",
+        "oreg_inflate",
     ]
 }
 tpl_evaluation_file = "__".join(defaults.values())
@@ -118,7 +123,7 @@ EVALUATION_TRAINING = str(
     / "{data}"
     / "training"
     / "{dataset}"
-    / (tpl_evaluation_file + ".csv")
+    / (tpl_evaluation_file + "__{oreg_encode}.csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 
