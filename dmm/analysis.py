@@ -26,6 +26,7 @@ def process_simulation(
     model_type,
     l1reg_inflate,
     oreg_inflate,
+    l1reg_encode,
     oreg_encode,
     hidden_layers,
     features,
@@ -46,6 +47,7 @@ def process_simulation(
                 "context": context,
                 "l1reg_inflate": l1reg_inflate,
                 "oreg_inflate": oreg_inflate,
+                "l1reg_encode": l1reg_encode,
                 "oreg_encode": oreg_encode,
                 "layers": hidden_layers,
                 "features": features,
@@ -103,6 +105,7 @@ def evaluate_simulations(
     dataset,
     l1reg_inflate,
     oreg_inflate,
+    l1reg_encode,
     oreg_encode,
     latent_dim,
     features,
@@ -138,17 +141,18 @@ def evaluate_simulations(
 
     for sample in samples:
         process_simulation(
-            evaluations,
-            petab_problem.measurement_df,
-            simulation_df,
-            context,
-            sample,
-            model_type,
-            l1reg_inflate,
-            oreg_inflate,
-            oreg_encode,
-            latent_dim,
-            features,
+            evaluations=evaluations,
+            measurement_df=petab_problem.measurement_df,
+            simulation_df=simulation_df,
+            context=context,
+            sample=sample,
+            model_type=model_type,
+            l1reg_inflate=l1reg_inflate,
+            oreg_inflate=oreg_inflate,
+            l1reg_encode=l1reg_encode,
+            oreg_encode=oreg_encode,
+            latent_dim=latent_dim,
+            features=features,
         )
 
     plot_cross_samples(

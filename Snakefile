@@ -8,7 +8,7 @@ from common import (
     EVALUATION_PRETRAINING, EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
 )
-from training_configuration import ALPHAS, BETAS, GAMMAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
+from training_configuration import ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -213,7 +213,9 @@ rule pretrain_cross_sample:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'job', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+                        'l1reg_inflate', 'oreg_inflate',
+                        'job', 'pretrain', 'features')
         ) + ' --threads={threads}'
 
 
@@ -251,7 +253,9 @@ rule estimate_parameters:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'job', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+                        'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
+                        'job', 'pretrain', 'features')
         ) + ' --threads={threads}'
 
 rule collect_estimation_results:
@@ -280,7 +284,9 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+                        'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
+                        'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_references:
@@ -338,7 +344,9 @@ rule evaluate_pretraining:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+                        'l1reg_inflate', 'oreg_inflate',
+                        'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
@@ -368,7 +376,9 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'l1reg_inflate', 'oreg_inflate', 'oreg_encode', 'pretrain', 'features')
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+                        'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
+                        'pretrain', 'features')
         )
 
 rule evaluate_all:
@@ -380,7 +390,13 @@ rule evaluate_all:
             for context, features in CONTEXTS_FEATURES
             for y in expand(
                 x.format_map(SafeDict(context=context, features=features)),
-                model='{model}',data='{data}',l1reg_inflate=ALPHAS,oreg_inflate=BETAS,oreg_encode=GAMMAS,n_hidden=LATENT_DIMS,samples=SPLITS,
+                model='{model}',data='{data}',
+                l1reg_inflate=ALPHAS,
+                oreg_inflate=BETAS,
+                l1reg_encode=GAMMAS,
+                oreg_encode=DELTAS,
+                n_hidden=LATENT_DIMS,
+                samples=SPLITS,
                 pretrain=PRETRAIN
             )
         ],

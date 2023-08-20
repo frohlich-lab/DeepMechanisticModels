@@ -1,5 +1,3 @@
-import itertools as itt
-
 import fire
 import numpy as np
 import pandas as pd
@@ -91,6 +89,7 @@ def evaluate_pretraining_per_sample(dataset, conf):
             model_type="per_sample",
             l1reg_inflate=0.0,
             oreg_encode=0.0,
+            l1reg_encode=0.0,
             oreg_inflate=0.0,
             hidden_layers=0,
             features="none",
@@ -162,6 +161,7 @@ def evaluate_average(dataset, conf):
             model_type="avg",
             l1reg_inflate=0.0,
             oreg_encode=0.0,
+            l1reg_encode=0.0,
             oreg_inflate=0.0,
             hidden_layers=0,
             features="none",
@@ -250,6 +250,7 @@ def evaluate_average_model(dataset, conf):
             model_type="avg_model",
             l1reg_inflate=0.0,
             oreg_encode=0.0,
+            l1reg_encode=0.0,
             oreg_inflate=0.0,
             hidden_layers=0,
             features="none",

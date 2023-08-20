@@ -29,6 +29,7 @@ class Conf(dict):
     n_hidden: int = None
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
+    l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     job: int = None
     threads: int = 1

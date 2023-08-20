@@ -222,12 +222,28 @@ class DeepMechanisticModel(AutoEncoder):
                     )
                 ),
             )
-            inflate = self.inflate_params(
-                self.encode(encode_weights), inflate_weights
-            )
         else:
             inflate_weights, kin_params = jnp.split(
                 params, np.array((self.n_inflate_weights,))
             )
-            inflate = self.inflate_params(self.features_pca, inflate_weights)
-        return scale * jnp.mean(jnp.abs(inflate))
+        return scale * jnp.mean(jnp.abs(inflate_weights))
+
+    def l1_encode_reg(
+        self, params: jnp.ndarray, mode: str, scale: float = 1.0
+    ):
+        """
+        l1 regularization of the inflate output.
+        """
+        if mode != "train":
+            return 0.0
+
+        encode_weights, inflate_weights, kin_params = jnp.split(
+            params,
+            np.array(
+                (
+                    self.n_encode_weights,
+                    self.n_inflate_weights + self.n_encode_weights,
+                )
+            ),
+        )
+        return scale * jnp.mean(jnp.abs(encode_weights))

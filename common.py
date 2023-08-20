@@ -66,7 +66,7 @@ TRAINING_OUTFILE_RESULTS = str(
     results_dir
     / "{model}"
     / "{data}"
-    / (tpl_results_file + "__{oreg_encode}.hdf5")
+    / (tpl_results_file + "__{l1reg_encode}_{oreg_encode}.hdf5")
 )
 COLLECTED_TRAINING_RESULTS = str(
     results_dir
@@ -74,7 +74,7 @@ COLLECTED_TRAINING_RESULTS = str(
     / "{data}"
     / (
         tpl_results_file.format(**{**defaults, "job": "full"})
-        + "__{oreg_encode}.hdf5"
+        + "__{l1reg_encode}_{oreg_encode}.hdf5"
     )
 )
 
@@ -123,7 +123,7 @@ EVALUATION_TRAINING = str(
     / "{data}"
     / "training"
     / "{dataset}"
-    / (tpl_evaluation_file + "__{oreg_encode}.csv")
+    / (tpl_evaluation_file + "__{l1reg_encode}_{oreg_encode}.csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 

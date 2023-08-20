@@ -56,6 +56,7 @@ def evaluate_training(dataset, conf):
         dataset=dataset,
         l1reg_inflate=conf.l1reg_inflate,
         oreg_inflate=conf.beta,
+        l1reg_encode=conf.l1reg_encode,
         oreg_encode=conf.gamma,
         latent_dim=conf.n_hidden,
         features=conf.features,

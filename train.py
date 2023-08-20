@@ -30,17 +30,16 @@ if pretraining_file is not None and pretraining_file.exists():
     xi = pretraining.loc[
         pypesto_problem_train.x_names[model_train.n_encode_weights :]
     ].values[:, 0]
+    # use first couple PCA components
+    w = model_train.pca.components_.T.flatten()
+    x0 = np.hstack([w, xi])
 else:
     print(f"randomly initializing training")
     xi = []
     for xname in pypesto_problem_train.x_names:
         lb, ub, _ = problem.bounds[xname.split("_")[-1]]
         xi.append(np.random.random() * (ub - lb) + lb)
-    xi = np.array(xi)
-
-# use first couple PCA components
-w = (model_train.pca.components_.T).flatten()
-x0 = np.hstack([w, xi])
+    x0 = np.array(xi)
 
 # inner_x = np.asarray(pypesto_problem_train.objective.jax_fun(x0))
 #

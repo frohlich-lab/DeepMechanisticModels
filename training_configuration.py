@@ -1,11 +1,18 @@
 ALPHAS = (
-    1e0,
     1e2,
     1e4,
     1e6,
+    1e8,
 )
-BETAS = (1e0, 1e2, 1e4)
-GAMMAS = (1e0, 1e2, 1e4)
+BETAS = (1e0, 1e3, 1e6)
+GAMMAS = (
+    1e2,
+    1e4,
+    1e6,
+    1e8,
+)
+DELTAS = (1e0, 1e3, 1e6)
+
 
 LATENT_DIMS = (
     2,

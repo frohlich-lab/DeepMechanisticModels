@@ -1,6 +1,6 @@
 import itertools as itt
 from pathlib import Path
-from typing import Dict, Optional, Tuple
+from typing import Dict, Tuple
 
 import git
 import numpy as np
@@ -64,7 +64,8 @@ def create_pypesto_problem(
 
 OIREG = "oreg_inflate"
 OEREG = "oreg_encode"
-L1REG = "l1reg_inflate"
+L1IREG = "l1reg_inflate"
+L1EREG = "l1reg_encode"
 
 
 def train(
@@ -107,10 +108,11 @@ def train(
     wandb.define_metric("rmse_train", summary="min")
     wandb.define_metric("rmse_val", summary="min")
     wandb.define_metric("fval", summary="min")
-    wandb.define_metric(L1REG, summary="min")
+    wandb.define_metric(L1IREG, summary="min")
     wandb.define_metric(OIREG, summary="min")
     if mode == "train":
         wandb.define_metric(OEREG, summary="min")
+        wandb.define_metric(L1EREG, summary="min")
     for val_type, xname in itt.product(("x", "g"), par_dims[0]):
         wandb.define_metric(f"{val_type}_{xname}")
 
@@ -131,10 +133,11 @@ def train(
         for reg_fun, label in zip(
             (
                 model.l1_inflate_reg,
+                model.l1_inflate_reg,
                 model.orth_inflate_reg,
                 model.orth_encode_reg,
             ),
-            (L1REG, OIREG, OEREG),
+            (L1IREG, L1EREG, OIREG, OEREG),
         ):
             if conf[label] > 0:
                 val, _ = value_and_grad(reg_fun, argnums=0)(x, mode=mode)
