@@ -152,7 +152,15 @@ def evaluate_average(dataset, conf):
 
     for sample in samples[dataset]:
         process_simulation(
-            evaluations, df_meas, df_sim, "none", sample, "avg", 0.0, 0.0
+            evaluations,
+            df_meas,
+            df_sim,
+            "none",
+            sample,
+            "avg",
+            0.0,
+            0.0,
+            "none",
         )
 
     return pd.DataFrame(evaluations)
