@@ -27,22 +27,22 @@ samples_train = training_samples(Wildcards(conf.data, conf.samples))
 samples_val = test_samples(Wildcards(conf.data, conf.samples))
 
 input_train, features_train = load_data(
-    conf.context,
-    samples_train,
-    None,
+    contextualization=conf.context,
+    samples=samples_train,
+    features=None,
     **petab_base_files,
 )
 input_val, _ = load_data(
-    conf.context,
-    samples_val,
-    features_train,
+    contextualization=conf.context,
+    samples=samples_val,
+    features=features_train,
     **petab_base_files,
 )
 
 output_train, targets_train = load_data(
-    "cytof_dynamic",
-    samples_train,
-    None,
+    contextualization="cytof_dynamic",
+    samples=samples_train,
+    features=None,
     **petab_base_files,
 )
 

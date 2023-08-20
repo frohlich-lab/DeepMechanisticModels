@@ -24,19 +24,18 @@ petab_base_files = load_petab_base_files(conf)
 samples = training_samples(Wildcards(conf.data, conf.samples))
 
 petab_base_importer = load_petab(
-    problem,
-    conf.data,
-    0.0,
+    problem=problem,
+    dataset=conf.data,
     **petab_base_files,
 )
 
 sigmas = {}
 for sample in samples:
     importer = generate_per_sample_pretraining_problems(
-        petab_base_importer,
-        problem,
-        conf.data,
-        sample,
+        importer=petab_base_importer,
+        problem=problem,
+        dataset=conf.data,
+        sample=sample,
     )
     pypesto_problem = importer.create_problem()
     rfile = PER_SAMPLE_OUTFILE_RESULTS.format(
