@@ -133,7 +133,7 @@ def train(
         for reg_fun, label in zip(
             (
                 model.l1_inflate_reg,
-                model.l1_inflate_reg,
+                model.l1_encode_reg,
                 model.orth_inflate_reg,
                 model.orth_encode_reg,
             ),
