@@ -48,34 +48,24 @@ defaults = {
         "samples",
         "n_hidden",
         "job",
-        "pretrain",
         "features",
         "l1reg_inflate",
         "oreg_inflate",
+        "l1reg_encode",
+        "oreg_encode",
     ]
 }
 tpl_results_file = "__".join(defaults.values())
-CROSS_SAMPLE_OUTFILE_PARS = str(
-    pretrain_dir / "{model}" / "{data}" / (tpl_results_file + ".csv")
-)
-CROSS_SAMPLE_OUTFILE_RESULTS = str(
-    pretrain_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
-)
+
 
 TRAINING_OUTFILE_RESULTS = str(
-    results_dir
-    / "{model}"
-    / "{data}"
-    / (tpl_results_file + "__{l1reg_encode}_{oreg_encode}.hdf5")
+    results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
 )
 COLLECTED_TRAINING_RESULTS = str(
     results_dir
     / "{model}"
     / "{data}"
-    / (
-        tpl_results_file.format(**{**defaults, "job": "full"})
-        + "__{l1reg_encode}_{oreg_encode}.hdf5"
-    )
+    / (tpl_results_file.format(**{**defaults, "job": "full"}) + ".hdf5")
 )
 
 tpl_petab_file = str(data_dir / "{model}_{data}_{file}.tsv")
@@ -91,10 +81,7 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 )
 
 EVALUATION_REFERENCE = str(
-    evaluations_dir
-    / "{model}"
-    / "{data}"
-    / "{samples}_pretrain_{mode}_{dataset}.csv"
+    evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
 )
 defaults = {
     x: f"{{{x}}}"
@@ -102,28 +89,21 @@ defaults = {
         "context",
         "samples",
         "n_hidden",
-        "pretrain",
         "features",
         "l1reg_inflate",
         "oreg_inflate",
+        "l1reg_encode",
+        "oreg_encode",
     ]
 }
 tpl_evaluation_file = "__".join(defaults.values())
-EVALUATION_PRETRAINING = str(
-    evaluations_dir
-    / "{model}"
-    / "{data}"
-    / "pretraining"
-    / "{dataset}"
-    / (tpl_evaluation_file + ".csv")
-)
 EVALUATION_TRAINING = str(
     evaluations_dir
     / "{model}"
     / "{data}"
     / "training"
     / "{dataset}"
-    / (tpl_evaluation_file + "__{l1reg_encode}_{oreg_encode}.csv")
+    / (tpl_evaluation_file + ".csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 

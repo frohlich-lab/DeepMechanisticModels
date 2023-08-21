@@ -178,47 +178,6 @@ rule select_features:
             for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
-
-rule pretrain_cross_sample:
-    input:
-        script='pretrain_cross_samples.py',
-        pretraining=mencoder_dir / 'pretraining.py',
-        autoencoder=mencoder_dir / 'autoencoder.py',
-        bounds=mencoder_dir / '__init__.py',
-        pretrain_per_sample=per_sample_pretraining_train,
-        model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles,
-        data_rw=rules.reweight_data.output.data,
-        features=rules.select_features.output.data,
-    output:
-        pars=CROSS_SAMPLE_OUTFILE_PARS,
-        results=CROSS_SAMPLE_OUTFILE_RESULTS
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+',
-        context='\w+',
-        n_hidden='[0-9]+',
-        job='[0-9]+',
-        samples='[0-9]+_[0-9]+',
-        l1reg_inflate='[0-9\.]+',
-        oreg_inflate='[0-9\.]+',
-        pretrain='True|False',
-    resources:
-        mem="1GB",
-        runtime="6h",
-        nodes=1,
-        cpus_per_task=2,
-        threads=2,
-    retries: 1
-    shell:
-        'python3 {input.script} ' + ' '.join(
-            f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
-                        'l1reg_inflate', 'oreg_inflate',
-                        'job', 'pretrain', 'features')
-        ) + ' --threads={threads}'
-
-
 rule estimate_parameters:
     input:
         script='train.py',
@@ -227,9 +186,9 @@ rule estimate_parameters:
         autoencoder=mencoder_dir /'autoencoder.py',
         data=rules.process_data.output.datafiles,
         data_rw=rules.reweight_data.output.data,
-        pretrain_inflate=rules.pretrain_cross_sample.output.pars,
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
+        pretrain_per_sample=per_sample_pretraining_train,
     output:
         result=TRAINING_OUTFILE_RESULTS
     wildcard_constraints:
@@ -242,7 +201,6 @@ rule estimate_parameters:
         l1reg_inflate='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
-        pretrain='True|False',
     retries: 1
     resources:
         mem="1GB",
@@ -255,7 +213,7 @@ rule estimate_parameters:
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
-                        'job', 'pretrain', 'features')
+                        'job', 'features')
         ) + ' --threads={threads}'
 
 rule collect_estimation_results:
@@ -275,7 +233,6 @@ rule collect_estimation_results:
         job='[0-9]+',
         samples='[0-9]+_[0-9]+',
         l1reg_inflate='[0-9\.]+',
-        pretrain='True|False',
     resources:
         mem="8GB",
         runtime="1h",
@@ -286,7 +243,7 @@ rule collect_estimation_results:
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
-                        'pretrain', 'features')
+                        'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_references:
@@ -313,40 +270,6 @@ rule evaluate_references:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
         for arg in ('model','data','samples',)
-        ) + ' --n_starts={N_STARTS}'
-
-rule evaluate_pretraining:
-    input:
-        script='evaluate_pretraining.py',
-        cross_sample=[
-            rules.pretrain_cross_sample.output.results.format_map(SafeDict(job=job))
-            for job in STARTS
-        ],
-    output:
-        csv=[
-            EVALUATION_PRETRAINING.format_map(SafeDict(dataset=dataset, mode='cross_sample'))
-            for dataset in ['train', 'test']
-        ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        samples='[0-9]+_[0-9]+',
-        context='\w+',
-        n_hidden='[0-9]+',
-        l1reg_inflate='[0-9\.]+',
-        oreg_inflate='[0-9\.]+',
-        pretrain='True|False',
-    resources:
-        mem="1GB",
-        runtime="1h",
-        nodes=1,
-        cpus_per_task=1,
-    shell:
-        'python3 {input.script} ' + ' '.join(
-            f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
-                        'l1reg_inflate', 'oreg_inflate',
-                        'pretrain', 'features')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
@@ -386,7 +309,7 @@ rule evaluate_all:
         script='evaluate_all.py',
         training=[
             y
-            for x in [*rules.evaluate_pretraining.output.csv, *rules.evaluate_training.output.csv]
+            for x in rules.evaluate_training.output.csv
             for context, features in CONTEXTS_FEATURES
             for y in expand(
                 x.format_map(SafeDict(context=context, features=features)),
@@ -407,7 +330,7 @@ rule evaluate_all:
     output:
         plot=[
             EVALUATE_ALL.format_map(SafeDict(group=group))
-            for group in ('observable', 'time', 'condition', 'sample', 'all')
+            for group in ('l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate')
         ]
     wildcard_constraints:
         model='\w+',

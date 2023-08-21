@@ -10,7 +10,6 @@ import seaborn as sns
 import wandb
 from common import (
     EVALUATE_ALL,
-    EVALUATION_PRETRAINING,
     EVALUATION_REFERENCE,
     EVALUATION_TRAINING,
     fig_dir,
@@ -20,6 +19,7 @@ from training_configuration import (
     ALPHAS,
     BETAS,
     CONTEXTS_FEATURES,
+    DELTAS,
     GAMMAS,
     LATENT_DIMS,
     PRETRAIN,
@@ -39,54 +39,30 @@ for samples in SPLITS:
         # "train",
         "test"
     ]:
-        # cross sample pretraining
-        pretraining = pd.concat(
-            pd.read_csv(efile, index_col=0)
-            for alpha, beta, ldim, pretrain, (ctxt, features) in itt.product(
-                ALPHAS, BETAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
-            )
-            if os.path.exists(
-                efile := EVALUATION_PRETRAINING.format(
-                    **{
-                        **conf.__dict__,
-                        **dict(
-                            alpha=alpha,
-                            beta=beta,
-                            n_hidden=ldim,
-                            context=ctxt,
-                            samples=samples,
-                            dataset=dataset,
-                            pretrain=pretrain,
-                            features=features,
-                        ),
-                    },
-                    mode="cross_sample",
-                )
-            )
-        )
-        plot_loss_vs_regularization(pretraining)
-        plt.savefig(
-            outdir / f"{samples}_evaluate_pretrain_cross_sample_{dataset}.pdf"
-        )
-        pretraining["ref"] = "meth"
-
         # training
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
-            for alpha, beta, gamma, ldim, pretrain, (
+            for alpha, beta, gamma, delta, ldim, pretrain, (
                 ctxt,
                 features,
             ) in itt.product(
-                ALPHAS, BETAS, GAMMAS, LATENT_DIMS, PRETRAIN, CONTEXTS_FEATURES
+                ALPHAS,
+                BETAS,
+                GAMMAS,
+                DELTAS,
+                LATENT_DIMS,
+                PRETRAIN,
+                CONTEXTS_FEATURES,
             )
             if os.path.exists(
                 efile := EVALUATION_TRAINING.format(
                     **{
                         **conf.__dict__,
                         **dict(
-                            alpha=alpha,
-                            beta=beta,
-                            gamma=gamma,
+                            l1reg_inflate=alpha,
+                            oreg_inflate=beta,
+                            l1reg_encode=gamma,
+                            oreg_encode=delta,
                             n_hidden=ldim,
                             context=ctxt,
                             samples=samples,
@@ -156,6 +132,7 @@ for samples in SPLITS:
             alpha,
             beta,
             gamma,
+            delta,
             ldim,
             method,
             pretrain,
@@ -164,6 +141,7 @@ for samples in SPLITS:
             ALPHAS,
             BETAS,
             GAMMAS,
+            DELTAS,
             LATENT_DIMS,
             METHODS,
             PRETRAIN,
@@ -175,7 +153,10 @@ for samples in SPLITS:
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
-                avg_ps_df["alpha"] = alpha
+                avg_ps_df["l1reg_inflate"] = alpha
+                avg_ps_df["oreg_inflate"] = beta
+                avg_ps_df["l1reg_encode"] = gamma
+                avg_ps_df["oreg_encode"] = delta
                 avg_ps_df["layers"] = ldim
                 avg_ps_df["context"] = ctxt
                 avg_ps_df["type"] = method
@@ -184,7 +165,7 @@ for samples in SPLITS:
                 avg_ps_dfs.append(avg_ps_df)
 
         # dfd = pd.concat([training, pretraining])
-        dfd = pd.concat([pretraining, training, *avg_ps_dfs])
+        dfd = pd.concat([training, *avg_ps_dfs])
         dfd["dataset"] = dataset
         dfd["samples"] = samples
         dfs.append(dfd)
@@ -192,14 +173,11 @@ for samples in SPLITS:
 df = pd.concat(dfs).reset_index()
 df.rename(
     columns={
-        "alpha": "l1 regularization",
         "layers": "latent dim",
         "type": "method",
     },
     inplace=True,
 )
-df.loc[df["method"] == "cross_sample", "method"] = "pca embedding"
-df.loc[df["method"] == "full", "method"] = "end-to-end"
 
 
 def lineplot_ref_average(data, *args, **kwargs):
@@ -217,10 +195,12 @@ def lineplot_ref_sample(data, *args, **kwargs):
 gbs = [
     "ref",
     "dataset",
-    "method",
     "context",
     "latent dim",
-    "l1 regularization",
+    "l1reg_inflate",
+    "oreg_inflate",
+    "l1reg_encode",
+    "oreg_encode",
     "samples",
     "features",
 ]
@@ -234,46 +214,52 @@ data = pd.DataFrame(
     ]
 )
 
-fig = plt.figure()
-g = sns.FacetGrid(
-    data=data[data["dataset"] == "test"],
-    row="method",
-    col="context",
-    row_order=("pca embedding", "end-to-end"),
-)
+for group in (
+    "l1reg_inflate",
+    "oreg_inflate",
+    "l1reg_encode",
+    "oreg_encode",
+):
+    fig = plt.figure()
+    g = sns.FacetGrid(
+        data=data,
+        row="dataset",
+        col="context",
+        row_order=("train", "test"),
+    )
 
-g.map_dataframe(
-    lineplot_methods,
-    x="l1 regularization",
-    y="rmse",
-    hue="features",
-    errorbar="se",
-    style="latent dim",
-    palette="tab10",
-)
-g.map_dataframe(
-    lineplot_ref_average,
-    x="l1 regularization",
-    y="rmse",
-    color="r",
-    linestyle="--",
-    errorbar=None,
-)
-g.map_dataframe(
-    lineplot_ref_sample,
-    x="l1 regularization",
-    y="rmse",
-    color="b",
-    linestyle=":",
-    errorbar=None,
-)
-g.set(xscale="log", ylim=(0, 1.5))
-g.add_legend()
-plt.tight_layout()
-rfile = EVALUATE_ALL.format(**conf.__dict__, group="all")
-plt.savefig(rfile)
-efile = rfile.replace(".pdf", ".csv")
-data.to_csv(efile)
+    g.map_dataframe(
+        lineplot_methods,
+        x=group,
+        y="rmse",
+        hue="features",
+        errorbar="se",
+        style="latent dim",
+        palette="tab10",
+    )
+    g.map_dataframe(
+        lineplot_ref_average,
+        x=group,
+        y="rmse",
+        color="r",
+        linestyle="--",
+        errorbar=None,
+    )
+    g.map_dataframe(
+        lineplot_ref_sample,
+        x=group,
+        y="rmse",
+        color="b",
+        linestyle=":",
+        errorbar=None,
+    )
+    g.set(xscale="log", ylim=(0.1, 0.6))
+    g.add_legend()
+    plt.tight_layout()
+    rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
+    plt.savefig(rfile)
+    efile = rfile.replace(".pdf", ".csv")
+    data.to_csv(efile)
 
 wandb.init(
     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",

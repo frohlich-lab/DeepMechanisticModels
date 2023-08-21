@@ -72,13 +72,11 @@ def train(
     model: DeepMechanisticModel,
     problem_train: pypesto.Problem,
     problem_test: pypesto.Problem,
-    mode: str,
     rfile: Path,
     conf: Dict,
     schedule_config: Dict,
     n_epoch,
     x0,
-    par_dims: Tuple[Tuple[str, ...], Tuple[int, ...]],
 ) -> pypesto.Result:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -89,15 +87,24 @@ def train(
 
     wandb.init(
         project=f"DeepMechanisticModels.{conf['data']}.{conf['model']}",
-        group=f"{mode}_{conf['context']}_{conf['features']}_{conf['n_hidden']}",
+        group=f"{conf['context']}_{conf['features']}",
         config={
             **conf,
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
-            "mode": mode,
         },
-        name=f"{mode}__" + rfile.stem,
+        name="_".join(
+            (
+                conf["job"],
+                conf["samples"],
+                conf["n_hidden"],
+                conf["l1reg_inflate"],
+                conf["oreg_inflate"],
+                conf["l1reg_encode"],
+                conf["oreg_encode"],
+            )
+        ),
         settings=wandb.Settings(
             start_method="fork",
             git_commit=repo.head.object.hexsha,
@@ -110,10 +117,16 @@ def train(
     wandb.define_metric("fval", summary="min")
     wandb.define_metric(L1IREG, summary="min")
     wandb.define_metric(OIREG, summary="min")
-    if mode == "train":
-        wandb.define_metric(OEREG, summary="min")
-        wandb.define_metric(L1EREG, summary="min")
-    for val_type, xname in itt.product(("x", "g"), par_dims[0]):
+    wandb.define_metric(OEREG, summary="min")
+    wandb.define_metric(L1EREG, summary="min")
+
+    par_labels = (("encode", "inflate", "kinetic"),)
+    par_dims = (
+        model.n_encode_weights,
+        model.n_encoder_pars,
+        model.n_kin_params,
+    )
+    for val_type, xname in itt.product(("x", "g"), par_labels):
         wandb.define_metric(f"{val_type}_{xname}")
 
     x = x0.copy()
@@ -141,7 +154,7 @@ def train(
         ):
             if conf[label] > 0:
                 v_reg, g_reg = value_and_grad(reg_fun, argnums=0)(
-                    x, mode=mode, scale=conf[label]
+                    x, scale=conf[label]
                 )
                 wandb.log({label: v_reg}, step=epoch)
                 grads += g_reg
@@ -177,8 +190,8 @@ def train(
                             ("g", grads),
                         )
                         for xname, value in zip(
-                            par_dims[0],
-                            np.split(values, par_dims[1]),
+                            par_labels,
+                            np.split(values, par_dims[:-1]),
                         )
                     },
                 },

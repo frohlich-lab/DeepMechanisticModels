@@ -1,4 +1,4 @@
-from typing import List, Optional, Sequence, Union
+from typing import List, Optional
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -148,28 +148,11 @@ class DeepMechanisticModel(AutoEncoder):
             ]
         )
 
-    def inflate(self, params: jnp.ndarray) -> jnp.ndarray:
-        inflate_weights, kin_params = jnp.split(
-            params, np.array((self.n_inflate_weights,))
-        )
-        return jnp.concatenate(
-            [
-                kin_params,
-                self.inflate_params(
-                    self.features_pca, inflate_weights
-                ).flatten(),
-            ]
-        )
-
-    def orth_encode_reg(
-        self, params: jnp.ndarray, mode: str, scale: float = 1.0
-    ):
+    def orth_encode_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
         Orthogonal regularization of the encoder weights.
         """
-        if mode != "train":
-            return 0.0
-        encode_weights, inflate_weights, kin_params = jnp.split(
+        encode_weights, _, _ = jnp.split(
             params,
             np.array(
                 (
@@ -178,66 +161,47 @@ class DeepMechanisticModel(AutoEncoder):
                 )
             ),
         )
-        weights = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
-        return scale * jnp.mean(
-            jnp.abs(jnp.dot(weights.T, weights) - jnp.eye(self.n_latent))
-        )
+        w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
+        m = jnp.dot(w.T, w)
+        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
 
-    def orth_inflate_reg(
-        self, params: jnp.ndarray, mode: str, scale: float = 1.0
-    ):
+    def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
         Orthogonal regularization of the inflate weights.
         """
-
-        if mode == "train":
-            _, weights, _ = jnp.split(
-                params,
-                np.array(
-                    (
-                        self.n_encode_weights,
-                        self.n_inflate_weights + self.n_encode_weights,
-                    )
-                ),
-            )
-        else:
-            weights, _ = jnp.split(params, np.array((self.n_inflate_weights,)))
-        w = jnp.reshape(weights, (self.n_latent, self.n_params))
+        _, inflate_weights, _ = jnp.split(
+            params,
+            np.array(
+                (
+                    self.n_encode_weights,
+                    self.n_inflate_weights + self.n_encode_weights,
+                )
+            ),
+        )
+        w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
         return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
 
-    def l1_inflate_reg(
-        self, params: jnp.ndarray, mode: str, scale: float = 1.0
-    ):
+    def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
         l1 regularization of the inflate output.
         """
-        if mode == "train":
-            encode_weights, inflate_weights, kin_params = jnp.split(
-                params,
-                np.array(
-                    (
-                        self.n_encode_weights,
-                        self.n_inflate_weights + self.n_encode_weights,
-                    )
-                ),
-            )
-        else:
-            inflate_weights, kin_params = jnp.split(
-                params, np.array((self.n_inflate_weights,))
-            )
+        _, inflate_weights, _ = jnp.split(
+            params,
+            np.array(
+                (
+                    self.n_encode_weights,
+                    self.n_inflate_weights + self.n_encode_weights,
+                )
+            ),
+        )
         return scale * jnp.mean(jnp.abs(inflate_weights))
 
-    def l1_encode_reg(
-        self, params: jnp.ndarray, mode: str, scale: float = 1.0
-    ):
+    def l1_encode_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
         l1 regularization of the inflate output.
         """
-        if mode != "train":
-            return 0.0
-
-        encode_weights, inflate_weights, kin_params = jnp.split(
+        encode_weights, _, _ = jnp.split(
             params,
             np.array(
                 (
