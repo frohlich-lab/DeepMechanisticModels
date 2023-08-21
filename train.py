@@ -56,7 +56,7 @@ else:
 schedule_config = dict(
     init_value=1e-2,
     transition_steps=100,
-    end_value=1e-2,
+    end_value=1e-3,
 )
 
 train(
