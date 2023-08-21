@@ -94,8 +94,9 @@ def train(
             "optimizer": "adam",
             "scheduler": "linear",
         },
-        name="_".join(
-            (
+        name="__".join(
+            str(x)
+            for x in (
                 conf["job"],
                 conf["samples"],
                 conf["n_hidden"],
@@ -120,7 +121,7 @@ def train(
     wandb.define_metric(OEREG, summary="min")
     wandb.define_metric(L1EREG, summary="min")
 
-    par_labels = (("encode", "inflate", "kinetic"),)
+    par_labels = ("encode", "inflate", "kinetic")
     par_dims = (
         model.n_encode_weights,
         model.n_encoder_pars,
