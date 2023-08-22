@@ -49,7 +49,7 @@ rule process_data:
         mem="2GB",
         runtime="15m",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -72,7 +72,7 @@ rule compile_mechanistic_model:
         mem="8GB",
         runtime="1h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -96,7 +96,7 @@ rule pretrain_per_sample:
         mem="1GB",
         runtime="6h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -120,7 +120,7 @@ rule pretrain_average_model:
         mem="1GB",
         runtime="6h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -145,7 +145,7 @@ rule reweight_data:
         mem="1GB",
         runtime="1h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -171,7 +171,7 @@ rule select_features:
         mem="1GB",
         runtime="10h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -206,7 +206,6 @@ rule estimate_parameters:
         mem="1GB",
         runtime="6h",
         nodes=1,
-        cpus_per_task=2,
         threads=2,
     shell:
         'python3 {input.script} ' + ' '.join(
@@ -237,7 +236,7 @@ rule collect_estimation_results:
         mem="8GB",
         runtime="1h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -265,7 +264,7 @@ rule evaluate_references:
         mem="1GB",
         runtime="1h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
@@ -295,7 +294,7 @@ rule evaluate_training:
         mem="1GB",
         runtime="1h",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -340,7 +339,7 @@ rule evaluate_all:
         mem="4GB",
         runtime="30m",
         nodes=1,
-        cpus_per_task=1,
+        threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
