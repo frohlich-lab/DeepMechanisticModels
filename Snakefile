@@ -204,7 +204,7 @@ rule estimate_parameters:
     retries: 1
     resources:
         mem="1GB",
-        runtime="6h",
+        runtime="10h",
         nodes=1,
         threads=2,
     shell:
