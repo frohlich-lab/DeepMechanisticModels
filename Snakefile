@@ -300,7 +300,7 @@ rule evaluate_training:
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
-                        'pretrain', 'features')
+                        'features')
         )
 
 rule evaluate_all:
