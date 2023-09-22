@@ -151,7 +151,7 @@ def evaluate_simulations(
             oreg_inflate=oreg_inflate,
             l1reg_encode=l1reg_encode,
             oreg_encode=oreg_encode,
-            latent_dim=latent_dim,
+            hidden_layers=latent_dim,
             features=features,
         )
 
