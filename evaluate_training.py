@@ -15,6 +15,7 @@ from common import (
 from dmm.analysis import evaluate_simulations
 from dmm.training import create_pypesto_problem
 from util import Conf, load_models
+import jax
 
 conf = fire.Fire(Conf)
 
@@ -69,5 +70,8 @@ def evaluate_training(dataset, conf):
 
 
 for dataset in ("train", "test"):
+    # clear jax cache to avoid error where jitted function uses input with shape of train
+    # which differs from test
+    jax.clear_caches()
     df = evaluate_training(dataset, conf)
     df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__))

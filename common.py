@@ -83,6 +83,11 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 EVALUATION_REFERENCE = str(
     evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
 )
+
+EVALUATION_REFERENCE_REG = str(
+    evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{context}_{dataset}.csv"
+)
+
 defaults = {
     x: f"{{{x}}}"
     for x in [

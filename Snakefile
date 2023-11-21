@@ -1,11 +1,12 @@
 import os
 import itertools as itt
+import numpy as np
 from pathlib import Path
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
+    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REFERENCE_REG,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
 )
 from training_configuration import ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
@@ -254,6 +255,11 @@ rule evaluate_references:
         csv=[
             EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
             for dataset, mode in itt.product(['train', 'test'], ['per_sample', 'average'])
+        ] + [
+            EVALUATION_REFERENCE_REG.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
+            for dataset, mode, context in itt.product(['train', 'test'],
+                ['linreg', 'lasso', 'elasticnet'],
+                [context for context, _ in CONTEXTS_FEATURES])
         ]
     wildcard_constraints:
         model='\w+',

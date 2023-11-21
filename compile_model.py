@@ -11,7 +11,6 @@ problem = CytofProblem(conf.model)
 importer = load_petab(
     problem,
     conf.data,
-    0.0,
     **load_petab_base_files(conf),
 )
 

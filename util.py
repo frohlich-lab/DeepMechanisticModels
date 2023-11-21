@@ -134,6 +134,8 @@ def generate_startpoint(
             ]
         ]
 
+    np.random.seed(conf.job)
+
     par_combo = pd.concat(
         [
             pretraining[

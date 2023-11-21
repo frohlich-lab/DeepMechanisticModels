@@ -28,7 +28,8 @@ class DeepMechanisticModel(AutoEncoder):
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     feature_cols: List[str] = eqx.static_field()
-    petab_importer: pypesto.petab.PetabImporterPysb = eqx.static_field()
+    # general PetabImporter compared to old PetabImporterPysb
+    petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
 
     def __init__(

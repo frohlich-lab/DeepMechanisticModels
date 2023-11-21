@@ -39,6 +39,11 @@ def process_simulation(
     res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
 
     for _, r in res.iterrows():
+        # re-defining condition in such a way that fits both avg and avg_model references and regression standards
+        if len(r[petab.SIMULATION_CONDITION_ID].split("__")) > 1:
+            condition = r[petab.SIMULATION_CONDITION_ID].split("__")[1]
+        else:
+            condition = r[petab.SIMULATION_CONDITION_ID]
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
@@ -52,7 +57,7 @@ def process_simulation(
                 "layers": hidden_layers,
                 "features": features,
                 "observable": r[petab.OBSERVABLE_ID],
-                "condition": r[petab.SIMULATION_CONDITION_ID].split("__")[1],
+                "condition": condition,
                 "time": r[petab.TIME],
             }
         )
