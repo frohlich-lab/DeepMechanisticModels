@@ -436,9 +436,6 @@ def evaluate_standard_regression(dataset, conf, context,
             df_meas = df_meas[
                 df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
             ]
-            # Groupby to average replicates as done for regression output
-            df_meas = df_meas.groupby(['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
-                {'measurement': 'mean', 'noiseParameters': 'mean'}).reset_index()
             # Subset to cell lines that are in output_train
             df_meas = df_meas[
                 df_meas.preequilibrationConditionId.isin(output_train.preequilibrationConditionId)
