@@ -406,80 +406,8 @@ def evaluate_standard_regression(dataset, conf, context,
 
         elif trained_pipeline is not None:
             # Predict on train, using trained_pipeline
-            pred_train = trained_pipeline.predict(input_train)
-            # Convert into pandas dataframe with same index and column headers as output_train
-            pred_train = pd.DataFrame(pred_train, index = output_train.index, columns = output_train.columns)
-
-            # Process dataframes to use with plot_cross_samples and process_simulation
-            # pred_train
-            pred_train = pred_train.T.stack().reset_index().sort_values(
-                by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-            pred_train = pred_train.reset_index().drop(columns='index')
-            # Rename value column from 0 to 'simulation' to use in process_simulation()
-            pred_train.rename(columns={0: "simulation"}, inplace = True)
-
-            # output_train
-            output_train = output_train.T.stack().reset_index().sort_values(
-                by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-            output_train = output_train.reset_index().drop(columns='index')
-            # Rename value column from 0 to 'measurement' to use in process_simulation()
-            output_train.rename(columns={0: "measurement"}, inplace=True)
-
-            # produce plots
-            # import original output data as in avg/avg_model
-            df_meas = pd.read_csv(
-                MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-            )
-            df_obs = pd.read_csv(
-                OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-            )
-            df_meas = df_meas[
-                df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-            ]
-            # Subset to cell lines that are in output_train
-            df_meas = df_meas[
-                df_meas.preequilibrationConditionId.isin(output_train.preequilibrationConditionId)
-            ].reset_index().drop(columns='index')
-            # Sort to make comparable with output_train
-            df_meas = df_meas.sort_values(by=['observableId', 'preequilibrationConditionId', 'simulationConditionId', 'time'])
-            # process simulation condition id
-            df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
-                petab.SIMULATION_CONDITION_ID
-            ].apply(lambda x: x.split("__")[1])
-            # reorder columns as in output_train
-            df_meas = df_meas[['observableId', 'simulationConditionId',
-                               'time', 'preequilibrationConditionId',
-                               'measurement', 'noiseParameters']]
-            # Impute values as in load_data -- not sure whether this is necessary!
-            #df_meas = impute_missing_output(df_meas, 7.0, 0.0, 9.0)
-            #df_meas = impute_missing_output(df_meas, 13.0, 9.0, 17.0)
-
-            # Plot
-            plot_name = mode + "_" + context
-            plot_cross_samples(
-                df_meas, pred_train, outdir / "simulation" / dataset, plot_name
-            )
-
-            # process simulations/regressions (i.e. produce CSVs with residuals)
-            evaluations = []
-
-            for sample in samples[dataset]:
-                process_simulation(
-                    evaluations=evaluations,
-                    measurement_df=output_train,
-                    simulation_df=pred_train,
-                    context=context,
-                    sample=sample,
-                    model_type=mode,
-                    l1reg_inflate=0.0,
-                    oreg_encode=0.0,
-                    l1reg_encode=0.0,
-                    oreg_inflate=0.0,
-                    hidden_layers=0,
-                    features="none",
-                )
-
-            return pd.DataFrame(evaluations)
+            reg_pred = trained_pipeline.predict(input_train)
+            output_data = output_train
 
     # same for the test set
     elif dataset == "test":
@@ -508,97 +436,94 @@ def evaluate_standard_regression(dataset, conf, context,
             )
 
             # Transform test data with pipeline and predict (all in .predict())
-            pred_test = trained_pipeline.predict(input_test)
-            # Convert into pandas dataframe with same index and column headers as output_test
-            pred_test = pd.DataFrame(pred_test, index=output_test.index, columns=output_test.columns)
+            reg_pred = trained_pipeline.predict(input_test)
+            # Some output_test turned out to be NaNs simply because of missing imputation at 13h for EGF (other conditions were imputed)
+            # and at 40h (timepoint was not considered for imputation)
+            # reg_pred = reg_pred[~output_test.isna()]
+            output_data = output_test
 
-            ## POSSIBLY INCORRECT - PAY ATTENTION!
-            # Issue: some output_test values appear to be missing (NaNs)
-            # However, the model/regression estimator does predict those values
-            # meaning pred_test and output_test cannot be compared once processed
-            # in such a way that enables them to be passed to process_simulation
-            #
-            # Current solution: drop values from pred_test where output_test is NaN
-            # so that after transpose and stack() they have the same number of rows
-            # and can be directly compared
-            pred_test = pred_test[~output_test.isna()]
-            # Process dataframes to use with plot_cross_samples and process_simulation
-            # pred_test
-            pred_test = pred_test.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-            pred_test = pred_test.reset_index().drop(columns='index')
-            # Rename value column from 0 to 'simulation' to use in process_simulation()
-            pred_test.rename(columns={0: "simulation"}, inplace=True)
+    # Process regression output (reg_pred) and output data before plotting and evaluating simulations
+    # Convert into pandas dataframe with same index and column headers as output_test
+    reg_pred = pd.DataFrame(reg_pred, index=output_data.index, columns=output_data.columns)
 
-            # output_test
-            output_test = output_test.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-            output_test = output_test.reset_index().drop(columns='index')
-            # Rename value column from 0 to 'measurement' to use in process_simulation()
-            output_test.rename(columns={0: "measurement"}, inplace=True)
+    # Process dataframes to use with plot_cross_samples and process_simulation
+    # reg_pred
+    reg_pred = reg_pred.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
+    reg_pred = reg_pred.reset_index().drop(columns='index')
+    # Rename value column from 0 to 'simulation' to use in process_simulation()
+    reg_pred.rename(columns={0: "simulation"}, inplace=True)
 
-            # Produce plots to analyse performance
-            # import original output data as in avg/avg_model
-            df_meas = pd.read_csv(
-                MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-            )
-            df_obs = pd.read_csv(
-                OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-            )
-            df_meas = df_meas[
-                df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-            ]
-            # Groupby to average replicates as done for regression output
-            df_meas = df_meas.groupby(
-                ['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
-                {'measurement': 'mean', 'noiseParameters': 'mean'}).reset_index()
-            # Sort to make comparable with output_train
-            df_meas = df_meas.sort_values(
-                by=['observableId', 'preequilibrationConditionId', 'simulationConditionId', 'time'])
+    # output_data
+    output_data = output_data.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
+    output_data = output_data.reset_index().drop(columns='index')
+    # Rename value column from 0 to 'measurement' to use in process_simulation()
+    output_data.rename(columns={0: "measurement"}, inplace=True)
 
-            # Subset to cell lines that are in output_train
-            df_meas = df_meas[
-                df_meas.preequilibrationConditionId.isin(output_test.preequilibrationConditionId)
-            ].reset_index().drop(columns='index')
 
-            # process simulation condition id
-            df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
-                petab.SIMULATION_CONDITION_ID
-            ].apply(lambda x: x.split("__")[1])
+    # Produce plots to analyse performance -- block of code is shared between train/test
+    # import original output data as in avg/avg_model
+    df_meas = pd.read_csv(
+        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
+    )
+    df_obs = pd.read_csv(
+        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
+    )
+    df_meas = df_meas[
+        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
+    ]
+    # Groupby to average replicates as done for regression output
+    df_meas = df_meas.groupby(
+        ['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
+        {'measurement': 'mean', 'noiseParameters': 'mean'}).reset_index()
+    # Sort to make comparable with output_train
+    df_meas = df_meas.sort_values(
+        by=['observableId', 'preequilibrationConditionId', 'simulationConditionId', 'time'])
 
-            # reorder columns as in output_train
-            df_meas = df_meas[['observableId', 'simulationConditionId',
-                               'time', 'preequilibrationConditionId',
-                               'measurement', 'noiseParameters']]
+    # Subset to cell lines that are in output_data (i.e. output_train/output_test)
+    df_meas = df_meas[
+        df_meas.preequilibrationConditionId.isin(output_data.preequilibrationConditionId)
+    ].reset_index().drop(columns='index')
 
-            # Impute values as in load_data
-            #df_meas = impute_missing_output(df_meas, 7.0, 0.0, 9.0)
-            #df_meas = impute_missing_output(df_meas, 13.0, 9.0, 17.0)
+    # process simulation condition id
+    df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
+        petab.SIMULATION_CONDITION_ID
+    ].apply(lambda x: x.split("__")[1])
 
-            # Plot
-            plot_name = mode + "_" + context
-            plot_cross_samples(
-                df_meas, pred_test, outdir / "simulation" / dataset, plot_name
-            )
+    # reorder columns as in output_train
+    df_meas = df_meas[['observableId', 'simulationConditionId',
+                       'time', 'preequilibrationConditionId',
+                       'measurement', 'noiseParameters']]
 
-            # Process simulations/regressions, i.e. produce CSVs with residuals
-            evaluations = []
+    # Impute values as in load_data
+    #df_meas = impute_missing_output(df_meas, 7.0, 0.0, 9.0)
+    #df_meas = impute_missing_output(df_meas, 13.0, 9.0, 17.0)
 
-            for sample in samples[dataset]:
-                process_simulation(
-                    evaluations=evaluations,
-                    measurement_df=output_test,
-                    simulation_df=pred_test,
-                    context=context,
-                    sample=sample,
-                    model_type=mode,
-                    l1reg_inflate=0.0,
-                    oreg_encode=0.0,
-                    l1reg_encode=0.0,
-                    oreg_inflate=0.0,
-                    hidden_layers=0,
-                    features="none",
-                )
+    # Plot -- reg_pred is either reg_pred_train or reg_pred_test
+    plot_name = mode + "_" + context
+    plot_cross_samples(
+        df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
+    )
 
-            return pd.DataFrame(evaluations)
+    # Process simulations/regressions, i.e. produce CSVs with residuals
+    evaluations = []
+
+    for sample in samples[dataset]:
+        process_simulation(
+            evaluations=evaluations,
+            measurement_df=output_data,
+            simulation_df=reg_pred,
+            context=context,
+            sample=sample,
+            model_type=mode,
+            l1reg_inflate=0.0,
+            oreg_encode=0.0,
+            l1reg_encode=0.0,
+            oreg_inflate=0.0,
+            hidden_layers=0,
+            features="none",
+        )
+
+    return pd.DataFrame(evaluations)
 
 # Build and train all pipelines
 print('Building pipelines and training estimators...')
@@ -607,7 +532,7 @@ features_train = {}
 for context, _ in CONTEXTS_FEATURES:
     trained_pipelines[context], features_train[context] = {}, {}
     for mode in ['linreg', 'lasso', 'elasticnet']:
-        print(f'Training estimator {mode} on context {context}...')
+        #print(f'Training estimator {mode} on context {context}...')
         trained_pipelines[context][mode], features_train[context][mode] = evaluate_standard_regression("train", conf, context, mode=mode)
         print(f'Estimator {mode} trained on context {context}')
 
@@ -647,7 +572,7 @@ for dataset in ["train", "test"]:
     )
 
     # average
-    df = evaluate_average(dataset, conf)
+    # df = evaluate_average(dataset, conf)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,
@@ -657,7 +582,7 @@ for dataset in ["train", "test"]:
     )
 
     # per sample
-    df = evaluate_pretraining_per_sample(dataset, conf)
+    # df = evaluate_pretraining_per_sample(dataset, conf)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,
