@@ -168,34 +168,23 @@ def load_data(
                 if io_mode == 'output':
                     weights.loc[mask, target] = weights.loc[mask, source]
         #  regression imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
-            for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC"):
-                mask = input_data.loc[:, (marker, pert, 7.0)].isna()
-                input_data.loc[mask, (marker, pert, 7.0)] = (
-                    input_data.loc[mask, (marker, pert, 9.0)] * 2.0 / 9.0
-                    + input_data.loc[mask, (marker, pert, 0.0)] * 7.0 / 9.0
-                )
-                if io_mode == 'output':
-                    # Do the same for weights - average number of replicates between
-                    # surrounding timepoints and cast to integer value
-                    weights.loc[mask, (marker, pert, 7.0)] = (
-                        weights.loc[mask, (marker, pert, 9.0)] * 2.0 / 9.0
-                        + weights.loc[mask, (marker, pert, 0.0)] * 7.0 / 9.0
-                    ).astype('int64')
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"): # all currently considered observables - might need to access, not hardcode
+            for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"): # all currently considered conditions - might need to access, not hardcode
+                for missing_time, [time_before, time_after] in zip([7.0, 13.0, 40.0],
+                                                                   [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]):
 
-                mask = input_data.loc[:, (marker, pert, 13.0)].isna()
-                input_data.loc[mask, (marker, pert, 13.0)] = (
-                    input_data.loc[mask, (marker, pert, 9.0)] * 4.0 / 8.0
-                    + input_data.loc[mask, (marker, pert, 17.0)] * 4.0 / 8.0
-                )
-
-                if io_mode == 'output':
-                    # Do the same for weights - average number of replicates between
-                    # surrounding timepoints and cast to integer value
-                    weights.loc[mask, (marker, pert, 13.0)] = (
-                            weights.loc[mask, (marker, pert, 9.0)] * 4.0 / 8.0
-                            + weights.loc[mask, (marker, pert, 17.0)] * 4.0 / 8.0
-                    ).astype('int64')
+                    mask = input_data.loc[:, (marker, pert, missing_time)].isna()
+                    input_data.loc[mask, (marker, pert, missing_time)] = (
+                            input_data.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
+                            + input_data.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
+                    )
+                    if io_mode == 'output':
+                        # Do the same for weights - average number of replicates between
+                        # surrounding timepoints and cast to integer value
+                        weights.loc[mask, (marker, pert, missing_time)] = (
+                                weights.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
+                                + weights.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
+                        ).astype('int64')
 
     if features:
         # for prediction, use feature set computed on training data
