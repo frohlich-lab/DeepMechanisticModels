@@ -164,7 +164,7 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
         m = jnp.dot(w.T, w)
-        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
+        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
@@ -181,7 +181,7 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
-        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
+        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
 
     def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
