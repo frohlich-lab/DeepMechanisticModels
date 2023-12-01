@@ -3,9 +3,10 @@
 # i.e. the lower the regularisation, the lower the rmse -- this holds for cytof_init and proteomics, not for transcriptomics
 ALPHAS = (
     1e1,
-    5e1,
+    #5e1,
     1e2,
-    #1e4,
+    1e3,
+    1e4,
     #1e6,
     #1e8,
 )
@@ -15,18 +16,20 @@ ALPHAS = (
 # the lower the rmse_val.min
 BETAS = (
     #1e2,
-    #1e4,
+    1e4,
     1e6,
-    1e7,
+    #1e7,
+    1e8,
     )
 
 # GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to latent/bottleneck)
 # same as above - trying to lower this value
 GAMMAS = (
     1e1,
-    5e1,
+    #5e1,
     1e2,
-    #1e4,
+    1e3,
+    1e4,
     #1e6,
     #1e8,
 )
@@ -34,9 +37,10 @@ GAMMAS = (
 # DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to latent/bottleneck)
 DELTAS = (
     #1e2,
-    #1e4,
+    1e4,
     1e6,
-    1e7,
+    #1e7,
+    1e8,
 )
 
 # n_hidden: number of dimensions of bottleneck\latent representation obtained using the encoder
@@ -47,9 +51,9 @@ DELTAS = (
 # FOR NEXT TIME: try higher values of n_hidden? e.g. 8, 10, 12?
 LATENT_DIMS = (
     2,
-    3,
-    #4,
-    #6,
+    #3,
+    4,
+    6,
     # 8,
     # 10,
     # 12
