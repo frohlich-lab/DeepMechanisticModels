@@ -13,6 +13,8 @@ from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
 
+from optax import power_iteration
+
 config.update("jax_enable_x64", True)
 
 
@@ -164,7 +166,12 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
         m = jnp.dot(w.T, w)
-        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        # L2 norm
+        #return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        _, max_eig = power_iteration(m - jnp.eye(self.n_latent))
+        return scale * max_eig
+
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
@@ -181,7 +188,11 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
-        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        # L2 norm
+        #return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        _, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
+        return scale * max_eig
 
     def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
