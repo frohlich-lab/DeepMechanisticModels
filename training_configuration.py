@@ -15,7 +15,7 @@ ALPHAS = (
 # from wandb.ai, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
 BETAS = (
-    #1e2,
+    1e2,
     1e4,
     1e6,
     #1e7,
@@ -36,7 +36,7 @@ GAMMAS = (
 
 # DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to latent/bottleneck)
 DELTAS = (
-    #1e2,
+    1e2,
     1e4,
     1e6,
     #1e7,
@@ -54,7 +54,7 @@ LATENT_DIMS = (
     #3,
     4,
     6,
-    # 8,
+    8,
     # 10,
     # 12
 )
