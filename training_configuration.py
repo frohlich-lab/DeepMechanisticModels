@@ -2,12 +2,12 @@
 # from wandb.ai, it seems that rmse_val.min (best value for rmse in validation) is positively correlated with l1reg params
 # i.e. the lower the regularisation, the lower the rmse -- this holds for cytof_init and proteomics, not for transcriptomics
 ALPHAS = (
-    1e1,
+    #1e1,
     #5e1,
     1e2,
-    1e3,
+    #1e3,
     1e4,
-    #1e6,
+    1e6,
     #1e8,
 )
 
@@ -19,18 +19,18 @@ BETAS = (
     1e4,
     1e6,
     #1e7,
-    1e8,
+    #1e8,
     )
 
 # GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to latent/bottleneck)
 # same as above - trying to lower this value
 GAMMAS = (
-    1e1,
+    #1e1,
     #5e1,
-    1e2,
-    1e3,
+    #1e2,
+    #1e3,
     1e4,
-    #1e6,
+    1e6,
     #1e8,
 )
 
@@ -40,7 +40,7 @@ DELTAS = (
     1e4,
     1e6,
     #1e7,
-    1e8,
+    #1e8,
 )
 
 # n_hidden: number of dimensions of bottleneck\latent representation obtained using the encoder
@@ -54,7 +54,7 @@ LATENT_DIMS = (
     #3,
     4,
     6,
-    8,
+    #8,
     # 10,
     # 12
 )
