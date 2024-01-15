@@ -166,8 +166,10 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
         m = jnp.dot(w.T, w)
+        # L1 norm - originally used in Fabian's runs
+        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
         # L2 norm
-        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        #return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
         ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
         #_, max_eig = power_iteration(m - jnp.eye(self.n_latent))
         #return scale * max_eig
@@ -188,8 +190,10 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
+        # L1 norm - originally used in Fabian's runs
+        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
         # L2 norm
-        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        #return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
         ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
         #_, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
         #return scale * max_eig
