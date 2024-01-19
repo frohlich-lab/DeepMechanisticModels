@@ -16,6 +16,7 @@ from common import (
 )
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import (
+    ORTH_REG_STRATEGIES,
     ALPHAS,
     BETAS,
     CONTEXTS_FEATURES,
@@ -42,10 +43,11 @@ for samples in SPLITS:
         # training
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
-            for alpha, beta, gamma, delta, ldim, pretrain, (
+            for orth_reg_strategy, alpha, beta, gamma, delta, ldim, pretrain, (
                 ctxt,
                 features,
             ) in itt.product(
+                ORTH_REG_STRATEGIES,
                 ALPHAS,
                 BETAS,
                 GAMMAS,
@@ -59,6 +61,7 @@ for samples in SPLITS:
                     **{
                         **conf.__dict__,
                         **dict(
+                            orth_reg_strategy=orth_reg_strategy,
                             l1reg_inflate=alpha,
                             oreg_inflate=beta,
                             l1reg_encode=gamma,
@@ -129,6 +132,7 @@ for samples in SPLITS:
         avg_ps_dfs = []
         # copy average/per sample
         for (
+            orth_reg_strategy,
             alpha,
             beta,
             gamma,
@@ -138,6 +142,7 @@ for samples in SPLITS:
             pretrain,
             (ctxt, features),
         ) in itt.product(
+            ORTH_REG_STRATEGIES,
             ALPHAS,
             BETAS,
             GAMMAS,
@@ -153,6 +158,7 @@ for samples in SPLITS:
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
+                avg_ps_df["orth_reg_strategy"] = orth_reg_strategy
                 avg_ps_df["l1reg_inflate"] = alpha
                 avg_ps_df["oreg_inflate"] = beta
                 avg_ps_df["l1reg_encode"] = gamma
@@ -197,6 +203,7 @@ gbs = [
     "dataset",
     "context",
     "latent dim",
+    "orth_reg_strategy",
     "l1reg_inflate",
     "oreg_inflate",
     "l1reg_encode",
@@ -215,6 +222,7 @@ data = pd.DataFrame(
 )
 
 for group in (
+    "orth_reg_strategy",
     "l1reg_inflate",
     "oreg_inflate",
     "l1reg_encode",

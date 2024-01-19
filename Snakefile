@@ -8,7 +8,7 @@ from common import (
     EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REFERENCE_REG,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
 )
-from training_configuration import ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
+from training_configuration import ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -210,7 +210,7 @@ rule estimate_parameters:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'job', 'features')
         ) + ' --threads={threads}'
@@ -240,7 +240,7 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'features')
         ) + ' --n_starts={N_STARTS}'
@@ -318,6 +318,7 @@ rule evaluate_all:
             for y in expand(
                 x.format_map(SafeDict(context=context, features=features)),
                 model='{model}',data='{data}',
+                orth_reg_strategy=ORTH_REG_STRATEGIES,
                 l1reg_inflate=ALPHAS,
                 oreg_inflate=BETAS,
                 l1reg_encode=GAMMAS,
@@ -334,7 +335,7 @@ rule evaluate_all:
     output:
         plot=[
             EVALUATE_ALL.format_map(SafeDict(group=group))
-            for group in ('l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate')
+            for group in ('orth_reg_strategy', 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate')
         ]
     wildcard_constraints:
         model='\w+',

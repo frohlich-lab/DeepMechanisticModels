@@ -1,3 +1,9 @@
+# ORTHOGONAL REGULARISATION STRATEGIES: L1 vs L2
+ORTH_REG_STRATEGIES = (
+    "L1",
+    "L2",
+)
+
 # ALPHAS: values for l1reg_inflate: l1 regularisation of layers that inflate from latent/bottleneck to mechanistic parameters
 # from wandb.ai, it seems that rmse_val.min (best value for rmse in validation) is positively correlated with l1reg params
 # i.e. the lower the regularisation, the lower the rmse -- this holds for cytof_init and proteomics, not for transcriptomics

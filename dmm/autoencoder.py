@@ -27,6 +27,7 @@ class DeepMechanisticModel(AutoEncoder):
     n_model_inputs: int = eqx.static_field()
     n_kin_params: int = eqx.static_field()
     n_samples: int = eqx.static_field()
+    orth_reg_strategy: str = eqx.static_field()
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     feature_cols: List[str] = eqx.static_field()
@@ -39,6 +40,7 @@ class DeepMechanisticModel(AutoEncoder):
         problem: Problem,
         dataset: str,
         n_latent: int,
+        orth_reg_strategy: str,
         measurement_table: pd.DataFrame,
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
@@ -66,6 +68,9 @@ class DeepMechanisticModel(AutoEncoder):
         """
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
+
+        # set regularisation strategy
+        self.orth_reg_strategy = orth_reg_strategy
 
         # subset samples
 
@@ -119,6 +124,7 @@ class DeepMechanisticModel(AutoEncoder):
             features=self.features,
             n_latent=n_latent,
             n_params=self.n_model_inputs,
+            orth_reg_strategy=self.orth_reg_strategy,
         )
 
         problem.apply_objective_settings(
@@ -166,10 +172,14 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
         m = jnp.dot(w.T, w)
-        # L1 norm - originally used in Fabian's runs
-        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
-        # L2 norm
-        #return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        if self.orth_reg_strategy == "L1":
+            # L1 norm - originally used in Fabian's runs
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
+        elif self.orth_reg_strategy == "L2":
+            # L2 norm
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        else:
+            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
         ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
         #_, max_eig = power_iteration(m - jnp.eye(self.n_latent))
         #return scale * max_eig
@@ -190,10 +200,14 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
-        # L1 norm - originally used in Fabian's runs
-        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
-        # L2 norm
-        #return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        if self.orth_reg_strategy == "L1":
+            # L1 norm - originally used in Fabian's runs
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
+        elif self.orth_reg_strategy == "L2":
+            # L2 norm
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        else:
+            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
         ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
         #_, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
         #return scale * max_eig

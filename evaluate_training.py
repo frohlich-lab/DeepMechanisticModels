@@ -55,6 +55,7 @@ def evaluate_training(dataset, conf):
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
+        orth_reg_strategy=conf.orth_reg_strategy,
         l1reg_inflate=conf.l1reg_inflate,
         oreg_inflate=conf.oreg_inflate,
         l1reg_encode=conf.l1reg_encode,

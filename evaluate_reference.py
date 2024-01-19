@@ -90,6 +90,7 @@ def evaluate_pretraining_per_sample(dataset, conf):
             context="none",
             sample=sample,
             model_type="per_sample",
+            orth_reg_strategy="None", # not needed for regression
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -162,6 +163,7 @@ def evaluate_average(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg",
+            orth_reg_strategy="None", # not needed for regression
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -251,6 +253,7 @@ def evaluate_average_model(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg_model",
+            orth_reg_strategy="None", # not needed for regression
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -515,6 +518,7 @@ def evaluate_standard_regression(dataset, conf, context,
             context=context,
             sample=sample,
             model_type=mode,
+            orth_reg_strategy="None", # not needed for regression
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,

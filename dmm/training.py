@@ -100,6 +100,7 @@ def train(
                 conf["job"],
                 conf["samples"],
                 conf["n_hidden"],
+                conf["orth_reg_strategy"],
                 conf["l1reg_inflate"],
                 conf["oreg_inflate"],
                 conf["l1reg_encode"],

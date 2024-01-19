@@ -31,6 +31,7 @@ class Conf(dict):
     samples: str = None
     sample: str = None
     n_hidden: int = None
+    orth_reg_strategy: str = None # new hyperparam: orthogonal regularisation strategy, string, default value None (can only be L1 or L2)
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
     l1reg_encode: float = 0.0
@@ -83,6 +84,7 @@ def load_models(
         problem,
         conf.data,
         conf.n_hidden,
+        conf.orth_reg_strategy, # pass new hyperparam: orthogonal regularisation strategy
         **petab_base_files,
         features=features_train,
         n_threads=conf.threads,
@@ -100,6 +102,7 @@ def load_models(
         problem,
         conf.data,
         conf.n_hidden,
+        conf.orth_reg_strategy, # pass new hyperparam: orthogonal regularisation strategy
         **petab_base_files,
         features=features_test,
         n_threads=conf.threads,
