@@ -291,6 +291,7 @@ rule evaluate_training:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
+        orth_reg_strategy='\w+',
         l1reg_inflate='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
@@ -303,7 +304,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'features')
         )
