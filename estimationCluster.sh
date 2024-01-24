@@ -9,10 +9,10 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=giacomo.fabrini@crick.ac.uk
 
-ml Python/3.10.8-GCCcore-12.2.0-bare
+ml Python/3.11.3-GCCcore-12.3.0
 ml Singularity/3.6.4
 
-source ./venv/bin/activate
+source ./venv_311/bin/activate
 
 snakemake train_and_evaluate --local-cores 1 -j 10000 --config num_starts=10 \
     --use-singularity --slurm --default-resources slurm_account=u_froehlichf slurm_partition=cpu \
