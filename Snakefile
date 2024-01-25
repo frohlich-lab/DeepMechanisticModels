@@ -273,7 +273,7 @@ rule evaluate_references:
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model','data','samples',)
+        for arg in ('model','data','samples')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
