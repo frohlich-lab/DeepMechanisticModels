@@ -244,6 +244,7 @@ for group in (
         errorbar="se",
         style="latent dim",
         palette="tab10",
+        markers=True,
     )
     g.map_dataframe(
         lineplot_ref_average,
@@ -252,6 +253,7 @@ for group in (
         color="r",
         linestyle="--",
         errorbar=None,
+        markers=True,
     )
     g.map_dataframe(
         lineplot_ref_sample,
@@ -260,6 +262,7 @@ for group in (
         color="b",
         linestyle=":",
         errorbar=None,
+        markers=True,
     )
     g.set(xscale="log", ylim=(0.1, 0.6))
     g.add_legend()
