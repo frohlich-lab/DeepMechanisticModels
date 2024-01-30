@@ -137,6 +137,11 @@ def generate_startpoint(
             ]
         ]
     # Set random seed for poisson sampling
+    # this means all 0 jobs have the same matrix of kinetic parameters vs cell-lines
+    # same applies for all 1 jobs, all 2 jobs, etc.
+    # each job samples from the sets of pre-trained parameters for each cell-line with a bias towards the better
+    # performing multi-start. However, as cell-lines are not-paired, we can combine different multistart parameter
+    # sets across cell-lines.
     np.random.seed(conf.job)
 
     # Multi-starts of per-sample training are sorted by loss function (ascending order, lower is better, i.e.

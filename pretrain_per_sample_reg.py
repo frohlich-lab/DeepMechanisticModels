@@ -75,7 +75,7 @@ optimizer = FidesOptimizer(
 result = pretrain(
     pypesto_problem,
     pypesto.startpoint.UniformStartpoints(check_fval=True, check_grad=True),
-    10,
+    10, # multistarts for pretraining (hard-coded)
     optimizer,
 )
 results_file = Path(

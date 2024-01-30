@@ -35,6 +35,10 @@ indir = pretrain_dir / conf.model / conf.data
 cross_sample_dir = outdir / "pretrain_cross_sample"
 cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
+# REMEMBER: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
+# "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
+# that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
+# CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
