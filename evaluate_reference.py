@@ -326,45 +326,6 @@ def evaluate_standard_regression(dataset, conf, context,
 
         return Pipeline(steps)
 
-    def impute_missing_output(df_meas, time_missing, time_before, time_after):
-        # modified from Copilot
-        # Step 0: subset to observable/condition combinations that require imputing
-        df_meas_subset = df_meas[(df_meas.observableId.isin(["pERK_Y204_obs", "pMEK_S222_obs"])) & (df_meas.simulationConditionId.isin(["iMEK", "iPI3K", "iEGFR", "iPKC"]))]
-        # Step 1: Identify the combinations that lack a row with time equal to 7.0
-        combinations = df_meas_subset.groupby(['observableId', 'simulationConditionId', 'preequilibrationConditionId']).filter(
-            lambda x: time_missing not in x['time'].values
-        )[['observableId', 'simulationConditionId', 'preequilibrationConditionId']].drop_duplicates()
-
-        # Step 2, 3, 4: For each combination, find the rows with time 9.0 and 0.0, calculate the new measurement, and create a new row
-        new_rows = []
-        for _, row in combinations.iterrows():
-            observableId = row['observableId']
-            simulationConditionId = row['simulationConditionId']
-            preequilibrationConditionId = row['preequilibrationConditionId']
-            time_before_measurement = df_meas.loc[
-                (df_meas['observableId'] == observableId) &
-                (df_meas['simulationConditionId'] == simulationConditionId) &
-                (df_meas['preequilibrationConditionId'] == preequilibrationConditionId) &
-                (df_meas['time'] == time_before), 'measurement'
-            ].values[0]
-            time_after_measurement = df_meas.loc[
-                (df_meas['observableId'] == observableId) &
-                (df_meas['simulationConditionId'] == simulationConditionId) &
-                (df_meas['preequilibrationConditionId'] == preequilibrationConditionId) &
-                (df_meas['time'] == time_after), 'measurement'
-            ].values[0]
-            new_measurement = (time_after-time_missing) / (time_after-time_before) * time_after_measurement + (time_missing - time_before) / (time_after-time_before) * time_before_measurement
-            new_row = {'observableId': observableId, 'simulationConditionId': simulationConditionId,
-                       'preequilibrationConditionId': preequilibrationConditionId, 'time': time_missing,
-                       'measurement': new_measurement}
-            new_rows.append(new_row)
-        # Convert new rows to DataFrame
-        new_rows_df = pd.DataFrame(new_rows)
-
-        # Step 5: Append the new rows to the dataframe
-        df_meas = pd.concat([df_meas, new_rows_df])
-
-        return df_meas
 
     # Load petab files
     petab_base_files = load_petab_base_files(conf, reweight=False)
@@ -500,10 +461,6 @@ def evaluate_standard_regression(dataset, conf, context,
     df_meas = df_meas[['observableId', 'simulationConditionId',
                        'time', 'preequilibrationConditionId',
                        'measurement', 'noiseParameters']]
-
-    # Impute values as in load_data
-    #df_meas = impute_missing_output(df_meas, 7.0, 0.0, 9.0)
-    #df_meas = impute_missing_output(df_meas, 13.0, 9.0, 17.0)
 
     # Plot -- reg_pred is either reg_pred_train or reg_pred_test
     plot_name = mode + "_" + context
