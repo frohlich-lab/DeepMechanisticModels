@@ -11,10 +11,10 @@ ALPHAS = (
     0,
     #1e1,
     #5e1,
-    1e2,
+    1e2, #reenable
     #1e3,
-    1e4,
-    1e6,
+    1e4, #reenable
+    #1e6, #reenable
     #1e8,
 )
 
@@ -23,9 +23,9 @@ ALPHAS = (
 # the lower the rmse_val.min
 BETAS = (
     0,
-    1e2,
-    1e4,
-    1e6,
+    1e2, #reenable
+    1e4, #reenable
+    #1e6, #reenable
     #1e7,
     #1e8,
     )
@@ -36,19 +36,19 @@ GAMMAS = (
     0,
     #1e1,
     #5e1,
-    1e2,
+    1e2, #reenable
     #1e3,
-    1e4,
-    1e6,
+    1e4, #reenable
+    #1e6, #reenable
     #1e8,
 )
 
 # DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to latent/bottleneck)
 DELTAS = (
     0,
-    1e2,
-    1e4,
-    1e6,
+    1e2, #reenable
+    1e4, #reenable
+    #1e6, #reenable
     #1e7,
     #1e8,
 )
@@ -63,8 +63,8 @@ LATENT_DIMS = (
     2,
     #3,
     4,
-    6,
-    8,
+    #6,
+    #8,
     # 10,
     # 12
 )

@@ -279,7 +279,7 @@ rule evaluate_references:
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        training=rules.collect_estimation_results.output.result
+        training=rules.estimate_parameters.output.result
     output:
         csv=[
             EVALUATION_TRAINING.format_map(SafeDict(dataset=dataset))
@@ -291,6 +291,7 @@ rule evaluate_training:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
+        job='[0-9]+',
         orth_reg_strategy='\w+',
         l1reg_inflate='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
@@ -304,7 +305,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'job', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'features')
         )
@@ -320,6 +321,7 @@ rule evaluate_all:
                 x.format_map(SafeDict(context=context, features=features)),
                 model='{model}',data='{data}',
                 orth_reg_strategy=ORTH_REG_STRATEGIES,
+                job=STARTS,
                 l1reg_inflate=ALPHAS,
                 oreg_inflate=BETAS,
                 l1reg_encode=GAMMAS,

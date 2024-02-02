@@ -95,6 +95,7 @@ defaults = {
         "context",
         "samples",
         "n_hidden",
+        "job", #adding job so that EVALUATION_TRAINING contains the corresponding field (rather than None for the best multistart/job)
         "features",
         "orth_reg_strategy",
         "l1reg_inflate",

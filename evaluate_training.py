@@ -5,6 +5,7 @@ from pypesto.store import OptimizationResultHDF5Reader
 
 from common import (
     COLLECTED_TRAINING_RESULTS,
+    TRAINING_OUTFILE_RESULTS,
     EVALUATION_TRAINING,
     Wildcards,
     fig_dir,
@@ -37,7 +38,7 @@ def evaluate_training(dataset, conf):
 
     problem = create_pypesto_problem(model, problem)
 
-    infile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
+    infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
 
     reader = OptimizationResultHDF5Reader(infile)
     result = pypesto.Result(problem)
@@ -55,6 +56,7 @@ def evaluate_training(dataset, conf):
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
+        job=conf.job,# adding job here to produce one plot per multistart
         orth_reg_strategy=conf.orth_reg_strategy,
         l1reg_inflate=conf.l1reg_inflate,
         oreg_inflate=conf.oreg_inflate,

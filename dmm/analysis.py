@@ -110,6 +110,7 @@ def evaluate_simulations(
     context,
     split,
     dataset,
+    job,
     orth_reg_strategy,
     l1reg_inflate,
     oreg_inflate,
@@ -172,6 +173,7 @@ def evaluate_simulations(
             [
                 split,
                 context,
+                str(job), # include job number to produce one plot per multistart
                 str(latent_dim),
                 str(l1reg_inflate),
                 dataset,
