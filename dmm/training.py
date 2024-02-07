@@ -77,6 +77,8 @@ def train(
     schedule_config: Dict,
     n_epoch,
     x0,
+    earlyStopping,
+    patience,
 ) -> pypesto.Result:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -141,6 +143,10 @@ def train(
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
     rmse_test_min = np.inf
+    if earlyStopping == True:
+        assert patience is not None, "Patience value is undefined."
+        patience_counter = 0
+        rmse_val_history = []
 
     for epoch in range(n_epoch + 1):
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
@@ -200,6 +206,23 @@ def train(
                 step=epoch,
             )
 
+        # Crude early stopping implementation
+        if earlyStopping == True:
+            # Save rmse_val history
+            rmse_val_history.append(rmses["test"])
+            # if the last rmse_val is higher than the previous best (rmse_test_min) OR
+            # # the last rmse_val is identical to the previous one, increase
+            # the patience counter
+            if len(rmse_val_history) > 1: #only check if we have more than one value in history
+                if (rmse_val_history[-1] > rmse_test_min) or (rmse_val_history[-1] == rmse_val_history[-2]):
+                    patience_counter +=1
+                    # if the patience counter reaches the patience value, break
+                    if patience_counter >= patience:
+                        break
+                else: # if val performance is improving (lower rmse), then reset the patience counter
+                    patience_counter = 0
+
+
         updates, opt_state = opt.update(grads, opt_state)
         x = apply_updates(x, updates)
 
@@ -208,10 +231,13 @@ def train(
 
     wandb.finish()
 
+    # Consider adding scalar value 'epoch' to monitor whether early/unexpected training termination
+    # Saving epoch number inside n_fval (number of function evaluations)
     OResult = OptimizeResult()
     OResult.append(
         OptimizerResult(
             fval=opt_fval,
+            n_fval=epoch, #save epoch number to diagnose early stopping
             x=opt_x,
             grad=opt_grads,
             x0=x0,
