@@ -14,7 +14,7 @@ ALPHAS = (
     1e2, #reenable
     #1e3,
     1e4, #reenable
-    #1e6, #reenable
+    1e6, #reenable
     #1e8,
 )
 
@@ -25,7 +25,7 @@ BETAS = (
     0,
     1e2, #reenable
     1e4, #reenable
-    #1e6, #reenable
+    1e6, #reenable
     #1e7,
     #1e8,
     )
@@ -39,7 +39,7 @@ GAMMAS = (
     1e2, #reenable
     #1e3,
     1e4, #reenable
-    #1e6, #reenable
+    1e6, #reenable
     #1e8,
 )
 
@@ -48,7 +48,7 @@ DELTAS = (
     0,
     1e2, #reenable
     1e4, #reenable
-    #1e6, #reenable
+    1e6, #reenable
     #1e7,
     #1e8,
 )
@@ -63,8 +63,8 @@ LATENT_DIMS = (
     2,
     #3,
     4,
-    #6,
-    #8,
+    6,
+    8,
     # 10,
     # 12
 )
