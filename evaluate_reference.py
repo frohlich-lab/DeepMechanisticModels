@@ -95,6 +95,7 @@ def evaluate_pretraining_per_sample(dataset, conf):
             sample=sample,
             model_type="per_sample",
             orth_reg_strategy="None", # not needed for regression
+            job=None, # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -168,6 +169,7 @@ def evaluate_average(dataset, conf):
             sample=sample,
             model_type="avg",
             orth_reg_strategy="None", # not needed for regression
+            job=None, # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -258,6 +260,7 @@ def evaluate_average_model(dataset, conf):
             sample=sample,
             model_type="avg_model",
             orth_reg_strategy="None", # not needed for regression
+            job = None, # not needed
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -480,6 +483,7 @@ def evaluate_standard_regression(dataset, conf, context,
             sample=sample,
             model_type=mode,
             orth_reg_strategy="None", # not needed for regression
+            job = None, # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -490,7 +494,7 @@ def evaluate_standard_regression(dataset, conf, context,
 
     return pd.DataFrame(evaluations)
 
-# Build and train all pipelines
+# Build and train regressors (linear regression, lasso, elasticnet)
 print('Building pipelines and training estimators...')
 trained_pipelines = {}
 features_train = {}
@@ -503,8 +507,39 @@ for context, _ in CONTEXTS_FEATURES:
 
 # Evaluate regressions
 for dataset in ["train", "test"]:
+    # model average ("avg_model")
+    df = evaluate_average_model(dataset, conf)
+    df.to_csv(
+        EVALUATION_REFERENCE.format(
+            **conf.__dict__,
+            dataset=dataset,
+            mode="avg_model",
+        )
+    )
+
+    # average -- this looks NOT to be in use at the moment (only avg_model)
+    df = evaluate_average(dataset, conf)
+    df.to_csv(
+        EVALUATION_REFERENCE.format(
+            **conf.__dict__,
+            dataset=dataset,
+            mode="average",
+        )
+    )
+
+    # per sample ("sample")
+    df = evaluate_pretraining_per_sample(dataset, conf)
+    df.to_csv(
+        EVALUATION_REFERENCE.format(
+            **conf.__dict__,
+            dataset=dataset,
+            mode="per_sample",
+        )
+    )
+
+    # Regression baseline ("linreg", "lasso", "elasticnet")
     for context, _ in CONTEXTS_FEATURES:
-        # Regressions first
+        # Regression baseline first
         for mode in ['linreg', 'lasso', 'elasticnet']:
             df = evaluate_standard_regression(dataset,
                                               conf,
@@ -524,34 +559,3 @@ for dataset in ["train", "test"]:
                 )
             )
 
-
-    ## Then other references
-    # model average
-    df = evaluate_average_model(dataset, conf)
-    df.to_csv(
-        EVALUATION_REFERENCE.format(
-            **conf.__dict__,
-            dataset=dataset,
-            mode="avg_model",
-        )
-    )
-
-    # average
-    # df = evaluate_average(dataset, conf)
-    df.to_csv(
-        EVALUATION_REFERENCE.format(
-            **conf.__dict__,
-            dataset=dataset,
-            mode="average",
-        )
-    )
-
-    # per sample
-    # df = evaluate_pretraining_per_sample(dataset, conf)
-    df.to_csv(
-        EVALUATION_REFERENCE.format(
-            **conf.__dict__,
-            dataset=dataset,
-            mode="per_sample",
-        )
-    )
