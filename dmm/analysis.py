@@ -22,6 +22,7 @@ def process_simulation(
     measurement_df,
     simulation_df,
     context,
+    job,
     sample,
     model_type,
     orth_reg_strategy,
@@ -48,6 +49,7 @@ def process_simulation(
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
+                "job": job, #added to know which job the residual relates to in the results file
                 "sample": sample,
                 "type": model_type,
                 "context": context,
@@ -154,6 +156,7 @@ def evaluate_simulations(
             measurement_df=petab_problem.measurement_df,
             simulation_df=simulation_df,
             context=context,
+            job=job,
             sample=sample,
             model_type=model_type,
             orth_reg_strategy=orth_reg_strategy,
@@ -186,16 +189,23 @@ def evaluate_simulations(
 def plot_loss_vs_regularization(df):
     df["cf"] = df["context"] + "_" + df["features"]
     dfa = (
-        df.groupby(["l1reg_inflate", "layers", "cf", "sample"])
+        df.groupby(["l1reg_inflate", "layers", "cf", "sample", "job"]) # keep job-level info (one rmse value per job)
         .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
         .rename(columns={"res": "rmse"})
         .reset_index()
     )
+    dfa2 = (
+        dfa.groupby(["l1reg_inflate", "layers", "cf", "sample"]) # aggregate on job leve (compute mean and std among job rmse scores)
+        .agg(rmse_mean=('rmse', np.mean), rmse_std=('rmse', np.std))
+        .reset_index()
+    )
+
     g = sns.FacetGrid(data=dfa, col="sample", col_wrap=5)
     g.map_dataframe(
         sns.lineplot,
         x="l1reg_inflate",
         y="rmse",
+        errorbar=lambda x: (x.min(), x.max()), #display error bars from min rmse to max rmse across jobs
         hue="cf",
         palette="tab10",
         style="layers",
