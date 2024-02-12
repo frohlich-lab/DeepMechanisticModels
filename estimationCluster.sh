@@ -1,8 +1,8 @@
 #!/bin/sh
 #SBATCH -c 1
 #SBATCH -N 1
-#SBATCH -t 7-00:00
-#SBATCH -p ncpu
+#SBATCH -t 3-00:00
+#SBATCH -p cpu
 #SBATCH --mem=8GB
 #SBATCH -o snakelog.out
 #SBATCH -e snakelog.err
