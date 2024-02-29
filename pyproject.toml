@@ -1,14 +1,27 @@
-[tool.ruff]
+[tool.z]
 line-length = 79
-lint.select = [
-    "F",  # Pyflakes
-    "I",  # isort
-    "D",  # pydocstyle (PEP 257)
-    "S",  # flake8-bandit
-    "B",  # flake8-bugbear
-    "C4",  # flake8-comprehensions
-    "T20",  # flake8-print
-    "W",  # pycodestyle Warnings
-    "E",  # pycodestyle Errors
-    # "ANN",  # flakes-annotations TODO: currently produces ~1500 errors to manual fix
-]
+target-version = ['py311']
+
+[tool.isort]
+line_length = 79
+profile = "black"
+
+# Move to this later
+#[tool.ruff]
+#line-length = 79
+#lint.select = [
+#    "F",  # Pyflakes
+#    "I",  # isort
+#    "D",  # pydocstyle (PEP 257)
+#    "S",  # flake8-bandit
+#    "B",  # flake8-bugbear
+#    "C4",  # flake8-comprehensions
+#    "T20",  # flake8-print
+#    "W",  # pycodestyle Warnings
+#    "E",  # pycodestyle Errors
+#    # "ANN",  # flakes-annotations TODO: currently produces ~1500 errors to manual fix
+#]
+#
+#lint.ignore = [
+#    "T201",
+#]

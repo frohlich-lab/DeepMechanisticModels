@@ -8,19 +8,30 @@ repos:
   - id: check-merge-conflict
   - id: end-of-file-fixer
   - id: trailing-whitespace
-- repo: https://github.com/astral-sh/ruff-pre-commit
-  # Ruff version.
-  rev: v0.2.2
+- repo: https://github.com/pycqa/isort
+  rev: 5.12.0
   hooks:
-  # Run the linter.
-  - id: ruff
-    args:
-      - --fix
-      - --config
-      - pyproject.toml
+    - id: isort
+- repo: https://github.com/psf/black
+  rev: 23.3.0
+  hooks:
+    - id: black
 
-  # Run the formatter.
-  - id: ruff-format
-    args:
-      - --config
-      - pyproject.toml
+
+# Only change this later on - moving to ruff:
+#- repo: https://github.com/astral-sh/ruff-pre-commit
+#  # Ruff version.
+#  rev: v0.2.2
+#  hooks:
+#  # Run the linter.
+#  - id: ruff
+#    args:
+#      - --fix
+#      - --config
+#      - pyproject.toml
+#
+#  # Run the formatter.
+#  - id: ruff-format
+#    args:
+#      - --config
+#      - pyproject.toml
