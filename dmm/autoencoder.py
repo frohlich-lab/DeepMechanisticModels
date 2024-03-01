@@ -13,7 +13,6 @@ from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
 
-from optax import power_iteration
 
 config.update("jax_enable_x64", True)
 

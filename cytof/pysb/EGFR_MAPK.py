@@ -1,6 +1,6 @@
 # exported from PySB model 'EGFR_MAPK'
 
-from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern
+from pysb import Model, Monomer, Parameter, Expression, Rule, Observable, Initial
 
 Model()
 

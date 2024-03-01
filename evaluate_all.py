@@ -336,7 +336,7 @@ data = pd.concat([data_dmm, data_refs]).sort_values(by="ref")
 # cleanup
 del df, df_refs, data_dmm, data_refs
 
-print(f"Overall evaluation DataFrame is now ready.")
+print("Overall evaluation DataFrame is now ready.")
 
 # Create pivot table for statistical testing
 cols = ['dataset', 'context', 'features', 'ref',
@@ -355,7 +355,7 @@ cols += ['rmse_list']
 # Subset the pivot table and reduce MultiIndex back to single-level index
 data_stat_tests = pivot_data[cols]
 data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
-print(f"DataFrame for statistical testing is now ready.")
+print("DataFrame for statistical testing is now ready.")
 
 stat_test_res_df = statistical_significance_test(data_stat_tests)
 stat_test_res_df.to_csv(

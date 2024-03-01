@@ -4,7 +4,6 @@ import pypesto
 from pypesto.store import OptimizationResultHDF5Reader
 
 from common import (
-    COLLECTED_TRAINING_RESULTS,
     TRAINING_OUTFILE_RESULTS,
     EVALUATION_TRAINING,
     Wildcards,

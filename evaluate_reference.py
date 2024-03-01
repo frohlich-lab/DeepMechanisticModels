@@ -18,7 +18,7 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
 from dmm.petab_subproblem import load_petab
-from dmm.feature_selection import build_preprocesser, load_data
+from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples, plot_single_sample
 from dmm.pretraining import (
     generate_average_pretraining_problem,

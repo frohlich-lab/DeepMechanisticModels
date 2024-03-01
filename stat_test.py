@@ -114,7 +114,7 @@ def statistical_significance_test(data_stat_tests):
                 res_df_partial['hyperparameter_value'] = 'L2 vs L1'
                 res_df_partial['n_hidden1'] = None
                 res_df_partial['n_hidden2'] = None
-                res_df_partial['test_kind'] = f"RMSE_L1 > RMSE_L2"
+                res_df_partial['test_kind'] = "RMSE_L1 > RMSE_L2"
                 # p-values for orth_reg_strategy can be adjusted right away
                 res_df_partial['adj_t-test_p-value'] = res_df_partial.groupby(
                     by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(

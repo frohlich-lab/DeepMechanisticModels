@@ -9,7 +9,7 @@ from pypesto.store import (
     OptimizationResultHDF5Reader,
     OptimizationResultHDF5Writer,
 )
-from pypesto.visualize import parameters, waterfall
+from pypesto.visualize import waterfall
 
 from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
 from dmm.training import create_pypesto_problem

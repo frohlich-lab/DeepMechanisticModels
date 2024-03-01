@@ -254,7 +254,7 @@ def build_preprocesser(
             )
             grid = GridSearchCV(
                 pipe,
-                param_grid={f"spca__alpha": np.logspace(-3, 3, 7)},
+                param_grid={"spca__alpha": np.logspace(-3, 3, 7)},
                 cv=5,
                 scoring="neg_mean_squared_error",
             )
