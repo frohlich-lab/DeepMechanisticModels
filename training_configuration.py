@@ -38,7 +38,7 @@ GAMMAS = (
     # 5e1,
     # 1e2,  # tested
     # 1e3,
-    1e4,  # tested
+    # 1e4,  # tested
     1e6,  # tested
     1e8,
     1e10,  # increasing values
