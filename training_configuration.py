@@ -8,7 +8,7 @@ ORTH_REG_STRATEGIES = (
 # From W&B, it seems that rmse_val.min is positively correlated with l1reg params
 # i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
 ALPHAS = (
-    0,
+    0,  # tested
     # 1e1,
     # 5e1,
     # 1e2, # tested
@@ -23,7 +23,7 @@ ALPHAS = (
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
 BETAS = (
-    0,
+    0,  # tested
     1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
     # 1e4, # tested
     # 1e6, # tested
@@ -33,7 +33,7 @@ BETAS = (
 
 # GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to bottleneck).
 GAMMAS = (
-    0,
+    0,  # tested
     # 1e1,
     # 5e1,
     # 1e2,  # tested
@@ -46,7 +46,7 @@ GAMMAS = (
 
 # DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to bottleneck)
 DELTAS = (
-    0,
+    0,  # tested
     # 1e2, # tested
     # 1e4, # tested
     1e6,  # tested
