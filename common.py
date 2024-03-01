@@ -25,7 +25,7 @@ PER_SAMPLE_OUTFILE_RESULTS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.hdf"
 )
 
-FEATURES_OUTFILFE = str(
+FEATURES_OUTFILE = str(
     features_dir
     / "{model}"
     / "{data}"

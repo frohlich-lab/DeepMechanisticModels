@@ -8,7 +8,7 @@ import scipy.linalg as la
 
 from common import (
     CONDITIONS_FILE,
-    FEATURES_OUTFILFE,
+    FEATURES_OUTFILE,
     MEASUREMENTS_FILE,
     MEASUREMENTS_FILE_RW,
     MODEL_FEATURE_PREFIX,
@@ -76,7 +76,7 @@ def load_models(
     petab_base_files = load_petab_base_files(conf, reweight=True)
 
     features_train = pd.read_csv(
-        FEATURES_OUTFILFE.format_map(dict(**conf.__dict__, dataset="train")),
+        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
         index_col=0,
     )
 
@@ -94,7 +94,7 @@ def load_models(
         return dmm_train, problem
 
     features_test = pd.read_csv(
-        FEATURES_OUTFILFE.format_map(dict(**conf.__dict__, dataset="val")),
+        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
         index_col=0,
     )
 

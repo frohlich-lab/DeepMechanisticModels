@@ -6,7 +6,7 @@ from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REFERENCE_REG,
-    MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
+    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE
 )
 from training_configuration import ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
@@ -160,7 +160,7 @@ rule select_features:
         data_rw=rules.reweight_data.output.data,
     output:
         data=[
-            FEATURES_OUTFILFE.format_map(SafeDict(dataset=dataset))
+            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset))
             for dataset in ['train', 'val']
         ]
     wildcard_constraints:
