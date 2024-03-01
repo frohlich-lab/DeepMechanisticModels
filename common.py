@@ -118,6 +118,7 @@ EVALUATION_TRAINING = str(
     / (tpl_evaluation_file + ".csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
+EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
 
 
 def training_samples(wildcards) -> List[str]:

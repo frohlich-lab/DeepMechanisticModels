@@ -510,10 +510,12 @@ plt.savefig(rfile)
 # n_hidden pairwise comparisons
 # subset to where n_hidden is null (n_hidden1 and n_hidden2 will be not null)
 df_plot_n_hidden = stat_test_res_df[stat_test_res_df.n_hidden.isnull()]
+num_contexts = len([context for context, _ in CONTEXTS_FEATURES])
+plt.subplots(num_contexts, 2, figsize=(9, num_contexts*3))
+plt.subplots_adjust(wspace=0.5, hspace=0.5)
+index = 1
 for context, _ in CONTEXTS_FEATURES:
-    plt.subplots(1, 2, figsize=(9, 3))
-    plt.subplots_adjust(wspace=0.5)
-    plt.subplot(121)
+    plt.subplot(num_contexts, 2, index)
     ax = sns.heatmap(
         df_plot_n_hidden[df_plot_n_hidden.context == context][
             ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
@@ -528,8 +530,8 @@ for context, _ in CONTEXTS_FEATURES:
     ax.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
     ax.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
     # ax.set_xlim([-1.0, 4])
-    plt.title('adjusted p-value')
-    plt.subplot(122)
+    plt.title(f"adjusted p-value | {context}")
+    plt.subplot(num_contexts, 2, index+1)
     ax2 = sns.heatmap(
         df_plot_n_hidden[df_plot_n_hidden.context == context][
             ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
@@ -544,11 +546,12 @@ for context, _ in CONTEXTS_FEATURES:
     ax2.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
     ax2.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
     # ax2.set_xlim([-1.0, 4])
-    plt.title('Test statistic')
-    plt.suptitle(context)
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group=f"heatmap_n_hidden_pairwise_{context}")
-    plt.savefig(rfile)
-    # plt.savefig(rfile.replace('pdf', 'svg'))
+    plt.title(f"test statistic | {context}")
+    index += 2  # increase subplot index
+# Finally, save the whole figure combining all contexts
+rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
+plt.savefig(rfile)
+# plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # Volcano plots for significance of various hyperparameter values
@@ -589,7 +592,7 @@ g3.tick_params(direction='in', length=5)
 # g3.set(ylim=(-5, 60))
 # g.fig.subplots_adjust(hspace=0.1, wspace=5)
 
-rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plots_hyperparam_combo_vs_unreg_log10Wstat")
+rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plot_stat_test")
 plt.savefig(rfile)
 # plt.savefig(rfile.replace('pdf', 'svg'))
 

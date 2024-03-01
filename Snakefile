@@ -6,7 +6,7 @@ from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REFERENCE_REG,
-    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE
+    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS
 )
 from training_configuration import ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
 
@@ -338,7 +338,20 @@ rule evaluate_all:
     output:
         plot=[
             EVALUATE_ALL.format_map(SafeDict(group=group))
-            for group in ('orth_reg_strategy', 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate')
+            for group in (
+                'orth_reg_strategy',
+                'l1reg_encode', 'l1reg_inflate',
+                'oreg_encode', 'oreg_inflate',
+                'heatmaps_n_hidden_pairwise',
+                'volcano_plot_stat_test',
+            )
+        ],
+        csv=[
+            EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
+            for filename in (
+                'evaluate_all',
+                'stat_tests_all',
+            )
         ]
     wildcard_constraints:
         model='\w+',
