@@ -14,6 +14,6 @@ ml Singularity/3.6.4
 
 source ./venv/bin/activate
 
-snakemake train_and_evaluate --local-cores 1 -j 10000 --config num_starts=10 \
-    --use-singularity --slurm --default-resources slurm_partition=cpu \
+snakemake train_and_evaluate --local-cores 1 -j 2000 --config num_starts=10 \
+    --use-singularity --slurm --default-resources slurm_account=u_froehlichf slurm_partition=cpu \
     --rerun-incomplete
