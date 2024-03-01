@@ -146,6 +146,7 @@ traces/*
 *.csv
 *.pickle
 *.pdf
+*.svg
 output
 cache
 *.hdf5
