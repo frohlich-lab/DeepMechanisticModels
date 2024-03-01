@@ -45,15 +45,16 @@ defaults = {
     x: f"{{{x}}}"
     for x in [
         "context",
-        "samples",
-        "n_hidden",
-        "job",
         "features",
+        "samples",
+        # "pretrain",
+        "n_hidden",
         "orth_reg_strategy",
         "l1reg_inflate",
         "oreg_inflate",
         "l1reg_encode",
         "oreg_encode",
+        "job",
     ]
 }
 tpl_results_file = "__".join(defaults.values())
@@ -86,7 +87,10 @@ EVALUATION_REFERENCE = str(
 )
 
 EVALUATION_REFERENCE_REG = str(
-    evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{context}_{dataset}.csv"
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_{dataset}.csv"
 )
 
 defaults = {
@@ -95,7 +99,7 @@ defaults = {
         "context",
         "samples",
         "n_hidden",
-        "job", #adding job so that EVALUATION_TRAINING contains the corresponding field (rather than None for the best multistart/job)
+        "job", # need job field in EVALUATION_TRAINING
         "features",
         "orth_reg_strategy",
         "l1reg_inflate",
