@@ -1,67 +1,66 @@
 # ORTHOGONAL REGULARISATION STRATEGIES: L1 vs L2
 ORTH_REG_STRATEGIES = (
-    "L1",
-    "L2",
+    # "L1",
+    "L2",  # restricting to L2 only post stat tests
 )
 
-# ALPHAS: values for l1reg_inflate: l1 regularisation of layers that inflate from latent/bottleneck to mechanistic parameters
-# from wandb.ai, it seems that rmse_val.min (best value for rmse in validation) is positively correlated with l1reg params
-# i.e. the lower the regularisation, the lower the rmse -- this holds for cytof_init and proteomics, not for transcriptomics
+# ALPHAS: values for l1reg_inflate: l1 regularisation of layers that inflate from latent/bottleneck to kinetic params.
+# From W&B, it seems that rmse_val.min is positively correlated with l1reg params
+# i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
 ALPHAS = (
     0,
-    #1e1,
-    #5e1,
-    1e2, #reenable
-    #1e3,
-    1e4, #reenable
-    1e6, #reenable
-    #1e8,
+    # 1e1,
+    # 5e1,
+    # 1e2, # tested
+    # 1e3,
+    # 1e4, # tested
+    1e6,  # reenable
+    1e8,
+    1e10,  # increasing values
 )
 
-# BETAS: values for oreg_inflate: orthogonal regularisation for layers that inflate from latent/bottleneck to mechanistic parameters
-# from wandb.ai, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
+# BETAS: values for oreg_inflate: orthogonal regularisation for layers that inflate from bottleneck to kinetic params.
+# From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
 BETAS = (
     0,
-    1e2, #reenable
-    1e4, #reenable
-    1e6, #reenable
-    #1e7,
-    #1e8,
+    1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
+    # 1e4, # tested
+    # 1e6, # tested
+    # 1e7,
+    # 1e8,
     )
 
-# GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to latent/bottleneck)
-# same as above - trying to lower this value
+# GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to bottleneck).
 GAMMAS = (
     0,
-    #1e1,
-    #5e1,
-    1e2, #reenable
-    #1e3,
-    1e4, #reenable
-    1e6, #reenable
-    #1e8,
+    # 1e1,
+    # 5e1,
+    # 1e2,  # tested
+    # 1e3,
+    1e4,  # tested
+    1e6,  # tested
+    1e8,
+    1e10,  # increasing values
 )
 
-# DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to latent/bottleneck)
+# DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to bottleneck)
 DELTAS = (
     0,
-    1e2, #reenable
-    1e4, #reenable
-    1e6, #reenable
-    #1e7,
-    #1e8,
+    # 1e2, # tested
+    # 1e4, # tested
+    1e6,  # tested
+    # 1e7,
+    1e8,
+    1e10,  # increasing values
 )
 
-# n_hidden: number of dimensions of bottleneck\latent representation obtained using the encoder
-# from wandb.ai, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
-# appears to be better? Might be worth trying 3-dim, as it could still be visualised but is in between the values of
-# 2 and 4 that have been tried so far?
-# From wandb, it looks like values above 4 were barely attempted: there is a single run with 6 for proteomics with weird looking results
-# FOR NEXT TIME: try higher values of n_hidden? e.g. 8, 10, 12?
+# n_hidden: number of dimensions of bottleneck representation obtained using the encoder.
+# From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
+# appears to be better? -- stat tests show the same.
 LATENT_DIMS = (
     2,
-    #3,
+    # 3,
     4,
     6,
     8,
@@ -75,7 +74,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    #("cytof_dynamic", "all"),
+    # ("cytof_dynamic", "all"),
     ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
@@ -88,21 +87,20 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "sequential"),
 )
 # NOT CURRENTLY IN USE, REPLACED BY CONTEXTS_FEATURES
-#CONTEXTS = (
-    #"proteomics",
-    #"transcriptomics",
-    #"cytof_init",
-    #"cytof_dynamic",
-#)
-# NOT CURRENTLY IN USE, REPLACED BY CONTEXTS_FEATURES
-#FEATURES = (
-    #"pca",
-    #"all",
-    #"rfe",
-    #"lasso",
-    #"elastic",
-    # "sequential",
-#)
+# CONTEXTS = (
+#     "proteomics",
+#     "transcriptomics",
+#     "cytof_init",
+#     "cytof_dynamic",
+# )
+# FEATURES = (
+#     "pca",
+#     "all",
+#     "rfe",
+#     "lasso",
+#     "elastic",
+#     "sequential",
+# )
 PATHWAYS = ("EGFR_MAPK",)
 DATASETS = ("dream_cytof",)
 # DATASETS = {
