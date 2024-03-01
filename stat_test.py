@@ -5,7 +5,6 @@ from training_configuration import (ORTH_REG_STRATEGIES,
                                     ALPHAS, BETAS, GAMMAS, DELTAS,
                                     LATENT_DIMS)
 import itertools as itt
-import seaborn as sns
 
 
 def stat_test_hyperparameter(df, hyperparameter, hp_value1, hp_value2, alternative):
@@ -43,19 +42,25 @@ def statistical_significance_test(data_stat_tests):
     counter_hp = 0
 
     hyperparameter_values = {
-        'n_hidden' : LATENT_DIMS,
+        'n_hidden': LATENT_DIMS,
         'l1reg_inflate': ALPHAS,
         'oreg_inflate': BETAS,
         'l1reg_encode': GAMMAS,
         'oreg_encode': DELTAS
     }
 
-    for hyperparameter in ['orth_reg_strategy',
-                           'l1reg_inflate',
-                           'oreg_inflate',
-                           'l1reg_encode',
-                           'oreg_encode',
-                           'n_hidden']:
+    hyperparam_list = [
+        'l1reg_inflate',
+        'oreg_inflate',
+        'l1reg_encode',
+        'oreg_encode',
+        'n_hidden'
+    ]
+
+    if len(ORTH_REG_STRATEGIES) > 1:  # if only one strategy, do not test
+        hyperparam_list = ['orth_reg_strategy'] + hyperparam_list
+
+    for hyperparameter in hyperparam_list:
         if hyperparameter == 'n_hidden':
             for n_hidden_pair in itt.combinations(hyperparameter_values[hyperparameter], 2):
                 n_hidden1, n_hidden2 = n_hidden_pair
@@ -65,7 +70,7 @@ def statistical_significance_test(data_stat_tests):
                                                         hp_value1=n_hidden1,
                                                         hp_value2=n_hidden2,
                                                         alternative='less')
-                ).reset_index().rename(columns = {'latent dim' : 'n_hidden'})
+                ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = f"{n_hidden1} vs {n_hidden2}"
                 res_df_partial['n_hidden1'] = n_hidden1
@@ -79,12 +84,16 @@ def statistical_significance_test(data_stat_tests):
                 else:
                     res_df_n_hidden = pd.concat([res_df_n_hidden, res_df_partial], axis=0)
             # after evaluating all pairs
-            res_df_n_hidden['adj_t-test_p-value'] = res_df_n_hidden.groupby(by=['context'])['t-test_p-value'].transform(
+            res_df_n_hidden['adj_t-test_p-value'] = res_df_n_hidden.groupby(
+                by=['context']
+            )['t-test_p-value'].transform(
                 lambda x: false_discovery_control(x)
             )
-            res_df_n_hidden['adj_Wilcoxon_p-value'] = res_df_n_hidden.groupby(by=['context'])['Wilcoxon_p-value'].transform(
+            res_df_n_hidden['adj_Wilcoxon_p-value'] = res_df_n_hidden.groupby(
+                by=['context']
+            )['Wilcoxon_p-value'].transform(
                 lambda x: false_discovery_control(x)
-            )  # most conservative option - group all tests for the same context together
+            )   # most conservative option - group all tests for the same context together
             # now concatenate this to the rest of the dataframe or start it if it does not exist yet
             if counter == 0:
                 res_df = res_df_n_hidden
@@ -100,7 +109,7 @@ def statistical_significance_test(data_stat_tests):
                                                         hp_value1='L1',
                                                         hp_value2='L2',
                                                         alternative='greater')
-                ).reset_index().rename(columns = {'latent dim' : 'n_hidden'})
+                ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = 'L2 vs L1'
                 res_df_partial['n_hidden1'] = None
@@ -131,7 +140,7 @@ def statistical_significance_test(data_stat_tests):
                                                             hp_value1=hp_value1,
                                                             hp_value2=hp_value2,
                                                             alternative='greater')
-                    ).reset_index().rename(columns = {'latent dim' : 'n_hidden'})
+                    ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                     res_df_partial['hyperparameter'] = hyperparameter
                     res_df_partial['hyperparameter_value'] = hp_value2
                     res_df_partial['n_hidden1'] = None
