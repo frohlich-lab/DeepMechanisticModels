@@ -1,6 +1,6 @@
 import itertools as itt
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict
 
 import git
 import numpy as np
@@ -77,7 +77,7 @@ def train(
     schedule_config: Dict,
     n_epoch,
     x0,
-    earlyStopping,
+    early_stopping,
     patience,
     improvement_threshold,
 ) -> pypesto.Result:
@@ -93,7 +93,7 @@ def train(
         group=f"{conf['context']}_{conf['features']}",
         config={
             **conf,
-            "patience" : patience, #logging patience hyperparam
+            "patience": patience,  # logging patience hyperparam
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
@@ -146,7 +146,7 @@ def train(
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
     rmse_test_min = np.inf
-    if earlyStopping == True:
+    if early_stopping:
         assert patience is not None, "Patience value is undefined."
         assert improvement_threshold is not None, "Relative improvement threshold for early stopping is undefined."
         patience_counter = 0
@@ -212,22 +212,22 @@ def train(
             )
 
             # Crude early stopping implementation
-            if earlyStopping == True:
+            if early_stopping:
                 # Save rmse_val history
                 rmse_val_history.append(rmses["test"])
                 # if the last rmse_val is higher than the previous best (rmse_test_min) OR
                 # # the last rmse_val is identical to the previous one, increase
                 # the patience counter
-                if len(rmse_val_history) > 1: # only check if we have more than one value in history
+                if len(rmse_val_history) > 1:  # only check if we have more than one value in history
                     # compute relative change - we would like for this to be positive (meaning new rmse_val is lower
                     # than previous one) and larger than or equal to 1%. If the new rmse_val is higher, than this
                     # relative_change is going to be negative. If relative_change is lower than 0.01 (small improvement
                     # or not an improvement), increase the patience_counter!
                     relative_change = (rmse_val_history[-2] - rmse_val_history[-1])/rmse_val_history[-2]
-                    #print(f'Relative rmse_val change at {epoch} = {relative_change}')
+                    # print(f'Relative rmse_val change at {epoch} = {relative_change}')
                     if relative_change < improvement_threshold:
-                        patience_counter +=1
-                        #print(f'Patience counter at {epoch} = {patience_counter}')
+                        patience_counter += 1
+                        # print(f'Patience counter at {epoch} = {patience_counter}')
                         # log new patience_counter value to wandb before checking whether we need to early stop
                         wandb.log(
                             {
@@ -238,9 +238,9 @@ def train(
                         # if the patience counter reaches the patience value, break, i.e. stop training!
                         if patience_counter >= patience:
                             break
-                    else: # if val performance starts improving again, reset patience_counter
+                    else:  # if val performance starts improving again, reset patience_counter
                         patience_counter = 0
-                        #print(f'Patience counter at {epoch} = {patience_counter}')
+                        # print(f'Patience counter at {epoch} = {patience_counter}')
                         # log new patience_counter value to wandb
                         wandb.log(
                             {
@@ -248,7 +248,6 @@ def train(
                             },
                             step=epoch,
                         )
-
 
         updates, opt_state = opt.update(grads, opt_state)
         x = apply_updates(x, updates)
@@ -264,7 +263,7 @@ def train(
     OResult.append(
         OptimizerResult(
             fval=opt_fval,
-            n_fval=epoch, #save epoch number to diagnose early stopping
+            n_fval=epoch,  # save epoch number to diagnose early stopping
             x=opt_x,
             grad=opt_grads,
             x0=x0,
