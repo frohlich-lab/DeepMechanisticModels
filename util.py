@@ -37,6 +37,7 @@ class Conf(dict):
     threads: int = 1
     n_starts: int = None
 
+
 def load_petab_base_files(
     conf: Conf, reweight=False
 ) -> Dict[str, pd.DataFrame]:

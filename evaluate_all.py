@@ -36,13 +36,13 @@ conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
 
-#METHODS = ("pca embedding", "end-to-end")
+# METHODS = ("pca embedding", "end-to-end")
 
-JOBS = tuple([i for i in range(10)]) #need to change this - NO HARDCODING
+JOBS = tuple([i for i in range(10)])  # need to change this - NO HARDCODING
 dfs = []
 for samples in SPLITS:
     for dataset in [
-        #"train", # will re-enable once hyperparam grid is narrower
+        # "train",  # will re-enable once hyperparam grid is narrower
         "test"
     ]:
         print(f'Starting to concatenate training evaluations for {samples}, {dataset}')
@@ -94,7 +94,7 @@ for samples in SPLITS:
         print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
 
         # Add necessary attributes to training DataFrame
-        training["ref"] = "DMM" # previously "meth"
+        training["ref"] = "DMM"  # previously "meth"
         training["dataset"] = dataset
         training["samples"] = samples
 
@@ -235,8 +235,8 @@ for samples in SPLITS:
                 avg_ps_df["oreg_encode"] = None
                 avg_ps_df["layers"] = None
                 avg_ps_df["context"] = context
-                #avg_ps_df["type"] = method
-                #avg_ps_df["pretrain"] = pretrain
+                # avg_ps_df["type"] = method
+                # avg_ps_df["pretrain"] = pretrain
                 avg_ps_df["features"] = None
                 avg_ps_df["job"] = None
                 avg_ps_dfs.append(avg_ps_df)
@@ -257,8 +257,8 @@ for samples in SPLITS:
             avg_ps_df["l1reg_encode"] = None
             avg_ps_df["oreg_encode"] = None
             avg_ps_df["layers"] = None
-            #avg_ps_df["type"] = method
-            #avg_ps_df["pretrain"] = pretrain
+            # avg_ps_df["type"] = method
+            # avg_ps_df["pretrain"] = pretrain
             avg_ps_df["features"] = None
             avg_ps_df["job"] = None
             avg_ps_dfs.append(avg_ps_df)
@@ -283,7 +283,7 @@ del dfs
 df.rename(
     columns={
         "layers": "latent dim",
-        #"type": "method", #not used at the moment?!
+        # "type": "method", #not used at the moment?!
     },
     inplace=True,
 )
@@ -308,7 +308,7 @@ data_dmm = pd.DataFrame(
     [
         dict(
             zip(gbs, group),
-            rmse=np.sqrt(np.square(group_df["res"]).mean()), #this will produce the mean RMSE across all jobs (not the best result then)
+            rmse=np.sqrt(np.square(group_df["res"]).mean()),  # mean RMSE across all jobs (not best result)
         )
         for group, group_df in df.groupby(gbs)
     ]
@@ -326,13 +326,13 @@ data_refs = pd.DataFrame(
     [
         dict(
             zip(gbs_refs, group_ref),
-            rmse=np.sqrt(np.square(group_df_ref["res"]).mean()), #this will produce the mean RMSE across all jobs (not the best result then)
+            rmse=np.sqrt(np.square(group_df_ref["res"]).mean()),  # mean RMSE = RMSE (single values)
         )
         for group_ref, group_df_ref in df_refs.groupby(gbs_refs)
     ]
 )
 
-data = pd.concat([data_dmm, data_refs]).sort_values(by = "ref")
+data = pd.concat([data_dmm, data_refs]).sort_values(by="ref")
 # cleanup
 del df, df_refs, data_dmm, data_refs
 
@@ -354,21 +354,21 @@ pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for co
 cols += ['rmse_list']
 # Subset the pivot table and reduce MultiIndex back to single-level index
 data_stat_tests = pivot_data[cols]
-data_stat_tests.columns = data_stat_tests.columns.droplevel(level = 1)
+data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
 print(f"DataFrame for statistical testing is now ready.")
 
 stat_test_res_df = statistical_significance_test(data_stat_tests)
 stat_test_res_df.to_csv(
     evaluations_dir
-    /f"{conf.model}"
-    /f"{conf.data}"
-    /f"{conf.model}.{conf.data}.stat_tests_all.csv"
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.stat_tests_all.csv"
 )
 
 
-###################################################################
-######################## Performance Plots ########################
-###################################################################
+# ################################################################# #
+# ####################### Performance Plots ####################### #
+# ################################################################# #
 
 def lineplot_methods(data, *args, **kwargs):
     sns.lineplot(data[data["ref"] == "DMM"], *args, **kwargs)
@@ -383,6 +383,7 @@ def lineplot_methods(data, *args, **kwargs):
 #         *args, **kwargs
 #     )
 
+
 # Calculate the mean 'rmse' for each 'ref' value
 rmse_refs = data[data['ref'].isin(
     ['avg_model', 'linreg', 'lasso', 'elasticnet', 'sample']
@@ -392,20 +393,20 @@ rmse_refs = data[data['ref'].isin(
 
 ref_cmap = sns.color_palette("tab10")
 ref_palette_dict = {
-    "avg_model" : ref_cmap[0],
-    "linreg" : ref_cmap[1],
-    "lasso" : ref_cmap[2],
-    "elasticnet" : ref_cmap[4],
-    "sample" : ref_cmap[5],
-    "DMM" : ref_cmap[3],
+    "avg_model": ref_cmap[0],
+    "linreg": ref_cmap[1],
+    "lasso": ref_cmap[2],
+    "elasticnet": ref_cmap[4],
+    "sample": ref_cmap[5],
+    "DMM": ref_cmap[3],
 }
 ref_linestyle_dict = {
-    "avg_model" : 'dotted',
-    "linreg" : 'dashed',
-    "lasso" : 'dashed',
-    "elasticnet" : 'dashed',
-    "sample" : 'dotted',
-    "DMM" : 'solid',
+    "avg_model": 'dotted',
+    "linreg": 'dashed',
+    "lasso": 'dashed',
+    "elasticnet": 'dashed',
+    "sample": 'dotted',
+    "DMM": 'solid',
 }
 
 for group in (
@@ -423,8 +424,8 @@ for group in (
         col="context",
         row_order=("train", "test"),
         col_order=("cytof_init", "proteomics", "transcriptomics"),
-        #sharex = True,
-        sharey = True,
+        # sharex = True,
+        sharey=True,
     )
 
     g.map_dataframe(
@@ -445,21 +446,21 @@ for group in (
                                               linestyle=ref_linestyle_dict[ref],
                                               label=ref)
     # Once done, add legend to last examined dataset and context
-    g.axes_dict[dataset, context].legend(frameon = False, bbox_to_anchor = [1, 1])
+    g.axes_dict[dataset, context].legend(frameon=False, bbox_to_anchor=[1, 1])
 
     if (group == "job") or (group == "orth_reg_strategy"):
-        g.set(ylim=(0, 1.1)) # symlog for unregularised settings;
+        g.set(ylim=(0, 1.1))  # symlog for unregularised settings;
     else:
-        #g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7)) # symlog to include unregularised hyperparam combos
-        g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))  # symlog to include unregularised hyperparam combos
-    #g.add_legend()
+        # g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7))  # symlog to include unregularised hyperparam combos
+        g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))   # symlog to include unregularised hyperparam combos
+    # g.add_legend()
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
     plt.savefig(rfile)
     efile = rfile.replace(".pdf", ".csv")
     data.to_csv(efile)
 
-## PERFORMANCE BARPLOT
+# PERFORMANCE BARPLOT
 # # avg_model, regression baselines, method (DMM, average with min-max range
 # # across SPLITS, i.e. "samples", and multistarts, i.e. jobs), per_sample
 #
@@ -470,26 +471,26 @@ for group in (
 #                            'orth_reg_strategy', 'latent dim',
 #                            'l1reg_inflate', 'oreg_inflate',
 #                            'l1reg_encode', 'oreg_encode'], as_index=False)['rmse'].mean()
-# useless? If passing data rather than data2, it already seems to aggregate over all other features when producing the barplot
+# useless? It already seems to aggregate over all other features when producing the barplot
 
 fig = plt.figure()
 g2 = sns.FacetGrid(
     data=data,
-    row="dataset", # top: train, bottom: test
-    col="context", # columns: cytof_init, proteomics, transcriptomics
+    row="dataset",  # top: train, bottom: test
+    col="context",  # columns: cytof_init, proteomics, transcriptomics
     row_order=("train", "test"),
     col_order=("cytof_init", "proteomics", "transcriptomics"),
 )
 
 g2.map_dataframe(
     sns.barplot,
-    x='ref', #various regressors on x_axis
-    y="rmse", #rmse on y axis
-    hue="ref", #color by method/reference/baseline
+    x='ref',  # various regressors on x_axis
+    y="rmse",  # rmse on y axis
+    hue="ref",  # color by method/reference/baseline
     hue_order=["avg_model",
                "linreg", "lasso", "elasticnet",
                "DMM", "sample"],
-    errorbar=lambda x: (x.min(), x.max()), #display performance range between various jobs using
+    errorbar=lambda x: (x.min(), x.max()),  # display performance range between various jobs using
     palette=ref_palette_dict,
 )
 
@@ -500,51 +501,61 @@ g2.add_legend()
 plt.tight_layout()
 rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
 plt.savefig(rfile)
-#plt.savefig(rfile.replace('pdf', 'svg'))
+# plt.savefig(rfile.replace('pdf', 'svg'))
 
 
-##################################################################
-##################### Statistical Test Plots #####################
-##################################################################
+# ################################################################ #
+# #################### Statistical Test Plots #################### #
+# ################################################################ #
 # n_hidden pairwise comparisons
 # subset to where n_hidden is null (n_hidden1 and n_hidden2 will be not null)
 df_plot_n_hidden = stat_test_res_df[stat_test_res_df.n_hidden.isnull()]
 for context, _ in CONTEXTS_FEATURES:
-    plt.subplots(1, 2, figsize = (9, 3))
-    plt.subplots_adjust(wspace = 0.5)
+    plt.subplots(1, 2, figsize=(9, 3))
+    plt.subplots_adjust(wspace=0.5)
     plt.subplot(121)
     ax = sns.heatmap(
-        df_plot_n_hidden[df_plot_n_hidden.context == context][['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']].pivot(index = 'n_hidden1', columns = 'n_hidden2', values = 'adj_Wilcoxon_p-value'),
-        annot = True,
-        square = True,
-        vmin = 0, vmax = 1
+        df_plot_n_hidden[df_plot_n_hidden.context == context][
+            ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
+        ].pivot(
+            index='n_hidden1', columns='n_hidden2', values='adj_Wilcoxon_p-value'
+        ),
+        annot=True,
+        square=True,
+        vmin=0, vmax=1
     )
     ax.invert_yaxis()
-    ax.set_yticks([0.5, 1.5, 2.5, 3.5], labels = [2, 4, 6, 8])
-    ax.set_xticks([-0.5, 0.5, 1.5, 2.5], labels = [2, 4, 6, 8])
+    ax.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
+    ax.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
     # ax.set_xlim([-1.0, 4])
     plt.title('adjusted p-value')
     plt.subplot(122)
     ax2 = sns.heatmap(
-        df_plot_n_hidden[df_plot_n_hidden.context == context][['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']].pivot(index = 'n_hidden1', columns = 'n_hidden2', values = 'Wilcoxon_statistic'),
-        annot = True,
-        square = True,
-        vmin = 1e5, vmax = 1.2e7
+        df_plot_n_hidden[df_plot_n_hidden.context == context][
+            ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
+        ].pivot(
+            index='n_hidden1', columns='n_hidden2', values='Wilcoxon_statistic'
+        ),
+        annot=True,
+        square=True,
+        vmin=1e5, vmax=1.2e7
     )
     ax2.invert_yaxis()
-    ax2.set_yticks([0.5, 1.5, 2.5, 3.5], labels = [2, 4, 6, 8])
-    ax2.set_xticks([-0.5, 0.5, 1.5, 2.5], labels = [2, 4, 6, 8])
+    ax2.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
+    ax2.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
     # ax2.set_xlim([-1.0, 4])
     plt.title('Test statistic')
     plt.suptitle(context)
     rfile = EVALUATE_ALL.format(**conf.__dict__, group=f"heatmap_n_hidden_pairwise_{context}")
     plt.savefig(rfile)
-    #plt.savefig(rfile.replace('pdf', 'svg'))
+    # plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # Volcano plots for significance of various hyperparameter values
 def scatterplot_func(data, *args, **kwargs):
     sns.scatterplot(data, *args, **kwargs)
+
+
 # subset to where n_hidden1 is null (for pairwise n_hidden comparisons above)
 df_plot_hp = stat_test_res_df[stat_test_res_df.n_hidden1.isnull()]
 
@@ -563,32 +574,32 @@ g3.map_dataframe(
     y="-log10_adj_Wilcoxon_p-value",
     hue="n_hidden",
     hue_order=[2, 4, 6, 8],
-    size="log10hp_value",  #changed to log10 scale to distinguish 1e2 from 1e4 (identical in linear scale)
+    size="log10hp_value",   # changed to log10 scale to distinguish 1e2 from 1e4 (identical in linear scale)
     palette="tab10",
     style="stat-significant",
     style_order=[True, False],
 )
 
 for (row, col) in g3.axes_dict.keys():
-    g3.axes_dict[row, col].legend(frameon = False)
+    g3.axes_dict[row, col].legend(frameon=False)
 
 g3.set_titles("{row_name} | {col_name}")
-#g3.add_legend()
+# g3.add_legend()
 g3.tick_params(direction='in', length=5)
-#g3.set(ylim=(-5, 60))
+# g3.set(ylim=(-5, 60))
 # g.fig.subplots_adjust(hspace=0.1, wspace=5)
 
 rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plots_hyperparam_combo_vs_unreg_log10Wstat")
 plt.savefig(rfile)
-#plt.savefig(rfile.replace('pdf', 'svg'))
+# plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # Save dataframe to CSV
 data.to_csv(
     evaluations_dir
-    /f"{conf.model}"
-    /f"{conf.data}"
-    /f"{conf.model}.{conf.data}.evaluate_all.csv")
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.evaluate_all.csv")
 
 # Log via W&B
 wandb.init(
