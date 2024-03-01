@@ -361,7 +361,7 @@ def evaluate_standard_regression(dataset, conf, context,
                                       input_data = input_train,
                                       sample_weighing=sample_weighing)
             # Select whether to use sample weights - currently NOT using them
-            if (mode in ['linreg']) and (sample_weighing == True): # others do not support sample_weight
+            if (mode in ['linreg']) and sample_weighing:  # others do not support sample_weight
                 # Aggregate sample_weights - right now sample_weight only works if we have one weight per data row
                 # i.e. it works well for single target regression, but not for MultiTask regression
                 # might have to do one regression per target to use this info
