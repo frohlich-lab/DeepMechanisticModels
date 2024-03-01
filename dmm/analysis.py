@@ -49,7 +49,7 @@ def process_simulation(
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
-                "job": job, #added to know which job the residual relates to in the results file
+                "job": job, # job-specific residuals
                 "sample": sample,
                 "type": model_type,
                 "context": context,
