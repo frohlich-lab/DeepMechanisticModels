@@ -207,7 +207,7 @@ def plot_loss_vs_regularization(df):
         y="rmse",
         errorbar=lambda x: (x.min(), x.max()), #display error bars from min rmse to max rmse across jobs
         hue="cf",
-        palette="tab10",
+        palette="rocket",
         style="layers",
         markers=True,
     )
