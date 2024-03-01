@@ -79,6 +79,7 @@ def train(
     x0,
     earlyStopping,
     patience,
+    improvement_threshold,
 ) -> pypesto.Result:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -92,6 +93,7 @@ def train(
         group=f"{conf['context']}_{conf['features']}",
         config={
             **conf,
+            "patience" : patience, #logging patience hyperparam
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
@@ -118,6 +120,7 @@ def train(
 
     wandb.define_metric("rmse_train", summary="min")
     wandb.define_metric("rmse_val", summary="min")
+    wandb.define_metric("patience_counter")
     wandb.define_metric("fval", summary="min")
     wandb.define_metric(L1IREG, summary="min")
     wandb.define_metric(OIREG, summary="min")
@@ -145,6 +148,7 @@ def train(
     rmse_test_min = np.inf
     if earlyStopping == True:
         assert patience is not None, "Patience value is undefined."
+        assert improvement_threshold is not None, "Relative improvement threshold for early stopping is undefined."
         patience_counter = 0
         rmse_val_history = []
 
@@ -170,6 +174,7 @@ def train(
         wandb.log({"fval": fval}, step=epoch)
         if epoch % 5 == 0:
             rmses = dict()
+            # evaluate rmse on train and test dataset only after a certain number (5) of epochs
             for dataset, pp in zip(
                 ("train", "test"), (problem_train, problem_test)
             ):
@@ -206,21 +211,43 @@ def train(
                 step=epoch,
             )
 
-        # Crude early stopping implementation
-        if earlyStopping == True:
-            # Save rmse_val history
-            rmse_val_history.append(rmses["test"])
-            # if the last rmse_val is higher than the previous best (rmse_test_min) OR
-            # # the last rmse_val is identical to the previous one, increase
-            # the patience counter
-            if len(rmse_val_history) > 1: #only check if we have more than one value in history
-                if (rmse_val_history[-1] > rmse_test_min) or (rmse_val_history[-1] == rmse_val_history[-2]):
-                    patience_counter +=1
-                    # if the patience counter reaches the patience value, break
-                    if patience_counter >= patience:
-                        break
-                else: # if val performance is improving (lower rmse), then reset the patience counter
-                    patience_counter = 0
+            # Crude early stopping implementation
+            if earlyStopping == True:
+                # Save rmse_val history
+                rmse_val_history.append(rmses["test"])
+                # if the last rmse_val is higher than the previous best (rmse_test_min) OR
+                # # the last rmse_val is identical to the previous one, increase
+                # the patience counter
+                if len(rmse_val_history) > 1: # only check if we have more than one value in history
+                    # compute relative change - we would like for this to be positive (meaning new rmse_val is lower
+                    # than previous one) and larger than or equal to 1%. If the new rmse_val is higher, than this
+                    # relative_change is going to be negative. If relative_change is lower than 0.01 (small improvement
+                    # or not an improvement), increase the patience_counter!
+                    relative_change = (rmse_val_history[-2] - rmse_val_history[-1])/rmse_val_history[-2]
+                    #print(f'Relative rmse_val change at {epoch} = {relative_change}')
+                    if relative_change < improvement_threshold:
+                        patience_counter +=1
+                        #print(f'Patience counter at {epoch} = {patience_counter}')
+                        # log new patience_counter value to wandb before checking whether we need to early stop
+                        wandb.log(
+                            {
+                                "patience_counter": patience_counter,
+                            },
+                            step=epoch,
+                        )
+                        # if the patience counter reaches the patience value, break, i.e. stop training!
+                        if patience_counter >= patience:
+                            break
+                    else: # if val performance starts improving again, reset patience_counter
+                        patience_counter = 0
+                        #print(f'Patience counter at {epoch} = {patience_counter}')
+                        # log new patience_counter value to wandb
+                        wandb.log(
+                            {
+                                "patience_counter": patience_counter,
+                            },
+                            step=epoch,
+                        )
 
 
         updates, opt_state = opt.update(grads, opt_state)
