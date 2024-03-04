@@ -53,7 +53,7 @@ train(
     schedule_config=schedule_config,
     n_epoch=1000,
     x0=x0,
-    earlyStopping=True,
-    patience=10, # num consecutive epochs where we tolerate rmse_val not improving
-    improvement_threshold=0.01, # relative improvement of 1%
+    early_stopping=True,
+    patience=10,  # num consecutive epochs where we tolerate rmse_val not improving
+    improvement_threshold=0.01,  # relative improvement of 1%
 )
