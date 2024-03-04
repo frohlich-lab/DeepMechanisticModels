@@ -12,6 +12,7 @@ from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
+#from optax import power_iteration
 
 
 config.update("jax_enable_x64", True)
@@ -179,9 +180,13 @@ class DeepMechanisticModel(AutoEncoder):
             return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
         else:
             raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-        ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
-        #_, max_eig = power_iteration(m - jnp.eye(self.n_latent))
-        #return scale * max_eig
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
+        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
+        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
+        # Unfortunately, optax.power_iteration() appears not to be differentiable!
+        # _, max_eig = power_iteration(m - jnp.eye(self.n_latent))
+        # return scale * max_eig
 
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
@@ -207,9 +212,13 @@ class DeepMechanisticModel(AutoEncoder):
             return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
         else:
             raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-        ## SRIP - minimise max singular value/eigenvalue of the same matrix above -- power_iteration() appears not to be differentiable!
-        #_, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
-        #return scale * max_eig
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
+        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
+        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
+        # Unfortunately, optax.power_iteration() appears not to be differentiable!
+        # _, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
+        # return scale * max_eig
 
     def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
