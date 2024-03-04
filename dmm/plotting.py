@@ -58,8 +58,7 @@ def plot_single_sample(
 
     kwargs = {"x": "time", "color": "treatment", "group": "treatment"}
 
-    if errorbar == True:
-        plot = (
+    plot = (
             ggplot()
             + geom_line(
                 data=sdf,
@@ -71,33 +70,17 @@ def plot_single_sample(
                 mapping=aes(y=petab.MEASUREMENT, **kwargs),
                 size=1,
             )
-            + geom_errorbar(
-                data=mdf, mapping=aes(ymax="ymax", ymin="ymin", **kwargs)
-            )
             + facet_grid((petab.OBSERVABLE_ID, "treatment"))
             + xlab("time [min]")
             + ylab("measurement")
             + ggtitle(f"cell line: {sample[1:]}")
             + theme(**PLOTNINE_THEME)
-        )
-    elif errorbar == False:
-        plot = (
-                ggplot()
-                + geom_line(
-            data=sdf,
-            mapping=aes(y=petab.SIMULATION, **kwargs),
-            size=1,
-        )
-                + geom_point(
+    )
+
+    if errorbar:
+        plot += geom_errorbar(
             data=mdf,
-            mapping=aes(y=petab.MEASUREMENT, **kwargs),
-            size=1,
-        )
-                + facet_grid((petab.OBSERVABLE_ID, "treatment"))
-                + xlab("time [min]")
-                + ylab("measurement")
-                + ggtitle(f"cell line: {sample[1:]}")
-                + theme(**PLOTNINE_THEME)
+            mapping=aes(ymax="ymax", ymin="ymin", **kwargs)
         )
 
     save_plot(plot, figdir, prefix)
