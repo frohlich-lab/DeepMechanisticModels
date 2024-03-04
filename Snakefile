@@ -298,8 +298,9 @@ rule evaluate_training:
         oreg_encode='[0-9\.]+',
         pretrain='True|False',
     resources:
-        mem="1GB",
-        runtime="1h",
+        mem="16GB",
+        mem="16GB",
+        runtime="90min",
         nodes=1,
         threads=1,
     shell:
