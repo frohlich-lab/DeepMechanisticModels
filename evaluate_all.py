@@ -150,73 +150,30 @@ for samples in SPLITS:
         ps["ref"] = "sample"
         print(f'Finished processing per_sample model for {samples}, {dataset}')
 
-        # linear regressor baseline
-        print(f'Processing linear regression for {samples}, {dataset}')
-        linreg_baseline = pd.concat(
-            pd.read_csv(
-                EVALUATION_REFERENCE_REG.format(
-                    **{
-                        **conf.__dict__,
-                        **dict(
-                            samples=samples,
-                            dataset=dataset,
-                            context=ctxt,
-                        ),
-                    },
-                    mode="linreg",
-                ),
-                index_col=0,
-            )
-            for ctxt, features in CONTEXTS_FEATURES
-        )
-        linreg_baseline["ref"] = "linreg"
-        print(f'Finished processing linear regression for {samples}, {dataset}')
+        # Process regressors - linreg, lasso, elasticnet
+        print(f'Processing regressors model for {samples}, {dataset}')
+        regressor_dfs = {
+            mode: pd.concat(
+                pd.read_csv(
+                    EVALUATION_REFERENCE_REG.format(
+                        **{
+                            **conf.__dict__,
+                            **dict(
+                                samples=samples,
+                                dataset=dataset,
+                                context=ctxt,
+                            ),
+                        },
+                        mode=mode,
+                    ),
+                    index_col=0,
+                )
+                for ctxt, features in CONTEXTS_FEATURES
+            ).assign(ref=mode)
+            for mode in ["linreg", "lasso", "elasticnet"]
+        }
+        print(f'Finished processing regressors for {samples}, {dataset}')
 
-        # Lasso regressor baseline
-        print(f'Processing Lasso regression for {samples}, {dataset}')
-        lasso_baseline = pd.concat(
-            pd.read_csv(
-                EVALUATION_REFERENCE_REG.format(
-                    **{
-                        **conf.__dict__,
-                        **dict(
-                            samples=samples,
-                            dataset=dataset,
-                            context=ctxt,
-                        ),
-                    },
-                    mode="lasso",
-                ),
-                index_col=0,
-            )
-            for ctxt, features in CONTEXTS_FEATURES
-        )
-        lasso_baseline["ref"] = "lasso"
-        print(f'Finished processing Lasso regression for {samples}, {dataset}')
-
-        # ElasticNet regressor baseline
-        print(f'Processing ElasticNet regression for {samples}, {dataset}')
-        elasticnet_baseline = pd.concat(
-            pd.read_csv(
-                EVALUATION_REFERENCE_REG.format(
-                    **{
-                        **conf.__dict__,
-                        **dict(
-                            samples=samples,
-                            dataset=dataset,
-                            context=ctxt,
-                        ),
-                    },
-                    mode="elasticnet",
-                ),
-                index_col=0,
-            )
-            for ctxt, features in CONTEXTS_FEATURES
-        )
-        elasticnet_baseline["ref"] = "elasticnet"
-        print(f'Finished processing ElasticNet regression for {samples}, {dataset}')
-
-        # Memory-intensive step: with 'train' samples, it fails here with 48GB RAM allocation
         print(f'Starting to build hyperparam/job combination copies for references models - {samples}, {dataset}')
         avg_ps_dfs = []
         for context, _ in CONTEXTS_FEATURES:
@@ -245,11 +202,7 @@ for samples in SPLITS:
 
         # regression baselines already have context
         # but no hyperparameters
-        for rdf in [
-            linreg_baseline,
-            lasso_baseline,
-            elasticnet_baseline,
-        ]:
+        for _, rdf in regressor_dfs.items():
             avg_ps_df = rdf.copy()
             avg_ps_df["orth_reg_strategy"] = None
             avg_ps_df["l1reg_inflate"] = None
@@ -269,7 +222,7 @@ for samples in SPLITS:
         # dfd = pd.concat([training, pretraining])
         dfd = pd.concat([training, *avg_ps_dfs])
         # Deleting DataFrames once concatenated into dfd
-        del training, avg_ps_dfs
+        del training, avg_ps_dfs, regressor_dfs
         dfd["dataset"] = dataset
         dfd["samples"] = samples
         dfs.append(dfd)
