@@ -147,8 +147,10 @@ def train(
     opt_grads = np.NaN * np.ones_like(x)
     rmse_test_min = np.inf
     if early_stopping:
-        assert patience is not None, "Patience value is undefined."
-        assert improvement_threshold is not None, "Relative improvement threshold for early stopping is undefined."
+        if patience is None:
+            raise ValueError("Patience value is undefined.")
+        elif improvement_threshold is None:
+            raise ValueError("Relative improvement threshold for early stopping is undefined.")
         patience_counter = 0
         rmse_val_history = []
 
