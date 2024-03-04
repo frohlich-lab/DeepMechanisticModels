@@ -27,6 +27,15 @@ from dmm.pretraining import (
 from training_configuration import CONTEXTS_FEATURES
 from util import Conf, load_petab_base_files
 
+from sklearn.linear_model import (LinearRegression,
+                                      MultiTaskLassoCV,
+                                      MultiTaskElasticNetCV)
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import KNNImputer
+from sklearn.decomposition import PCA
+from sklearn.pipeline import Pipeline
+from sklearn import set_config
+
 conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
@@ -277,21 +286,13 @@ def evaluate_standard_regression(dataset, conf, context,
                                  trained_pipeline = None,
                                  features_train = None,
                                  sample_weighing = False):
-    from sklearn.linear_model import (LinearRegression,
-                                      MultiTaskLassoCV,
-                                      MultiTaskElasticNetCV)
-    #from sklearn.multioutput import MultiOutputRegressor # to implement multi-task linear regression
+
 
     def build_pipeline(
             steps_list: str,
             input_data: np.ndarray,
             sample_weighing: bool
     ):
-        from sklearn.preprocessing import StandardScaler
-        from sklearn.impute import KNNImputer
-        from sklearn.decomposition import PCA
-        from sklearn.pipeline import Pipeline
-        from sklearn import set_config
         set_config(enable_metadata_routing=True)
 
         # standard steps: scaling, imputation via KNN
