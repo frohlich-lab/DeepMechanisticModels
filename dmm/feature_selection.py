@@ -23,17 +23,16 @@ def contextualize_measurements(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     contextualization: str,
-    io_mode: str = 'input', #modality: input/output - 'input' by default
+    io_mode: str = 'input',  # modality: input (default)/output
 ) -> pd.DataFrame:
 
-    # Check contextualization provided in input makes sense, i.e. belongs to available contexts
+    # Check requested contextualization is available
     if contextualization not in (
         "transcriptomics",
         "proteomics",
         "cytof_init",
         "cytof_dynamic",
     ):
-        # if it does not, raise ValueError
         raise ValueError(f"Unknown contextualization: {contextualization}")
 
     # Make a copy of the measurements table
