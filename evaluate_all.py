@@ -457,6 +457,7 @@ for group in (
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
     plt.savefig(rfile)
+    plt.savefig(rfile.replace(".pdf", ".svg"))
     efile = rfile.replace(".pdf", ".csv")
     data.to_csv(efile)
 
@@ -501,7 +502,7 @@ g2.add_legend()
 plt.tight_layout()
 rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
 plt.savefig(rfile)
-# plt.savefig(rfile.replace('pdf', 'svg'))
+plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # ################################################################ #
@@ -511,8 +512,8 @@ plt.savefig(rfile)
 # subset to where n_hidden is null (n_hidden1 and n_hidden2 will be not null)
 df_plot_n_hidden = stat_test_res_df[stat_test_res_df.n_hidden.isnull()]
 num_contexts = len([context for context, _ in CONTEXTS_FEATURES])
-plt.subplots(num_contexts, 2, figsize=(9, num_contexts*3))
-plt.subplots_adjust(wspace=0.5, hspace=0.5)
+plt.subplots(num_contexts, 2, figsize=(12, num_contexts*4))
+plt.subplots_adjust(wspace=0.5, hspace=0.25)
 index = 1
 for context, _ in CONTEXTS_FEATURES:
     plt.subplot(num_contexts, 2, index)
@@ -549,9 +550,10 @@ for context, _ in CONTEXTS_FEATURES:
     plt.title(f"test statistic | {context}")
     index += 2  # increase subplot index
 # Finally, save the whole figure combining all contexts
+plt.tight_layout()
 rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
 plt.savefig(rfile)
-# plt.savefig(rfile.replace('pdf', 'svg'))
+plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # Volcano plots for significance of various hyperparameter values
@@ -583,18 +585,19 @@ g3.map_dataframe(
     style_order=[True, False],
 )
 
-for (row, col) in g3.axes_dict.keys():
-    g3.axes_dict[row, col].legend(frameon=False)
+for (_, col) in g3.axes_dict.keys():
+    # Only add legend to the first row, spread it across two columns
+    g3.axes_dict['cytof_init', col].legend(frameon=False, ncols=2)
 
 g3.set_titles("{row_name} | {col_name}")
 # g3.add_legend()
 g3.tick_params(direction='in', length=5)
 # g3.set(ylim=(-5, 60))
 # g.fig.subplots_adjust(hspace=0.1, wspace=5)
-
+plt.tight_layout()
 rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plot_stat_test")
 plt.savefig(rfile)
-# plt.savefig(rfile.replace('pdf', 'svg'))
+plt.savefig(rfile.replace('pdf', 'svg'))
 
 
 # Save dataframe to CSV
