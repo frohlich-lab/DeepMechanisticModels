@@ -25,3 +25,7 @@ lint.select = [
 lint.ignore = [
     "T201",
 ]
+
+exclude = [
+    "cytof/pysb",
+]
