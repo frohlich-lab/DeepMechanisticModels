@@ -299,7 +299,6 @@ rule evaluate_training:
         pretrain='True|False',
     resources:
         mem="16GB",
-        mem="16GB",
         runtime="90min",
         nodes=1,
         threads=1,
