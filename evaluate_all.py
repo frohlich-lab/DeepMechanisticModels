@@ -42,7 +42,7 @@ JOBS = tuple([i for i in range(10)])  # need to change this - NO HARDCODING
 dfs = []
 for samples in SPLITS:
     for dataset in [
-        # "train",  # will re-enable once hyperparam grid is narrower
+        # "train",  # TODO @GiacomoFabrini: re-enable once hyperparam grid is narrower
         "test"
     ]:
         print(f'Starting to concatenate training evaluations for {samples}, {dataset}')
