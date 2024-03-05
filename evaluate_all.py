@@ -5,11 +5,9 @@ import fire
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import seaborn as sns
 
 import wandb
 from common import (
-    EVALUATE_ALL,
     EVALUATION_REFERENCE,
     EVALUATION_REFERENCE_REG,
     EVALUATION_TRAINING,
@@ -30,6 +28,118 @@ from training_configuration import (
 )
 from util import Conf
 from stat_test import statistical_significance_test
+from evaluation_plotting import (group_plots,
+                                  performance_barplot,
+                                  n_hidden_pairwise_heatmap,
+                                  volcano_hyperparameter_significance)
+
+
+def aggregate_and_log(df):
+    # Define aggregation groups for DMM
+    gbs = [
+        "dataset",
+        "context",
+        "features",
+        "samples",
+        "ref",
+        "orth_reg_strategy",
+        "latent dim",
+        "l1reg_inflate",
+        "oreg_inflate",
+        "l1reg_encode",
+        "oreg_encode",
+        "job",
+    ]
+
+    data_dmm = pd.DataFrame(
+        [
+            dict(
+                zip(gbs, group),
+                rmse=np.sqrt(np.square(group_df["res"]).mean()),  # mean RMSE across all jobs (not best result)
+            )
+            for group, group_df in df.groupby(gbs)
+        ]
+    )
+
+    # Define aggregation groups for references
+    gbs_refs = [
+        "dataset",
+        "context",
+        "samples",
+        "ref",
+    ]
+
+    df_refs = df[~df.ref.isin(["DMM"])]
+    data_refs = pd.DataFrame(
+        [
+            dict(
+                zip(gbs_refs, group_ref),
+                rmse=np.sqrt(np.square(group_df_ref["res"]).mean()),  # mean RMSE = RMSE (single values)
+            )
+            for group_ref, group_df_ref in df_refs.groupby(gbs_refs)
+        ]
+    )
+
+    data = pd.concat([data_dmm, data_refs]).sort_values(by="ref")
+    #print("Overall evaluation DataFrame is now ready.")
+    # cleanup
+    del df, df_refs, data_dmm, data_refs
+
+    # Prepare statistical test dataframe
+    # Create pivot table for statistical testing
+    cols = ['dataset', 'context', 'features', 'ref',
+            'latent dim', 'orth_reg_strategy',
+            'l1reg_inflate', 'oreg_inflate',
+            'l1reg_encode', 'oreg_encode']
+    # pivot table and create one column per cross-validation split and multistart/job
+    pivot_data = data.pivot_table(index=cols, columns=['samples', 'job'], values='rmse')
+    pivot_data = pivot_data.reset_index()
+    # Create list of the MultiIndex RMSE columns created above
+    multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
+    # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns (same order for all rows)
+    pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]), axis=1)
+    # Add the newly created column to the list of columns to be kept (cols)
+    cols += ['rmse_list']
+    # Subset the pivot table and reduce MultiIndex back to single-level index
+    data_stat_tests = pivot_data[cols]
+    data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
+    print("DataFrame for statistical testing is now ready.")
+
+    stat_test_res_df = statistical_significance_test(data_stat_tests)
+
+    # Log via W&B
+    wandb.init(
+        project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+        config={
+            **conf.__dict__,
+        },
+    )
+
+    for evaluation_df, evaluation_tag in zip(
+            [data, stat_test_res_df], ["evaluate_all", "stat_tests_all"]
+    ):
+        # Save dataframes to CSV
+        evaluation_df.to_csv(
+            evaluations_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
+        )
+
+        # Instantiate artifact
+        evaluation_artifact = wandb.Artifact(
+            name=f"{evaluation_tag}_{conf.model}_{conf.data}",
+            description=evaluation_tag,
+            type="evaluation",
+        )
+        # Add and log artifact
+        evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
+        wandb.log_artifact(evaluation_artifact)
+
+    # Close W&B session
+    wandb.finish()
+
+    return data, stat_test_res_df
 
 
 conf = fire.Fire(Conf)
@@ -241,351 +351,40 @@ df.rename(
     inplace=True,
 )
 
+# Aggregate data into DataFrames for plotting, save the results as CSVs and log them
+# as W&B artifacts
+data, stat_test_res_df = aggregate_and_log(df)
 
-gbs = [
-    "dataset",
-    "context",
-    "features",
-    "samples",
-    "ref",
-    "orth_reg_strategy",
-    "latent dim",
-    "l1reg_inflate",
-    "oreg_inflate",
-    "l1reg_encode",
-    "oreg_encode",
-    "job",
-]
+# ########################################################################### #
+# ############################ Performance Plots ############################ #
+# ########################################################################### #
 
-data_dmm = pd.DataFrame(
-    [
-        dict(
-            zip(gbs, group),
-            rmse=np.sqrt(np.square(group_df["res"]).mean()),  # mean RMSE across all jobs (not best result)
-        )
-        for group, group_df in df.groupby(gbs)
-    ]
+group_plots(
+    dataframe=data,
+    conf=conf
 )
 
-gbs_refs = [
-    "dataset",
-    "context",
-    "samples",
-    "ref",
-]
-
-df_refs = df[~df.ref.isin(["DMM"])]
-data_refs = pd.DataFrame(
-    [
-        dict(
-            zip(gbs_refs, group_ref),
-            rmse=np.sqrt(np.square(group_df_ref["res"]).mean()),  # mean RMSE = RMSE (single values)
-        )
-        for group_ref, group_df_ref in df_refs.groupby(gbs_refs)
-    ]
+performance_barplot(
+    dataframe=data,
+    conf=conf
 )
 
-data = pd.concat([data_dmm, data_refs]).sort_values(by="ref")
-# cleanup
-del df, df_refs, data_dmm, data_refs
-
-print("Overall evaluation DataFrame is now ready.")
-
-# Create pivot table for statistical testing
-cols = ['dataset', 'context', 'features', 'ref',
-        'latent dim', 'orth_reg_strategy',
-        'l1reg_inflate', 'oreg_inflate',
-        'l1reg_encode', 'oreg_encode']
-# pivot table and create one column per cross-validation split and multistart/job
-pivot_data = data.pivot_table(index=cols, columns=['samples', 'job'], values='rmse')
-pivot_data = pivot_data.reset_index()
-# Create list of the MultiIndex RMSE columns created above
-multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
-# Create a single column 'rmse_list' listing all values from each of the MultiIndex columns (same order for all rows)
-pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]), axis=1)
-# Add the newly created column to the list of columns to be kept (cols)
-cols += ['rmse_list']
-# Subset the pivot table and reduce MultiIndex back to single-level index
-data_stat_tests = pivot_data[cols]
-data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
-print("DataFrame for statistical testing is now ready.")
-
-stat_test_res_df = statistical_significance_test(data_stat_tests)
-stat_test_res_df.to_csv(
-    evaluations_dir
-    / f"{conf.model}"
-    / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.stat_tests_all.csv"
-)
-
-
-# ################################################################# #
-# ####################### Performance Plots ####################### #
-# ################################################################# #
-
-def lineplot_methods(data, *args, **kwargs):
-    sns.lineplot(data[data["ref"] == "DMM"], *args, **kwargs)
-
-# Currently unused -> plt.axhline instead
-# def lineplot_refs(data, *args, **kwargs):
-#     # Single plotting function for all references -- this can then be used together with
-#     # hue = "ref" to produce a more useful legend
-#     references = ['avg_model', 'sample', 'linreg', 'lasso', 'elasticnet']
-#     sns.lineplot(
-#         data[data["ref"].isin(references)], #subset
-#         *args, **kwargs
-#     )
-
-
-# Calculate the mean 'rmse' for each 'ref' value
-rmse_refs = data[data['ref'].isin(
-    ['avg_model', 'linreg', 'lasso', 'elasticnet', 'sample']
-)].groupby(
-    ['dataset', 'ref', 'context']
-)['rmse'].mean()
-
-ref_cmap = sns.color_palette("tab10")
-ref_palette_dict = {
-    "avg_model": ref_cmap[0],
-    "linreg": ref_cmap[1],
-    "lasso": ref_cmap[2],
-    "elasticnet": ref_cmap[4],
-    "sample": ref_cmap[5],
-    "DMM": ref_cmap[3],
-}
-ref_linestyle_dict = {
-    "avg_model": 'dotted',
-    "linreg": 'dashed',
-    "lasso": 'dashed',
-    "elasticnet": 'dashed',
-    "sample": 'dotted',
-    "DMM": 'solid',
-}
-
-for group in (
-    "orth_reg_strategy",
-    "l1reg_inflate",
-    "oreg_inflate",
-    "l1reg_encode",
-    "oreg_encode",
-    "job",
-):
-    fig = plt.figure()
-    g = sns.FacetGrid(
-        data=data,
-        row="dataset",
-        col="context",
-        row_order=("train", "test"),
-        col_order=("cytof_init", "proteomics", "transcriptomics"),
-        # sharex = True,
-        sharey=True,
-    )
-
-    g.map_dataframe(
-        lineplot_methods,
-        x=group,
-        y="rmse",
-        hue="features",
-        errorbar="se",
-        style="latent dim",
-        palette="rocket",
-        markers=True,
-    )
-
-    # Apply plt.axhline to each subplot
-    for (dataset, ref, context), rmse in rmse_refs.items():
-        g.axes_dict[dataset, context].axhline(y=rmse,
-                                              color=ref_palette_dict[ref],
-                                              linestyle=ref_linestyle_dict[ref],
-                                              label=ref)
-    # Once done, add legend to last examined dataset and context
-    g.axes_dict[dataset, context].legend(frameon=False, bbox_to_anchor=[1, 1])
-
-    if (group == "job") or (group == "orth_reg_strategy"):
-        g.set(ylim=(0, 1.1))  # symlog for unregularised settings;
-    else:
-        # g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7))  # symlog to include unregularised hyperparam combos
-        g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))   # symlog to include unregularised hyperparam combos
-    # g.add_legend()
-    plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
-    plt.savefig(rfile)
-    plt.savefig(rfile.replace(".pdf", ".svg"))
-    efile = rfile.replace(".pdf", ".csv")
-    data.to_csv(efile)
-
-# PERFORMANCE BARPLOT
-# # avg_model, regression baselines, method (DMM, average with min-max range
-# # across SPLITS, i.e. "samples", and multistarts, i.e. jobs), per_sample
-#
-# data2 = data.groupby(by = ['dataset',
-#                            'context', 'features',
-#                            'ref',
-#                            #'pretrain',
-#                            'orth_reg_strategy', 'latent dim',
-#                            'l1reg_inflate', 'oreg_inflate',
-#                            'l1reg_encode', 'oreg_encode'], as_index=False)['rmse'].mean()
-# useless? It already seems to aggregate over all other features when producing the barplot
-
-fig = plt.figure()
-g2 = sns.FacetGrid(
-    data=data,
-    row="dataset",  # top: train, bottom: test
-    col="context",  # columns: cytof_init, proteomics, transcriptomics
-    row_order=("train", "test"),
-    col_order=("cytof_init", "proteomics", "transcriptomics"),
-)
-
-g2.map_dataframe(
-    sns.barplot,
-    x='ref',  # various regressors on x_axis
-    y="rmse",  # rmse on y axis
-    hue="ref",  # color by method/reference/baseline
-    hue_order=["avg_model",
-               "linreg", "lasso", "elasticnet",
-               "DMM", "sample"],
-    errorbar=lambda x: (x.min(), x.max()),  # display performance range between various jobs using
-    palette=ref_palette_dict,
-)
-
-g2.set(ylim=(0.1, 1.1))
-# rotate xlabels
-g2.tick_params(axis='x', rotation=90)
-g2.add_legend()
-plt.tight_layout()
-rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
-plt.savefig(rfile)
-plt.savefig(rfile.replace('pdf', 'svg'))
-
-
-# ################################################################ #
-# #################### Statistical Test Plots #################### #
-# ################################################################ #
-# n_hidden pairwise comparisons
+# ########################################################################## #
+# ######################### Statistical Test Plots ######################### #
+# ########################################################################## #
+# n_hidden pairwise comparisons:
 # subset to where n_hidden is null (n_hidden1 and n_hidden2 will be not null)
-df_plot_n_hidden = stat_test_res_df[stat_test_res_df.n_hidden.isnull()]
-num_contexts = len([context for context, _ in CONTEXTS_FEATURES])
-plt.subplots(num_contexts, 2, figsize=(12, num_contexts*4))
-plt.subplots_adjust(wspace=0.5, hspace=0.25)
-index = 1
-for context, _ in CONTEXTS_FEATURES:
-    plt.subplot(num_contexts, 2, index)
-    ax = sns.heatmap(
-        df_plot_n_hidden[df_plot_n_hidden.context == context][
-            ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
-        ].pivot(
-            index='n_hidden1', columns='n_hidden2', values='adj_Wilcoxon_p-value'
-        ),
-        annot=True,
-        square=True,
-        vmin=0, vmax=1
-    )
-    ax.invert_yaxis()
-    ax.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
-    ax.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
-    # ax.set_xlim([-1.0, 4])
-    plt.title(f"adjusted p-value | {context}")
-    plt.subplot(num_contexts, 2, index+1)
-    ax2 = sns.heatmap(
-        df_plot_n_hidden[df_plot_n_hidden.context == context][
-            ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
-        ].pivot(
-            index='n_hidden1', columns='n_hidden2', values='Wilcoxon_statistic'
-        ),
-        annot=True,
-        square=True,
-        vmin=1e5, vmax=1.2e7
-    )
-    ax2.invert_yaxis()
-    ax2.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
-    ax2.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
-    # ax2.set_xlim([-1.0, 4])
-    plt.title(f"test statistic | {context}")
-    index += 2  # increase subplot index
-# Finally, save the whole figure combining all contexts
-plt.tight_layout()
-rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
-plt.savefig(rfile)
-plt.savefig(rfile.replace('pdf', 'svg'))
-
-
-# Volcano plots for significance of various hyperparameter values
-def scatterplot_func(data, *args, **kwargs):
-    sns.scatterplot(data, *args, **kwargs)
-
-
+n_hidden_pairwise_heatmap(
+    dataframe=stat_test_res_df[
+        stat_test_res_df.n_hidden.isnull()
+    ],
+    conf=conf
+)
+# Volcano plot of hyperparameter significance in improving (reducing) rmse_val:
 # subset to where n_hidden1 is null (for pairwise n_hidden comparisons above)
-df_plot_hp = stat_test_res_df[stat_test_res_df.n_hidden1.isnull()]
-
-fig = plt.figure(figsize=(30, 10))
-g3 = sns.FacetGrid(
-    data=df_plot_hp,
-    row="context",
-    col="hyperparameter",
-    row_order=("cytof_init", "proteomics", "transcriptomics"),
-    sharey=True,
+volcano_hyperparameter_significance(
+    dataframe=stat_test_res_df[
+        stat_test_res_df.n_hidden1.isnull()
+    ],
+    conf=conf
 )
-
-g3.map_dataframe(
-    scatterplot_func,
-    x="log10_Wilcoxon_statistic",
-    y="-log10_adj_Wilcoxon_p-value",
-    hue="n_hidden",
-    hue_order=[2, 4, 6, 8],
-    size="log10hp_value",   # changed to log10 scale to distinguish 1e2 from 1e4 (identical in linear scale)
-    palette="tab10",
-    style="stat-significant",
-    style_order=[True, False],
-)
-
-for (_, col) in g3.axes_dict.keys():
-    # Only add legend to the first row, spread it across two columns
-    g3.axes_dict['cytof_init', col].legend(frameon=False, ncols=2)
-
-g3.set_titles("{row_name} | {col_name}")
-# g3.add_legend()
-g3.tick_params(direction='in', length=5)
-# g3.set(ylim=(-5, 60))
-# g.fig.subplots_adjust(hspace=0.1, wspace=5)
-plt.tight_layout()
-rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plot_stat_test")
-plt.savefig(rfile)
-plt.savefig(rfile.replace('pdf', 'svg'))
-
-
-# Save dataframe to CSV
-data.to_csv(
-    evaluations_dir
-    / f"{conf.model}"
-    / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.evaluate_all.csv")
-
-# Log via W&B
-wandb.init(
-    project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    config={
-        **conf.__dict__,
-    },
-)
-# Log "evaluate all" artifact
-artifact_eval = wandb.Artifact(
-    name=f"evaluate_all_{conf.model}_{conf.data}",
-    description="evaluate all",
-    type="evaluation",
-)
-artifact_eval.add(wandb.Table(dataframe=data), "evaluate_all.csv")
-wandb.log_artifact(artifact_eval)
-
-# Log "stat test all" artifact
-artifact_stat = wandb.Artifact(
-    name=f"stat_test_all_{conf.model}_{conf.data}",
-    description="stat test all",
-    type="evaluation",
-)
-artifact_stat.add(
-    wandb.Table(dataframe=stat_test_res_df, allow_mixed_types=True),
-    "stat_test_all.csv"
-)
-wandb.log_artifact(artifact_stat)
-# Close W&B session
-wandb.finish()
