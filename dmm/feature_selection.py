@@ -23,7 +23,6 @@ def contextualize_measurements(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     contextualization: str,
-    io_mode: str = 'input',  # modality: input (default)/output
 ) -> pd.DataFrame:
 
     # Check requested contextualization is available
@@ -59,7 +58,9 @@ def contextualize_measurements(
             input_measurements[petab.TIME] == 0
         ]
     # For cytof_dynamic: only keep the observables that are part of the pathway model
-    ## Question: why are we not performing the same subsetting for cytof_init?
+    # TODO @GiacomoFabrini: create full_cytof_dynamic with all markers/observables, even
+        # those outside the model, so that we can evaluate whether the model is capable
+        # to regularise and pick out the relevant information/input markers.
     if contextualization == "cytof_dynamic":
         input_measurements = input_measurements[
             input_measurements[petab.OBSERVABLE_ID].isin(
@@ -95,58 +96,18 @@ def contextualize_measurements(
         aggfunc=np.nanmean,  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
     )
 
-    # in the case of cytof_dynamic used as regression targets, we want to preserve the information
-    # on the number of replicate for each datapoint to use as regression weight -> output both input_data and replicate_weight_matrix
-    if contextualization == 'cytof_dynamic':
-        # only return input_data if data is accessed as input
-        if io_mode == 'input':
-            return input_data
-        # return both input_data and weight matrix if data is accessed as output
-        elif io_mode == 'output':
-            replicate_df = input_measurements.groupby(
-                [petab.PREEQUILIBRATION_CONDITION_ID, *pivot_columns], as_index=False
-            ).size()
-            replicate_weight_matrix = replicate_df.pivot_table(
-                index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
-                columns=pivot_columns,  # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
-                values='size',  # the actual measurement/signal
-                aggfunc=np.nanmean,  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
-            )
-            # Check data matrix and weight matrix have the same shape
-            assert replicate_weight_matrix.shape == input_data.shape
-            # share the same column IDs
-            assert replicate_weight_matrix.columns.equals(input_data.columns)
-            # and the same indices
-            assert replicate_weight_matrix.index.equals(input_data.index)
-
-            return input_data, replicate_weight_matrix
-        else:
-            raise ValueError(f"Unknown input-output mode {io_mode}")
-    # for all other contexts: simply return input_data
-    else:
-        return input_data
+    return input_data
 
 
 def load_data(
-    contextualization, samples, features, measurement_table, observable_table, io_mode = 'input'
+    contextualization, samples, features, measurement_table, observable_table,
 ):
-    if io_mode == 'input':
-        input_data = contextualize_measurements(
-            measurement_table, observable_table, contextualization, io_mode = io_mode
-        )
-    elif io_mode == 'output':
-        input_data, weights = contextualize_measurements(
-            measurement_table, observable_table, contextualization, io_mode=io_mode
-        )
-    else:
-        raise ValueError(f"Unknown input-output mode {io_mode}")
+    input_data = contextualize_measurements(
+        measurement_table, observable_table, contextualization
+    )
 
     # subset samples
     input_data = input_data.loc[samples, :]
-
-    # subset weights if processing output/target
-    if io_mode == 'output':
-        weights = weights.loc[samples, :]
 
     if contextualization == "cytof_dynamic":
         #  nn imputation
@@ -164,8 +125,6 @@ def load_data(
                     continue
                 mask = input_data.loc[:, target].isna()
                 input_data.loc[mask, target] = input_data.loc[mask, source]
-                if io_mode == 'output':
-                    weights.loc[mask, target] = weights.loc[mask, source]
         #  regression imputation
         for marker in ("pERK_Y204_obs", "pMEK_S222_obs"): # all currently considered observables - might need to access, not hardcode
             for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"): # all currently considered conditions - might need to access, not hardcode
@@ -177,26 +136,13 @@ def load_data(
                             input_data.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
                             + input_data.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
                     )
-                    if io_mode == 'output':
-                        # Do the same for weights - average number of replicates between
-                        # surrounding timepoints and cast to integer value
-                        weights.loc[mask, (marker, pert, missing_time)] = (
-                                weights.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
-                                + weights.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
-                        ).astype('int64')
 
     if features:
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
-        if io_mode == 'output':
-            weights = weights[features]
     else:
         # for training, compute feature set
         # filter too many nans
-        if io_mode == 'output':
-            weights = weights.loc[
-                :, input_data.isna().sum() / input_data.shape[0] < 0.2
-            ]
         input_data = input_data.loc[
             :, input_data.isna().sum() / input_data.shape[0] < 0.2
         ]
@@ -221,11 +167,7 @@ def load_data(
                 :, np.nanmedian(input_data, axis=0) > -2.5
             ]
         features = list(input_data.columns)
-    if io_mode == 'input':
-        return input_data, features
-    elif io_mode == 'output':
-        assert input_data.shape == weights.shape
-        return input_data, weights, features
+    return input_data, features
 
 
 def build_preprocesser(

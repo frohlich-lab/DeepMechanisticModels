@@ -27,14 +27,8 @@ from dmm.pretraining import (
 from training_configuration import CONTEXTS_FEATURES
 from util import Conf, load_petab_base_files
 
-from sklearn.linear_model import (LinearRegression,
-                                      MultiTaskLassoCV,
-                                      MultiTaskElasticNetCV)
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import KNNImputer
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
-from sklearn import set_config
+from train_regressors_baseline import train_pipeline
+
 
 conf = fire.Fire(Conf)
 
@@ -45,9 +39,9 @@ cross_sample_dir = outdir / "pretrain_cross_sample"
 cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
 # TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
-# "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
-# that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
-# CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
+    # "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
+    # that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
+    # CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
@@ -104,7 +98,7 @@ def evaluate_pretraining_per_sample(dataset, conf):
             sample=sample,
             model_type="per_sample",
             orth_reg_strategy="None", # not needed for regression
-            job=None, # not needed here
+            job=None,  # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -178,7 +172,7 @@ def evaluate_average(dataset, conf):
             sample=sample,
             model_type="avg",
             orth_reg_strategy="None", # not needed for regression
-            job=None, # not needed here
+            job=None,  # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -269,7 +263,7 @@ def evaluate_average_model(dataset, conf):
             sample=sample,
             model_type="avg_model",
             orth_reg_strategy="None", # not needed for regression
-            job = None, # not needed
+            job=None,  # not needed
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -281,158 +275,74 @@ def evaluate_average_model(dataset, conf):
     return pd.DataFrame(evaluations)
 
 
-def evaluate_standard_regression(dataset, conf, context,
-                                 mode, # 'linreg' for LinearRegression/ 'lasso' for MultiTaskLassoCV/ 'elasticnet' for MultiTaskElasticNetCV
-                                 trained_pipeline = None,
-                                 features_train = None,
-                                 sample_weighing = False):
+def evaluate_standard_regression(
+        dataset,
+        conf,
+        samples,
+        context,
+        mode,  # 'linreg', 'lasso', 'elasticnet'
+        trained_pipeline,
+        features_train,
+):
 
-
-    def build_pipeline(
-            steps_list: str,
-            input_data: np.ndarray,
-            sample_weighing: bool
-    ):
-        set_config(enable_metadata_routing=True)
-
-        # standard steps: scaling, imputation via KNN
-        steps = [
-            ("scaler", StandardScaler()),
-            ("imputer", KNNImputer()),
-        ]
-        # PCA + one among linear regression/lasso/elasticnet
-        if (steps_list is not None) and (len(steps_list)>0):
-            for step in steps_list:
-                if step == "pca":
-                    inputs = Pipeline(steps).fit_transform(input_data)
-                    var_expl = (
-                        PCA(n_components=input_data.shape[0])
-                        .fit(inputs)
-                        .explained_variance_ratio_
-                    )
-                    n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
-                    steps.append(("pca", PCA(n_components=n_pca)))
-                elif step == "linreg":
-                    # steps.append(("linreg", MultiOutputRegressor(LinearRegression().set_fit_request(sample_weight=True))))
-                    # seems like LinearRegression automatically supports MultiOutput/MultiTask
-                    steps.append(("linreg", LinearRegression().set_fit_request(sample_weight=sample_weighing)))
-                elif step == "lasso":
-                    steps.append(("lasso", MultiTaskLassoCV(cv=5, n_alphas=20).set_fit_request(sample_weight=sample_weighing)))
-                elif step == "elasticnet":
-                    steps.append(("elasticnet", MultiTaskElasticNetCV(cv=5, n_alphas=20).set_fit_request(sample_weight=sample_weighing)))
-                else:
-                    raise ValueError(f"Unknown step {step}")
-        else:
-            if steps_list is None:
-                raise TypeError("Expected type list for steps_list, got None type")
-            elif len(steps_list) == 0:
-                raise ValueError("List of pipeline steps is empty")
-
-        return Pipeline(steps)
-
+    # Check the regressors have been trained
+    if trained_pipeline is None:
+        raise ValueError("No trained_pipeline provided for this regressor!")
+    elif (dataset == "test") and (features_train is None):
+        raise ValueError(f"No features_train provided for {dataset} evaluation!")
 
     # Load petab files
     petab_base_files = load_petab_base_files(conf, reweight=False)
     # so far data has not been reweighed when evaluating references, only for training
     del petab_base_files["condition_table"]
 
-    if dataset == "train":
-        # Fetch and load training samples -- always needed to train
-        samples_train = samples["train"]
+    # Subset to "train"/"test"
+    samples_eval = samples[dataset]
 
-        # Load input and output training data
-        input_train, features_train = load_data(
-            contextualization=context,
-            samples=samples_train,
-            features=None,
-            **petab_base_files,
-            io_mode='input',
-        )
-        output_train, weights, targets_train = load_data(
-            contextualization="cytof_dynamic",
-            samples=samples_train,
-            features=None,
-            **petab_base_files,
-            io_mode='output',
-        )
+    # Load input and output data
+    input_data, _ = load_data(
+        contextualization=context,
+        samples=samples_eval,
+        features=features_train if dataset=="test" else None,
+        **petab_base_files,
+    )
+    output_data, _, _ = load_data(
+        contextualization="cytof_dynamic",
+        samples=samples_eval,
+        features=None,
+        **petab_base_files,
+    )
 
-        if trained_pipeline is None:
-            # Build pipeline: add PCA and estimator to scaling and imputation steps
-            pipeline = build_pipeline(steps_list= ["pca", mode],
-                                      input_data = input_train,
-                                      sample_weighing=sample_weighing)
-            # Select whether to use sample weights - currently NOT using them
-            if (mode in ['linreg']) and sample_weighing:  # others do not support sample_weight
-                # Aggregate sample_weights - right now sample_weight only works if we have one weight per data row
-                # i.e. it works well for single target regression, but not for MultiTask regression
-                # might have to do one regression per target to use this info
-                sample_weights = weights.to_numpy().sum(axis = 1)
-                # Fetch last step name to produce argument for sample_weight
-                kwargs = {pipeline.steps[-1][0] + '__sample_weight': sample_weights}
-                # Perform weighted fit
-                pipeline.fit(input_train, output_train, **kwargs)
-            else: # either sample_weighing == False or mode != 'linreg'
-                pipeline.fit(input_train, output_train)
-
-            return pipeline, features_train
-
-        elif trained_pipeline is not None:
-            # Predict on train, using trained_pipeline
-            reg_pred = trained_pipeline.predict(input_train)
-            output_data = output_train
-
-    # same for the test set
-    elif dataset == "test":
-        if trained_pipeline is None:
-            raise ValueError("No pipeline provided as trained_pipeline!")
-        elif features_train is None:
-            raise ValueError("No features_train provided!")
-        else:
-            # Fetch test data
-            samples_test = samples["test"]
-
-            input_test, _ = load_data(
-                contextualization=context,
-                samples=samples_test,
-                features=features_train,
-                **petab_base_files,
-                io_mode = 'input',
-            )
-
-            output_test, _, _ = load_data(
-                contextualization="cytof_dynamic",
-                samples=samples_test,
-                features=None,
-                **petab_base_files,
-                io_mode='output',
-            )
-
-            # Transform test data with pipeline and predict (all in .predict())
-            reg_pred = trained_pipeline.predict(input_test)
-            # Some output_test turned out to be NaNs simply because of missing imputation at 13h for EGF (other conditions were imputed)
-            # and at 40h (timepoint was not considered for imputation)
-            # reg_pred = reg_pred[~output_test.isna()]
-            output_data = output_test
-
-    # Process regression output (reg_pred) and output data before plotting and evaluating simulations
+    # Process regression output/predictions (reg_pred) and output data before plotting and evaluating simulations
     # Convert into pandas dataframe with same index and column headers as output_test
-    reg_pred = pd.DataFrame(reg_pred, index=output_data.index, columns=output_data.columns)
-
-    # Process dataframes to use with plot_cross_samples and process_simulation
-    # reg_pred
-    reg_pred = reg_pred.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-    reg_pred = reg_pred.reset_index().drop(columns='index')
-    # Rename value column from 0 to 'simulation' to use in process_simulation()
-    reg_pred.rename(columns={0: "simulation"}, inplace=True)
+    # Then process to use with plot_cross_samples() and process_simulation()
+    # Finally drop index and rename column from 0 to 'simulation' to use in process_simulation()
+    reg_pred = pd.DataFrame(
+        trained_pipeline.predict(input_data),
+        index=output_data.index,
+        columns=output_data.columns
+    ).T.stack().reset_index().sort_values(
+        by=[
+            'preequilibrationConditionId',
+            'observableId',
+            'simulationConditionId',
+            'time'
+        ]
+    ).reset_index().drop(columns='index').rename(columns={0: "simulation"})
 
     # output_data
-    output_data = output_data.T.stack().reset_index().sort_values(by=['preequilibrationConditionId', 'observableId', 'simulationConditionId', 'time'])
-    output_data = output_data.reset_index().drop(columns='index')
-    # Rename value column from 0 to 'measurement' to use in process_simulation()
-    output_data.rename(columns={0: "measurement"}, inplace=True)
+    # Column needs renaming from 0 to "measurement" for use in process_simulation()
+    output_data = output_data.T.stack().reset_index().sort_values(
+        by=[
+            'preequilibrationConditionId',
+            'observableId',
+            'simulationConditionId',
+            'time'
+        ]
+    ).reset_index().drop(columns='index').rename(columns={0: "measurement"})
 
 
-    # Produce plots to analyse performance -- block of code is shared between train/test
+    # Produce plots to analyse performance
     # import original output data as in avg/avg_model
     df_meas = pd.read_csv(
         MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
@@ -483,8 +393,8 @@ def evaluate_standard_regression(dataset, conf, context,
             context=context,
             sample=sample,
             model_type=mode,
-            orth_reg_strategy="None", # not needed for regression
-            job = None, # not needed here
+            orth_reg_strategy="None",  # not needed for regression
+            job=None, # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -502,12 +412,17 @@ features_train = {}
 for context, _ in CONTEXTS_FEATURES:
     trained_pipelines[context], features_train[context] = {}, {}
     for mode in ['linreg', 'lasso', 'elasticnet']:
-        #print(f'Training estimator {mode} on context {context}...')
-        trained_pipelines[context][mode], features_train[context][mode] = evaluate_standard_regression("train", conf, context, mode=mode)
+        trained_pipelines[context][mode], features_train[context][mode] = train_pipeline(
+            pipeline_steps= ["pca", mode],
+            conf=conf,
+            context=context,
+            samples_train=samples["train"],
+        )
         print(f'Estimator {mode} trained on context {context}')
 
-# Evaluate regressions
+# Evaluate references/baselines
 for dataset in ["train", "test"]:
+
     # model average ("avg_model")
     df = evaluate_average_model(dataset, conf)
     df.to_csv(
@@ -538,25 +453,27 @@ for dataset in ["train", "test"]:
         )
     )
 
-    # Regression baseline ("linreg", "lasso", "elasticnet")
+    # Regressors ("linreg", "lasso", "elasticnet")
     for context, _ in CONTEXTS_FEATURES:
         # Regression baseline first
         for mode in ['linreg', 'lasso', 'elasticnet']:
-            df = evaluate_standard_regression(dataset,
-                                              conf,
-                                              context,
-                                              mode = mode,
-                                              trained_pipeline=trained_pipelines[context][mode],
-                                              features_train=features_train[context][mode]
-                                              )
+            df = evaluate_standard_regression(
+                dataset=dataset,
+                conf=conf,
+                samples=samples,
+                context=context,
+                mode=mode,
+                trained_pipeline=trained_pipelines[context][mode],
+                features_train=features_train[context][mode]
+            )
+
             df.to_csv(
                 EVALUATION_REFERENCE_REG.format(
-                    model = conf.model,
-                    data = conf.data,
-                    samples = conf.samples,
+                    model=conf.model,
+                    data=conf.data,
+                    samples=conf.samples,
                     dataset=dataset,
                     mode=mode,
                     context=context,
                 )
             )
-
