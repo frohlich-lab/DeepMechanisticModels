@@ -37,10 +37,6 @@ def statistical_significance_test(data_stat_tests):
     # only interested in carrying out statistical tests on DMM results
     dmm_stat_tests = data_stat_tests[data_stat_tests.ref == 'DMM']
 
-    counter = 0
-    counter_n_hidden = 0
-    counter_hp = 0
-
     hyperparameter_values = {
         'n_hidden': LATENT_DIMS,
         'l1reg_inflate': ALPHAS,
@@ -57,11 +53,16 @@ def statistical_significance_test(data_stat_tests):
         'n_hidden'
     ]
 
+    # Initialise list of DataFrames for overall results
+    res_dfs = []
+
     if len(ORTH_REG_STRATEGIES) > 1:  # if only one strategy, do not test
         hyperparam_list = ['orth_reg_strategy'] + hyperparam_list
 
     for hyperparameter in hyperparam_list:
         if hyperparameter == 'n_hidden':
+            # Initialise list of DataFrames for n_hidden comparisons
+            res_dfs_n_hidden = []
             for n_hidden_pair in itt.combinations(hyperparameter_values[hyperparameter], 2):
                 n_hidden1, n_hidden2 = n_hidden_pair
 
@@ -78,12 +79,12 @@ def statistical_significance_test(data_stat_tests):
                 res_df_partial['test_kind'] = f"RMSE_{n_hidden1} < RMSE_{n_hidden2}"
                 res_df_partial['n_hidden'] = None
 
-                if counter_n_hidden == 0:
-                    res_df_n_hidden = res_df_partial
-                    counter_n_hidden += 1
-                else:
-                    res_df_n_hidden = pd.concat([res_df_n_hidden, res_df_partial], axis=0)
-            # after evaluating all pairs
+                res_dfs_n_hidden.append(res_df_partial)
+
+            # After evaluating all pairs
+            # Concatenate into single DataFrame to adjust p-values
+            res_df_n_hidden = pd.concat([*res_dfs_n_hidden])
+            # Compute adjusted p-values for t-test and Wilcoxon test
             res_df_n_hidden['adj_t-test_p-value'] = res_df_n_hidden.groupby(
                 by=['context']
             )['t-test_p-value'].transform(
@@ -95,86 +96,79 @@ def statistical_significance_test(data_stat_tests):
                 lambda x: false_discovery_control(x)
             )   # most conservative option - group all tests for the same context together
             # now concatenate this to the rest of the dataframe or start it if it does not exist yet
-            if counter == 0:
-                res_df = res_df_n_hidden
-                counter += 1
-            else:
-                res_df = pd.concat([res_df, res_df_n_hidden])
-                del res_df_n_hidden
+
+            res_dfs.append(res_df_n_hidden)
+
+        elif hyperparameter == 'orth_reg_strategy':
+            # Single comparison: L1 vs L2 - do not need list of DataFrames
+            res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
+                lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
+                                                    hp_value1='L1',
+                                                    hp_value2='L2',
+                                                    alternative='greater')
+            ).reset_index().rename(columns={'latent dim': 'n_hidden'})
+            res_df_partial['hyperparameter'] = hyperparameter
+            res_df_partial['hyperparameter_value'] = 'L2 vs L1'
+            res_df_partial['n_hidden1'] = None
+            res_df_partial['n_hidden2'] = None
+            res_df_partial['test_kind'] = "RMSE_L1 > RMSE_L2"
+            # p-values for orth_reg_strategy can be adjusted right away
+            res_df_partial['adj_t-test_p-value'] = res_df_partial.groupby(
+                by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
+                lambda x: false_discovery_control(x)
+            )
+            res_df_partial['adj_Wilcoxon_p-value'] = res_df_partial.groupby(
+                by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
+                lambda x: false_discovery_control(x)
+            )
+
+            # Append to list of overall results
+            res_dfs.append(res_df_partial)
 
         else:
-            if hyperparameter == 'orth_reg_strategy':
+            # Initialise list of DataFrames for pair-wise hyperparameter value vs 0 comparisons
+            # (gets re-initialised for every newly examined hyperparameter)
+            res_dfs_hp = []
+            pairs = [pair for pair in itt.combinations(hyperparameter_values[hyperparameter], 2) if pair[0] == 0]
+            for pair in pairs:
+                hp_value1, hp_value2 = pair
                 res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
                     lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
-                                                        hp_value1='L1',
-                                                        hp_value2='L2',
+                                                        hp_value1=hp_value1,
+                                                        hp_value2=hp_value2,
                                                         alternative='greater')
                 ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                 res_df_partial['hyperparameter'] = hyperparameter
-                res_df_partial['hyperparameter_value'] = 'L2 vs L1'
+                res_df_partial['hyperparameter_value'] = hp_value2
                 res_df_partial['n_hidden1'] = None
                 res_df_partial['n_hidden2'] = None
-                res_df_partial['test_kind'] = "RMSE_L1 > RMSE_L2"
-                # p-values for orth_reg_strategy can be adjusted right away
-                res_df_partial['adj_t-test_p-value'] = res_df_partial.groupby(
-                    by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
-                    lambda x: false_discovery_control(x)
-                )
-                res_df_partial['adj_Wilcoxon_p-value'] = res_df_partial.groupby(
-                    by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
-                    lambda x: false_discovery_control(x)
-                )
+                res_df_partial['test_kind'] = f"RMSE_{hp_value1} > RMSE_{hp_value2}"
 
-                if counter == 0:
-                    res_df = res_df_partial
-                    counter += 1
-                else:
-                    res_df = pd.concat([res_df, res_df_partial], axis=0)
+                res_dfs_hp.append(res_df_partial)
+            # After evaluating all pairs
+            # Concatenate into single DataFrame to adjust p-values
+            res_df_hp = pd.concat([*res_dfs_hp])
+            # Compute adjusted p-values for t-test and Wilcoxon test
+            res_df_hp['adj_t-test_p-value'] = res_df_hp.groupby(
+                by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
+                lambda x: false_discovery_control(x)
+            )
+            res_df_hp['adj_Wilcoxon_p-value'] = res_df_hp.groupby(
+                by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
+                lambda x: false_discovery_control(x)
+            )
+            # Append to list of overall results
+            res_dfs.append(res_df_hp)
 
-            else:
-                pairs = [pair for pair in itt.combinations(hyperparameter_values[hyperparameter], 2) if pair[0] == 0]
-                for pair in pairs:
-                    hp_value1, hp_value2 = pair
-                    res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
-                        lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
-                                                            hp_value1=hp_value1,
-                                                            hp_value2=hp_value2,
-                                                            alternative='greater')
-                    ).reset_index().rename(columns={'latent dim': 'n_hidden'})
-                    res_df_partial['hyperparameter'] = hyperparameter
-                    res_df_partial['hyperparameter_value'] = hp_value2
-                    res_df_partial['n_hidden1'] = None
-                    res_df_partial['n_hidden2'] = None
-                    res_df_partial['test_kind'] = f"RMSE_{hp_value1} > RMSE_{hp_value2}"
-
-                    if counter_hp == 0:
-                        res_df_hp = res_df_partial
-                        counter_hp += 1
-                    else:
-                        res_df_hp = pd.concat([res_df_hp, res_df_partial], axis=0)
-                # After evaluating all pairs
-                res_df_hp['adj_t-test_p-value'] = res_df_hp.groupby(
-                    by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
-                    lambda x: false_discovery_control(x)
-                )
-                res_df_hp['adj_Wilcoxon_p-value'] = res_df_hp.groupby(
-                    by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
-                    lambda x: false_discovery_control(x)
-                )
-                # Restart counter
-                counter_hp = 0
-                # and concatenate results to growing res_df
-                if counter == 0:
-                    res_df = res_df_hp
-                    counter += 1
-                else:
-                    res_df = pd.concat([res_df, res_df_hp], axis=0)
-                    del res_df_hp
-
+    # Concatenate all results DataFrames into one
+    res_df = pd.concat([*res_dfs])
+    # Compute log10-scaled Wilcoxon adjusted p-value and Wilcoxon statistic (for plots)
     res_df['-log10_adj_Wilcoxon_p-value'] = -np.log10(res_df['adj_Wilcoxon_p-value'])
     res_df['log10_Wilcoxon_statistic'] = np.log10(res_df['Wilcoxon_statistic'])
+    # Determine which hyperparam combinations induce a statistically significant improvement
+    # criterion: adjusted (false discovery rate) Wilcoxon test p-value < 0.05
     res_df['stat-significant'] = res_df['adj_Wilcoxon_p-value'] < 0.05
+    # Compute log10-scaled hyperparameter value (apart from orth_reg_strategy)
     res_df['log10hp_value'] = res_df['hyperparameter_value'].apply(
         lambda x: np.log10(x) if np.issubdtype(type(x), np.number) else x)
-    # res_df.to_csv('stat_tests_all.csv')
     return res_df
