@@ -53,7 +53,10 @@ train(
     schedule_config=schedule_config,
     n_epoch=1000,
     x0=x0,
-    early_stopping=True,
-    patience=10,  # num consecutive epochs where we tolerate rmse_val not improving
-    improvement_threshold=0.01,  # relative improvement of 1%
+    use_early_stopping=True,  # enables flax.training.early_stopping
+    patience=9,  # number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
+    # flax evaluates early_stop.should_stop before updating early_stop.patience_count, so it actually stops
+    # when early_stop.patience_count=patience+1, hence setting it to 9 for a desired max early_stop.patience_count=10
+    min_improvement=5e-3,  # min_delta for flax.training.early_stopping: absolute improvement
+    # 1% relative improvement on rmse_val around 0.5 corresponds to 5e-3 absolute improvement
 )
