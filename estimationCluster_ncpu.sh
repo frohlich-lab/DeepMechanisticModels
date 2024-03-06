@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 #SBATCH -c 1
 #SBATCH -N 1
 #SBATCH -t 7-00:00
