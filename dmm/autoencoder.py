@@ -5,7 +5,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pypesto.petab
-from jax.config import config
+from jax import config
 from sklearn.decomposition import PCA
 
 from . import MODEL_FEATURE_PREFIX
