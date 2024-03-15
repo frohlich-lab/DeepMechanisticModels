@@ -1,1 +1,197 @@
-{"payload":{"allShortcutsEnabled":true,"fileTree":{"cytof/pysb":{"items":[{"name":"EGFR_MAPK.py","path":"cytof/pysb/EGFR_MAPK.py","contentType":"file"}],"totalCount":1},"cytof":{"items":[{"name":"pysb","path":"cytof/pysb","contentType":"directory"},{"name":"__init__.py","path":"cytof/__init__.py","contentType":"file"},{"name":"data.py","path":"cytof/data.py","contentType":"file"},{"name":"pathways.py","path":"cytof/pathways.py","contentType":"file"},{"name":"problem.py","path":"cytof/problem.py","contentType":"file"},{"name":"pw_EGFR.py","path":"cytof/pw_EGFR.py","contentType":"file"},{"name":"pw_EGFR_MAPK.py","path":"cytof/pw_EGFR_MAPK.py","contentType":"file"},{"name":"pw_EGFR_MAPK_AKT.py","path":"cytof/pw_EGFR_MAPK_AKT.py","contentType":"file"},{"name":"pw_EGFR_MAPK_AKT_STAT.py","path":"cytof/pw_EGFR_MAPK_AKT_STAT.py","contentType":"file"},{"name":"pw_EGFR_MAPK_AKT_STAT_S6.py","path":"cytof/pw_EGFR_MAPK_AKT_STAT_S6.py","contentType":"file"},{"name":"pw_EGFR_MAPK_STAT.py","path":"cytof/pw_EGFR_MAPK_STAT.py","contentType":"file"}],"totalCount":11},"":{"items":[{"name":"cytof","path":"cytof","contentType":"directory"},{"name":"dmm","path":"dmm","contentType":"directory"},{"name":".gitignore","path":".gitignore","contentType":"file"},{"name":".gitmodules","path":".gitmodules","contentType":"file"},{"name":".pre-commit-config.yaml","path":".pre-commit-config.yaml","contentType":"file"},{"name":"Analyse Offset.ipynb","path":"Analyse Offset.ipynb","contentType":"file"},{"name":"Analyze Contextualization Pars.ipynb","path":"Analyze Contextualization Pars.ipynb","contentType":"file"},{"name":"Cytof Data Analysis.ipynb","path":"Cytof Data Analysis.ipynb","contentType":"file"},{"name":"Evaluate All.ipynb","path":"Evaluate All.ipynb","contentType":"file"},{"name":"Evaluate Pretraining.ipynb","path":"Evaluate Pretraining.ipynb","contentType":"file"},{"name":"Evaluate Training.ipynb","path":"Evaluate Training.ipynb","contentType":"file"},{"name":"README.md","path":"README.md","contentType":"file"},{"name":"Snakefile","path":"Snakefile","contentType":"file"},{"name":"collect_estimation.py","path":"collect_estimation.py","contentType":"file"},{"name":"common.py","path":"common.py","contentType":"file"},{"name":"compile_model.py","path":"compile_model.py","contentType":"file"},{"name":"estimationLocal.sh","path":"estimationLocal.sh","contentType":"file"},{"name":"evaluate_all.py","path":"evaluate_all.py","contentType":"file"},{"name":"evaluate_reference.py","path":"evaluate_reference.py","contentType":"file"},{"name":"evaluate_training.py","path":"evaluate_training.py","contentType":"file"},{"name":"pretrain_average.py","path":"pretrain_average.py","contentType":"file"},{"name":"pretrain_per_sample.py","path":"pretrain_per_sample.py","contentType":"file"},{"name":"pretrain_per_sample_reg.py","path":"pretrain_per_sample_reg.py","contentType":"file"},{"name":"process_data.py","path":"process_data.py","contentType":"file"},{"name":"pyproject.toml","path":"pyproject.toml","contentType":"file"},{"name":"reweight_data.py","path":"reweight_data.py","contentType":"file"},{"name":"select_features.py","path":"select_features.py","contentType":"file"},{"name":"single_cell.ipynb","path":"single_cell.ipynb","contentType":"file"},{"name":"train.py","path":"train.py","contentType":"file"},{"name":"training_configuration.py","path":"training_configuration.py","contentType":"file"},{"name":"up_ids.json","path":"up_ids.json","contentType":"file"},{"name":"util.py","path":"util.py","contentType":"file"}],"totalCount":32}},"fileTreeProcessingTime":10.20016,"foldersToFetch":[],"repo":{"id":366143102,"defaultBranch":"main","name":"DeepMechanisticModels","ownerLogin":"frohlich-lab","currentUserCanPush":true,"isFork":false,"isEmpty":false,"createdAt":"2021-05-10T19:41:28.000+01:00","ownerAvatar":"https://avatars.githubusercontent.com/u/114857207?v=4","public":false,"private":true,"isOrgOwned":true},"symbolsExpanded":true,"treeExpanded":true,"refInfo":{"name":"main","listCacheKey":"v0:1699375074.0","canEdit":true,"refType":"branch","currentOid":"4f706ddf4918ec822cce4ad5dcc19b30ca979e46"},"path":"cytof/pysb/EGFR_MAPK.py","currentUser":{"id":65025875,"login":"GiacomoFabrini","userEmail":"giacomo.fabrini@crick.ac.uk"},"blob":{"rawLines":["# exported from PySB model 'EGFR_MAPK'","","from pysb import (","    ANY,","    WILD,","    Annotation,","    Compartment,","    EnergyPattern,","    Expression,","    Initial,","    MatchOnce,","    Model,","    Monomer,","    MultiState,","    Observable,","    Parameter,","    Rule,","    Tag,","    as_complex_pattern,",")","","Model()","","Monomer(\"EGF\", [\"inh\"])","Monomer(\"EGFR\", [\"Y1173\", \"inh\"], {\"Y1173\": [\"u\", \"p\"]})","Monomer(\"MEK\", [\"S222\", \"inh\"], {\"S222\": [\"u\", \"p\"]})","Monomer(\"ERK\", [\"Y204\", \"inh\"], {\"Y204\": [\"u\", \"p\"]})","","Parameter(\"EGF_0\", 0.0)","Parameter(\"EGFR_eq\", 100.0)","Parameter(\"INPUT_EGFR_eq\", 0.0)","Parameter(\"EGFR_degradation_kdeg\", 0.0)","Parameter(\"EGFR_dephosphorylation_Y1173_base_kcat\", 0.0)","Parameter(\"INPUT_EGFR_dephosphorylation_Y1173_base_kcat\", 0.0)","Parameter(\"EGFR_phosphorylation_Y1173_base_kr\", 0.0)","Parameter(\"INPUT_EGFR_phosphorylation_Y1173_base_kr\", 0.0)","Parameter(\"EGFR_phosphorylation_Y1173_kr\", 1.0)","Parameter(\"INPUT_EGFR_phosphorylation_Y1173_kr\", 0.0)","Parameter(\"degradation_EGFR__Y1173_p_kr\", 0.0)","Parameter(\"MEK_eq\", 100.0)","Parameter(\"INPUT_MEK_eq\", 0.0)","Parameter(\"MEK_dephosphorylation_S222_base_kcat\", 0.0)","Parameter(\"INPUT_MEK_dephosphorylation_S222_base_kcat\", 0.0)","Parameter(\"MEK_phosphorylation_S222_base_kr\", 0.0)","Parameter(\"INPUT_MEK_phosphorylation_S222_base_kr\", 0.0)","Parameter(\"ERK_eq\", 100.0)","Parameter(\"INPUT_ERK_eq\", 0.0)","Parameter(\"ERK_dephosphorylation_Y204_base_kcat\", 0.0)","Parameter(\"INPUT_ERK_dephosphorylation_Y204_base_kcat\", 0.0)","Parameter(\"MEK_phosphorylation_S222_kr\", 1.0)","Parameter(\"INPUT_MEK_phosphorylation_S222_kr\", 0.0)","Parameter(\"MEK_deactivation_S222_ERK__Y204_p_kw\", 0.0)","Parameter(\"INPUT_MEK_deactivation_S222_ERK__Y204_p_kw\", 0.0)","Parameter(\"ERK_phosphorylation_Y204_kr\", 1.0)","Parameter(\"INPUT_ERK_phosphorylation_Y204_kr\", 0.0)","Parameter(\"iMEK_0\", 0.0)","Parameter(\"iMEK_MEK__S222_p_obs_kd\", 0.0)","Parameter(\"INPUT_iMEK_MEK__S222_p_obs_kd\", 0.0)","Parameter(\"iEGFR_0\", 0.0)","Parameter(\"iEGFR_EGFR__Y1173_p_obs_kd\", 0.0)","Parameter(\"INPUT_iEGFR_EGFR__Y1173_p_obs_kd\", 0.0)","Parameter(\"iPI3K_0\", 0.0)","Parameter(\"iPKC_0\", 0.0)","","Expression(\"EGFR_init\", EGFR_eq * INPUT_EGFR_eq)","Expression(\"EGFR_degradation_rate\", EGFR_degradation_kdeg)","Expression(\"EGFR_synthesis_rate\", EGFR_degradation_rate * EGFR_init)","Expression(","    \"EGFR_dephosphorylation_Y1173_base_rate\",","    EGFR_dephosphorylation_Y1173_base_kcat","    * INPUT_EGFR_dephosphorylation_Y1173_base_kcat,",")","Expression(","    \"EGFR_phosphorylation_Y1173_base_rate\",","    EGFR_dephosphorylation_Y1173_base_rate","    * EGFR_phosphorylation_Y1173_base_kr","    * INPUT_EGFR_phosphorylation_Y1173_base_kr,",")","Expression(","    \"degradation_EGFR__Y1173_p_rate\",","    EGFR_degradation_rate * degradation_EGFR__Y1173_p_kr,",")","Expression(\"MEK_init\", INPUT_MEK_eq * MEK_eq)","Expression(","    \"MEK_dephosphorylation_S222_base_rate\",","    INPUT_MEK_dephosphorylation_S222_base_kcat","    * MEK_dephosphorylation_S222_base_kcat,",")","Expression(","    \"MEK_phosphorylation_S222_base_rate\",","    MEK_dephosphorylation_S222_base_rate","    * INPUT_MEK_phosphorylation_S222_base_kr","    * MEK_phosphorylation_S222_base_kr,",")","Expression(\"ERK_init\", ERK_eq * INPUT_ERK_eq)","Expression(","    \"ERK_dephosphorylation_Y204_base_rate\",","    ERK_dephosphorylation_Y204_base_kcat","    * INPUT_ERK_dephosphorylation_Y204_base_kcat,",")","","Observable(\"EGF_obs\", EGF(inh=None))","Observable(\"EGFR__Y1173_p_obs\", EGFR(Y1173=\"p\", inh=None))","Observable(\"ERK__Y204_p_obs\", ERK(Y204=\"p\", inh=None))","Observable(\"MEK__S222_p_obs\", MEK(S222=\"p\", inh=None))","Observable(\"pEGFR_Y1173\", EGFR(Y1173=\"p\"))","Observable(\"pMEK_S222\", MEK(S222=\"p\"))","Observable(\"pERK_Y204\", ERK(Y204=\"p\"))","","Expression(","    \"free_EGFR__Y1173_p_obs\",","    EGFR__Y1173_p_obs","    / (","        1","        + iEGFR_0","        / (INPUT_iEGFR_EGFR__Y1173_p_obs_kd * iEGFR_EGFR__Y1173_p_obs_kd)","    ),",")","Expression(","    \"free_MEK__S222_p_obs\",","    MEK__S222_p_obs","    / (1 + iMEK_0 / (INPUT_iMEK_MEK__S222_p_obs_kd * iMEK_MEK__S222_p_obs_kd)),",")","Expression(","    \"EGFR_phosphorylation_Y1173_activation_rate\",","    1.0","    * EGFR_dephosphorylation_Y1173_base_rate","    * EGF_obs","    * EGFR_phosphorylation_Y1173_kr","    * INPUT_EGFR_phosphorylation_Y1173_kr,",")","Expression(","    \"MEK_phosphorylation_S222_activation_rate\",","    MEK_dephosphorylation_S222_base_rate","    * free_EGFR__Y1173_p_obs","    * INPUT_MEK_phosphorylation_S222_kr","    * MEK_phosphorylation_S222_kr","    / (","        ERK__Y204_p_obs","        * INPUT_MEK_deactivation_S222_ERK__Y204_p_kw","        * MEK_deactivation_S222_ERK__Y204_p_kw","        + 1.0","    ),",")","Expression(","    \"ERK_phosphorylation_Y204_activation_rate\",","    1.0","    * ERK_dephosphorylation_Y204_base_rate","    * free_MEK__S222_p_obs","    * ERK_phosphorylation_Y204_kr","    * INPUT_ERK_phosphorylation_Y204_kr,",")","","Rule(\"synthesis_EGFR\", None >> EGFR(Y1173=\"u\", inh=None), EGFR_synthesis_rate)","Rule(\"degradation_EGFR\", EGFR() >> None, EGFR_degradation_rate)","Rule(","    \"EGFR_base_regulation_Y1173_p\",","    EGFR(Y1173=\"p\") | EGFR(Y1173=\"u\"),","    EGFR_dephosphorylation_Y1173_base_rate,","    EGFR_phosphorylation_Y1173_base_rate,",")","Rule(","    \"EGFR_phosphorylation_Y1173_activation\",","    EGFR(Y1173=\"u\") >> EGFR(Y1173=\"p\"),","    EGFR_phosphorylation_Y1173_activation_rate,",")","Rule(","    \"degradation_EGFR__Y1173_p\",","    EGFR(Y1173=\"p\") >> None,","    degradation_EGFR__Y1173_p_rate,",")","Rule(","    \"MEK_base_regulation_S222_p\",","    MEK(S222=\"p\") | MEK(S222=\"u\"),","    MEK_dephosphorylation_S222_base_rate,","    MEK_phosphorylation_S222_base_rate,",")","Rule(","    \"ERK_base_regulation_Y204_p\",","    ERK(Y204=\"p\") >> ERK(Y204=\"u\"),","    ERK_dephosphorylation_Y204_base_rate,",")","Rule(","    \"MEK_phosphorylation_S222_activation\",","    MEK(S222=\"u\") >> MEK(S222=\"p\"),","    MEK_phosphorylation_S222_activation_rate,",")","Rule(","    \"ERK_phosphorylation_Y204_activation\",","    ERK(Y204=\"u\") >> ERK(Y204=\"p\"),","    ERK_phosphorylation_Y204_activation_rate,",")","","Initial(EGF(inh=None), EGF_0, fixed=True)","Initial(EGFR(Y1173=\"u\", inh=None), EGFR_init)","Initial(MEK(S222=\"u\", inh=None), MEK_init)","Initial(ERK(Y204=\"u\", inh=None), ERK_init)"],"stylingDirectives":[[{"start":0,"end":38,"cssClass":"pl-c"}],[],[{"start":0,"end":4,"cssClass":"pl-k"},{"start":5,"end":9,"cssClass":"pl-s1"},{"start":10,"end":16,"cssClass":"pl-k"}],[{"start":4,"end":7,"cssClass":"pl-v"}],[{"start":4,"end":8,"cssClass":"pl-v"}],[{"start":4,"end":14,"cssClass":"pl-v"}],[{"start":4,"end":15,"cssClass":"pl-v"}],[{"start":4,"end":17,"cssClass":"pl-v"}],[{"start":4,"end":14,"cssClass":"pl-v"}],[{"start":4,"end":11,"cssClass":"pl-v"}],[{"start":4,"end":13,"cssClass":"pl-v"}],[{"start":4,"end":9,"cssClass":"pl-v"}],[{"start":4,"end":11,"cssClass":"pl-v"}],[{"start":4,"end":14,"cssClass":"pl-v"}],[{"start":4,"end":14,"cssClass":"pl-v"}],[{"start":4,"end":13,"cssClass":"pl-v"}],[{"start":4,"end":8,"cssClass":"pl-v"}],[{"start":4,"end":7,"cssClass":"pl-v"}],[{"start":4,"end":22,"cssClass":"pl-s1"}],[],[],[{"start":0,"end":5,"cssClass":"pl-v"}],[],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":13,"cssClass":"pl-s"},{"start":16,"end":21,"cssClass":"pl-s"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":14,"cssClass":"pl-s"},{"start":17,"end":24,"cssClass":"pl-s"},{"start":26,"end":31,"cssClass":"pl-s"},{"start":35,"end":42,"cssClass":"pl-s"},{"start":45,"end":48,"cssClass":"pl-s"},{"start":50,"end":53,"cssClass":"pl-s"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":13,"cssClass":"pl-s"},{"start":16,"end":22,"cssClass":"pl-s"},{"start":24,"end":29,"cssClass":"pl-s"},{"start":33,"end":39,"cssClass":"pl-s"},{"start":42,"end":45,"cssClass":"pl-s"},{"start":47,"end":50,"cssClass":"pl-s"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":13,"cssClass":"pl-s"},{"start":16,"end":22,"cssClass":"pl-s"},{"start":24,"end":29,"cssClass":"pl-s"},{"start":33,"end":39,"cssClass":"pl-s"},{"start":42,"end":45,"cssClass":"pl-s"},{"start":47,"end":50,"cssClass":"pl-s"}],[],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":17,"cssClass":"pl-s"},{"start":19,"end":22,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":19,"cssClass":"pl-s"},{"start":21,"end":26,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":25,"cssClass":"pl-s"},{"start":27,"end":30,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":33,"cssClass":"pl-s"},{"start":35,"end":38,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":50,"cssClass":"pl-s"},{"start":52,"end":55,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":56,"cssClass":"pl-s"},{"start":58,"end":61,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":46,"cssClass":"pl-s"},{"start":48,"end":51,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":52,"cssClass":"pl-s"},{"start":54,"end":57,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":41,"cssClass":"pl-s"},{"start":43,"end":46,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":47,"cssClass":"pl-s"},{"start":49,"end":52,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":40,"cssClass":"pl-s"},{"start":42,"end":45,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":18,"cssClass":"pl-s"},{"start":20,"end":25,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":24,"cssClass":"pl-s"},{"start":26,"end":29,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":48,"cssClass":"pl-s"},{"start":50,"end":53,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":54,"cssClass":"pl-s"},{"start":56,"end":59,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":44,"cssClass":"pl-s"},{"start":46,"end":49,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":50,"cssClass":"pl-s"},{"start":52,"end":55,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":18,"cssClass":"pl-s"},{"start":20,"end":25,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":24,"cssClass":"pl-s"},{"start":26,"end":29,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":48,"cssClass":"pl-s"},{"start":50,"end":53,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":54,"cssClass":"pl-s"},{"start":56,"end":59,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":39,"cssClass":"pl-s"},{"start":41,"end":44,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":45,"cssClass":"pl-s"},{"start":47,"end":50,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":48,"cssClass":"pl-s"},{"start":50,"end":53,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":54,"cssClass":"pl-s"},{"start":56,"end":59,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":39,"cssClass":"pl-s"},{"start":41,"end":44,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":45,"cssClass":"pl-s"},{"start":47,"end":50,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":18,"cssClass":"pl-s"},{"start":20,"end":23,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":35,"cssClass":"pl-s"},{"start":37,"end":40,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":41,"cssClass":"pl-s"},{"start":43,"end":46,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":19,"cssClass":"pl-s"},{"start":21,"end":24,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":38,"cssClass":"pl-s"},{"start":40,"end":43,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":44,"cssClass":"pl-s"},{"start":46,"end":49,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":19,"cssClass":"pl-s"},{"start":21,"end":24,"cssClass":"pl-c1"}],[{"start":0,"end":9,"cssClass":"pl-v"},{"start":10,"end":18,"cssClass":"pl-s"},{"start":20,"end":23,"cssClass":"pl-c1"}],[],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":22,"cssClass":"pl-s"},{"start":24,"end":31,"cssClass":"pl-v"},{"start":32,"end":33,"cssClass":"pl-c1"},{"start":34,"end":47,"cssClass":"pl-v"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":34,"cssClass":"pl-s"},{"start":36,"end":57,"cssClass":"pl-v"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":32,"cssClass":"pl-s"},{"start":34,"end":55,"cssClass":"pl-v"},{"start":56,"end":57,"cssClass":"pl-c1"},{"start":58,"end":67,"cssClass":"pl-v"}],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":44,"cssClass":"pl-s"}],[{"start":4,"end":42,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":50,"cssClass":"pl-v"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":42,"cssClass":"pl-s"}],[{"start":4,"end":42,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":40,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":46,"cssClass":"pl-v"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":36,"cssClass":"pl-s"}],[{"start":4,"end":25,"cssClass":"pl-v"},{"start":26,"end":27,"cssClass":"pl-c1"},{"start":28,"end":56,"cssClass":"pl-s1"}],[],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":21,"cssClass":"pl-s"},{"start":23,"end":35,"cssClass":"pl-v"},{"start":36,"end":37,"cssClass":"pl-c1"},{"start":38,"end":44,"cssClass":"pl-v"}],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":42,"cssClass":"pl-s"}],[{"start":4,"end":46,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":42,"cssClass":"pl-v"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":40,"cssClass":"pl-s"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":44,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":38,"cssClass":"pl-v"}],[],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":21,"cssClass":"pl-s"},{"start":23,"end":29,"cssClass":"pl-v"},{"start":30,"end":31,"cssClass":"pl-c1"},{"start":32,"end":44,"cssClass":"pl-v"}],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":42,"cssClass":"pl-s"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":48,"cssClass":"pl-v"}],[],[],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":20,"cssClass":"pl-s"},{"start":22,"end":25,"cssClass":"pl-v"},{"start":26,"end":29,"cssClass":"pl-s1"},{"start":29,"end":30,"cssClass":"pl-c1"},{"start":30,"end":34,"cssClass":"pl-c1"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":30,"cssClass":"pl-s"},{"start":32,"end":36,"cssClass":"pl-v"},{"start":37,"end":42,"cssClass":"pl-v"},{"start":42,"end":43,"cssClass":"pl-c1"},{"start":43,"end":46,"cssClass":"pl-s"},{"start":48,"end":51,"cssClass":"pl-s1"},{"start":51,"end":52,"cssClass":"pl-c1"},{"start":52,"end":56,"cssClass":"pl-c1"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":28,"cssClass":"pl-s"},{"start":30,"end":33,"cssClass":"pl-v"},{"start":34,"end":38,"cssClass":"pl-v"},{"start":38,"end":39,"cssClass":"pl-c1"},{"start":39,"end":42,"cssClass":"pl-s"},{"start":44,"end":47,"cssClass":"pl-s1"},{"start":47,"end":48,"cssClass":"pl-c1"},{"start":48,"end":52,"cssClass":"pl-c1"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":28,"cssClass":"pl-s"},{"start":30,"end":33,"cssClass":"pl-v"},{"start":34,"end":38,"cssClass":"pl-v"},{"start":38,"end":39,"cssClass":"pl-c1"},{"start":39,"end":42,"cssClass":"pl-s"},{"start":44,"end":47,"cssClass":"pl-s1"},{"start":47,"end":48,"cssClass":"pl-c1"},{"start":48,"end":52,"cssClass":"pl-c1"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":24,"cssClass":"pl-s"},{"start":26,"end":30,"cssClass":"pl-v"},{"start":31,"end":36,"cssClass":"pl-v"},{"start":36,"end":37,"cssClass":"pl-c1"},{"start":37,"end":40,"cssClass":"pl-s"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":22,"cssClass":"pl-s"},{"start":24,"end":27,"cssClass":"pl-v"},{"start":28,"end":32,"cssClass":"pl-v"},{"start":32,"end":33,"cssClass":"pl-c1"},{"start":33,"end":36,"cssClass":"pl-s"}],[{"start":0,"end":10,"cssClass":"pl-v"},{"start":11,"end":22,"cssClass":"pl-s"},{"start":24,"end":27,"cssClass":"pl-v"},{"start":28,"end":32,"cssClass":"pl-v"},{"start":32,"end":33,"cssClass":"pl-c1"},{"start":33,"end":36,"cssClass":"pl-s"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":28,"cssClass":"pl-s"}],[{"start":4,"end":21,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"}],[{"start":8,"end":9,"cssClass":"pl-c1"}],[{"start":8,"end":9,"cssClass":"pl-c1"},{"start":10,"end":17,"cssClass":"pl-s1"}],[{"start":8,"end":9,"cssClass":"pl-c1"},{"start":11,"end":43,"cssClass":"pl-v"},{"start":44,"end":45,"cssClass":"pl-c1"},{"start":46,"end":72,"cssClass":"pl-s1"}],[],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":26,"cssClass":"pl-s"}],[{"start":4,"end":19,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":7,"end":8,"cssClass":"pl-c1"},{"start":9,"end":10,"cssClass":"pl-c1"},{"start":11,"end":17,"cssClass":"pl-s1"},{"start":18,"end":19,"cssClass":"pl-c1"},{"start":21,"end":50,"cssClass":"pl-v"},{"start":51,"end":52,"cssClass":"pl-c1"},{"start":53,"end":76,"cssClass":"pl-s1"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":48,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-c1"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":44,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":13,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":35,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":41,"cssClass":"pl-v"}],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":46,"cssClass":"pl-s"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":28,"cssClass":"pl-s1"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":39,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":33,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"}],[{"start":8,"end":23,"cssClass":"pl-v"}],[{"start":8,"end":9,"cssClass":"pl-c1"},{"start":10,"end":52,"cssClass":"pl-v"}],[{"start":8,"end":9,"cssClass":"pl-c1"},{"start":10,"end":46,"cssClass":"pl-v"}],[{"start":8,"end":9,"cssClass":"pl-c1"},{"start":10,"end":13,"cssClass":"pl-c1"}],[],[],[{"start":0,"end":10,"cssClass":"pl-v"}],[{"start":4,"end":46,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-c1"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":42,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":26,"cssClass":"pl-s1"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":33,"cssClass":"pl-v"}],[{"start":4,"end":5,"cssClass":"pl-c1"},{"start":6,"end":39,"cssClass":"pl-v"}],[],[],[{"start":0,"end":4,"cssClass":"pl-v"},{"start":5,"end":21,"cssClass":"pl-s"},{"start":23,"end":27,"cssClass":"pl-c1"},{"start":28,"end":30,"cssClass":"pl-c1"},{"start":31,"end":35,"cssClass":"pl-v"},{"start":36,"end":41,"cssClass":"pl-v"},{"start":41,"end":42,"cssClass":"pl-c1"},{"start":42,"end":45,"cssClass":"pl-s"},{"start":47,"end":50,"cssClass":"pl-s1"},{"start":50,"end":51,"cssClass":"pl-c1"},{"start":51,"end":55,"cssClass":"pl-c1"},{"start":58,"end":77,"cssClass":"pl-v"}],[{"start":0,"end":4,"cssClass":"pl-v"},{"start":5,"end":23,"cssClass":"pl-s"},{"start":25,"end":29,"cssClass":"pl-v"},{"start":32,"end":34,"cssClass":"pl-c1"},{"start":35,"end":39,"cssClass":"pl-c1"},{"start":41,"end":62,"cssClass":"pl-v"}],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":34,"cssClass":"pl-s"}],[{"start":4,"end":8,"cssClass":"pl-v"},{"start":9,"end":14,"cssClass":"pl-v"},{"start":14,"end":15,"cssClass":"pl-c1"},{"start":15,"end":18,"cssClass":"pl-s"},{"start":20,"end":21,"cssClass":"pl-c1"},{"start":22,"end":26,"cssClass":"pl-v"},{"start":27,"end":32,"cssClass":"pl-v"},{"start":32,"end":33,"cssClass":"pl-c1"},{"start":33,"end":36,"cssClass":"pl-s"}],[{"start":4,"end":42,"cssClass":"pl-v"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":43,"cssClass":"pl-s"}],[{"start":4,"end":8,"cssClass":"pl-v"},{"start":9,"end":14,"cssClass":"pl-v"},{"start":14,"end":15,"cssClass":"pl-c1"},{"start":15,"end":18,"cssClass":"pl-s"},{"start":20,"end":22,"cssClass":"pl-c1"},{"start":23,"end":27,"cssClass":"pl-v"},{"start":28,"end":33,"cssClass":"pl-v"},{"start":33,"end":34,"cssClass":"pl-c1"},{"start":34,"end":37,"cssClass":"pl-s"}],[{"start":4,"end":46,"cssClass":"pl-v"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":31,"cssClass":"pl-s"}],[{"start":4,"end":8,"cssClass":"pl-v"},{"start":9,"end":14,"cssClass":"pl-v"},{"start":14,"end":15,"cssClass":"pl-c1"},{"start":15,"end":18,"cssClass":"pl-s"},{"start":20,"end":22,"cssClass":"pl-c1"},{"start":23,"end":27,"cssClass":"pl-c1"}],[{"start":4,"end":34,"cssClass":"pl-s1"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":32,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-v"},{"start":8,"end":12,"cssClass":"pl-v"},{"start":12,"end":13,"cssClass":"pl-c1"},{"start":13,"end":16,"cssClass":"pl-s"},{"start":18,"end":19,"cssClass":"pl-c1"},{"start":20,"end":23,"cssClass":"pl-v"},{"start":24,"end":28,"cssClass":"pl-v"},{"start":28,"end":29,"cssClass":"pl-c1"},{"start":29,"end":32,"cssClass":"pl-s"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[{"start":4,"end":38,"cssClass":"pl-v"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":32,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-v"},{"start":8,"end":12,"cssClass":"pl-v"},{"start":12,"end":13,"cssClass":"pl-c1"},{"start":13,"end":16,"cssClass":"pl-s"},{"start":18,"end":20,"cssClass":"pl-c1"},{"start":21,"end":24,"cssClass":"pl-v"},{"start":25,"end":29,"cssClass":"pl-v"},{"start":29,"end":30,"cssClass":"pl-c1"},{"start":30,"end":33,"cssClass":"pl-s"}],[{"start":4,"end":40,"cssClass":"pl-v"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":41,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-v"},{"start":8,"end":12,"cssClass":"pl-v"},{"start":12,"end":13,"cssClass":"pl-c1"},{"start":13,"end":16,"cssClass":"pl-s"},{"start":18,"end":20,"cssClass":"pl-c1"},{"start":21,"end":24,"cssClass":"pl-v"},{"start":25,"end":29,"cssClass":"pl-v"},{"start":29,"end":30,"cssClass":"pl-c1"},{"start":30,"end":33,"cssClass":"pl-s"}],[{"start":4,"end":44,"cssClass":"pl-v"}],[],[{"start":0,"end":4,"cssClass":"pl-v"}],[{"start":4,"end":41,"cssClass":"pl-s"}],[{"start":4,"end":7,"cssClass":"pl-v"},{"start":8,"end":12,"cssClass":"pl-v"},{"start":12,"end":13,"cssClass":"pl-c1"},{"start":13,"end":16,"cssClass":"pl-s"},{"start":18,"end":20,"cssClass":"pl-c1"},{"start":21,"end":24,"cssClass":"pl-v"},{"start":25,"end":29,"cssClass":"pl-v"},{"start":29,"end":30,"cssClass":"pl-c1"},{"start":30,"end":33,"cssClass":"pl-s"}],[{"start":4,"end":44,"cssClass":"pl-v"}],[],[],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":11,"cssClass":"pl-v"},{"start":12,"end":15,"cssClass":"pl-s1"},{"start":15,"end":16,"cssClass":"pl-c1"},{"start":16,"end":20,"cssClass":"pl-c1"},{"start":23,"end":28,"cssClass":"pl-v"},{"start":30,"end":35,"cssClass":"pl-s1"},{"start":35,"end":36,"cssClass":"pl-c1"},{"start":36,"end":40,"cssClass":"pl-c1"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":12,"cssClass":"pl-v"},{"start":13,"end":18,"cssClass":"pl-v"},{"start":18,"end":19,"cssClass":"pl-c1"},{"start":19,"end":22,"cssClass":"pl-s"},{"start":24,"end":27,"cssClass":"pl-s1"},{"start":27,"end":28,"cssClass":"pl-c1"},{"start":28,"end":32,"cssClass":"pl-c1"},{"start":35,"end":44,"cssClass":"pl-v"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":11,"cssClass":"pl-v"},{"start":12,"end":16,"cssClass":"pl-v"},{"start":16,"end":17,"cssClass":"pl-c1"},{"start":17,"end":20,"cssClass":"pl-s"},{"start":22,"end":25,"cssClass":"pl-s1"},{"start":25,"end":26,"cssClass":"pl-c1"},{"start":26,"end":30,"cssClass":"pl-c1"},{"start":33,"end":41,"cssClass":"pl-v"}],[{"start":0,"end":7,"cssClass":"pl-v"},{"start":8,"end":11,"cssClass":"pl-v"},{"start":12,"end":16,"cssClass":"pl-v"},{"start":16,"end":17,"cssClass":"pl-c1"},{"start":17,"end":20,"cssClass":"pl-s"},{"start":22,"end":25,"cssClass":"pl-s1"},{"start":25,"end":26,"cssClass":"pl-c1"},{"start":26,"end":30,"cssClass":"pl-c1"},{"start":33,"end":41,"cssClass":"pl-v"}]],"colorizedLines":null,"csv":null,"csvError":null,"dependabotInfo":{"showConfigurationBanner":null,"configFilePath":null,"networkDependabotPath":"/frohlich-lab/DeepMechanisticModels/network/updates","dismissConfigurationNoticePath":"/settings/dismiss-notice/dependabot_configuration_notice","configurationNoticeDismissed":false},"displayName":"EGFR_MAPK.py","displayUrl":"https://github.com/frohlich-lab/DeepMechanisticModels/blob/main/cytof/pysb/EGFR_MAPK.py?raw=true","headerInfo":{"blobSize":"5.83 KB","deleteTooltip":"Delete this file","editTooltip":"Edit this file","ghDesktopPath":"x-github-client://openRepo/https://github.com/frohlich-lab/DeepMechanisticModels?branch=main&filepath=cytof%2Fpysb%2FEGFR_MAPK.py","isGitLfs":false,"onBranch":true,"shortPath":"56e5738","siteNavLoginPath":"/login?return_to=https%3A%2F%2Fgithub.com%2Ffrohlich-lab%2FDeepMechanisticModels%2Fblob%2Fmain%2Fcytof%2Fpysb%2FEGFR_MAPK.py","isCSV":false,"isRichtext":false,"toc":null,"lineInfo":{"truncatedLoc":"197","truncatedSloc":"188"},"mode":"file"},"image":false,"isCodeownersFile":null,"isPlain":false,"isValidLegacyIssueTemplate":false,"issueTemplate":null,"discussionTemplate":null,"language":"Python","languageID":303,"large":false,"planSupportInfo":{"repoIsFork":null,"repoOwnedByCurrentUser":null,"requestFullPath":"/frohlich-lab/DeepMechanisticModels/blob/main/cytof/pysb/EGFR_MAPK.py","showFreeOrgGatedFeatureMessage":null,"showPlanSupportBanner":null,"upgradeDataAttributes":null,"upgradePath":null},"publishBannersInfo":{"dismissActionNoticePath":"/settings/dismiss-notice/publish_action_from_dockerfile","releasePath":"/frohlich-lab/DeepMechanisticModels/releases/new?marketplace=true","showPublishActionBanner":false},"rawBlobUrl":"https://github.com/frohlich-lab/DeepMechanisticModels/raw/main/cytof/pysb/EGFR_MAPK.py","renderImageOrRaw":false,"richText":null,"renderedFileInfo":null,"shortPath":null,"symbolsEnabled":true,"tabSize":8,"topBannersInfo":{"overridingGlobalFundingFile":false,"globalPreferredFundingPath":null,"showInvalidCitationWarning":false,"citationHelpUrl":"https://docs.github.com/github/creating-cloning-and-archiving-repositories/creating-a-repository-on-github/about-citation-files","actionsOnboardingTip":null},"truncated":false,"viewable":true,"workflowRedirectUrl":null,"symbols":{"timed_out":false,"not_analyzed":false,"symbols":[]}},"copilotInfo":null,"copilotAccessAllowed":false,"csrf_tokens":{"/frohlich-lab/DeepMechanisticModels/branches":{"post":"qFTgftslz0wC7OcjF6DDDgv2fOcpv33rsk4XgO7OB77iBAgSKW_nY9RVZ1U3U3N3KaAl7-lGIZJt-bWmP7YyRg"},"/repos/preferences":{"post":"ZYvm8hYBlGxXrudN0Y1BG8rOXrcvNPPGZ9ufaZUVjyluYH8eKJsPXsFTTMc36EHTIxzRKqaTgB94Y3pmVwlvGw"}}},"title":"DeepMechanisticModels/cytof/pysb/EGFR_MAPK.py at main · frohlich-lab/DeepMechanisticModels"}
+# exported from PySB model 'EGFR_MAPK'
+
+from pysb import (
+    ANY,
+    WILD,
+    Annotation,
+    Compartment,
+    EnergyPattern,
+    Expression,
+    Initial,
+    MatchOnce,
+    Model,
+    Monomer,
+    MultiState,
+    Observable,
+    Parameter,
+    Rule,
+    Tag,
+    as_complex_pattern,
+)
+
+Model()
+
+Monomer("EGF", ["inh"])
+Monomer("EGFR", ["Y1173", "inh"], {"Y1173": ["u", "p"]})
+Monomer("MEK", ["S222", "inh"], {"S222": ["u", "p"]})
+Monomer("ERK", ["Y204", "inh"], {"Y204": ["u", "p"]})
+
+Parameter("EGF_0", 0.0)
+Parameter("EGFR_eq", 100.0)
+Parameter("INPUT_EGFR_eq", 0.0)
+Parameter("EGFR_degradation_kdeg", 0.0)
+Parameter("EGFR_dephosphorylation_Y1173_base_kcat", 0.0)
+Parameter("INPUT_EGFR_dephosphorylation_Y1173_base_kcat", 0.0)
+Parameter("EGFR_phosphorylation_Y1173_base_kr", 0.0)
+Parameter("INPUT_EGFR_phosphorylation_Y1173_base_kr", 0.0)
+Parameter("EGFR_phosphorylation_Y1173_kr", 1.0)
+Parameter("INPUT_EGFR_phosphorylation_Y1173_kr", 0.0)
+Parameter("degradation_EGFR__Y1173_p_kr", 0.0)
+Parameter("MEK_eq", 100.0)
+Parameter("INPUT_MEK_eq", 0.0)
+Parameter("MEK_dephosphorylation_S222_base_kcat", 0.0)
+Parameter("INPUT_MEK_dephosphorylation_S222_base_kcat", 0.0)
+Parameter("MEK_phosphorylation_S222_base_kr", 0.0)
+Parameter("INPUT_MEK_phosphorylation_S222_base_kr", 0.0)
+Parameter("ERK_eq", 100.0)
+Parameter("INPUT_ERK_eq", 0.0)
+Parameter("ERK_dephosphorylation_Y204_base_kcat", 0.0)
+Parameter("INPUT_ERK_dephosphorylation_Y204_base_kcat", 0.0)
+Parameter("MEK_phosphorylation_S222_kr", 1.0)
+Parameter("INPUT_MEK_phosphorylation_S222_kr", 0.0)
+Parameter("MEK_deactivation_S222_ERK__Y204_p_kw", 0.0)
+Parameter("INPUT_MEK_deactivation_S222_ERK__Y204_p_kw", 0.0)
+Parameter("ERK_phosphorylation_Y204_kr", 1.0)
+Parameter("INPUT_ERK_phosphorylation_Y204_kr", 0.0)
+Parameter("iMEK_0", 0.0)
+Parameter("iMEK_MEK__S222_p_obs_kd", 0.0)
+Parameter("INPUT_iMEK_MEK__S222_p_obs_kd", 0.0)
+Parameter("iEGFR_0", 0.0)
+Parameter("iEGFR_EGFR__Y1173_p_obs_kd", 0.0)
+Parameter("INPUT_iEGFR_EGFR__Y1173_p_obs_kd", 0.0)
+Parameter("iPI3K_0", 0.0)
+Parameter("iPKC_0", 0.0)
+
+Expression("EGFR_init", EGFR_eq * INPUT_EGFR_eq)
+Expression("EGFR_degradation_rate", EGFR_degradation_kdeg)
+Expression("EGFR_synthesis_rate", EGFR_degradation_rate * EGFR_init)
+Expression(
+    "EGFR_dephosphorylation_Y1173_base_rate",
+    EGFR_dephosphorylation_Y1173_base_kcat
+    * INPUT_EGFR_dephosphorylation_Y1173_base_kcat,
+)
+Expression(
+    "EGFR_phosphorylation_Y1173_base_rate",
+    EGFR_dephosphorylation_Y1173_base_rate
+    * EGFR_phosphorylation_Y1173_base_kr
+    * INPUT_EGFR_phosphorylation_Y1173_base_kr,
+)
+Expression(
+    "degradation_EGFR__Y1173_p_rate",
+    EGFR_degradation_rate * degradation_EGFR__Y1173_p_kr,
+)
+Expression("MEK_init", INPUT_MEK_eq * MEK_eq)
+Expression(
+    "MEK_dephosphorylation_S222_base_rate",
+    INPUT_MEK_dephosphorylation_S222_base_kcat
+    * MEK_dephosphorylation_S222_base_kcat,
+)
+Expression(
+    "MEK_phosphorylation_S222_base_rate",
+    MEK_dephosphorylation_S222_base_rate
+    * INPUT_MEK_phosphorylation_S222_base_kr
+    * MEK_phosphorylation_S222_base_kr,
+)
+Expression("ERK_init", ERK_eq * INPUT_ERK_eq)
+Expression(
+    "ERK_dephosphorylation_Y204_base_rate",
+    ERK_dephosphorylation_Y204_base_kcat
+    * INPUT_ERK_dephosphorylation_Y204_base_kcat,
+)
+
+Observable("EGF_obs", EGF(inh=None))
+Observable("EGFR__Y1173_p_obs", EGFR(Y1173="p", inh=None))
+Observable("ERK__Y204_p_obs", ERK(Y204="p", inh=None))
+Observable("MEK__S222_p_obs", MEK(S222="p", inh=None))
+Observable("pEGFR_Y1173", EGFR(Y1173="p"))
+Observable("pMEK_S222", MEK(S222="p"))
+Observable("pERK_Y204", ERK(Y204="p"))
+
+Expression(
+    "free_EGFR__Y1173_p_obs",
+    EGFR__Y1173_p_obs
+    / (
+        1
+        + iEGFR_0
+        / (INPUT_iEGFR_EGFR__Y1173_p_obs_kd * iEGFR_EGFR__Y1173_p_obs_kd)
+    ),
+)
+Expression(
+    "free_MEK__S222_p_obs",
+    MEK__S222_p_obs
+    / (1 + iMEK_0 / (INPUT_iMEK_MEK__S222_p_obs_kd * iMEK_MEK__S222_p_obs_kd)),
+)
+Expression(
+    "EGFR_phosphorylation_Y1173_activation_rate",
+    1.0
+    * EGFR_dephosphorylation_Y1173_base_rate
+    * EGF_obs
+    * EGFR_phosphorylation_Y1173_kr
+    * INPUT_EGFR_phosphorylation_Y1173_kr,
+)
+Expression(
+    "MEK_phosphorylation_S222_activation_rate",
+    MEK_dephosphorylation_S222_base_rate
+    * free_EGFR__Y1173_p_obs
+    * INPUT_MEK_phosphorylation_S222_kr
+    * MEK_phosphorylation_S222_kr
+    / (
+        ERK__Y204_p_obs
+        * INPUT_MEK_deactivation_S222_ERK__Y204_p_kw
+        * MEK_deactivation_S222_ERK__Y204_p_kw
+        + 1.0
+    ),
+)
+Expression(
+    "ERK_phosphorylation_Y204_activation_rate",
+    1.0
+    * ERK_dephosphorylation_Y204_base_rate
+    * free_MEK__S222_p_obs
+    * ERK_phosphorylation_Y204_kr
+    * INPUT_ERK_phosphorylation_Y204_kr,
+)
+
+Rule("synthesis_EGFR", None >> EGFR(Y1173="u", inh=None), EGFR_synthesis_rate)
+Rule("degradation_EGFR", EGFR() >> None, EGFR_degradation_rate)
+Rule(
+    "EGFR_base_regulation_Y1173_p",
+    EGFR(Y1173="p") | EGFR(Y1173="u"),
+    EGFR_dephosphorylation_Y1173_base_rate,
+    EGFR_phosphorylation_Y1173_base_rate,
+)
+Rule(
+    "EGFR_phosphorylation_Y1173_activation",
+    EGFR(Y1173="u") >> EGFR(Y1173="p"),
+    EGFR_phosphorylation_Y1173_activation_rate,
+)
+Rule(
+    "degradation_EGFR__Y1173_p",
+    EGFR(Y1173="p") >> None,
+    degradation_EGFR__Y1173_p_rate,
+)
+Rule(
+    "MEK_base_regulation_S222_p",
+    MEK(S222="p") | MEK(S222="u"),
+    MEK_dephosphorylation_S222_base_rate,
+    MEK_phosphorylation_S222_base_rate,
+)
+Rule(
+    "ERK_base_regulation_Y204_p",
+    ERK(Y204="p") >> ERK(Y204="u"),
+    ERK_dephosphorylation_Y204_base_rate,
+)
+Rule(
+    "MEK_phosphorylation_S222_activation",
+    MEK(S222="u") >> MEK(S222="p"),
+    MEK_phosphorylation_S222_activation_rate,
+)
+Rule(
+    "ERK_phosphorylation_Y204_activation",
+    ERK(Y204="u") >> ERK(Y204="p"),
+    ERK_phosphorylation_Y204_activation_rate,
+)
+
+Initial(EGF(inh=None), EGF_0, fixed=True)
+Initial(EGFR(Y1173="u", inh=None), EGFR_init)
+Initial(MEK(S222="u", inh=None), MEK_init)
+Initial(ERK(Y204="u", inh=None), ERK_init)
