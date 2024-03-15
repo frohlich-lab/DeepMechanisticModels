@@ -306,7 +306,7 @@ def evaluate_standard_regression(
         features=features_train if dataset=="test" else None,
         **petab_base_files,
     )
-    output_data, _, _ = load_data(
+    output_data, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_eval,
         features=None,

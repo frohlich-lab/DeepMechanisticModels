@@ -100,7 +100,7 @@ def train_pipeline(
         features=None,
         **petab_base_files,
     )
-    output_data, _, _ = load_data(
+    output_data, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train,
         features=None,
