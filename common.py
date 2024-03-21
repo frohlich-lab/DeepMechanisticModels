@@ -86,11 +86,25 @@ EVALUATION_REFERENCE = str(
     evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
 )
 
-EVALUATION_REFERENCE_REG = str(
+EVALUATION_REGRESSOR = str(
     evaluations_dir
     / "{model}"
     / "{data}"
     / "{samples}_{mode}_{context}_{dataset}.csv"
+)
+
+REGR_TRAINED_PIPELINE = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_trained_pipeline.joblib"
+)
+
+REGR_FEATURES_TRAIN = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_features_train.joblib"
 )
 
 defaults = {

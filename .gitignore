@@ -147,6 +147,7 @@ traces/*
 *.pickle
 *.pdf
 *.svg
+*.joblib
 output
 cache
 *.hdf5

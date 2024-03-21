@@ -5,7 +5,7 @@ from pathlib import Path
 from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REFERENCE_REG,
+    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS
 )
 from training_configuration import ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
@@ -254,11 +254,6 @@ rule evaluate_references:
         csv=[
             EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
             for dataset, mode in itt.product(['train', 'test'], ['per_sample', 'average'])
-        ] + [
-            EVALUATION_REFERENCE_REG.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
-            for dataset, mode, context in itt.product(['train', 'test'],
-                ['linreg', 'lasso', 'elasticnet'],
-                [context for context, _ in CONTEXTS_FEATURES])
         ]
     wildcard_constraints:
         model='\w+',
@@ -266,7 +261,35 @@ rule evaluate_references:
         samples='[0-9]+_[0-9]+',
     retries: 1
     resources:
-        mem="1GB",
+        mem="8GB",
+        runtime="1h",
+        nodes=1,
+        threads=1,
+    shell:
+        'python3 {input.script} ' + ' '.join(
+        f'--{arg}={{wildcards.{arg}}}'
+        for arg in ('model','data','samples')
+        ) + ' --n_starts={N_STARTS}'
+
+rule evaluate_regressors:
+    input:
+        script='evaluate_regressors.py'
+    output:
+        csv=[
+            EVALUATION_REGRESSOR.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
+            for dataset, mode, context in itt.product(
+                ['train', 'test'],
+                ['linreg', 'lasso', 'elasticnet'],
+                [context for context, _ in CONTEXTS_FEATURES]
+            )
+        ]
+    wildcard_constraints:
+        model='\w+',
+        data=r'[\w\.]+',
+        samples='[0-9]+_[0-9]+',
+    retries: 1
+    resources:
+        mem="8GB",
         runtime="1h",
         nodes=1,
         threads=1,
@@ -333,6 +356,9 @@ rule evaluate_all:
         ],
         reference=expand(
             rules.evaluate_references.output.csv,
+            model='{model}',data='{data}',samples=SPLITS,
+        )+expand(
+            rules.evaluate_regressors.output.csv,
             model='{model}',data='{data}',samples=SPLITS,
         )
     output:

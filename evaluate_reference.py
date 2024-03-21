@@ -6,7 +6,6 @@ from amici.petab_objective import rdatas_to_simulation_df
 
 from common import (
     EVALUATION_REFERENCE,
-    EVALUATION_REFERENCE_REG,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
     Wildcards,
@@ -27,16 +26,13 @@ from dmm.pretraining import (
 from training_configuration import CONTEXTS_FEATURES
 from util import Conf, load_petab_base_files
 
-from train_regressors_baseline import train_pipeline
-
-
 conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
 
-cross_sample_dir = outdir / "pretrain_cross_sample"
-cross_sample_dir.mkdir(exist_ok=True, parents=True)
+# cross_sample_dir = outdir / "pretrain_cross_sample"
+# cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
 # TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
     # "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
@@ -274,152 +270,6 @@ def evaluate_average_model(dataset, conf):
 
     return pd.DataFrame(evaluations)
 
-
-def evaluate_standard_regression(
-        dataset,
-        conf,
-        samples,
-        context,
-        mode,  # 'linreg', 'lasso', 'elasticnet'
-        trained_pipeline,
-        features_train,
-):
-
-    # Check the regressors have been trained
-    if trained_pipeline is None:
-        raise ValueError("No trained_pipeline provided for this regressor!")
-    elif (dataset == "test") and (features_train is None):
-        raise ValueError(f"No features_train provided for {dataset} evaluation!")
-
-    # Load petab files
-    petab_base_files = load_petab_base_files(conf, reweight=False)
-    # so far data has not been reweighed when evaluating references, only for training
-    del petab_base_files["condition_table"]
-
-    # Subset to "train"/"test"
-    samples_eval = samples[dataset]
-
-    # Load input and output data
-    input_data, _ = load_data(
-        contextualization=context,
-        samples=samples_eval,
-        features=features_train if dataset=="test" else None,
-        **petab_base_files,
-    )
-    output_data, _ = load_data(
-        contextualization="cytof_dynamic",
-        samples=samples_eval,
-        features=None,
-        **petab_base_files,
-    )
-
-    # Process regression output/predictions (reg_pred) and output data before plotting and evaluating simulations
-    # Convert into pandas dataframe with same index and column headers as output_test
-    # Then process to use with plot_cross_samples() and process_simulation()
-    # Finally drop index and rename column from 0 to 'simulation' to use in process_simulation()
-    reg_pred = pd.DataFrame(
-        trained_pipeline.predict(input_data),
-        index=output_data.index,
-        columns=output_data.columns
-    ).T.stack().reset_index().sort_values(
-        by=[
-            'preequilibrationConditionId',
-            'observableId',
-            'simulationConditionId',
-            'time'
-        ]
-    ).reset_index().drop(columns='index').rename(columns={0: "simulation"})
-
-    # output_data
-    # Column needs renaming from 0 to "measurement" for use in process_simulation()
-    output_data = output_data.T.stack().reset_index().sort_values(
-        by=[
-            'preequilibrationConditionId',
-            'observableId',
-            'simulationConditionId',
-            'time'
-        ]
-    ).reset_index().drop(columns='index').rename(columns={0: "measurement"})
-
-
-    # Produce plots to analyse performance
-    # import original output data as in avg/avg_model
-    df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_meas = df_meas[
-        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-    ]
-    # Groupby to average replicates as done for regression output
-    df_meas = df_meas.groupby(
-        ['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
-        {'measurement': 'mean', 'noiseParameters': 'mean'}).reset_index()
-    # Sort to make comparable with output_train
-    df_meas = df_meas.sort_values(
-        by=['observableId', 'preequilibrationConditionId', 'simulationConditionId', 'time'])
-
-    # Subset to cell lines that are in output_data (i.e. output_train/output_test)
-    df_meas = df_meas[
-        df_meas.preequilibrationConditionId.isin(output_data.preequilibrationConditionId)
-    ].reset_index().drop(columns='index')
-
-    # process simulation condition id
-    df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
-        petab.SIMULATION_CONDITION_ID
-    ].apply(lambda x: x.split("__")[1])
-
-    # reorder columns as in output_train
-    df_meas = df_meas[['observableId', 'simulationConditionId',
-                       'time', 'preequilibrationConditionId',
-                       'measurement', 'noiseParameters']]
-
-    # Plot -- reg_pred is either reg_pred_train or reg_pred_test
-    plot_name = mode + "_" + context
-    plot_cross_samples(
-        df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
-    )
-
-    # Process simulations/regressions, i.e. produce CSVs with residuals
-    evaluations = []
-
-    for sample in samples[dataset]:
-        process_simulation(
-            evaluations=evaluations,
-            measurement_df=output_data,
-            simulation_df=reg_pred,
-            context=context,
-            sample=sample,
-            model_type=mode,
-            orth_reg_strategy="None",  # not needed for regression
-            job=None, # not needed here
-            l1reg_inflate=0.0,
-            oreg_encode=0.0,
-            l1reg_encode=0.0,
-            oreg_inflate=0.0,
-            hidden_layers=0,
-            features="none",
-        )
-
-    return pd.DataFrame(evaluations)
-
-# Build and train regressors (linear regression, lasso, elasticnet)
-print('Building pipelines and training estimators...')
-trained_pipelines = {}
-features_train = {}
-for context, _ in CONTEXTS_FEATURES:
-    trained_pipelines[context], features_train[context] = {}, {}
-    for mode in ['linreg', 'lasso', 'elasticnet']:
-        trained_pipelines[context][mode], features_train[context][mode] = train_pipeline(
-            pipeline_steps= ["pca", mode],
-            conf=conf,
-            context=context,
-            samples_train=samples["train"],
-        )
-        print(f'Estimator {mode} trained on context {context}')
-
 # Evaluate references/baselines
 for dataset in ["train", "test"]:
 
@@ -452,28 +302,3 @@ for dataset in ["train", "test"]:
             mode="per_sample",
         )
     )
-
-    # Regressors ("linreg", "lasso", "elasticnet")
-    for context, _ in CONTEXTS_FEATURES:
-        # Regression baseline first
-        for mode in ['linreg', 'lasso', 'elasticnet']:
-            df = evaluate_standard_regression(
-                dataset=dataset,
-                conf=conf,
-                samples=samples,
-                context=context,
-                mode=mode,
-                trained_pipeline=trained_pipelines[context][mode],
-                features_train=features_train[context][mode]
-            )
-
-            df.to_csv(
-                EVALUATION_REFERENCE_REG.format(
-                    model=conf.model,
-                    data=conf.data,
-                    samples=conf.samples,
-                    dataset=dataset,
-                    mode=mode,
-                    context=context,
-                )
-            )

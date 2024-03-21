@@ -9,7 +9,7 @@ import pandas as pd
 import wandb
 from common import (
     EVALUATION_REFERENCE,
-    EVALUATION_REFERENCE_REG,
+    EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
     fig_dir,
     evaluations_dir
@@ -265,7 +265,7 @@ for samples in SPLITS:
         regressor_dfs = {
             mode: pd.concat(
                 pd.read_csv(
-                    EVALUATION_REFERENCE_REG.format(
+                    EVALUATION_REGRESSOR.format(
                         **{
                             **conf.__dict__,
                             **dict(
