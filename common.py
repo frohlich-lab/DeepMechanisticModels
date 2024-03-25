@@ -5,6 +5,9 @@ from typing import List
 import numpy as np
 
 from cytof import get_samples
+from training_configuration import CONTEXTS_FEATURES
+
+CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
 
 MODEL_FEATURE_PREFIX = "INPUT_"
 

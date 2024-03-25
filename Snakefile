@@ -6,9 +6,15 @@ from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
-    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS
+    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
+    CONTEXT_SET
 )
-from training_configuration import ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
+from training_configuration import (
+    ORTH_REG_STRATEGIES,
+    ALPHAS, BETAS, GAMMAS, DELTAS,
+    LATENT_DIMS, PATHWAYS, DATASETS, SPLITS,
+    PRETRAIN, CONTEXTS_FEATURES
+)
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -280,7 +286,7 @@ rule evaluate_regressors:
             for dataset, mode, context in itt.product(
                 ['train', 'test'],
                 ['linreg', 'lasso', 'elasticnet'],
-                [context for context, _ in CONTEXTS_FEATURES]
+                [context for context in CONTEXT_SET]
             )
         ]
     wildcard_constraints:

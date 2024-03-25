@@ -2,7 +2,7 @@ import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
-from common import EVALUATE_ALL
+from common import EVALUATE_ALL, CONTEXT_SET
 from training_configuration import CONTEXTS_FEATURES
 
 # Base plotting functions for FacetGrid
@@ -191,11 +191,12 @@ def n_hidden_pairwise_heatmap(
         dataframe: pd.DataFrame,
         conf
 ):
-    num_contexts = len([context for context, _ in CONTEXTS_FEATURES])
+
+    num_contexts = len(CONTEXT_SET)
     plt.subplots(num_contexts, 2, figsize=(12, num_contexts * 4))
     plt.subplots_adjust(wspace=0.5, hspace=0.25)
     index = 1
-    for context, _ in CONTEXTS_FEATURES:
+    for context in CONTEXT_SET:
         plt.subplot(num_contexts, 2, index)
         ax = sns.heatmap(
             dataframe[dataframe.context == context][

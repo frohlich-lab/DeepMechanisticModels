@@ -15,11 +15,11 @@ from common import (
     pretrain_dir,
     test_samples,
     training_samples,
+    CONTEXT_SET
 )
 from dmm.analysis import process_simulation
 from dmm.feature_selection import load_data
-from dmm.plotting import plot_cross_samples, plot_single_sample
-from training_configuration import CONTEXTS_FEATURES
+from dmm.plotting import plot_cross_samples
 from util import Conf, load_petab_base_files
 
 from sklearn.linear_model import (LinearRegression,
@@ -285,8 +285,8 @@ def evaluate_standard_regression(
     return pd.DataFrame(evaluations)
 
 # Evaluate regressors
-for dataset, (context, _), mode in itt.product(
-    ["train", "test"], CONTEXTS_FEATURES, ["linreg", "lasso", "elasticnet"]
+for dataset, context, mode in itt.product(
+    ["train", "test"], CONTEXT_SET, ["linreg", "lasso", "elasticnet"]
 ):
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
             model=conf.model,

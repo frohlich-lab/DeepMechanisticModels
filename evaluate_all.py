@@ -12,7 +12,8 @@ from common import (
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
     fig_dir,
-    evaluations_dir
+    evaluations_dir,
+    CONTEXT_SET
 )
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import (
@@ -286,7 +287,7 @@ for samples in SPLITS:
 
         print(f'Starting to build hyperparam/job combination copies for references models - {samples}, {dataset}')
         avg_ps_dfs = []
-        for context, _ in CONTEXTS_FEATURES:
+        for context in CONTEXT_SET:
             # need to replicate info across contexts for "avg_model" and "sample"
             for rdf in [  # lack context
                 # avg,
