@@ -5,13 +5,15 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import pypesto.petab
-from jax.config import config
+from jax import config
 from sklearn.decomposition import PCA
 
 from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
+#from optax import power_iteration
+
 
 config.update("jax_enable_x64", True)
 
@@ -25,10 +27,12 @@ class DeepMechanisticModel(AutoEncoder):
     n_model_inputs: int = eqx.static_field()
     n_kin_params: int = eqx.static_field()
     n_samples: int = eqx.static_field()
+    orth_reg_strategy: str = eqx.static_field()
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     feature_cols: List[str] = eqx.static_field()
-    petab_importer: pypesto.petab.PetabImporterPysb = eqx.static_field()
+    # general PetabImporter compared to old PetabImporterPysb
+    petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
 
     def __init__(
@@ -36,6 +40,7 @@ class DeepMechanisticModel(AutoEncoder):
         problem: Problem,
         dataset: str,
         n_latent: int,
+        orth_reg_strategy: str,
         measurement_table: pd.DataFrame,
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
@@ -63,6 +68,9 @@ class DeepMechanisticModel(AutoEncoder):
         """
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
+
+        # set regularisation strategy
+        self.orth_reg_strategy = orth_reg_strategy
 
         # subset samples
 
@@ -116,6 +124,7 @@ class DeepMechanisticModel(AutoEncoder):
             features=self.features,
             n_latent=n_latent,
             n_params=self.n_model_inputs,
+            orth_reg_strategy=self.orth_reg_strategy,
         )
 
         problem.apply_objective_settings(
@@ -163,7 +172,22 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
         m = jnp.dot(w.T, w)
-        return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
+        if self.orth_reg_strategy == "L1":
+            # L1 norm - originally used in Fabian's runs
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
+        elif self.orth_reg_strategy == "L2":
+            # L2 norm
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+        else:
+            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
+        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
+        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
+        # Unfortunately, optax.power_iteration() appears not to be differentiable!
+        # _, max_eig = power_iteration(m - jnp.eye(self.n_latent))
+        # return scale * max_eig
+
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
@@ -180,7 +204,21 @@ class DeepMechanisticModel(AutoEncoder):
         )
         w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
         m = jnp.dot(w, w.T)
-        return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
+        if self.orth_reg_strategy == "L1":
+            # L1 norm - originally used in Fabian's runs
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
+        elif self.orth_reg_strategy == "L2":
+            # L2 norm
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+        else:
+            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
+        # SRIP - minimise max singular value/eigenvalue of the same matrix above
+        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
+        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
+        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
+        # Unfortunately, optax.power_iteration() appears not to be differentiable!
+        # _, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
+        # return scale * max_eig
 
     def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """

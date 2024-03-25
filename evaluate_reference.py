@@ -17,11 +17,13 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
 from dmm.petab_subproblem import load_petab
+from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples, plot_single_sample
 from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
+from training_configuration import CONTEXTS_FEATURES
 from util import Conf, load_petab_base_files
 
 conf = fire.Fire(Conf)
@@ -29,9 +31,13 @@ conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
 
-cross_sample_dir = outdir / "pretrain_cross_sample"
-cross_sample_dir.mkdir(exist_ok=True, parents=True)
+# cross_sample_dir = outdir / "pretrain_cross_sample"
+# cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
+# TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
+    # "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
+    # that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
+    # CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
@@ -87,6 +93,8 @@ def evaluate_pretraining_per_sample(dataset, conf):
             context="none",
             sample=sample,
             model_type="per_sample",
+            orth_reg_strategy="None", # not needed for regression
+            job=None,  # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -159,6 +167,8 @@ def evaluate_average(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg",
+            orth_reg_strategy="None", # not needed for regression
+            job=None,  # not needed here
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -248,6 +258,8 @@ def evaluate_average_model(dataset, conf):
             context="none",
             sample=sample,
             model_type="avg_model",
+            orth_reg_strategy="None", # not needed for regression
+            job=None,  # not needed
             l1reg_inflate=0.0,
             oreg_encode=0.0,
             l1reg_encode=0.0,
@@ -258,9 +270,10 @@ def evaluate_average_model(dataset, conf):
 
     return pd.DataFrame(evaluations)
 
-
+# Evaluate references/baselines
 for dataset in ["train", "test"]:
-    # model average
+
+    # model average ("avg_model")
     df = evaluate_average_model(dataset, conf)
     df.to_csv(
         EVALUATION_REFERENCE.format(
@@ -270,7 +283,7 @@ for dataset in ["train", "test"]:
         )
     )
 
-    # average
+    # average -- this looks NOT to be in use at the moment (only avg_model)
     df = evaluate_average(dataset, conf)
     df.to_csv(
         EVALUATION_REFERENCE.format(
@@ -280,7 +293,7 @@ for dataset in ["train", "test"]:
         )
     )
 
-    # per sample
+    # per sample ("sample")
     df = evaluate_pretraining_per_sample(dataset, conf)
     df.to_csv(
         EVALUATION_REFERENCE.format(

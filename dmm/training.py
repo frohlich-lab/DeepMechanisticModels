@@ -1,6 +1,6 @@
 import itertools as itt
 from pathlib import Path
-from typing import Dict, Tuple
+from typing import Dict
 
 import git
 import numpy as np
@@ -16,6 +16,9 @@ from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
 
 import wandb
+
+from flax.training.early_stopping import EarlyStopping
+# documentation: https://flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 
 from .autoencoder import DeepMechanisticModel
 from .problem import Problem
@@ -77,6 +80,9 @@ def train(
     schedule_config: Dict,
     n_epoch,
     x0,
+    use_early_stopping,
+    patience,
+    min_improvement,
 ) -> pypesto.Result:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -90,6 +96,7 @@ def train(
         group=f"{conf['context']}_{conf['features']}",
         config={
             **conf,
+            "patience": patience,  # logging patience hyperparam
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
@@ -100,6 +107,7 @@ def train(
                 conf["job"],
                 conf["samples"],
                 conf["n_hidden"],
+                conf["orth_reg_strategy"],
                 conf["l1reg_inflate"],
                 conf["oreg_inflate"],
                 conf["l1reg_encode"],
@@ -115,6 +123,7 @@ def train(
 
     wandb.define_metric("rmse_train", summary="min")
     wandb.define_metric("rmse_val", summary="min")
+    wandb.define_metric("patience_counter")
     wandb.define_metric("fval", summary="min")
     wandb.define_metric(L1IREG, summary="min")
     wandb.define_metric(OIREG, summary="min")
@@ -140,6 +149,17 @@ def train(
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
     rmse_test_min = np.inf
+    if use_early_stopping:
+        if patience is None:
+            raise ValueError("Patience value for early stopping is undefined.")
+        elif min_improvement is None:
+            raise ValueError("Minimum absolute improvement for early stopping is undefined.")
+        else:
+            # instantiate early stopper
+            early_stop = EarlyStopping(
+                min_delta=min_improvement,
+                patience=patience
+            )
 
     for epoch in range(n_epoch + 1):
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
@@ -163,6 +183,7 @@ def train(
         wandb.log({"fval": fval}, step=epoch)
         if epoch % 5 == 0:
             rmses = dict()
+            # evaluate rmse on train and test dataset only after a certain number (5) of epochs
             for dataset, pp in zip(
                 ("train", "test"), (problem_train, problem_test)
             ):
@@ -199,6 +220,28 @@ def train(
                 step=epoch,
             )
 
+            if use_early_stopping:
+                # Update early stopper
+                early_stop = early_stop.update(rmses["test"])
+                # Debugging statements
+                print(
+                    f"epoch {epoch} | "
+                    f"loss {rmses['test']} | "
+                    f"has improved? {early_stop.has_improved} | "
+                    f"patience count {early_stop.patience_count}"
+                )
+                # Log current patience count
+                wandb.log(
+                    {
+                        "patience_counter": early_stop.patience_count,
+                    },
+                    step=epoch,
+                )
+                # Stop training if we have run out of patience
+                if early_stop.should_stop:
+                    print(f'Met early stopping criteria, breaking at epoch {epoch}')
+                    break
+
         updates, opt_state = opt.update(grads, opt_state)
         x = apply_updates(x, updates)
 
@@ -207,10 +250,13 @@ def train(
 
     wandb.finish()
 
+    # Consider adding scalar value 'epoch' to monitor whether early/unexpected training termination
+    # Saving epoch number inside n_fval (number of function evaluations)
     OResult = OptimizeResult()
     OResult.append(
         OptimizerResult(
             fval=opt_fval,
+            n_fval=epoch,  # save epoch number to diagnose early stopping
             x=opt_x,
             grad=opt_grads,
             x0=x0,

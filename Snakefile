@@ -5,10 +5,16 @@ from pathlib import Path
 from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS,
     COLLECTED_TRAINING_RESULTS, per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE,
-    MEASUREMENTS_FILE_RW, FEATURES_OUTFILFE
+    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
+    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
+    CONTEXT_SET
 )
-from training_configuration import ALPHAS, BETAS, GAMMAS, DELTAS, LATENT_DIMS, PATHWAYS, DATASETS, SPLITS, PRETRAIN, CONTEXTS_FEATURES
+from training_configuration import (
+    ORTH_REG_STRATEGIES,
+    ALPHAS, BETAS, GAMMAS, DELTAS,
+    LATENT_DIMS, PATHWAYS, DATASETS, SPLITS,
+    PRETRAIN, CONTEXTS_FEATURES
+)
 
 basedir = Path(os.getcwd())
 mencoder_dir = basedir / 'dmm'
@@ -160,7 +166,7 @@ rule select_features:
         data_rw=rules.reweight_data.output.data,
     output:
         data=[
-            FEATURES_OUTFILFE.format_map(SafeDict(dataset=dataset))
+            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset))
             for dataset in ['train', 'val']
         ]
     wildcard_constraints:
@@ -204,13 +210,13 @@ rule estimate_parameters:
     retries: 1
     resources:
         mem="1GB",
-        runtime="10h",
+        runtime="24h",
         nodes=1,
         threads=2,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'job', 'features')
         ) + ' --threads={threads}'
@@ -240,7 +246,7 @@ rule collect_estimation_results:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'features')
         ) + ' --n_starts={N_STARTS}'
@@ -261,20 +267,48 @@ rule evaluate_references:
         samples='[0-9]+_[0-9]+',
     retries: 1
     resources:
-        mem="1GB",
+        mem="8GB",
         runtime="1h",
         nodes=1,
         threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model','data','samples',)
+        for arg in ('model','data','samples')
+        ) + ' --n_starts={N_STARTS}'
+
+rule evaluate_regressors:
+    input:
+        script='evaluate_regressors.py'
+    output:
+        csv=[
+            EVALUATION_REGRESSOR.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
+            for dataset, mode, context in itt.product(
+                ['train', 'test'],
+                ['linreg', 'lasso', 'elasticnet'],
+                [context for context in CONTEXT_SET]
+            )
+        ]
+    wildcard_constraints:
+        model='\w+',
+        data=r'[\w\.]+',
+        samples='[0-9]+_[0-9]+',
+    retries: 1
+    resources:
+        mem="8GB",
+        runtime="1h",
+        nodes=1,
+        threads=1,
+    shell:
+        'python3 {input.script} ' + ' '.join(
+        f'--{arg}={{wildcards.{arg}}}'
+        for arg in ('model','data','samples')
         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        training=rules.collect_estimation_results.output.result
+        training=rules.estimate_parameters.output.result
     output:
         csv=[
             EVALUATION_TRAINING.format_map(SafeDict(dataset=dataset))
@@ -286,19 +320,21 @@ rule evaluate_training:
         samples='[0-9]+_[0-9]+',
         context='\w+',
         n_hidden='[0-9]+',
+        job='[0-9]+',
+        orth_reg_strategy='\w+',
         l1reg_inflate='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
         pretrain='True|False',
     resources:
-        mem="1GB",
-        runtime="1h",
+        mem="16GB",
+        runtime="90min",
         nodes=1,
         threads=1,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'samples', 'n_hidden',
+            for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'job', 'orth_reg_strategy',
                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                         'features')
         )
@@ -313,6 +349,8 @@ rule evaluate_all:
             for y in expand(
                 x.format_map(SafeDict(context=context, features=features)),
                 model='{model}',data='{data}',
+                orth_reg_strategy=ORTH_REG_STRATEGIES,
+                job=STARTS,
                 l1reg_inflate=ALPHAS,
                 oreg_inflate=BETAS,
                 l1reg_encode=GAMMAS,
@@ -325,19 +363,35 @@ rule evaluate_all:
         reference=expand(
             rules.evaluate_references.output.csv,
             model='{model}',data='{data}',samples=SPLITS,
+        )+expand(
+            rules.evaluate_regressors.output.csv,
+            model='{model}',data='{data}',samples=SPLITS,
         )
     output:
         plot=[
             EVALUATE_ALL.format_map(SafeDict(group=group))
-            for group in ('l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate')
+            for group in (
+                'orth_reg_strategy',
+                'l1reg_encode', 'l1reg_inflate',
+                'oreg_encode', 'oreg_inflate',
+                'heatmaps_n_hidden_pairwise',
+                'volcano_plot_stat_test',
+            )
+        ],
+        csv=[
+            EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
+            for filename in (
+                'evaluate_all',
+                'stat_tests_all',
+            )
         ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
         samples='[0-9]+_[0-9]+',
     resources:
-        mem="4GB",
-        runtime="30m",
+        mem="16GB",
+        runtime="90m",
         nodes=1,
         threads=1,
     shell:

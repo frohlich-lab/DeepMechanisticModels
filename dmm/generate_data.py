@@ -8,7 +8,7 @@ import numpy as np
 import numpy.random
 import pandas as pd
 import petab
-from jax.config import config
+from jax import config
 from sklearn import decomposition
 
 from . import MODEL_FEATURE_PREFIX, plot_and_save_fig

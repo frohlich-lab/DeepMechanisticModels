@@ -84,8 +84,8 @@ pars_file = Path(
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
 parameters(result)
 plt.tight_layout()
-plt.savefig(f"parameters_avg.pdf")
+plt.savefig("parameters_avg.pdf")
 
 waterfall(result)
 plt.tight_layout()
-plt.savefig(f"waterfall_avg.pdf")
+plt.savefig("waterfall_avg.pdf")

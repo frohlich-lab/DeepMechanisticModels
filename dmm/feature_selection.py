@@ -24,6 +24,8 @@ def contextualize_measurements(
     observable_table: pd.DataFrame,
     contextualization: str,
 ) -> pd.DataFrame:
+
+    # Check requested contextualization is available
     if contextualization not in (
         "transcriptomics",
         "proteomics",
@@ -32,8 +34,11 @@ def contextualize_measurements(
     ):
         raise ValueError(f"Unknown contextualization: {contextualization}")
 
+    # Make a copy of the measurements table
     input_measurements = measurement_table.copy()
 
+    # Subset measurements to chosen contextualization
+    # e.g. if transcriptomics, only keep measurements with measurementType == transcriptomics
     if contextualization == "transcriptomics":
         input_measurements = input_measurements[
             input_measurements["measurementType"] == "transcriptomics"
@@ -46,21 +51,27 @@ def contextualize_measurements(
         input_measurements = input_measurements[
             input_measurements["measurementType"] == "cytof"
         ]
-
+    # For transcriptomics, proteomics and cytof_init (initial) only keep time 0
+    # In other words, only keep time-course info for cytof_dynamic
     if contextualization in ("transcriptomics", "proteomics", "cytof_init"):
         input_measurements = input_measurements[
             input_measurements[petab.TIME] == 0
         ]
-
+    # For cytof_dynamic: only keep the observables that are part of the pathway model
+    # TODO @GiacomoFabrini: create full_cytof_dynamic with all markers/observables, even
+        # those outside the model, so that we can evaluate whether the model is capable
+        # to regularise and pick out the relevant information/input markers.
     if contextualization == "cytof_dynamic":
         input_measurements = input_measurements[
             input_measurements[petab.OBSERVABLE_ID].isin(
                 list(observable_table.index)
             )
         ]
+        # Split SIMULATION_CONDITION_ID and keep the stimulus info (0th is cell line, 1st is stimulus)
         input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
             petab.SIMULATION_CONDITION_ID
         ].apply(lambda x: x.split("__")[1])
+
 
         pivot_columns = (
             petab.OBSERVABLE_ID,
@@ -73,21 +84,23 @@ def contextualize_measurements(
                 lambda x: x.endswith("__EGF")
             )
         ]
-        pivot_columns = petab.OBSERVABLE_ID
+        pivot_columns = [petab.OBSERVABLE_ID]
     else:
-        pivot_columns = petab.OBSERVABLE_ID
+        pivot_columns = [petab.OBSERVABLE_ID]
 
+    # in all cases/contexts: average over replicates through np.nanmean aggfunc in pivot_table
     input_data = input_measurements.pivot_table(
-        index=petab.PREEQUILIBRATION_CONDITION_ID,
-        columns=pivot_columns,
-        values=petab.MEASUREMENT,
-        aggfunc=np.nanmean,
+        index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+        columns=pivot_columns,  # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+        values=petab.MEASUREMENT,  # the actual measurement/signal
+        aggfunc=np.nanmean,  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
     )
+
     return input_data
 
 
 def load_data(
-    contextualization, samples, features, measurement_table, observable_table
+    contextualization, samples, features, measurement_table, observable_table,
 ):
     input_data = contextualize_measurements(
         measurement_table, observable_table, contextualization
@@ -113,19 +126,16 @@ def load_data(
                 mask = input_data.loc[:, target].isna()
                 input_data.loc[mask, target] = input_data.loc[mask, source]
         #  regression imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
-            for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC"):
-                mask = input_data.loc[:, (marker, pert, 7.0)].isna()
-                input_data.loc[mask, (marker, pert, 7.0)] = (
-                    input_data.loc[mask, (marker, pert, 9.0)] * 2.0 / 9.0
-                    + input_data.loc[mask, (marker, pert, 0.0)] * 7.0 / 9.0
-                )
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"): # all currently considered observables - might need to access, not hardcode
+            for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"): # all currently considered conditions - might need to access, not hardcode
+                for missing_time, [time_before, time_after] in zip([7.0, 13.0, 40.0],
+                                                                   [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]):
 
-                mask = input_data.loc[:, (marker, pert, 13.0)].isna()
-                input_data.loc[mask, (marker, pert, 13.0)] = (
-                    input_data.loc[mask, (marker, pert, 9.0)] * 4.0 / 8.0
-                    + input_data.loc[mask, (marker, pert, 17.0)] * 4.0 / 8.0
-                )
+                    mask = input_data.loc[:, (marker, pert, missing_time)].isna()
+                    input_data.loc[mask, (marker, pert, missing_time)] = (
+                            input_data.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
+                            + input_data.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
+                    )
 
     if features:
         # for prediction, use feature set computed on training data
@@ -157,7 +167,6 @@ def load_data(
                 :, np.nanmedian(input_data, axis=0) > -2.5
             ]
         features = list(input_data.columns)
-
     return input_data, features
 
 
@@ -186,7 +195,7 @@ def build_preprocesser(
             )
             grid = GridSearchCV(
                 pipe,
-                param_grid={f"spca__alpha": np.logspace(-3, 3, 7)},
+                param_grid={"spca__alpha": np.logspace(-3, 3, 7)},
                 cv=5,
                 scoring="neg_mean_squared_error",
             )

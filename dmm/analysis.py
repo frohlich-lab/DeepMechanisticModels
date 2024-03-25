@@ -22,8 +22,10 @@ def process_simulation(
     measurement_df,
     simulation_df,
     context,
+    job,
     sample,
     model_type,
+    orth_reg_strategy,
     l1reg_inflate,
     oreg_inflate,
     l1reg_encode,
@@ -39,12 +41,19 @@ def process_simulation(
     res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
 
     for _, r in res.iterrows():
+        # re-defining condition in such a way that fits both avg and avg_model references and regression standards
+        if len(r[petab.SIMULATION_CONDITION_ID].split("__")) > 1:
+            condition = r[petab.SIMULATION_CONDITION_ID].split("__")[1]
+        else:
+            condition = r[petab.SIMULATION_CONDITION_ID]
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
+                "job": job,  # job-specific residuals
                 "sample": sample,
                 "type": model_type,
                 "context": context,
+                "orth_reg_strategy": orth_reg_strategy,
                 "l1reg_inflate": l1reg_inflate,
                 "oreg_inflate": oreg_inflate,
                 "l1reg_encode": l1reg_encode,
@@ -52,7 +61,7 @@ def process_simulation(
                 "layers": hidden_layers,
                 "features": features,
                 "observable": r[petab.OBSERVABLE_ID],
-                "condition": r[petab.SIMULATION_CONDITION_ID].split("__")[1],
+                "condition": condition,
                 "time": r[petab.TIME],
             }
         )
@@ -103,6 +112,8 @@ def evaluate_simulations(
     context,
     split,
     dataset,
+    job,
+    orth_reg_strategy,
     l1reg_inflate,
     oreg_inflate,
     l1reg_encode,
@@ -145,8 +156,10 @@ def evaluate_simulations(
             measurement_df=petab_problem.measurement_df,
             simulation_df=simulation_df,
             context=context,
+            job=job,
             sample=sample,
             model_type=model_type,
+            orth_reg_strategy=orth_reg_strategy,
             l1reg_inflate=l1reg_inflate,
             oreg_inflate=oreg_inflate,
             l1reg_encode=l1reg_encode,
@@ -163,6 +176,7 @@ def evaluate_simulations(
             [
                 split,
                 context,
+                str(job),  # include job number to produce one plot per multistart
                 str(latent_dim),
                 str(l1reg_inflate),
                 dataset,
@@ -175,19 +189,22 @@ def evaluate_simulations(
 def plot_loss_vs_regularization(df):
     df["cf"] = df["context"] + "_" + df["features"]
     dfa = (
-        df.groupby(["alpha", "layers", "cf", "sample"])
+        df.groupby(["l1reg_inflate", "layers", "cf", "sample", "job"])  # keep job-level info (one rmse value per job)
         .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
         .rename(columns={"res": "rmse"})
         .reset_index()
     )
+
     g = sns.FacetGrid(data=dfa, col="sample", col_wrap=5)
     g.map_dataframe(
         sns.lineplot,
-        x="alpha",
+        x="l1reg_inflate",
         y="rmse",
+        errorbar=lambda x: (x.min(), x.max()),  # display error bars from min rmse to max rmse across jobs
         hue="cf",
-        palette="tab10",
+        palette="rocket",
         style="layers",
+        markers=True,
     )
     [ax.set(yscale="log", xscale="log") for ax in g.axes]
     plt.tight_layout()

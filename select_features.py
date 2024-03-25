@@ -4,7 +4,7 @@ from pathlib import Path
 import fire
 import pandas as pd
 
-from common import FEATURES_OUTFILFE, Wildcards, test_samples, training_samples
+from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
 from dmm.feature_selection import build_preprocesser, load_data
 from util import load_petab_base_files
 
@@ -61,7 +61,7 @@ print(
 )
 
 for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
-    outfile = FEATURES_OUTFILFE.format_map(
+    outfile = FEATURES_OUTFILE.format_map(
         dict(**conf.__dict__, dataset=dataset)
     )
     Path(outfile).parent.mkdir(exist_ok=True, parents=True)

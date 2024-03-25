@@ -30,41 +30,58 @@ def plot_single_sample(
         df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
             lambda x: x.replace("_obs", "")
         )
-        df[petab.SIMULATION_CONDITION_ID] = df[
-            petab.SIMULATION_CONDITION_ID
-        ].apply(
-            lambda x: ("" if x.split("__")[1].startswith("EGF") else "EGF+")
-            + x.split("__")[1]
-        )
+
+        if df.shape[0] > 0: # for avg and avg_model, this avoids an error at evaluation of test samples during train - blank dataframe
+            if len(df[petab.SIMULATION_CONDITION_ID].iloc[0].split("__")) > 1:
+                df[petab.SIMULATION_CONDITION_ID] = df[
+                    petab.SIMULATION_CONDITION_ID
+                ].apply(
+                    lambda x: ("" if x.split("__")[1].startswith("EGF") else "EGF+")
+                    + x.split("__")[1]
+                )
+            else:
+                df[petab.SIMULATION_CONDITION_ID] = df[
+                    petab.SIMULATION_CONDITION_ID
+                ].apply(
+                    lambda x: (x if x=="EGF" else "EGF+"+x)
+                )
         df.rename(
             columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True
         )
 
-    mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
-    mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
+    if petab.NOISE_PARAMETERS in mdf.columns:
+        errorbar = True
+        mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
+        mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
+    else:
+        errorbar = False
 
     kwargs = {"x": "time", "color": "treatment", "group": "treatment"}
+
     plot = (
-        ggplot()
-        + geom_line(
-            data=sdf,
-            mapping=aes(y=petab.SIMULATION, **kwargs),
-            size=1,
-        )
-        + geom_point(
-            data=mdf,
-            mapping=aes(y=petab.MEASUREMENT, **kwargs),
-            size=1,
-        )
-        + geom_errorbar(
-            data=mdf, mapping=aes(ymax="ymax", ymin="ymin", **kwargs)
-        )
-        + facet_grid((petab.OBSERVABLE_ID, "treatment"))
-        + xlab("time [min]")
-        + ylab("measurement")
-        + ggtitle(f"cell line: {sample[1:]}")
-        + theme(**PLOTNINE_THEME)
+            ggplot()
+            + geom_line(
+                data=sdf,
+                mapping=aes(y=petab.SIMULATION, **kwargs),
+                size=1,
+            )
+            + geom_point(
+                data=mdf,
+                mapping=aes(y=petab.MEASUREMENT, **kwargs),
+                size=1,
+            )
+            + facet_grid((petab.OBSERVABLE_ID, "treatment"))
+            + xlab("time [min]")
+            + ylab("measurement")
+            + ggtitle(f"cell line: {sample[1:]}")
+            + theme(**PLOTNINE_THEME)
     )
+
+    if errorbar:
+        plot += geom_errorbar(
+            data=mdf,
+            mapping=aes(ymax="ymax", ymin="ymin", **kwargs)
+        )
 
     save_plot(plot, figdir, prefix)
 

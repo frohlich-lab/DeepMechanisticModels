@@ -5,6 +5,9 @@ from typing import List
 import numpy as np
 
 from cytof import get_samples
+from training_configuration import CONTEXTS_FEATURES
+
+CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
 
 MODEL_FEATURE_PREFIX = "INPUT_"
 
@@ -25,7 +28,7 @@ PER_SAMPLE_OUTFILE_RESULTS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.hdf"
 )
 
-FEATURES_OUTFILFE = str(
+FEATURES_OUTFILE = str(
     features_dir
     / "{model}"
     / "{data}"
@@ -45,14 +48,16 @@ defaults = {
     x: f"{{{x}}}"
     for x in [
         "context",
-        "samples",
-        "n_hidden",
-        "job",
         "features",
+        "samples",
+        # "pretrain",
+        "n_hidden",
+        "orth_reg_strategy",
         "l1reg_inflate",
         "oreg_inflate",
         "l1reg_encode",
         "oreg_encode",
+        "job",
     ]
 }
 tpl_results_file = "__".join(defaults.values())
@@ -83,13 +88,37 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 EVALUATION_REFERENCE = str(
     evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
 )
+
+EVALUATION_REGRESSOR = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_{dataset}.csv"
+)
+
+REGR_TRAINED_PIPELINE = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_trained_pipeline.joblib"
+)
+
+REGR_FEATURES_TRAIN = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{mode}_{context}_features_train.joblib"
+)
+
 defaults = {
     x: f"{{{x}}}"
     for x in [
         "context",
         "samples",
         "n_hidden",
+        "job", # need job field in EVALUATION_TRAINING
         "features",
+        "orth_reg_strategy",
         "l1reg_inflate",
         "oreg_inflate",
         "l1reg_encode",
@@ -106,6 +135,7 @@ EVALUATION_TRAINING = str(
     / (tpl_evaluation_file + ".csv")
 )
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
+EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
 
 
 def training_samples(wildcards) -> List[str]:

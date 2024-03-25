@@ -8,15 +8,12 @@ import scipy.linalg as la
 
 from common import (
     CONDITIONS_FILE,
-    FEATURES_OUTFILFE,
+    FEATURES_OUTFILE,
     MEASUREMENTS_FILE,
     MEASUREMENTS_FILE_RW,
     MODEL_FEATURE_PREFIX,
     OBSERVABLES_FILE,
     PER_SAMPLE_OUTFILE_PARS,
-    Wildcards,
-    test_samples,
-    training_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
@@ -31,6 +28,7 @@ class Conf(dict):
     samples: str = None
     sample: str = None
     n_hidden: int = None
+    orth_reg_strategy: str = None  # values: "L1" / "L2"
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
     l1reg_encode: float = 0.0
@@ -75,7 +73,7 @@ def load_models(
     petab_base_files = load_petab_base_files(conf, reweight=True)
 
     features_train = pd.read_csv(
-        FEATURES_OUTFILFE.format_map(dict(**conf.__dict__, dataset="train")),
+        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
         index_col=0,
     )
 
@@ -83,6 +81,7 @@ def load_models(
         problem,
         conf.data,
         conf.n_hidden,
+        conf.orth_reg_strategy,
         **petab_base_files,
         features=features_train,
         n_threads=conf.threads,
@@ -92,7 +91,7 @@ def load_models(
         return dmm_train, problem
 
     features_test = pd.read_csv(
-        FEATURES_OUTFILFE.format_map(dict(**conf.__dict__, dataset="val")),
+        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
         index_col=0,
     )
 
@@ -100,6 +99,7 @@ def load_models(
         problem,
         conf.data,
         conf.n_hidden,
+        conf.orth_reg_strategy,
         **petab_base_files,
         features=features_test,
         n_threads=conf.threads,
@@ -133,7 +133,28 @@ def generate_startpoint(
                 if not col.startswith(MODEL_FEATURE_PREFIX)
             ]
         ]
+    # Set random seed for poisson sampling
+    # this means all 0 jobs have the same matrix
+    # of kinetic parameters vs cell-lines.
+    # Same applies for all 1 jobs, all 2 jobs, etc.
+    # Each job samples from the sets of pre-trained
+    # parameters for each cell-line with a bias towards the
+    # better performing multi-starts.
+    # However, as cell-lines are not-paired,
+    # we can combine different multistart parameter sets
+    # across cell-lines.
+    np.random.seed(conf.job)
 
+    # Multi-starts of per-sample training are sorted
+    # by loss function (ascending order, lower is better,
+    # i.e. towards index 0).
+    # Parameters for initialisation are chosen
+    # from the multi-starts using Poisson sampling,
+    # with Poisson(lambda=2).
+    # Lambda is chosen so that the mode is small,
+    # but slightly larger than 0, enabling some spread.
+    # Lower index values will be more easily sampled,
+    # leading to higher chance of sampling lower loss multi-starts.
     par_combo = pd.concat(
         [
             pretraining[
@@ -145,22 +166,41 @@ def generate_startpoint(
     )
     par_combo.index = list(pretrained_samples.keys())
     par_combo = par_combo.reindex(model.sample_names)
+    # Compute the median across samples
     means = par_combo.median(skipna=True)
+    # Subtract the median from the parameters:
+    # par_combo now represents variation around the median
     par_combo -= means
 
     inputs = [
         "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
         for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX)
-        and p.endswith(par_combo.index[0])
+        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_combo.index[0])
     ]
 
+    # Background: Kunin et al. 2019, arXiv:1901.08168 [cs.LG]
+    # showed that a linear autoencoder (LAE)
+    # can be regularised to learn PCA by imposing an L2 penalty.
+    # Here, we are using a simple linear encoder,
+    # the weights of which (w_encode) are initialised with PCA
+    w_encode = model.pca.components_.T.flatten()
+
+    # Encoder weights (w_encode) are initialised with PCA.
+    # Mechanistic model parameters are initialised with the median
+    # across samples (means -- NEED TO FIX NAME).
+    # For consistency, since the latent variables are inflated
+    # into the mechanistic model parameters,
+    # the inflate weights (w_inflate) are initialised as the
+    # least squares solution of predicting the kinetic
+    # parameters from the PCA encoder weights using a linear model.
+    # In particular, for now they are initialised as the
+    # least squares solution of regressing from PCA (w_encode)
+    # the variation around the median of the kinetic
+    # parameters (par_combo[input].values).
     w_inflate = la.lstsq(
         model.features_pca[:, : model.n_latent],
         par_combo[inputs].values,
     )[0].flatten()
-
-    w_encode = model.pca.components_.T.flatten()
 
     xs = np.empty((pypesto_problem.dim,))
 

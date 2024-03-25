@@ -5,10 +5,9 @@ Materials for a simple linear encoder, and its analytical reverse.
 from typing import List, Union
 
 import equinox as eqx
-import jax
 import jax.numpy as jnp
 import numpy as np
-from jax.config import config
+from jax import config
 
 config.update("jax_enable_x64", True)
 
@@ -35,9 +34,10 @@ class AutoEncoder(eqx.Module):
     n_encoder_pars: int = eqx.static_field()
     data: np.ndarray = eqx.static_field()
     x_names: List[str] = eqx.static_field()
+    orth_reg_strategy: str = eqx.static_field()
 
     def __init__(
-        self, features: np.ndarray, n_latent: int = 1, n_params: int = 12
+        self, features: np.ndarray, n_latent: int = 1, n_params: int = 12, orth_reg_strategy: str = None
     ):
         self.n_features = features.shape[1]
         assert n_latent <= self.n_features
@@ -48,6 +48,9 @@ class AutoEncoder(eqx.Module):
         self.n_encode_weights = self.n_features * self.n_latent
         self.n_inflate_weights = self.n_latent * self.n_params
         self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights
+
+        # orthogonal regularisation strategy
+        self.orth_reg_strategy = orth_reg_strategy
 
         # self.par_modulation_scale = par_modulation_scale
 

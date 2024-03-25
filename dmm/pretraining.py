@@ -9,7 +9,7 @@ import pypesto
 from petab.models.pysb_model import PySBModel
 from pypesto.objective.jax import JaxObjective
 from pypesto.optimize import OptimizeOptions, minimize
-from pypesto.petab.pysb_importer import PetabImporterPysb
+from pypesto.petab import PetabImporter #general PetabImporter compared to old PetabImporterPysb
 from pypesto.startpoint import UniformStartpoints
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall
@@ -21,8 +21,8 @@ from .problem import Problem
 
 
 def generate_per_sample_pretraining_problems(
-    importer: PetabImporterPysb, problem: Problem, dataset: str, sample: str
-) -> PetabImporterPysb:
+    importer: PetabImporter, problem: Problem, dataset: str, sample: str
+) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
@@ -74,17 +74,21 @@ def generate_per_sample_pretraining_problems(
         ]
     ]
 
-    return PetabImporterPysb(
+    model_name=pp.model.model_id
+
+    # general PetabImporter compared to old PetabImporterPysb
+    return PetabImporter(
         petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
             model=PySBModel(
-                Model(base=clean_model, name=pp.model.model_id),
+                Model(base=clean_model, name=model_name),
                 pp.model.model_id,
             ),
         ),
+        model_name=model_name,
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
@@ -92,13 +96,13 @@ def generate_per_sample_pretraining_problems(
 
 
 def generate_per_sample_reg_pretraining_problem(
-    importer: PetabImporterPysb,
+    importer: PetabImporter, #general PetabImporter compared to old PetabImporterPysb
     problem: Problem,
     avg_pars: pd.DataFrame,
     dataset: str,
     sample: str,
     alpha: float = 0.0,
-) -> PetabImporterPysb:
+) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
@@ -175,17 +179,21 @@ def generate_per_sample_reg_pretraining_problem(
         )
         pdf.loc[pname, petab.ESTIMATE] = False
 
-    return PetabImporterPysb(
+    model_name = pp.model.model_id
+
+    # general PetabImporter compared to old PetabImporterPysb
+    return PetabImporter(
         petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
             model=PySBModel(
-                Model(base=clean_model, name=pp.model.model_id),
-                pp.model.model_id,
+                Model(base=clean_model, name=model_name),
+                model_name,
             ),
         ),
+        model_name=model_name,
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
@@ -193,11 +201,11 @@ def generate_per_sample_reg_pretraining_problem(
 
 
 def generate_average_pretraining_problem(
-    importer: PetabImporterPysb,
+    importer: PetabImporter, #general PetabImporter compared to old PetabImporterPysb
     problem: Problem,
     dataset: str,
     samples: List[str],
-) -> PetabImporterPysb:
+) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the mechanistic model on the average of all samples
     """
@@ -239,6 +247,7 @@ def generate_average_pretraining_problem(
         columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)],
         inplace=True,
     )
+    cdf.index.name=petab.CONDITION_ID
     spars = (
         set(
             e
@@ -267,18 +276,23 @@ def generate_average_pretraining_problem(
         ]
     ]
     pdf.index = [name.replace("__" + samples[0], "") for name in pdf.index]
+    pdf.index.name = petab.PARAMETER_ID
 
-    return PetabImporterPysb(
+    model_name = pp.model.model_id
+
+    # general PetabImporter compared to old PetabImporterPysb
+    return PetabImporter(
         petab.Problem(
             parameter_df=pdf,
             observable_df=pp.observable_df,
             measurement_df=df_train,
             condition_df=cdf,
             model=PySBModel(
-                Model(base=clean_model, name=pp.model.model_id),
-                pp.model.model_id,
+                Model(base=clean_model, name=model_name),
+                model_name,
             ),
         ),
+        model_name=model_name,
         output_folder=str(
             problem.amici_dir / f"{pp.model.model_id}_{dataset}_petab"
         ),
