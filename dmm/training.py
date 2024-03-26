@@ -26,6 +26,8 @@ from .problem import Problem
 trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
+# TODO @GiacomoFabrini need to make this compatible with new equinox DeepAutoEncoder
+    # single loss function with all loss elements -> eqx.filter_value_and_grad
 
 def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
@@ -125,10 +127,10 @@ def train(
     wandb.define_metric("rmse_val", summary="min")
     wandb.define_metric("patience_counter")
     wandb.define_metric("fval", summary="min")
-    wandb.define_metric(L1IREG, summary="min")
-    wandb.define_metric(OIREG, summary="min")
-    wandb.define_metric(OEREG, summary="min")
-    wandb.define_metric(L1EREG, summary="min")
+    # wandb.define_metric(L1IREG, summary="min")
+    # wandb.define_metric(OIREG, summary="min")
+    # wandb.define_metric(OEREG, summary="min")
+    # wandb.define_metric(L1EREG, summary="min")
 
     par_labels = ("encode", "inflate", "kinetic")
     par_dims = (
@@ -141,6 +143,8 @@ def train(
 
     x = x0.copy()
 
+    # Optimiser and related schedule defined here
+    # TODO @GiacomoFabrini: change optimiser to optax.adamw (weight decay) and change schedule (later?!)
     schedule = linear_schedule(**schedule_config)
     opt = adam(schedule)
     opt_state = opt.init(x)
@@ -149,21 +153,27 @@ def train(
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
     rmse_test_min = np.inf
+
+    # Check Early-stopping parameters have been set correctly and instantiate early stopper
     if use_early_stopping:
         if patience is None:
             raise ValueError("Patience value for early stopping is undefined.")
         elif min_improvement is None:
             raise ValueError("Minimum absolute improvement for early stopping is undefined.")
         else:
-            # instantiate early stopper
             early_stop = EarlyStopping(
                 min_delta=min_improvement,
                 patience=patience
             )
 
+    # Training loop
     for epoch in range(n_epoch + 1):
+        # TODO @GiacomoFabrini ask Fabian: how can we reconcile this with the equinox gradient PyTree?
+            # do I need to convert the PyTree to the same massive array in order to combine them?
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
 
+        # TODO @GiacomoFabrini replace with single loss function (and log that!!!)
+            # for now, I have simply removed the W&B logging of the individual loss components
         for reg_fun, label in zip(
             (
                 model.l1_inflate_reg,
@@ -173,11 +183,14 @@ def train(
             ),
             (L1IREG, L1EREG, OIREG, OEREG),
         ):
+            # this is where the scale parameter of the various regularisation
+            # methods get changed via the hyperparameters in training_configuration.py
             if conf[label] > 0:
                 v_reg, g_reg = value_and_grad(reg_fun, argnums=0)(
-                    x, scale=conf[label]
+                    x,
+                    scale=conf[label]
                 )
-                wandb.log({label: v_reg}, step=epoch)
+                # wandb.log({label: v_reg}, step=epoch)
                 grads += g_reg
 
         wandb.log({"fval": fval}, step=epoch)
@@ -250,7 +263,6 @@ def train(
 
     wandb.finish()
 
-    # Consider adding scalar value 'epoch' to monitor whether early/unexpected training termination
     # Saving epoch number inside n_fval (number of function evaluations)
     OResult = OptimizeResult()
     OResult.append(

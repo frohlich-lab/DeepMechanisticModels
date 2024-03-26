@@ -11,7 +11,6 @@ from jax import config
 
 config.update("jax_enable_x64", True)
 
-
 class AutoEncoder(eqx.Module):
     """
     A simple linear autoencoder.
@@ -26,23 +25,31 @@ class AutoEncoder(eqx.Module):
         number of parameters that to which the embedding will be inflated to
     """
 
-    n_features: int = eqx.static_field()
-    n_latent: int = eqx.static_field()
-    n_params: int = eqx.static_field()
-    n_encode_weights: int = eqx.static_field()
-    n_inflate_weights: int = eqx.static_field()
-    n_encoder_pars: int = eqx.static_field()
+    n_features: int = eqx.static_field()  # input size
+    n_latent: int = eqx.static_field()  # bottleneck layer size
+    n_params: int = eqx.static_field()  # number of kinetic parameters = output layer size
+    n_encode_weights: int = eqx.static_field()  # known from input size and bottleneck layer size
+    n_inflate_weights: int = eqx.static_field()  # known from bottleneck layer size and output layer size
+    n_encoder_pars: int = eqx.static_field()  # known from two above (sum)
     data: np.ndarray = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     orth_reg_strategy: str = eqx.static_field()
 
     def __init__(
-        self, features: np.ndarray, n_latent: int = 1, n_params: int = 12, orth_reg_strategy: str = None
+        self,
+        features: np.ndarray,
+        n_latent: int = 1,
+        n_params: int = 12,
+        orth_reg_strategy: str = "L2"  # default orthogonal regularisation strategy is L2
     ):
         self.n_features = features.shape[1]
-        assert n_latent <= self.n_features
-        assert features.ndim == 2
-        self.data = features
+        if n_latent > self.n_features:
+            raise ValueError("Latent space size cannot be larger than input feature space size!")
+        # assert n_latent <= self.n_features
+        elif features.ndim != 2:
+            raise ValueError("features expected to be two-dimensional!")
+        # assert features.ndim == 2
+        # self.data = features
         self.n_latent = n_latent
         self.n_params = n_params
         self.n_encode_weights = self.n_features * self.n_latent
