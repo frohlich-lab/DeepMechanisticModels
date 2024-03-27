@@ -8,6 +8,7 @@ from jax import config, nn, random
 config.update("jax_enable_x64", True)
 
 # TODO @GiacomoFabrini consider adding eqx.nn.PReLU as parametric leaky ReLU
+    # add tanh option
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
     "relu": nn.relu,
@@ -88,7 +89,6 @@ class DeepComponent(eqx.Module):
         else:
             raise ValueError(f"Unknown activation function: {activation_fn_name}")
 
-    @eqx.filter_jit
     def __call__(self, x):
         a = x
         # if more than one layer (deep architecture), applies non-linearities to all layers but the last
@@ -141,7 +141,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
-    deep_decoder: eqx.Module  # could be None if not reconstructing (hence not using DeepComponent)
+    deep_decoder: eqx.Module | None  # could be None if not reconstructing (hence not using DeepComponent)
     # can also set deep_decoder: DeepComponent if changing to eqx.nn.Identity() rather than None down below
     orth_reg_strategy: str = eqx.static_field()
     reconstruct: bool

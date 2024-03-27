@@ -14,10 +14,13 @@ from .petab_subproblem import load_petab
 from .problem import Problem
 # from optax import power_iteration
 
-
+# TODO @GiacomoFabrini idea: pretrain whole network on n_params x n_samples
+    # matrix coming from ODE pretraining
+    # then train end-to-end differentiable DMM
+    # can pretrain encoder-inflater or encoder-inflater-decoder
 config.update("jax_enable_x64", True)
 
-class DeepMechanisticModel_v2(TwoHeadedDeepAutoencoder):
+class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     # TODO @GiacomoFabrini check attributes! What is missing?
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
@@ -44,7 +47,6 @@ class DeepMechanisticModel_v2(TwoHeadedDeepAutoencoder):
         problem: Problem,
         dataset: str,
         n_latent: int,
-        n_params: int,
         encoder_layer_sizes: List,
         inflater_layer_sizes: List,
         orth_reg_strategy: str = "L2",
@@ -98,10 +100,7 @@ class DeepMechanisticModel_v2(TwoHeadedDeepAutoencoder):
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
 
-        # Set bottleneck layer size
-        self.n_latent = n_latent
-        # Set inflater layer output size
-        self.n_params = n_params
+        # TODO @GiacomoFabrini n_params needs to come from petab  problem
 
         # set regularisation strategy
         self.orth_reg_strategy = orth_reg_strategy
@@ -161,15 +160,6 @@ class DeepMechanisticModel_v2(TwoHeadedDeepAutoencoder):
         ]
 
 
-        # Make sure encoder output size and inflater input size match n_latent
-        if encoder_layer_sizes[-1] != self.n_latent:
-            raise ValueError("Size of encoder bottleneck layer must match n_latent!")
-        if inflater_layer_sizes[0] != self.n_latent:
-            raise ValueError("Size of inflater input layer must match n_latent!")
-        # Make sure inflater output size matches n_params
-        if inflater_layer_sizes[-1] != self.n_params:
-            raise ValueError("Size of inflater output layer must match number of kinetic parameters!")
-
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
             features=self.features,
@@ -191,6 +181,14 @@ class DeepMechanisticModel_v2(TwoHeadedDeepAutoencoder):
             if not name.startswith(MODEL_FEATURE_PREFIX)
             and ix in self.pypesto_subproblem.x_free_indices
         ]
+
+    @property
+    def n_latent(self):
+        return self.encoder_layer_sizes[-1]
+
+    @property
+    def n_params(self):
+        return self.inflater_layer_sizes[-1]
 
     # TODO @GiacomoFabrini ask Fabian about this?!
     def embedding(self, params: np.ndarray) -> jnp.ndarray:

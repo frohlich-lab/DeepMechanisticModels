@@ -16,4 +16,4 @@ source ./venv/bin/activate
 
 snakemake train_and_evaluate --local-cores 1 -j 2000 --config num_starts=10 \
     --use-singularity --slurm --default-resources slurm_account=u_froehlichf slurm_partition=cpu \
-    --rerun-incomplete
+    --rerun-incomplete --max-jobs-per-second=1 --max-status-checks-per-second=0.1
