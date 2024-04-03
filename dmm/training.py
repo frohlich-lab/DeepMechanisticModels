@@ -49,11 +49,11 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
 
 # TODO @GiacomoFabrini - is this used or can it be scrapped? -- STILL IN USE, SEE BELOW
 def create_pypesto_problem(
-    ae: DeepMechanisticModel, problem: Problem
+    ae: DeepMechanisticModel, problem: Problem  # is problem even needed?
 ) -> pypesto.Problem:
     """
-    Creates a pypesto pypesto_probme that defines the optimization pypesto_probme that
-    needs to be solved for the training of the provided autoencoder
+    Creates a pypesto.Problem that defines the optimization problem to solve
+    for the training of the provided DeepMechanisticModel/Autoencoder (ae).
 
     :param ae:
         Autoencoder that will be trained
@@ -110,14 +110,18 @@ def train(
         name="__".join(
             str(x)
             for x in (
-                conf["job"],
                 conf["samples"],
                 conf["n_hidden"],
+                conf["encoder_layer_sizes"],
+                conf["inflater_layer_sizes"],
+                conf["activation_fn_name"],
+                conf["reconstruct"],
                 conf["orth_reg_strategy"],
                 conf["l1reg_inflate"],
                 conf["oreg_inflate"],
                 conf["l1reg_encode"],
                 conf["oreg_encode"],
+                conf["job"],
             )
         ),
         settings=wandb.Settings(
@@ -172,8 +176,7 @@ def train(
 
     # Training loop
     for epoch in range(n_epoch + 1):
-        # TODO @GiacomoFabrini ask Fabian: how can we reconcile this with the equinox gradient PyTree?
-            # do I need to convert the PyTree to the same massive array in order to combine them?
+        # TODO @GiacomoFabrini ask Fabian: is this going to be the overall loss? (ODE + NN)
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
 
         # TODO @GiacomoFabrini only compute function values and log (restore) -- OK
@@ -229,6 +232,7 @@ def train(
                         else wandb.Histogram(
                             np.log10(np.abs(value[value != 0]))
                         )
+                        # TODO @GiacomoFabrini: need to fix this with proper grads and x - what shall I do with xname?
                         for val_type, values in (
                             ("x", x),
                             ("g", grads),

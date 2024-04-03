@@ -46,26 +46,28 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self,
         problem: Problem,
         dataset: str,
-        n_latent: int,
-        encoder_layer_sizes: List,
-        inflater_layer_sizes: List,
+        # n_latent: int,
+        encoder_layer_sizes: List[int],
+        encoder_layer_biases: Lis[bool] = [False]*len(encoder_layer_sizes),  # default: no learnable biases
+        inflater_layer_sizes: List[int],
+        inflater_layer_biases: List[bool] = [False]*len(inflater_layer_sizes),  # default: no learnable biases
+        decoder_layer_biases: List[bool] = [False]*(len(encoder_layer_sizes)-1)+[True],  # learnable bias in last layer
         orth_reg_strategy: str = "L2",
         measurement_table: pd.DataFrame,
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
         features: pd.DataFrame,
         n_threads=1,
-        pca: Optional[PCA] = None,
+        # pca: Optional[PCA] = None,
         activation_fn_name: str = "relu",  # default activation function = Rectified Linear Unit
         reconstruct: bool = False, # whether to add decoder head (single head by default)
     ):
         """
-        loads the mechanistic model as theano operator with loss as output and
-        decoder output as input
 
         :param pathway_name:
             name of pathway to use for model
 
+        # REMOVED
         # :param n_latent:
         #     number of nodes in the hidden layer of the encoder
         #
@@ -76,9 +78,21 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             list of layer sizes for encoder component (and decoder component, in reverse)
             Needed to define encoder and, potentially, decoder modules.
 
+        :param encoder_layer_biases:
+            list of bool values indicating whether to add a learnable bias or not for encoder layers.
+            Needed to define encoder module.
+
         :param inflater_layer_sizes:
             list of layer sizes for inflater component
             Needed to define inflater module.
+
+        :param inflater_layer_biases
+            list of bool values indicating whether to add a learnable bias or not for inflater layers.
+            Needed to define inflater module.
+
+        :param decoder_layer_biases
+            list of bool values indicating whether to add a learnable bias or not for decoder layers.
+            Needed to define decoder module.
 
         :param key:
             PRNG key.
@@ -93,14 +107,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             Default: single head (False)
 
         :param orth_reg_strategy:
-        orthogonal regularisation strategy to be used: L1 vs L2 (default)
+            orthogonal regularisation strategy to be used: L1 vs L2 (default)
+
+        :param n_threads:
+            number of threads to use for pypesto
 
         """
 
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
 
-        # TODO @GiacomoFabrini n_params needs to come from petab  problem
+        # TODO @GiacomoFabrini n_params needs to come from petab problem
 
         # set regularisation strategy
         self.orth_reg_strategy = orth_reg_strategy
@@ -108,9 +125,14 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # set reconstruct flag
         self.reconstruct = reconstruct
 
-        # define layer sizes
+        # define layer sizes for different modules
         self.encoder_layer_sizes = encoder_layer_sizes
         self.inflater_layer_sizes = inflater_layer_sizes
+
+        # define whether to add learnable biases to module layers
+        self.encoder_layer_biases = encoder_layer_biases
+        self.inflater_layer_biases = inflater_layer_biases
+        self.decoder_layer_biases = decoder_layer_biases if self.reconstruct else [None]*len(self.encoder_layer_biases)
 
         # subset samples
         self.petab_importer = load_petab(
@@ -137,7 +159,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.features = features.loc[petab_samples, :].values
 
         if pca is None:
-            self.pca = PCA(n_components=n_latent).fit(self.features)
+            self.pca = PCA(n_components=self.n_latent).fit(self.features)
         else:
             self.pca = pca
         self.features_pca = self.pca.transform(self.features)
@@ -164,7 +186,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         super().__init__(
             # features=self.features,
             encoder_layer_sizes=self.encoder_layer_sizes,
+            encoder_layer_biases=self.encoder_layer_biases,
             inflater_layer_sizes=self.inflater_layer_sizes,
+            inflater_layer_biases=self.inflater_layer_biases,
+            decoder_layer_biases=self.decoder_layer_biases,
             key=key,
             activation_fn_name=activation_fn_name,
             orth_reg_strategy=self.orth_reg_strategy,

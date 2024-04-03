@@ -1,5 +1,5 @@
 from typing import Callable, List, Sequence
-# from typing import List, Union
+# from typing import Union
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
@@ -70,9 +70,15 @@ class DeepComponent(eqx.Module):
                 )
         ):
             # TODO @GiacomoFabrini consider defining a CustomLinear layer with custom initialiser
-            #  including stuff from jax.nn.initializers
+            #  including stuff from jax.nn.initializers. This currently initialises weights with random uniform!
+            #  (same holds for bias) - see: https://github.com/patrick-kidger/equinox/blob/main/equinox/nn/_linear.py
             self.layers.append(
-                eqx.nn.Linear(fan_in, fan_out, use_bias=bias, key=key)
+                eqx.nn.Linear(
+                    in_features=fan_in,
+                    out_features=fan_out,
+                    use_bias=bias,
+                    key=key
+                )
             )
             # self.x_names.extend(
             #     [
@@ -117,8 +123,17 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param encoder_layer_sizes:
         list of layer sizes for encoder component (and decoder component, in reverse)
 
+    :param encoder_layer_biases:
+        list of bool values indicating whether to add a learnable bias or not for encoder layers
+
     :param inflater_layer_sizes:
         list of layer sizes for inflater component
+
+    :param inflater_layer_biases
+        list of bool values indicating whether to add a learnable bias or not for inflater layers
+
+    :param decoder_layer_biases
+        list of bool values indicating whether to add a learnable bias or not for decoder layers
 
     :param key:
         PRNG key.
@@ -157,8 +172,11 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     def __init__(
         self,
         # features: np.ndarray,
-        encoder_layer_sizes: List,  # decoder layers are just going to be encoder_layer_sizes mirrored
-        inflater_layer_sizes: List,
+        encoder_layer_sizes: List[int],  # decoder layers are just going to be encoder_layer_sizes mirrored
+        encoder_layer_biases: List[bool],
+        inflater_layer_sizes: List[int],
+        inflater_layer_biases: List[bool],
+        decoder_layer_biases: List[bool],
         key,
         activation_fn_name: str = "relu", # default activation_fn_name is ReLU if more than one layer is present
         orth_reg_strategy: str = "L2",  # default orthogonal regularisation strategy is L2
@@ -178,7 +196,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         elif encoder_layer_sizes[-1] != inflater_layer_sizes[0]:
             raise ValueError("Encoder output size must match inflater input size!")
 
-        self.data = features
+        # self.data = features
         # self.n_latent = encoder_layer_sizes[-1]
         # self.n_params = inflater_layer_sizes[-1]
 
@@ -195,6 +213,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         self.deep_encoder = DeepComponent(
             # component_name="encoder",
             layer_sizes=encoder_layer_sizes,
+            biases=encoder_layer_biases,
             key=key_encoder,
             activation_fn_name=activation_fn_name,
         )
@@ -204,6 +223,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         self.deep_inflater = DeepComponent(
             # component_name="inflater",
             layer_sizes=inflater_layer_sizes,
+            biases=inflater_layer_biases,
             key=key_inflater,
             activation_fn_name=activation_fn_name,
         )
@@ -214,6 +234,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             self.deep_decoder = DeepComponent(
                 # component_name="decoder",
                 layer_sizes=decoder_layer_sizes,
+                biases=decoder_layer_biases,
                 key=key_decoder,
                 activation_fn_name=activation_fn_name,
             )
