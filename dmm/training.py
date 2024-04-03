@@ -20,7 +20,7 @@ import wandb
 from flax.training.early_stopping import EarlyStopping
 # documentation: https://flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 
-from .autoencoder import DeepMechanisticModel
+from .autoencoder_eqx import DeepMechanisticModel
 from .problem import Problem
 
 trace_path = Path(__file__).parents[1] / "traces"
@@ -28,6 +28,7 @@ TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
 # TODO @GiacomoFabrini need to make this compatible with new equinox DeepAutoEncoder
     # single loss function with all loss elements -> eqx.filter_value_and_grad
+    # remove ae.embedding, ae.x_names - not needed
 
 def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
@@ -46,6 +47,7 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     )
 
 
+# TODO @GiacomoFabrini - is this used or can it be scrapped? -- STILL IN USE, SEE BELOW
 def create_pypesto_problem(
     ae: DeepMechanisticModel, problem: Problem
 ) -> pypesto.Problem:
@@ -59,11 +61,13 @@ def create_pypesto_problem(
     :returns:
         Optimization pypesto_probme that needs to be solved for training.
     """
+
+    # TODO @GiacomoFabrini remove all arguments apart from the objective -- OK
     return pypesto.Problem(
         objective=generate_pypesto_objective(ae),
-        x_names=ae.x_names,
-        lb=[-np.inf for _ in ae.x_names],
-        ub=[np.inf for _ in ae.x_names],
+        # x_names=ae.x_names,
+        # lb=[-np.inf for _ in ae.x_names],
+        # ub=[np.inf for _ in ae.x_names],
     )
 
 
@@ -127,10 +131,10 @@ def train(
     wandb.define_metric("rmse_val", summary="min")
     wandb.define_metric("patience_counter")
     wandb.define_metric("fval", summary="min")
-    # wandb.define_metric(L1IREG, summary="min")
-    # wandb.define_metric(OIREG, summary="min")
-    # wandb.define_metric(OEREG, summary="min")
-    # wandb.define_metric(L1EREG, summary="min")
+    wandb.define_metric(L1IREG, summary="min")
+    wandb.define_metric(OIREG, summary="min")
+    wandb.define_metric(OEREG, summary="min")
+    wandb.define_metric(L1EREG, summary="min")
 
     par_labels = ("encode", "inflate", "kinetic")
     par_dims = (
@@ -172,8 +176,7 @@ def train(
             # do I need to convert the PyTree to the same massive array in order to combine them?
         fval, grads = problem_train.objective(x, sensi_orders=(0, 1))
 
-        # TODO @GiacomoFabrini replace with single loss function (and log that!!!)
-            # for now, I have simply removed the W&B logging of the individual loss components
+        # TODO @GiacomoFabrini only compute function values and log (restore) -- OK
         for reg_fun, label in zip(
             (
                 model.l1_inflate_reg,
@@ -186,14 +189,20 @@ def train(
             # this is where the scale parameter of the various regularisation
             # methods get changed via the hyperparameters in training_configuration.py
             if conf[label] > 0:
-                v_reg, g_reg = value_and_grad(reg_fun, argnums=0)(
+                # v_reg, g_reg = value_and_grad(reg_fun, argnums=0)(
+                #     x,
+                #     scale=conf[label]
+                # )
+                v_reg = reg_fun(
                     x,
                     scale=conf[label]
                 )
-                # wandb.log({label: v_reg}, step=epoch)
-                grads += g_reg
+                wandb.log({label: v_reg}, step=epoch)
+                # grads += g_reg
 
         wandb.log({"fval": fval}, step=epoch)
+        # TODO @GiacomoFabrini compute loss with value_and_grad, log and do weight update
+
         if epoch % 5 == 0:
             rmses = dict()
             # evaluate rmse on train and test dataset only after a certain number (5) of epochs

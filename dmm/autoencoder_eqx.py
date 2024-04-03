@@ -66,11 +66,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param pathway_name:
             name of pathway to use for model
 
-        :param n_latent:
-            number of nodes in the hidden layer of the encoder
-
-        :param n_params:
-        number of parameters to which the embedding will be inflated to ???!
+        # :param n_latent:
+        #     number of nodes in the hidden layer of the encoder
+        #
+        # :param n_params:
+        # number of parameters to which the embedding will be inflated to ???!
 
         :param encoder_layer_sizes:
             list of layer sizes for encoder component (and decoder component, in reverse)
@@ -119,7 +119,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             measurement_table=measurement_table,
             condition_table=condition_table,
             observable_table=observable_table,
-            samples=list(features.index),
+            samples=list(features.index),  # features needed here!
         )
         self.pypesto_subproblem = self.petab_importer.create_problem()
 
@@ -162,7 +162,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            features=self.features,
+            # features=self.features,
             encoder_layer_sizes=self.encoder_layer_sizes,
             inflater_layer_sizes=self.inflater_layer_sizes,
             key=key,
@@ -175,12 +175,12 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.pypesto_subproblem.objective, n_threads=n_threads
         )
 
-        self.x_names = self.x_names + [
-            name
-            for ix, name in enumerate(self.pypesto_subproblem.x_names)
-            if not name.startswith(MODEL_FEATURE_PREFIX)
-            and ix in self.pypesto_subproblem.x_free_indices
-        ]
+        # self.x_names = self.x_names + [
+        #     name
+        #     for ix, name in enumerate(self.pypesto_subproblem.x_names)
+        #     if not name.startswith(MODEL_FEATURE_PREFIX)
+        #     and ix in self.pypesto_subproblem.x_free_indices
+        # ]
 
     @property
     def n_latent(self):
@@ -190,31 +190,28 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     def n_params(self):
         return self.inflater_layer_sizes[-1]
 
-    # TODO @GiacomoFabrini ask Fabian about this?!
-    def embedding(self, params: np.ndarray) -> jnp.ndarray:
-        encode_weights, inflate_weights, kin_params = jnp.split(
-            params,
-            np.array(
-                (
-                    self.n_encode_weights,
-                    self.n_inflate_weights + self.n_encode_weights,
-                )
-            ),
-        )
-        return jnp.concatenate(
-            [
-                kin_params,
-                self.inflate_params(
-                    self.encode(encode_weights), inflate_weights
-                ).flatten(),
-            ]
-        )
+    # # TODO @GiacomoFabrini ask Fabian about this?!
+    # def embedding(self, params: np.ndarray) -> jnp.ndarray:
+    #     encode_weights, inflate_weights, kin_params = jnp.split(
+    #         params,
+    #         np.array(
+    #             (
+    #                 self.n_encode_weights,
+    #                 self.n_inflate_weights + self.n_encode_weights,
+    #             )
+    #         ),
+    #     )
+    #     return jnp.concatenate(
+    #         [
+    #             kin_params,
+    #             self.inflate_params(
+    #                 self.encode(encode_weights), inflate_weights
+    #             ).flatten(),
+    #         ]
+    #     )
 
     # TODO @GiacomoFabrini code single loss function incorporating all 4 components + reconstruction loss
-    def loss_fn(self,
-                l1reg_encode, l1reg_inflate, l1reg_decode,
-                oreg_encode, oreg_inflate, oreg_decode,
-                ):
+    def loss_fn(self, ):
         encode_weights = eqx.filter(model.deep_encoder, eqx.is_array)
         inflate_weights = eqx.filter(model.deep_inflater, eqx.is_array)
 

@@ -1,16 +1,16 @@
 from typing import Callable, List, Sequence
 # from typing import List, Union
 import equinox as eqx
-# import jax.numpy as jnp
+import jax.numpy as jnp
 import numpy as np
 from jax import config, nn, random
 
 config.update("jax_enable_x64", True)
 
 # TODO @GiacomoFabrini consider adding eqx.nn.PReLU as parametric leaky ReLU
-    # add tanh option
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
+    "tanh": jnp.tanh,
     "relu": nn.relu,
     "leakyrelu": nn.leaky_relu,
     "elu": nn.elu,
@@ -22,11 +22,14 @@ class DeepComponent(eqx.Module):
     """
     Deep Component module: can be Encoder/Inflater/Decoder.
 
-    :param component_name:
-        module name: "encoder" / "inflater" / "decoder"
+    # :param component_name:
+    #     module name: "encoder" / "inflater" / "decoder"
 
     :param layer_sizes:
         number of units/neurons in DeepComponent layers
+
+    :param biases:
+        list of bool values indicating whether to add a learnable bias or not.
 
     :param key:
         random key
@@ -36,44 +39,47 @@ class DeepComponent(eqx.Module):
 
     """
 
-    component_name: str = eqx.static_field()
+    # component_name: str = eqx.static_field()
     layers: Sequence[eqx.nn.Linear]
-    x_names: List[str] = eqx.static_field()
+    # x_names: List[str] = eqx.static_field()
     activation: Callable
 
     def __init__(
         self,
-        component_name,
+        # component_name,
         layer_sizes,
+        biases,
         key,
         activation_fn_name,
     ):
-        # component/module name (encoder/inflater/decoder)
-        self.component_name = component_name
+        # # component/module name (encoder/inflater/decoder)
+        # self.component_name = component_name
         # Initialise layers and x_names
         self.layers = []
-        self.x_names = []
+        # self.x_names = []
         # Prepare keys for layer initialisation
         layer_keys = random.split(key, num=len(layer_sizes)-1)
         # Define layer-wise architecture
         for layer_num, (
                 (fan_in, fan_out),
-                key
+                (key, bias)
         ) in enumerate(
                 zip(
                     zip(layer_sizes[:-1], layer_sizes[1:]),
-                    layer_keys
+                    zip(layer_keys, biases)
                 )
         ):
+            # TODO @GiacomoFabrini consider defining a CustomLinear layer with custom initialiser
+            #  including stuff from jax.nn.initializers
             self.layers.append(
-                eqx.nn.Linear(fan_in, fan_out, use_bias=False, key=key)
+                eqx.nn.Linear(fan_in, fan_out, use_bias=bias, key=key)
             )
-            self.x_names.extend(
-                [
-                    f"{self.component_name}_{layer_num}_{ind}_weight"
-                    for ind in range(fan_in * fan_out)
-                ]
-            )
+            # self.x_names.extend(
+            #     [
+            #         f"{self.component_name}_{layer_num}_{ind}_weight"
+            #         for ind in range(fan_in * fan_out)
+            #     ]
+            # )
 
         # TODO @GiacomoFabrini if we do NOT need self.x_names, change to code below
         # self.layers = [
@@ -105,8 +111,8 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         First head: encoder -> inflater (kinetic parameters of ODE model).
         Second head: encoder -> decoder (input reconstruction): proper Autoencoder behaviour.
 
-    :param features:
-        input data for the encoder
+    # :param features:
+    #     input data for the encoder
 
     :param encoder_layer_sizes:
         list of layer sizes for encoder component (and decoder component, in reverse)
@@ -131,13 +137,13 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     """
     n_features: int = eqx.static_field()  # input size
-    n_latent: int = eqx.static_field()  # bottleneck layer size
-    n_params: int = eqx.static_field()  # number of kinetic parameters = output layer size
-    n_encode_weights: int = eqx.static_field()  # known from input size and bottleneck layer size
-    n_inflate_weights: int = eqx.static_field()  # known from bottleneck layer size and output layer size
-    n_encoder_pars: int = eqx.static_field()  # known from two above (sum)
-    data: np.ndarray = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
+    # n_latent: int = eqx.static_field()  # bottleneck layer size
+    # n_params: int = eqx.static_field()  # number of kinetic parameters = output layer size
+    # n_encode_weights: int = eqx.static_field()  # known from input size and bottleneck layer size
+    # n_inflate_weights: int = eqx.static_field()  # known from bottleneck layer size and output layer size
+    # n_encoder_pars: int = eqx.static_field()  # known from two above (sum)
+    # data: np.ndarray = eqx.static_field()
+    # x_names: List[str] = eqx.static_field()
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
@@ -150,7 +156,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # self.n_encode_weights, self.n_inflate_weights, self.n_decode_weights, self.n_encoder_pars? If not, remove!
     def __init__(
         self,
-        features: np.ndarray,
+        # features: np.ndarray,
         encoder_layer_sizes: List,  # decoder layers are just going to be encoder_layer_sizes mirrored
         inflater_layer_sizes: List,
         key,
@@ -187,40 +193,40 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
         # Instantiate encoder component
         self.deep_encoder = DeepComponent(
-            component_name="encoder",
+            # component_name="encoder",
             layer_sizes=encoder_layer_sizes,
             key=key_encoder,
             activation_fn_name=activation_fn_name,
         )
-        self.n_encode_weights = len(self.deep_encoder.x_names)
+        # self.n_encode_weights = len(self.deep_encoder.x_names)
 
         # Instantiate inflater component
         self.deep_inflater = DeepComponent(
-            component_name="inflater",
+            # component_name="inflater",
             layer_sizes=inflater_layer_sizes,
             key=key_inflater,
             activation_fn_name=activation_fn_name,
         )
-        self.n_inflate_weights = len(self.deep_inflater.x_names)
+        # self.n_inflate_weights = len(self.deep_inflater.x_names)
 
         if self.reconstruct:
             decoder_layer_sizes = encoder_layer_sizes[::-1]
             self.deep_decoder = DeepComponent(
-                component_name="decoder",
+                # component_name="decoder",
                 layer_sizes=decoder_layer_sizes,
                 key=key_decoder,
                 activation_fn_name=activation_fn_name,
             )
-            self.n_decode_weights = len(self.deep_decoder.x_names)
+            # self.n_decode_weights = len(self.deep_decoder.x_names)
 
-            self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights + self.n_decode_weights
-            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.deep_decoder.x_names
+            # self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights + self.n_decode_weights
+            # self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.deep_decoder.x_names
 
         else:
             self.deep_decoder = None  # can potentially make this eqx.nn.Identity() to set deep_decoder to DeepComponent
 
-            self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights
-            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names
+            # self.n_encoder_pars = self.n_encode_weights + self.n_inflate_weights
+            # self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names
 
     def __call__(self, x):
         encoded = self.deep_encoder(x)
