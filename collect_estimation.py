@@ -1,19 +1,19 @@
-import os
-import re
-from pathlib import Path
-
 import fire
 import matplotlib.pyplot as plt
+import os
 import pypesto.visualize
+import re
+
+from common import Conf, COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from dmm.initialisation import load_models
+from dmm.training import create_pypesto_problem
+from pathlib import Path
 from pypesto.store import (
     OptimizationResultHDF5Reader,
     OptimizationResultHDF5Writer,
 )
 from pypesto.visualize import waterfall
 
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
-from dmm.training import create_pypesto_problem
-from util import Conf, load_models
 
 conf = fire.Fire(Conf)
 

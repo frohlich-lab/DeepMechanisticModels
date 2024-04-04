@@ -9,7 +9,7 @@ from jax import config
 from sklearn.decomposition import PCA
 
 from . import MODEL_FEATURE_PREFIX
-from dmm.encoder_eqx import TwoHeadedDeepAutoencoder
+from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from .petab_subproblem import load_petab
 from .problem import Problem
 # from optax import power_iteration
@@ -24,8 +24,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     # TODO @GiacomoFabrini check attributes! What is missing?
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
-    features: np.ndarray = eqx.static_field()
-    features_pca: np.ndarray = eqx.static_field()
+    # features: np.ndarray = eqx.static_field()
+    # features_pca: np.ndarray = eqx.static_field()
+    n_features: int = eqx.static_field()
     pca: PCA = eqx.static_field()
     n_model_inputs: int = eqx.static_field()
     n_kin_params: int = eqx.static_field()
@@ -48,52 +49,79 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         dataset: str,
         # n_latent: int,
         encoder_layer_sizes: List[int],
-        encoder_layer_biases: Lis[bool] = [False]*len(encoder_layer_sizes),  # default: no learnable biases
         inflater_layer_sizes: List[int],
-        inflater_layer_biases: List[bool] = [False]*len(inflater_layer_sizes),  # default: no learnable biases
-        decoder_layer_biases: List[bool] = [False]*(len(encoder_layer_sizes)-1)+[True],  # learnable bias in last layer
-        orth_reg_strategy: str = "L2",
+        # decoder layer sizes are just encoder_layer_sizes[::-1]
+        key: int,
         measurement_table: pd.DataFrame,
         observable_table: pd.DataFrame,
         condition_table: pd.DataFrame,
-        features: pd.DataFrame,
+        # features: pd.DataFrame,
+        samples_list: List[str],
+        n_features: int,
         n_threads=1,
         # pca: Optional[PCA] = None,
+        # default for all modules: use eqx.nn.Linear layers
+        encoder_weight_init_fn: str = "eqx_default",
+        encoder_bias_init_fn: str = "eqx_default",
+        inflater_weight_init_fn: str = "eqx_default",
+        inflater_bias_init_fn: str = "eqx_default",
+        decoder_weight_init_fn: str = "eqx_default",
+        decoder_bias_init_fn: str = "eqx_default",
+        # default: no learnable biases for encoder
+        encoder_layer_biases: List[bool] = [False] * len(encoder_layer_sizes),
+        # default: learnable bias in last inflater layer
+        inflater_layer_biases: List[bool] = [False] * (len(inflater_layer_sizes) - 1) + [True],
+        # default: no learnable biases for decoder
+        decoder_layer_biases: List[bool] = [False] * len(decoder_layer_sizes),
         activation_fn_name: str = "relu",  # default activation function = Rectified Linear Unit
-        reconstruct: bool = False, # whether to add decoder head (single head by default)
+        reconstruct: bool = False,  # whether to add decoder head (single head by default)
     ):
         """
+
+        :param dataset:
+            name of dataset to use for model
 
         :param pathway_name:
             name of pathway to use for model
 
-        # REMOVED
-        # :param n_latent:
-        #     number of nodes in the hidden layer of the encoder
-        #
-        # :param n_params:
-        # number of parameters to which the embedding will be inflated to ???!
 
+        -- ENCODER params
         :param encoder_layer_sizes:
             list of layer sizes for encoder component (and decoder component, in reverse)
-            Needed to define encoder and, potentially, decoder modules.
+
+        :param encoder_weight_init_fn:
+            encoder weight initialisation strategy.
+
+        :param encoder_bias_init_fn:
+            encoder bias initialisation strategy.
 
         :param encoder_layer_biases:
-            list of bool values indicating whether to add a learnable bias or not for encoder layers.
-            Needed to define encoder module.
+            list of bool values indicating whether to add a learnable bias or not for encoder layers
 
+        -- INFLATER params
         :param inflater_layer_sizes:
             list of layer sizes for inflater component
-            Needed to define inflater module.
+
+        :param inflater_weight_init_fn:
+            inflater weight initialisation strategy.
+
+        :param inflater_bias_init_fn:
+            inflater bias initialisation strategy.
 
         :param inflater_layer_biases
-            list of bool values indicating whether to add a learnable bias or not for inflater layers.
-            Needed to define inflater module.
+            list of bool values indicating whether to add a learnable bias or not for inflater layers
+
+        -- DECODER params
+        :param decoder_weight_init_fn:
+            decoder weight initialisation strategy.
+
+        :param decoder_bias_init_fn:
+            decoder bias initialisation strategy.
 
         :param decoder_layer_biases
-            list of bool values indicating whether to add a learnable bias or not for decoder layers.
-            Needed to define decoder module.
+            list of bool values indicating whether to add a learnable bias or not for decoder layers
 
+        -- OTHER params
         :param key:
             PRNG key.
 
@@ -112,27 +140,18 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param n_threads:
             number of threads to use for pypesto
 
+         :param samples_list:
+            List of samples (previously features.index)
+
+        :param n_features:
+            Number of features (not sure if needed)
+
         """
 
         self.data_name = dataset
         self.pathway_name = problem.pathway_name
 
         # TODO @GiacomoFabrini n_params needs to come from petab problem
-
-        # set regularisation strategy
-        self.orth_reg_strategy = orth_reg_strategy
-
-        # set reconstruct flag
-        self.reconstruct = reconstruct
-
-        # define layer sizes for different modules
-        self.encoder_layer_sizes = encoder_layer_sizes
-        self.inflater_layer_sizes = inflater_layer_sizes
-
-        # define whether to add learnable biases to module layers
-        self.encoder_layer_biases = encoder_layer_biases
-        self.inflater_layer_biases = inflater_layer_biases
-        self.decoder_layer_biases = decoder_layer_biases if self.reconstruct else [None]*len(self.encoder_layer_biases)
 
         # subset samples
         self.petab_importer = load_petab(
@@ -153,18 +172,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 continue
 
             sample = name.split("__")[-1]
-            if sample not in petab_samples and sample in features.index:
+            if sample not in petab_samples and sample in samples_list:
                 petab_samples.append(sample)
 
-        self.features = features.loc[petab_samples, :].values
 
-        if pca is None:
-            self.pca = PCA(n_components=self.n_latent).fit(self.features)
-        else:
-            self.pca = pca
-        self.features_pca = self.pca.transform(self.features)
+        self.n_samples = len(samples_list)
+        self.n_features = n_features
 
-        self.n_samples, self.n_features = self.features_pca.shape
         self.n_model_inputs = int(
             sum(
                 name.startswith(MODEL_FEATURE_PREFIX)
@@ -176,20 +190,45 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
         )
 
-        self.sample_names = list(features.index)
+        self.sample_names = samples_list
         self.feature_cols = [
             f"PC{i}" for i in range(self.features_pca.shape[1])
         ]
 
+        # set regularisation strategy
+        self.orth_reg_strategy = orth_reg_strategy
+
+        # set reconstruct flag
+        self.reconstruct = reconstruct
+
+        # encoder parameters/properties
+        self.encoder_params_dict = {
+            "encoder_layer_sizes": encoder_layer_sizes,
+            "encoder_layer_biases": encoder_layer_biases,
+            "encoder_weight_init_fn": encoder_weight_init_fn,
+            "encoder_bias_init_fn": encoder_bias_init_fn,
+        }
+        # inflater parameters/properties
+        self.inflater_params_dict = {
+            "inflater_layer_sizes": inflater_layer_sizes,
+            "inflater_layer_biases": inflater_layer_biases,
+            "inflater_weight_init_fn": inflater_weight_init_fn,
+            "inflater_bias_init_fn": inflater_bias_init_fn,
+        }
+        # decoder parameters/properties
+        self.decoder_params_dict = {
+            "decoder_layer_biases": decoder_layer_biases,
+            "decoder_weight_init_fn": decoder_weight_init_fn,
+            "decoder_bias_init_fn": decoder_bias_init_fn,
+        }
+
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            # features=self.features,
-            encoder_layer_sizes=self.encoder_layer_sizes,
-            encoder_layer_biases=self.encoder_layer_biases,
-            inflater_layer_sizes=self.inflater_layer_sizes,
-            inflater_layer_biases=self.inflater_layer_biases,
-            decoder_layer_biases=self.decoder_layer_biases,
+            n_features=self.n_features,
+            **self.encoder_params_dict,
+            **self.inflater_params_dict,
+            **self.decoder_params_dict,
             key=key,
             activation_fn_name=activation_fn_name,
             orth_reg_strategy=self.orth_reg_strategy,

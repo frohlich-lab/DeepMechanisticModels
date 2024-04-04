@@ -1,13 +1,13 @@
-import itertools as itt
-import os
-
 import fire
+import itertools as itt
 import matplotlib.pyplot as plt
 import numpy as np
+import os
 import pandas as pd
-
 import wandb
+
 from common import (
+    Conf,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
@@ -16,6 +16,10 @@ from common import (
     CONTEXT_SET
 )
 from dmm.analysis import plot_loss_vs_regularization
+from evaluation_plotting import (group_plots,
+                                  performance_barplot,
+                                  n_hidden_pairwise_heatmap,
+                                  volcano_hyperparameter_significance)
 from training_configuration import (
     ORTH_REG_STRATEGIES,
     ALPHAS,
@@ -27,12 +31,7 @@ from training_configuration import (
     PRETRAIN,
     SPLITS,
 )
-from util import Conf
 from stat_test import statistical_significance_test
-from evaluation_plotting import (group_plots,
-                                  performance_barplot,
-                                  n_hidden_pairwise_heatmap,
-                                  volcano_hyperparameter_significance)
 
 
 def aggregate_and_log(df):

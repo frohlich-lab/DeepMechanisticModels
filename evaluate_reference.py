@@ -2,9 +2,10 @@ import fire
 import numpy as np
 import pandas as pd
 import petab
-from amici.petab_objective import rdatas_to_simulation_df
 
+from amici.petab_objective import rdatas_to_simulation_df
 from common import (
+    Conf,
     EVALUATION_REFERENCE,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
@@ -17,14 +18,14 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
 from dmm.petab_subproblem import load_petab
-from dmm.feature_selection import load_data
+# from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples, plot_single_sample
 from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
-from training_configuration import CONTEXTS_FEATURES
-from util import Conf, load_petab_base_files
+# from training_configuration import CONTEXTS_FEATURES
+from util import load_petab_base_files
 
 conf = fire.Fire(Conf)
 

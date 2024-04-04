@@ -1,6 +1,4 @@
-import dataclasses
-from typing import Dict, Tuple, Union
-
+# import dataclasses
 import numpy as np
 import pandas as pd
 import pypesto
@@ -8,7 +6,7 @@ import scipy.linalg as la
 
 from common import (
     CONDITIONS_FILE,
-    FEATURES_OUTFILE,
+    # FEATURES_OUTFILE,
     MEASUREMENTS_FILE,
     MEASUREMENTS_FILE_RW,
     MODEL_FEATURE_PREFIX,
@@ -17,25 +15,30 @@ from common import (
 )
 from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
+from typing import (
+    Dict,
+    # Tuple,
+    # Union
+)
 
-
-@dataclasses.dataclass
-class Conf(dict):
-    model: str
-    data: str
-    context: str = None
-    features: str = None
-    samples: str = None
-    sample: str = None
-    n_hidden: int = None
-    orth_reg_strategy: str = None  # values: "L1" / "L2"
-    l1reg_inflate: float = 0.0
-    oreg_inflate: float = 0.0
-    l1reg_encode: float = 0.0
-    oreg_encode: float = 0.0
-    job: int = None
-    threads: int = 1
-    n_starts: int = None
+# Moved Conf definition to common.py (makes more sense?)
+# @dataclasses.dataclass
+# class Conf(dict):
+#     model: str
+#     data: str
+#     context: str = None
+#     features: str = None
+#     samples: str = None
+#     sample: str = None
+#     n_hidden: int = None
+#     orth_reg_strategy: str = None  # values: "L1" / "L2"
+#     l1reg_inflate: float = 0.0
+#     oreg_inflate: float = 0.0
+#     l1reg_encode: float = 0.0
+#     oreg_encode: float = 0.0
+#     job: int = None
+#     threads: int = 1
+#     n_starts: int = None
 
 
 def load_petab_base_files(
@@ -58,57 +61,57 @@ def load_petab_base_files(
     }
 
 
-def load_models(
-    conf: Conf,
-    dataset: str = "train",
-) -> Tuple[
-    Union[
-        DeepMechanisticModel,
-        Tuple[DeepMechanisticModel, DeepMechanisticModel],
-    ],
-    CytofProblem,
-]:
-    problem = CytofProblem(conf.model)
-
-    petab_base_files = load_petab_base_files(conf, reweight=True)
-
-    features_train = pd.read_csv(
-        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
-        index_col=0,
-    )
-
-    dmm_train = DeepMechanisticModel(
-        problem,
-        conf.data,
-        conf.n_hidden,
-        conf.orth_reg_strategy,
-        **petab_base_files,
-        features=features_train,
-        n_threads=conf.threads,
-    )
-
-    if dataset == "train":
-        return dmm_train, problem
-
-    features_test = pd.read_csv(
-        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
-        index_col=0,
-    )
-
-    dmm_test = DeepMechanisticModel(
-        problem,
-        conf.data,
-        conf.n_hidden,
-        conf.orth_reg_strategy,
-        **petab_base_files,
-        features=features_test,
-        n_threads=conf.threads,
-        pca=dmm_train.pca,
-    )
-    if dataset == "train+test":
-        return (dmm_train, dmm_test), problem
-
-    return dmm_test, problem
+# def load_models(
+#     conf: Conf,
+#     dataset: str = "train",
+# ) -> Tuple[
+#     Union[
+#         DeepMechanisticModel,
+#         Tuple[DeepMechanisticModel, DeepMechanisticModel],
+#     ],
+#     CytofProblem,
+# ]:
+#     problem = CytofProblem(conf.model)
+#
+#     petab_base_files = load_petab_base_files(conf, reweight=True)
+#
+#     features_train = pd.read_csv(
+#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
+#         index_col=0,
+#     )
+#
+#     dmm_train = DeepMechanisticModel(
+#         problem,
+#         conf.data,
+#         conf.n_hidden,
+#         conf.orth_reg_strategy,
+#         **petab_base_files,
+#         features=features_train,
+#         n_threads=conf.threads,
+#     )
+#
+#     if dataset == "train":
+#         return dmm_train, problem
+#
+#     features_test = pd.read_csv(
+#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
+#         index_col=0,
+#     )
+#
+#     dmm_test = DeepMechanisticModel(
+#         problem,
+#         conf.data,
+#         conf.n_hidden,
+#         conf.orth_reg_strategy,
+#         **petab_base_files,
+#         features=features_test,
+#         n_threads=conf.threads,
+#         pca=dmm_train.pca,
+#     )
+#     if dataset == "train+test":
+#         return (dmm_train, dmm_test), problem
+#
+#     return dmm_test, problem
 
 
 def generate_startpoint(
