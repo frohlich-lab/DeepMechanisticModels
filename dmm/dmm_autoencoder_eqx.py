@@ -18,6 +18,14 @@ from .problem import Problem
 config.update("jax_enable_x64", True)
 
 
+def init_biases(biases, layer_sizes, component_name):
+    if biases is None:
+        biases = [False] * len(layer_sizes)
+    elif len(biases) != len(layer_sizes):
+        raise ValueError(f"{component_name}: biases must have the same length as layer_sizes")
+    return biases
+
+
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
@@ -57,9 +65,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             decoder_weight_init_fn: str = "eqx_default",
             decoder_bias_init_fn: str = "eqx_default",
             # default: no learnable biases
-            encoder_layer_biases: List[bool] = [False]*len(encoder_layer_sizes),
-            inflater_layer_biases: List[bool] = [False]*len(inflater_layer_sizes),
-            decoder_layer_biases: List[bool] = [False]*len(encoder_layer_sizes),
+            encoder_layer_biases: List[bool] = None,
+            inflater_layer_biases: List[bool] = None,
+            decoder_layer_biases: List[bool] = None,
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
@@ -189,6 +197,24 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.activation_fn_name = activation_fn_name
         self.reconstruct = reconstruct
 
+        # Initialise module biases to default value if None (i.e. use_bias = False for all)
+        # Check for shape mismatches between layer_sizes and layer_biases
+        encoder_layer_biases = init_biases(
+            biases=encoder_layer_biases,
+            layer_sizes=encoder_layer_sizes,
+            component_name="encoder"
+        )
+        inflater_layer_biases = init_biases(
+            biases=inflater_layer_biases,
+            layer_sizes=inflater_layer_sizes,
+            component_name="inflater"
+        )
+        decoder_layer_biases = init_biases(
+            biases=decoder_layer_biases,
+            layer_sizes=encoder_layer_sizes,
+            component_name="decoder"
+        )
+
         # encoder parameters/properties
         self.encoder_params_dict = {
             "encoder_layer_sizes": encoder_layer_sizes,
@@ -238,11 +264,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
     @property
     def n_latent(self):
-        return self.encoder_layer_sizes[-1]
+        return self.encoder_params_dict["encoder_layer_sizes"][-1]
 
     @property
     def n_params(self):
-        return self.inflater_layer_sizes[-1]
+        return self.inflater_params_dict["inflater_layer_sizes"][-1]
 
     # # TODO @GiacomoFabrini ask Fabian about this?!
     # def embedding(self, params: np.ndarray) -> jnp.ndarray:
