@@ -9,6 +9,7 @@ from jax import config, nn, random
 from typing import (
     Callable,
     List,
+    Union,
 )
 
 config.update("jax_enable_x64", True)
@@ -58,7 +59,7 @@ class DeepComponent(eqx.Module):
 
     component_name: str = eqx.static_field()
     x_names: List[str] = eqx.static_field()
-    layers: List[eqx.nn.Linear]
+    layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     activation: Callable
 
     def __init__(
