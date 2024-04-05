@@ -1,7 +1,7 @@
 import fire
 
 from common import Conf, TRAINING_OUTFILE_RESULTS
-from dmm.initialisation import load_models
+from dmm.initialisation import load_models, linear_nn_init
 from dmm.training import create_pypesto_problem, train
 from pathlib import Path
 from util import generate_startpoint
@@ -25,6 +25,17 @@ x0 = generate_startpoint(
     problem=problem,
     pypesto_problem=pypesto_problem_train,
 )
+# TODO @GiacomoFabrini: code CONDITION_TO_BE_CODED
+#  Check if the DMM only has single-layer encoder/inflater/decoder -> then initialise, if not: skip
+# if CONDITION_TO_BE_CODED:
+#     model_train = linear_nn_init(
+#         conf=conf,
+#         model=model_train,
+#         dataset="train",
+#         problem=problem,
+#         pypesto_problem=pypesto_problem_train,
+#     )
+
 
 # inner_x = np.asarray(pypesto_problem_train.objective.jax_fun(x0))
 #

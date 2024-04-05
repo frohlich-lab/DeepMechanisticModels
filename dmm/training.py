@@ -86,7 +86,7 @@ def train(
     conf: Dict,
     schedule_config: Dict,
     n_epoch,
-    x0,
+    x0,  # TODO @GiacomoFabrini: x0 not needed with updated architecture?
     use_early_stopping,
     patience,
     min_improvement,
