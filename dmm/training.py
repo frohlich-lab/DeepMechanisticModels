@@ -103,6 +103,7 @@ def train(
         config={
             **conf,
             "patience": patience,  # logging patience hyperparam
+            "min_improvement": min_improvement,  # logging min_improvement hyperparam
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
