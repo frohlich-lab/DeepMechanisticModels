@@ -1,10 +1,12 @@
 import fire
-import os
+import itertools as itt
 import numpy as np
+import os
 import pandas as pd
 import petab
-import itertools as itt
+
 from common import (
+    Conf,
     EVALUATION_REGRESSOR,
     REGR_TRAINED_PIPELINE,
     REGR_FEATURES_TRAIN,
@@ -20,17 +22,18 @@ from common import (
 from dmm.analysis import process_simulation
 from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples
-from util import Conf, load_petab_base_files
-
-from sklearn.linear_model import (LinearRegression,
-                                      MultiTaskLassoCV,
-                                      MultiTaskElasticNetCV)
-from sklearn.preprocessing import StandardScaler
-from sklearn.impute import KNNImputer
-from sklearn.decomposition import PCA
-from sklearn.pipeline import Pipeline
-
 from joblib import dump, load
+from sklearn.decomposition import PCA
+from sklearn.impute import KNNImputer
+from sklearn.linear_model import (
+    LinearRegression,
+    MultiTaskLassoCV,
+    MultiTaskElasticNetCV
+)
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+from util import load_petab_base_files
+
 
 
 conf = fire.Fire(Conf)

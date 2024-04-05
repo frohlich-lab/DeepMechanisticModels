@@ -1,18 +1,17 @@
-import re
-
 import fire
 import pandas as pd
 import petab
 import pysb
+import re
 
 from common import (
+    Conf,
     CONDITIONS_FILE,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
     data_dir,
 )
 from dmm.generate_data import generate_synthetic_data
-from util import Conf
 
 
 def observable_id_to_model_expr(

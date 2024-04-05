@@ -2,15 +2,13 @@
 Per sample pretraining.
 """
 
-from pathlib import Path
-
 import fides
 import fire
 import numpy as np
 import pypesto
-from pypesto.optimize import FidesOptimizer
 
 from common import (
+    Conf,
     PER_SAMPLE_OUTFILE_PARS,
     PER_SAMPLE_OUTFILE_RESULTS,
     fig_dir,
@@ -23,7 +21,9 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
-from util import Conf, load_petab_base_files
+from pathlib import Path
+from pypesto.optimize import FidesOptimizer
+from util import load_petab_base_files
 
 np.random.seed(0)
 

@@ -1,27 +1,24 @@
-import itertools as itt
-from pathlib import Path
-from typing import Dict
-
 import git
+import itertools as itt
 import numpy as np
 import petab
 import pypesto
+import wandb
+
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 from amici.petab_objective import rdatas_to_simulation_df
+from flax.training.early_stopping import EarlyStopping  # flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jax import value_and_grad
 from optax import adam, apply_updates, linear_schedule
+from pathlib import Path
+from .problem import Problem
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.objective.jax import JaxObjective
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
+from typing import Dict
 
-import wandb
-
-from flax.training.early_stopping import EarlyStopping
-# documentation: https://flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
-
-from .autoencoder_eqx import DeepMechanisticModel
-from .problem import Problem
 
 trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
@@ -43,7 +40,9 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
 
     return JaxObjective(
-        ae.pypesto_subproblem.objective, ae.embedding, x_names=ae.x_names
+        objective=ae.pypesto_subproblem.objective,
+        # ae.embedding,
+        # x_names=ae.x_names
     )
 
 

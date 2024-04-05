@@ -1,9 +1,10 @@
 import fire
+import jax
 import pandas as pd
 import pypesto
-from pypesto.store import OptimizationResultHDF5Reader
 
 from common import (
+    Conf,
     TRAINING_OUTFILE_RESULTS,
     EVALUATION_TRAINING,
     Wildcards,
@@ -14,8 +15,9 @@ from common import (
 )
 from dmm.analysis import evaluate_simulations
 from dmm.training import create_pypesto_problem
-from util import Conf, load_models
-import jax
+from dmm.initialisation import load_models
+from pypesto.store import OptimizationResultHDF5Reader
+
 
 conf = fire.Fire(Conf)
 

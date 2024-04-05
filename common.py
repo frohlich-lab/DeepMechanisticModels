@@ -1,11 +1,37 @@
+import numpy as np
+import dataclasses
+
 from collections import namedtuple
+from cytof import get_samples
 from pathlib import Path
+from training_configuration import CONTEXTS_FEATURES
 from typing import List
 
-import numpy as np
 
-from cytof import get_samples
-from training_configuration import CONTEXTS_FEATURES
+@dataclasses.dataclass
+class Conf(dict):
+    model: str
+    data: str
+    context: str = None
+    features: str = None
+    samples: str = None
+    sample: str = None
+    n_hidden: int = None
+    encoder_layer_sizes: List[int]
+    encoder_layer_biases: List[bool]
+    inflater_layer_sizes: List[int]
+    inflater_layer_biases: List[bool]
+    decoder_layer_biases: List[bool]
+    activation_fn_name: str
+    reconstruct: bool
+    orth_reg_strategy: str = None  # values: "L1" / "L2"
+    l1reg_inflate: float = 0.0
+    oreg_inflate: float = 0.0
+    l1reg_encode: float = 0.0
+    oreg_encode: float = 0.0
+    job: int = None
+    threads: int = 1
+    n_starts: int = None
 
 CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
 

@@ -1,10 +1,10 @@
 import fire
 import numpy as np
 import petab
-from amici.petab_objective import rdatas_to_simulation_df
-from pypesto.store import OptimizationResultHDF5Reader
 
+from amici.petab_objective import rdatas_to_simulation_df
 from common import (
+    Conf,
     MEASUREMENTS_FILE_RW,
     PER_SAMPLE_OUTFILE_RESULTS,
     Wildcards,
@@ -13,7 +13,8 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_per_sample_pretraining_problems
-from util import Conf, load_petab_base_files
+from pypesto.store import OptimizationResultHDF5Reader
+from util import load_petab_base_files
 
 conf = fire.Fire(Conf)
 

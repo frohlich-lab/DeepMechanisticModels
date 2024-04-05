@@ -1,10 +1,10 @@
-from pathlib import Path
-
 import fire
 
-from common import TRAINING_OUTFILE_RESULTS
+from common import Conf, TRAINING_OUTFILE_RESULTS
+from dmm.initialisation import load_models
 from dmm.training import create_pypesto_problem, train
-from util import Conf, generate_startpoint, load_models
+from pathlib import Path
+from util import generate_startpoint
 
 conf = fire.Fire(Conf)
 
