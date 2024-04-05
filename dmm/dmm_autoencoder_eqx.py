@@ -1,4 +1,4 @@
-from typing import List, Optional
+from typing import List
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -6,88 +6,76 @@ import numpy as np
 import pandas as pd
 import pypesto.petab
 from jax import config
-from sklearn.decomposition import PCA
-
 from . import MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from .petab_subproblem import load_petab
 from .problem import Problem
-# from optax import power_iteration
 
 # TODO @GiacomoFabrini idea: pretrain whole network on n_params x n_samples
-    # matrix coming from ODE pretraining
-    # then train end-to-end differentiable DMM
-    # can pretrain encoder-inflater or encoder-inflater-decoder
+# matrix coming from ODE pretraining
+# then train end-to-end differentiable DMM
+# can pretrain encoder-inflater or encoder-inflater-decoder
 config.update("jax_enable_x64", True)
 
+
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
-    # TODO @GiacomoFabrini check attributes! What is missing?
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
-    # features: np.ndarray = eqx.static_field()
-    # features_pca: np.ndarray = eqx.static_field()
     n_features: int = eqx.static_field()
-    pca: PCA = eqx.static_field()
+    n_samples: int = eqx.static_field()
     n_model_inputs: int = eqx.static_field()
     n_kin_params: int = eqx.static_field()
-    n_samples: int = eqx.static_field()
-    orth_reg_strategy: str = eqx.static_field()
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
-    feature_cols: List[str] = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
-    encoder_layer_sizes: List[int] = eqx.static_field()
-    inflater_layer_sizes: List[int] = eqx.static_field()
-    decoder_layer_sizes: List[int] = eqx.static_field()
-    activation_fn_name: str =  eqx.static_field()
-    reconstruct: bool =  eqx.static_field()
+    encoder_params_dict: dict = eqx.static_field()
+    inflater_params_dict: dict = eqx.static_field()
+    decoder_params_dict: dict = eqx.static_field()
+    orth_reg_strategy: str = eqx.static_field()
+    activation_fn_name: str = eqx.static_field()
+    reconstruct: bool = eqx.static_field()
 
     def __init__(
-        self,
-        problem: Problem,
-        dataset: str,
-        # n_latent: int,
-        encoder_layer_sizes: List[int],
-        inflater_layer_sizes: List[int],
-        # decoder layer sizes are just encoder_layer_sizes[::-1]
-        key: int,
-        measurement_table: pd.DataFrame,
-        observable_table: pd.DataFrame,
-        condition_table: pd.DataFrame,
-        # features: pd.DataFrame,
-        samples_list: List[str],
-        n_features: int,
-        n_threads=1,
-        # pca: Optional[PCA] = None,
-        # default for all modules: use eqx.nn.Linear layers
-        encoder_weight_init_fn: str = "eqx_default",
-        encoder_bias_init_fn: str = "eqx_default",
-        inflater_weight_init_fn: str = "eqx_default",
-        inflater_bias_init_fn: str = "eqx_default",
-        decoder_weight_init_fn: str = "eqx_default",
-        decoder_bias_init_fn: str = "eqx_default",
-        # default: no learnable biases for encoder
-        encoder_layer_biases: List[bool] = [False] * len(encoder_layer_sizes),
-        # default: learnable bias in last inflater layer
-        inflater_layer_biases: List[bool] = [False] * (len(inflater_layer_sizes) - 1) + [True],
-        # default: no learnable biases for decoder
-        decoder_layer_biases: List[bool] = [False] * len(decoder_layer_sizes),
-        activation_fn_name: str = "relu",  # default activation function = Rectified Linear Unit
-        reconstruct: bool = False,  # whether to add decoder head (single head by default)
+            self,
+            problem: Problem,
+            dataset: str,
+            encoder_layer_sizes: List[int],  # decoder_layer_sizes = encoder_layer_sizes[::-1]
+            inflater_layer_sizes: List[int],
+            key: int,
+            measurement_table: pd.DataFrame,
+            observable_table: pd.DataFrame,
+            condition_table: pd.DataFrame,
+            samples_list: List[str],
+            n_input_features: int,
+            n_threads=1,
+            # default for all modules: use eqx.nn.Linear layers
+            encoder_weight_init_fn: str = "eqx_default",
+            encoder_bias_init_fn: str = "eqx_default",
+            inflater_weight_init_fn: str = "eqx_default",
+            inflater_bias_init_fn: str = "eqx_default",
+            decoder_weight_init_fn: str = "eqx_default",
+            decoder_bias_init_fn: str = "eqx_default",
+            # default: no learnable biases
+            encoder_layer_biases: List[bool] = [False]*len(encoder_layer_sizes),
+            inflater_layer_biases: List[bool] = [False]*len(inflater_layer_sizes),
+            decoder_layer_biases: List[bool] = [False]*len(encoder_layer_sizes),
+            orth_reg_strategy: str = "L2",
+            activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
+            reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
     ):
         """
 
         :param dataset:
-            name of dataset to use for model
+            name of dataset to use for model.
 
-        :param pathway_name:
-            name of pathway to use for model
+        :param problem:
+            problem.pathway_name contains the name of pathway to use for model.
 
 
-        -- ENCODER params
+        -- ENCODER-specific params
         :param encoder_layer_sizes:
-            list of layer sizes for encoder component (and decoder component, in reverse)
+            list of layer sizes for encoder component (and decoder component, in reverse).
 
         :param encoder_weight_init_fn:
             encoder weight initialisation strategy.
@@ -96,11 +84,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             encoder bias initialisation strategy.
 
         :param encoder_layer_biases:
-            list of bool values indicating whether to add a learnable bias or not for encoder layers
+            list of bool values indicating whether to add a learnable bias or not for encoder layers.
 
-        -- INFLATER params
+        -- INFLATER-specific params
         :param inflater_layer_sizes:
-            list of layer sizes for inflater component
+            list of layer sizes for inflater component.
 
         :param inflater_weight_init_fn:
             inflater weight initialisation strategy.
@@ -108,43 +96,43 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param inflater_bias_init_fn:
             inflater bias initialisation strategy.
 
-        :param inflater_layer_biases
-            list of bool values indicating whether to add a learnable bias or not for inflater layers
+        :param inflater_layer_biases:
+            list of bool values indicating whether to add a learnable bias or not for inflater layers.
 
-        -- DECODER params
+        -- DECODER-specific params
         :param decoder_weight_init_fn:
             decoder weight initialisation strategy.
 
         :param decoder_bias_init_fn:
             decoder bias initialisation strategy.
 
-        :param decoder_layer_biases
-            list of bool values indicating whether to add a learnable bias or not for decoder layers
+        :param decoder_layer_biases:
+            list of bool values indicating whether to add a learnable bias or not for decoder layers.
 
         -- OTHER params
         :param key:
             PRNG key.
 
         :param activation_fn_name:
-            choice of activation function
-            Default: ReLU
+            choice of activation function.
+            Default: ReLU.
 
         :param reconstruct:
             boolean flag. If set to True, adds a second, autoencoding head to the network
-            (encoder->decoder) on top of the first head (encoder->inflater)
-            Default: single head (False)
+            (encoder->decoder) on top of the first head (encoder->inflater).
+            Default: single head (False).
 
         :param orth_reg_strategy:
-            orthogonal regularisation strategy to be used: L1 vs L2 (default)
+            orthogonal regularisation strategy to be used: L1 vs L2 (default).
 
         :param n_threads:
-            number of threads to use for pypesto
+            number of threads to use for pypesto.
 
          :param samples_list:
-            List of samples (previously features.index)
+            List of samples (previously features.index).
 
-        :param n_features:
-            Number of features (not sure if needed)
+        :param n_input_features:
+            Number of features (not sure if needed).
 
         """
 
@@ -160,7 +148,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             measurement_table=measurement_table,
             condition_table=condition_table,
             observable_table=observable_table,
-            samples=list(features.index),  # features needed here!
+            samples=samples_list,  # features needed here!
         )
         self.pypesto_subproblem = self.petab_importer.create_problem()
 
@@ -175,10 +163,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             if sample not in petab_samples and sample in samples_list:
                 petab_samples.append(sample)
 
-
         self.n_samples = len(samples_list)
-        self.n_features = n_features
+        self.n_features = n_input_features
 
+        # n_model_inputs = number of cell-line-specific parameters (per cell-line = sample)
+        # these kinetic parameters are the targets of the inflater module
         self.n_model_inputs = int(
             sum(
                 name.startswith(MODEL_FEATURE_PREFIX)
@@ -186,19 +175,18 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
             / self.n_samples
         )
+
+        # n_kin_params = number of NON cell-line specific parameters
         self.n_kin_params = (
-            self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
+                self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
         )
 
+        # set sample names
         self.sample_names = samples_list
-        self.feature_cols = [
-            f"PC{i}" for i in range(self.features_pca.shape[1])
-        ]
 
-        # set regularisation strategy
+        # set regularisation strategy, activation function and reconstruct flag
         self.orth_reg_strategy = orth_reg_strategy
-
-        # set reconstruct flag
+        self.activation_fn_name = activation_fn_name
         self.reconstruct = reconstruct
 
         # encoder parameters/properties
@@ -222,10 +210,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             "decoder_bias_init_fn": decoder_bias_init_fn,
         }
 
-
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            n_features=self.n_features,
+            n_input_features=self.n_features,
+            n_inflated_specific_kin_params=self.n_model_inputs,
+            n_global_kin_params=self.n_kin_params,
             **self.encoder_params_dict,
             **self.inflater_params_dict,
             **self.decoder_params_dict,
@@ -239,12 +228,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.pypesto_subproblem.objective, n_threads=n_threads
         )
 
-        # self.x_names = self.x_names + [
-        #     name
-        #     for ix, name in enumerate(self.pypesto_subproblem.x_names)
-        #     if not name.startswith(MODEL_FEATURE_PREFIX)
-        #     and ix in self.pypesto_subproblem.x_free_indices
-        # ]
+        # augment TwoHeadedDeepAutoencoder.x_names with ODE x_names
+        self.x_names = self.x_names + [
+            name
+            for ix, name in enumerate(self.pypesto_subproblem.x_names)
+            if not name.startswith(MODEL_FEATURE_PREFIX)
+            and ix in self.pypesto_subproblem.x_free_indices
+        ]
 
     @property
     def n_latent(self):
@@ -282,7 +272,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         l1reg_encode_reg_loss = l1reg_encode * jnp.mean(jnp.abs(encode_weights))
         l1reg_inflate_reg_loss = l1reg_inflate * jnp.mean(jnp.abs(inflate_weights))
 
-
         if self.reconstruct:
             decode_weights = eqx.filter(model.deep_decoder, eqx.is_array)
             l1reg_decode_reg_loss = l1reg_encode * jnp.mean(jnp.abs(decode_weights))
@@ -312,17 +301,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
         elif self.orth_reg_strategy == "L2":
             # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)) ** 2)
         else:
             raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-        # SRIP - minimise max singular value/eigenvalue of the same matrix above
-        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
-        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
-        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
-        # Unfortunately, optax.power_iteration() appears not to be differentiable!
-        # _, max_eig = power_iteration(m - jnp.eye(self.n_latent))
-        # return scale * max_eig
-
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
@@ -344,16 +325,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
         elif self.orth_reg_strategy == "L2":
             # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))) ** 2)
         else:
             raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-        # SRIP - minimise max singular value/eigenvalue of the same matrix above
-        # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
-        # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
-        # Implementation: https://github.com/google-deepmind/optax/blob/main/optax/_src/linear_algebra.py
-        # Unfortunately, optax.power_iteration() appears not to be differentiable!
-        # _, max_eig = power_iteration(m - jnp.diag(jnp.diag(m)))
-        # return scale * max_eig
 
     def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """

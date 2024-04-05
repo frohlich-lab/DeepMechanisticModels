@@ -56,7 +56,7 @@ def load_models(
         DeepMechanisticModel(
             **dmm_params,
             samples_list=list(features.index),
-            n_features=features.shape[1]
+            n_input_features=features.shape[1]
         )
         for features in [
             pd.read_csv(

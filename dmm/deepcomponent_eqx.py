@@ -13,12 +13,12 @@ from typing import (
 
 config.update("jax_enable_x64", True)
 
-# TODO @GiacomoFabrini LATER: consider adding eqx.nn.PReLU as parametric leaky ReLU
+# TODO @GiacomoFabrini LATER: consider adding eqx.nn.PReLU (parametric leaky ReLU)
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
     "tanh": jnp.tanh,
     "relu": nn.relu,
-    "leakyrelu": nn.leaky_relu,
+    "leaky_relu": nn.leaky_relu,
     "elu": nn.elu,
     "gelu": nn.gelu,
     "swish": nn.swish,
@@ -27,52 +27,56 @@ act_fn_by_name = {
 
 class DeepComponent(eqx.Module):
     """
-    Deep Component module: can be Encoder/Inflater/Decoder.
+    Deep Component module.
 
-    # :param component_name: -- REMOVED
-    #     module name: "encoder" / "inflater" / "decoder"
+    :param component_name:
+        module name: "encoder" / "inflater" / "decoder".
 
     :param layer_sizes:
-        number of units/neurons in DeepComponent layers
+        number of units/neurons in DeepComponent layers.
 
     :param biases:
         list of bool values indicating whether to add a learnable bias to a specific layer or not.
         This enables, for instance, to add a learnable bias array/vector to the last layer of the inflater only.
 
     :param key:
-        random key
+        random key.
 
     :param activation_fn_name:
-        name of the activation function (selected from act_fn_by_name dictionary)
+        name of the activation function (selected from act_fn_by_name dictionary).
 
     :param weight_init_fn (Optional):
-        weight initialisation function (from jax.nn.initializers)
+        weight initialisation function: either "eqx_default" to select eqx.nn.Linear layers or
+        one from jax.nn.initializers to build CustomInitLayer. If latter, needs to be a key
+        of `init_fn` dictionary.
 
     :param bias_init_fn (Optional):
-        bias initialisation function (from jax.nn.initializers)
+        bias initialisation function: either "eqx_default" to select eqx.nn.Linear layers or
+        one from jax.nn.initializers to build CustomInitLayer. If latter, needs to be a key
+        of `init_fn` dictionary.
     """
 
-    # component_name: str = eqx.static_field()
+    component_name: str = eqx.static_field()
+    x_names: List[str] = eqx.static_field()
     layers: List[eqx.nn.Linear]
-    # x_names: List[str] = eqx.static_field()
     activation: Callable
 
     def __init__(
         self,
-        # component_name,
+        component_name,
         layer_sizes,
         biases,
         key,
         activation_fn_name,
-        weight_init_fn="he_uniform",
-        bias_init_fn="he_uniform",
+        weight_init_fn="eqx_default",  # use eqx.nn.Linear layers by default
+        bias_init_fn="eqx_default",
     ):
-        # # component/module name (encoder/inflater/decoder)
-        # self.component_name = component_name
+        # component/module name (encoder/inflater/decoder)
+        self.component_name = component_name
 
-        # Initialise layers and x_names (latter removed)
+        # Initialise layers and x_names
         self.layers = []
-        # self.x_names = []
+        self.x_names = []
 
         # Prepare keys for layer initialisation
         layer_keys = random.split(key, num=len(layer_sizes)-1)
@@ -99,15 +103,15 @@ class DeepComponent(eqx.Module):
                         key=key
                     )
                 )
-                # TODO @GiacomoFabrini sure we do not need self.x_names?
-                # self.x_names.extend(
-                #     [
-                #         f"{self.component_name}_{layer_num}_{ind}_weight"
-                #         for ind in range(fan_in * fan_out)
-                #     ]
-                # )
+                # TODO @GiacomoFabrini: do we need these? (pt.1)
+                self.x_names.extend(
+                    [
+                        f"{self.component_name}_{layer_num}_{ind}_weight"
+                        for ind in range(fan_in * fan_out)
+                    ]
+                )
         elif (weight_init_fn in init_fn.keys()) and (bias_init_fn in init_fn.keys()):
-            # Select initialiser from jax.nn.initalizers() via init_fn dict
+            # Select initializer from jax.nn.initializers() via init_fn dict
             for layer_num, (
                     (fan_in, fan_out),
                     (key, bias)
@@ -128,15 +132,15 @@ class DeepComponent(eqx.Module):
                     )
                 )
                 # TODO @GiacomoFabrini pt.2 from above
-                # self.x_names.extend(
-                #     [
-                #         f"{self.component_name}_{layer_num}_{ind}_weight"
-                #         for ind in range(fan_in * fan_out)
-                #     ]
-                # )
+                self.x_names.extend(
+                    [
+                        f"{self.component_name}_{layer_num}_{ind}_weight"
+                        for ind in range(fan_in * fan_out)
+                    ]
+                )
         else:
             # In case of mixed combinations or unknown init_fn names, raise ValueError
-            raise ValueError(f"Unknown {weight_init_fn} or {bias_init_fn}")
+            raise ValueError(f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}.")
 
         # activation function
         if activation_fn_name in act_fn_by_name.keys():
@@ -146,9 +150,9 @@ class DeepComponent(eqx.Module):
 
     def __call__(self, x):
         a = x
-        # if more than one layer (deep architecture), applies non-linearities to all layers but the last
-        # if single layer, does not apply any non-linearities
+        # if more than one layer, applies non-linear activations to all layers but the last
         if len(self.layers) > 1:
             for layer in self.layers[:-1]:
                 a = self.activation(layer(a))
-        return self.layers[-1](a)  # if only one layer, self.layers[0] == self.layers[-1]
+        # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
+        return self.layers[-1](a)

@@ -1,5 +1,4 @@
 import equinox as eqx
-# import numpy as np
 
 from dmm.deepcomponent_eqx import (
     DeepComponent,
@@ -7,10 +6,10 @@ from dmm.deepcomponent_eqx import (
 from jax import config, random
 from typing import (
     List,
-    # Union,
 )
 
 config.update("jax_enable_x64", True)
+
 
 class TwoHeadedDeepAutoencoder(eqx.Module):
     """
@@ -18,7 +17,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         - First head: encoder -> inflater (kinetic parameters of ODE model).
         - Second head: encoder -> decoder (input reconstruction): traditional autoencoder behaviour.
 
-    -- ENCODER
+    -- ENCODER PARAMS
     :param encoder_layer_sizes:
         list of layer sizes for encoder component (and decoder component, in reverse)
 
@@ -31,7 +30,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param encoder_layer_biases:
         list of bool values indicating whether to add a learnable bias or not for encoder layers
 
-    -- INFLATER
+    -- INFLATER PARAMS
     :param inflater_layer_sizes:
         list of layer sizes for inflater component
 
@@ -41,17 +40,17 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param inflater_bias_init_fn:
         inflater bias initialisation strategy.
 
-    :param inflater_layer_biases
+    :param inflater_layer_biases:
         list of bool values indicating whether to add a learnable bias or not for inflater layers
 
-    -- DECODER
+    -- DECODER PARAMS
     :param decoder_weight_init_fn:
         decoder weight initialisation strategy.
 
     :param decoder_bias_init_fn:
         decoder bias initialisation strategy.
 
-    :param decoder_layer_biases
+    :param decoder_layer_biases:
         list of bool values indicating whether to add a learnable bias or not for decoder layers
 
     -- OTHER PARAMETERS
@@ -70,51 +69,73 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param orth_reg_strategy:
         orthogonal regularisation strategy to be used: L1 vs L2 (default)
 
+    :param n_input_features:
+        Number of input features (encoder input feature space).
+
+    :param n_inflated_specific_kin_params:
+        Number of kinetic parameters to inflate to (inflater output size).
+
+    :param n_global_kin_params:
+        Number of global kinetic parameters (ODE non cell-line-specific model parameters).
+
+
     """
-    n_features: int = eqx.static_field()  # input size
-    # x_names: List[str] = eqx.static_field()
+
+    n_input_features: int = eqx.static_field()  # encoder input size
+    n_inflated_specific_kin_params: int = eqx.static_field()  # inflater output size
+    n_global_kin_params: int = eqx.static_field()
+    x_names: List[str] = eqx.static_field()
+    orth_reg_strategy: str = eqx.static_field()
+    reconstruct: bool = eqx.static_field()
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
-    deep_decoder: eqx.Module | None  # could be None if not reconstructing (hence not using DeepComponent)
-    # can also set deep_decoder: DeepComponent if changing to eqx.nn.Identity() rather than None down below
-    orth_reg_strategy: str = eqx.static_field()
-    reconstruct: bool
+    deep_decoder: eqx.Module
 
-   # TODO @GiacomoFabrini sure we do not need self.x_names?
+    # TODO @GiacomoFabrini do we need self.x_names?
     def __init__(
-        self,
-        n_features: int,
-        encoder_layer_sizes: List[int],  # decoder layers are just going to be encoder_layer_sizes mirrored
-        encoder_weight_init_fn: str,
-        encoder_bias_init_fn: str,
-        encoder_layer_biases: List[bool],
-        inflater_layer_sizes: List[int],
-        inflater_weight_init_fn: str,
-        inflater_bias_init_fn: str,
-        inflater_layer_biases: List[bool],
-        decoder_weight_init_fn: str,
-        decoder_bias_init_fn: str,
-        decoder_layer_biases: List[bool],
-        key,
-        activation_fn_name: str, # default activation_fn_name is ReLU if more than one layer is present
-        orth_reg_strategy: str,  # default orthogonal regularisation strategy is L2
-        reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
+            self,
+            n_input_features: int,
+            n_inflated_specific_kin_params: int,
+            n_global_kin_params: int,
+            encoder_layer_sizes: List[int],  # decoder layers are just going to be encoder_layer_sizes mirrored
+            encoder_weight_init_fn: str,
+            encoder_bias_init_fn: str,
+            encoder_layer_biases: List[bool],
+            inflater_layer_sizes: List[int],
+            inflater_weight_init_fn: str,
+            inflater_bias_init_fn: str,
+            inflater_layer_biases: List[bool],
+            decoder_weight_init_fn: str,
+            decoder_bias_init_fn: str,
+            decoder_layer_biases: List[bool],
+            key,
+            activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
+            orth_reg_strategy: str,  # default orthogonal regularisation strategy is L2
+            reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
     ):
 
-        self.n_features = n_features
+        self.n_input_features = n_input_features
+        self.n_inflated_specific_kin_params = n_inflated_specific_kin_params
+        self.n_global_kin_params = n_global_kin_params
+
+        # VALIDITY CHECKS
         # input size (self.n_features) must match input layer size of encoder (equal to decoder output size, if any)
         if encoder_layer_sizes[0] != self.n_features:
             raise ValueError("Input layer size must be the same as input feature space size!")
         # encoder layers must shrink towards bottleneck/latent representation
         elif encoder_layer_sizes[-1] > encoder_layer_sizes[0]:
             raise ValueError("Latent space size cannot be larger than input feature space size!")
-        elif features.ndim != 2:
-            raise ValueError("features expected to be two-dimensional!")
-        # Make sure encoder output size matches inflater input size (interface between components/modules)
+        # TODO @GiacomoFabrini: need to implement this check in training/train - features.ndim not available here
+        # elif features.ndim != 2:
+        #     raise ValueError("features expected to be two-dimensional!")
+        # encoder output size must match inflater input size (interface between components/modules)
         elif encoder_layer_sizes[-1] != inflater_layer_sizes[0]:
             raise ValueError("Encoder output size must match inflater input size!")
-
+        # inflater output size must match the number of kinetic parameters to inflate to
+        elif inflater_layer_sizes[-1] != self.n_inflated_kin_params:
+            raise ValueError("Last inflater layer size must match the number of kinetic parameters to inflate to!")
+        # TODO @GiacomoFabrini check that number of non cell-specific parameters matches the custom final layer/module
 
         # Set orthogonal regularisation strategy
         self.orth_reg_strategy = orth_reg_strategy
@@ -127,7 +148,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
         # Instantiate encoder component
         self.deep_encoder = DeepComponent(
-            # component_name="encoder",
+            component_name="encoder",
             layer_sizes=encoder_layer_sizes,
             biases=encoder_layer_biases,
             key=key_encoder,
@@ -138,7 +159,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
         # Instantiate inflater component
         self.deep_inflater = DeepComponent(
-            # component_name="inflater",
+            component_name="inflater",
             layer_sizes=inflater_layer_sizes,
             biases=inflater_layer_biases,
             key=key_inflater,
@@ -150,7 +171,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         if self.reconstruct:
             decoder_layer_sizes = encoder_layer_sizes[::-1]
             self.deep_decoder = DeepComponent(
-                # component_name="decoder",
+                component_name="decoder",
                 layer_sizes=decoder_layer_sizes,
                 biases=decoder_layer_biases,
                 key=key_decoder,
@@ -159,12 +180,12 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 bias_init_fn=decoder_bias_init_fn,
             )
 
-            # self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.deep_decoder.x_names
+            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.deep_decoder.x_names
 
         else:
-            self.deep_decoder = None  # can potentially make this eqx.nn.Identity() to set deep_decoder to DeepComponent
+            self.deep_decoder = eqx.nn.Identity()  # no decoder head
 
-            # self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names
+            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names
 
     def __call__(self, x):
         encoded = self.deep_encoder(x)
