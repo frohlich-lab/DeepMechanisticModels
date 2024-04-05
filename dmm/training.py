@@ -60,7 +60,7 @@ def create_pypesto_problem(
         Autoencoder that will be trained
 
     :returns:
-        Optimization pypesto_probme that needs to be solved for training.
+        Optimization pypesto_problem that needs to be solved for training.
     """
 
     # TODO @GiacomoFabrini remove all arguments apart from the objective -- OK
@@ -209,23 +209,23 @@ def train(
         # TODO @GiacomoFabrini compute loss with value_and_grad, log and do weight update
 
         if epoch % 5 == 0:
-            rmses = dict()
+            rmse_dict = dict()
             # evaluate rmse on train and test dataset only after a certain number (5) of epochs
             for dataset, pp in zip(
                 ("train", "test"), (problem_train, problem_test)
             ):
-                rmses[dataset] = rmse(pp, x)
+                rmse_dict[dataset] = rmse(pp, x)
 
-            if rmses["test"] < rmse_test_min:
-                rmse_test_min = rmses["test"]
+            if rmse_dict["test"] < rmse_test_min:
+                rmse_test_min = rmse_dict["test"]
                 opt_x = x.copy()
                 opt_fval = fval
                 opt_grads = grads.copy()
 
             wandb.log(
                 {
-                    "rmse_train": rmses["train"],
-                    "rmse_val": rmses["test"],
+                    "rmse_train": rmse_dict["train"],
+                    "rmse_val": rmse_dict["test"],
                     **{
                         f"{val_type}_{xname}": None
                         if not np.all(np.isfinite(value))
@@ -250,11 +250,11 @@ def train(
 
             if use_early_stopping:
                 # Update early stopper
-                early_stop = early_stop.update(rmses["test"])
+                early_stop = early_stop.update(rmse_dict["test"])
                 # Debugging statements
                 print(
                     f"epoch {epoch} | "
-                    f"loss {rmses['test']} | "
+                    f"loss {rmse_dict['test']} | "
                     f"has improved? {early_stop.has_improved} | "
                     f"patience count {early_stop.patience_count}"
                 )
@@ -276,11 +276,12 @@ def train(
         if np.any(np.isnan(x)):
             break
 
+    wandb.log({"final_epoch": epoch})
     wandb.finish()
 
     # Saving epoch number inside n_fval (number of function evaluations)
-    OResult = OptimizeResult()
-    OResult.append(
+    optimization_result = OptimizeResult()
+    optimization_result.append(
         OptimizerResult(
             fval=opt_fval,
             n_fval=epoch,  # save epoch number to diagnose early stopping
@@ -292,7 +293,7 @@ def train(
     )
     result = Result(
         problem=problem_train,
-        optimize_result=OResult,
+        optimize_result=optimization_result,
     )
 
     rfile.parent.mkdir(exist_ok=True, parents=True)
