@@ -16,7 +16,7 @@ rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 )
 
 pypesto_problem_train, pypesto_problem_test = (
-    create_pypesto_problem(mae, problem) for mae in (model_train, model_test)
+    create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
 x0 = generate_startpoint(

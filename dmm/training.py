@@ -7,7 +7,8 @@ import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from amici.petab_objective import rdatas_to_simulation_df
-from flax.training.early_stopping import EarlyStopping  # flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
+from flax.training.early_stopping import EarlyStopping
+# doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jax import value_and_grad
 from optax import adam, apply_updates, linear_schedule
 from pathlib import Path
@@ -24,8 +25,9 @@ trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
 # TODO @GiacomoFabrini need to make this compatible with new equinox DeepAutoEncoder
-    # single loss function with all loss elements -> eqx.filter_value_and_grad
-    # remove ae.embedding, ae.x_names - not needed
+# single loss function with all loss elements -> eqx.filter_value_and_grad
+# remove ae.embedding, ae.x_names - not needed
+
 
 def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
@@ -48,7 +50,7 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
 
 # TODO @GiacomoFabrini - is this used or can it be scrapped? -- STILL IN USE, SEE BELOW
 def create_pypesto_problem(
-    ae: DeepMechanisticModel, problem: Problem  # is problem even needed?
+    ae: DeepMechanisticModel,
 ) -> pypesto.Problem:
     """
     Creates a pypesto.Problem that defines the optimization problem to solve

@@ -18,7 +18,7 @@ from pypesto.visualize import waterfall
 conf = fire.Fire(Conf)
 
 model, problem = load_models(conf, "train")
-pypesto_problem = create_pypesto_problem(model, problem)
+pypesto_problem = create_pypesto_problem(model)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
 indir = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)).parent

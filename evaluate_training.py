@@ -37,7 +37,7 @@ def evaluate_training(dataset, conf):
     evaluations = []
     model, problem = load_models(conf, dataset)
 
-    problem = create_pypesto_problem(model, problem)
+    problem = create_pypesto_problem(model)
 
     infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
 
