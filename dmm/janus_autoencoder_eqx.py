@@ -193,3 +193,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
         return inflated, decoded
+
+# TODO @GiacomoFabrini: implement additional final layer for inflater to combine cell-specific and global parameters if
+#  training whole DMM (not if pretraining network alone) -- add flag here of in DMM?
