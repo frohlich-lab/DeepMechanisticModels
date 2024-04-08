@@ -1,6 +1,7 @@
 import equinox as eqx
 import jax.numpy as jnp
-import numpy as np
+import jax.random as jr
+# import numpy as np
 import pandas as pd
 import pypesto
 import scipy.linalg as la
@@ -20,8 +21,8 @@ from util import load_petab_base_files
 
 
 def load_models(
-    conf: Conf,
-    dataset: str = "train",
+        conf: Conf,
+        dataset: str = "train",
 ) -> Tuple[
     Union[
         Tuple[DeepMechanisticModel, DeepMechanisticModel],
@@ -82,22 +83,20 @@ def load_models(
     return (*dmms), problem if len(settings[dataset]) > 1 else dmms[0], problem
 
 
-def init_linear_weights(model, new_weights):
-    is_linear = lambda x: isinstance(x, eqx.nn.Linear)
-    get_weights = lambda m: [x.weight
-                             for x in tree_util.tree_leaves(m, is_leaf=is_linear)
-                             if is_linear(x)]
-    new_model = eqx.tree_at(get_weights, model, new_weights)
-    return new_model
-
-
 def linear_nn_init(
-    conf: Conf,
-    model: DeepMechanisticModel,
-    dataset: str,  # train or test
-    problem: CytofProblem,
-    pypesto_problem: pypesto.Problem,
+        conf: Conf,
+        model: DeepMechanisticModel,
+        dataset: str,  # train or test
+        problem: CytofProblem,
+        pypesto_problem: pypesto.Problem,
 ):
+
+    # Check that encoder, inflater (and potentially decoder) all have a single layer
+    # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
+    if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
+        raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
+
+
     pretrained_samples = {}
 
     for sample in model.sample_names:
@@ -124,7 +123,9 @@ def linear_nn_init(
     # However, as cell-lines are not-paired,
     # we can combine different multistart parameter sets
     # across cell-lines.
-    np.random.seed(conf.job)
+    # np.random.seed(conf.job)
+    key = jr.PRNGKey(seed=conf.job)
+    poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
 
     # Multi-starts of per-sample training are sorted
     # by loss function (ascending order, lower is better,
@@ -140,9 +141,9 @@ def linear_nn_init(
         [
             pretraining[
                 pretraining.index
-                == np.min([np.random.poisson(2, 1)[0], len(pretraining) - 1])
+                == jnp.min([jr.poisson(key=sampling_key, lam=2, shape=(1,))[0], len(pretraining) - 1])
                 ]
-            for pretraining in pretrained_samples.values()
+            for pretraining, sampling_key in zip(pretrained_samples.values(), poisson_sampling_keys)
         ]
     )
     par_combo.index = list(pretrained_samples.keys())
@@ -176,39 +177,71 @@ def linear_nn_init(
     features_val_pca = pca.transform(input_features_val)
 
     # Overwrite encoder weights with PCA components
-    new_encoder_weights = jnp.array(pca.components_.T.flatten())
-    model.deep_encoder = init_linear_weights(
-        model.deep_encoder,
-        new_encoder_weights,
+    new_encoder_weights = jnp.array(
+        pca.components_.T.flatten()
     )
+    if new_encoder_weights.shape != model.deep_encoder.layers[0].weight.shape:
+        raise ValueError("Incorrect shape of new encoder weights!")
+    model = eqx.tree_at(
+        lambda m: m.deep_encoder.layers[0].weight,  # fetch weights from single layer of encoder
+        model,
+        new_encoder_weights
+    )
+    if conf.encoder_layer_biases[0]:  # if use_bias=True for single layer
+        model = eqx.tree_at(
+            lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
+            model,
+            jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
+        )
     # Overwrite inflater weights with least squares solution
     # select features_pca depending on `dataset`
     features_pca = features_train_pca if dataset == 'train' else features_val_pca
-    new_inflater_weights = jnp.array(la.lstsq(
-        features_pca[:, : model.n_latent],
-        par_combo[inputs].values,
-    )[0].flatten())
-    model.deep_inflater = init_linear_weights(
-        model.deep_inflater,
-        new_inflater_weights,
+    new_inflater_weights = jnp.array(
+        la.lstsq(
+            features_pca[:, : model.n_latent],
+            par_combo[inputs].values,
+        )[0].flatten()
     )
+    if new_inflater_weights.shape != model.deep_inflater.layers[0].weight.shape:
+        raise ValueError("Incorrect shape of new inflater weights!")
+    model = eqx.tree_at(
+        lambda m: m.deep_inflater.layers[0].weight,
+        model,
+        new_inflater_weights
+    )
+    if conf.inflater_layer_biases[0]:  # same as done for encoder in case of use_bias=True
+        model = eqx.tree_at(
+            lambda m: m.deep_inflater.layers[0].bias,
+            model,
+            jnp.zeros_like(model.deep_inflater.layers[0].bias),
+        )
     # Overwrite decoder weights with inverse of encoder weights
     if conf.reconstruct:
         # initialise the decoder with the transpose of the encoder weights
         new_decoder_weights = new_encoder_weights.T
-        model.deep_decoder = init_linear_weights(
-            model.deep_decoder,
-            new_decoder_weights,
+        if new_decoder_weights.shape != model.deep_decoder.layers[0].weight.shape:
+            raise ValueError("Incorrect shape of new decoder weights!")
+        model = eqx.tree_at(
+            lambda m: m.deep_decoder.layers[0].weight,
+            model,
+            new_decoder_weights
         )
+        if conf.decoder_layer_biases[0]:  # same as done for encoder/inflater in case of use_bias=True
+            model = eqx.tree_at(
+                lambda m: m.deep_decoder.layers[0].bias,
+                model,
+                jnp.zeros_like(model.deep_decoder.layers[0].bias),
+            )
     return model
 
 
 # TODO @GiacomoFabrini: code initialisation for additive component following the inflater
-def init_global_kin_params_adder(conf: Conf,
-    model: DeepMechanisticModel,
-    # dataset: str,  # train or test
-    problem: CytofProblem,
-    pypesto_problem: pypesto.Problem,
+def init_global_kin_params_adder(
+        conf: Conf,
+        model: DeepMechanisticModel,
+        # dataset: str,  # train or test
+        # problem: CytofProblem,
+        # pypesto_problem: pypesto.Problem,
 ):
 
     return
