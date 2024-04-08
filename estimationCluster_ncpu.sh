@@ -14,6 +14,8 @@ ml Singularity/3.6.4
 
 source ./venv/bin/activate
 
+export SLURM_MPI_TYPE=none
+
 snakemake train_and_evaluate --local-cores 1 -j 2000 --config num_starts=10 \
     --use-singularity --slurm --default-resources slurm_account=u_froehlichf slurm_partition=ncpu \
     --rerun-incomplete
