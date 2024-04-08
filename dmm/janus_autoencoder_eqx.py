@@ -2,6 +2,7 @@ import equinox as eqx
 
 from dmm.deepcomponent_eqx import (
     DeepComponent,
+    KinParams_Combiner,
 )
 from jax import config, random
 from typing import (
@@ -66,6 +67,11 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         into the decoder network to ensure latent space can reconstruct the input information
         via reconstruction loss in true autoencoder spirit.
 
+    :param nn_pretrain:
+        boolean flag. If `nn_pretrain==True` (network pretraining), input is encoded and inflated.
+        If `nn_pretrain==False` (DMM training), input is encoded and inflated, then the cell-specific deviations
+        are combined with the global non-cell-specific kinetic parameters.
+
     :param orth_reg_strategy:
         orthogonal regularisation strategy to be used: L1 vs L2 (default)
 
@@ -87,6 +93,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     x_names: List[str] = eqx.static_field()
     orth_reg_strategy: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
+    nn_pretrain: bool = eqx.static_field()
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
@@ -113,6 +120,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
             orth_reg_strategy: str,  # default orthogonal regularisation strategy is L2
             reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
+            nn_pretrain: bool,
     ):
 
         self.n_input_features = n_input_features
@@ -143,6 +151,9 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # Set reconstruct flag
         self.reconstruct = reconstruct
 
+        # Set network pretraining flag
+        self.nn_pretrain = nn_pretrain
+
         # Split random key
         key_encoder, key_inflater, key_decoder = random.split(key, num=3)
 
@@ -168,6 +179,14 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             bias_init_fn=inflater_bias_init_fn,
         )
 
+        # Instantiate global kinetic parameters component
+        self.kin_params_combiner = KinParams_Combiner(
+            component_name='kinparams_combiner',
+            n_global_kin_params=n_global_kin_params
+        )
+
+        self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.kin_params_combiner.x_names
+
         if self.reconstruct:
             decoder_layer_sizes = encoder_layer_sizes[::-1]
             self.deep_decoder = DeepComponent(
@@ -180,19 +199,17 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 bias_init_fn=decoder_bias_init_fn,
             )
 
-            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.deep_decoder.x_names
+            self.x_names += self.deep_decoder.x_names
 
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head
-
-            self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names
 
     def __call__(self, x):
         encoded = self.deep_encoder(x)
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
-        return inflated, decoded
-
-# TODO @GiacomoFabrini: implement additional final layer for inflater to combine cell-specific and global parameters if
-#  training whole DMM (not if pretraining network alone) -- add flag here of in DMM?
+        # Add global and cell-specific kinetic parameters
+        # During network pretraining, the combiner is simply adding zeros and its parameters are freezed
+        augmented_inflated = self.kin_params_combiner(inflated)
+        return augmented_inflated, decoded

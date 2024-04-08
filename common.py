@@ -24,6 +24,7 @@ class Conf(dict):
     decoder_layer_biases: List[bool]
     activation_fn_name: str
     reconstruct: bool
+    nn_pretrain: bool  # dictates when KinParams_Combiner params are switched to non-zero, learnable values
     orth_reg_strategy: str = None  # values: "L1" / "L2"
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0

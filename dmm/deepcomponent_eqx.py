@@ -157,3 +157,23 @@ class DeepComponent(eqx.Module):
                 a = self.activation(layer(a))
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
         return self.layers[-1](a)
+
+
+class KinParams_Combiner(eqx.Module):
+    component_name: str = eqx.static_field()
+    n_global_kin_params: int = eqx.static_field()
+    x_names: List[str] = eqx.static_field()
+    learned_global_params: jnp.ndarray
+
+    def __init__(self, component_name, n_global_kin_params):
+        # Initialize the learned global (non-cell-specific) parameters to zeros
+        self.component_name = component_name
+        self.learned_global_params = jnp.zeros_like(n_global_kin_params)
+        self.x_names = [
+            f"{self.component_name}_{0}_{ind}_weight"
+            for ind in range(n_global_kin_params)
+        ]
+
+    def __call__(self, x):
+        # Output is the input added to the array of learned parameters
+        return x + self.learned_global_params

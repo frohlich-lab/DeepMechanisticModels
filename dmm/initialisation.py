@@ -83,20 +83,10 @@ def load_models(
     return (*dmms), problem if len(settings[dataset]) > 1 else dmms[0], problem
 
 
-def linear_nn_init(
+def get_kin_params_median_deviation(
         conf: Conf,
         model: DeepMechanisticModel,
-        dataset: str,  # train or test
-        problem: CytofProblem,
-        pypesto_problem: pypesto.Problem,
 ):
-
-    # Check that encoder, inflater (and potentially decoder) all have a single layer
-    # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
-    if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
-        raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
-
-
     pretrained_samples = {}
 
     for sample in model.sample_names:
@@ -124,7 +114,7 @@ def linear_nn_init(
     # we can combine different multistart parameter sets
     # across cell-lines.
     # np.random.seed(conf.job)
-    key = jr.PRNGKey(seed=conf.job)
+    key = jr.PRNGKey(conf.job)
     poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
 
     # Multi-starts of per-sample training are sorted
@@ -149,15 +139,31 @@ def linear_nn_init(
     par_combo.index = list(pretrained_samples.keys())
     par_combo = par_combo.reindex(model.sample_names)
     # Compute the median across samples
-    means = par_combo.median(skipna=True)
+    par_medians = par_combo.median(skipna=True)
     # Subtract the median from the parameters:
     # par_combo now represents variation around the median
-    par_combo -= means
+    par_deviations = par_combo - par_medians
+
+    return par_medians, par_deviations
+
+
+def linear_nn_init(
+        conf: Conf,
+        model: DeepMechanisticModel,
+        dataset: str,  # train or test
+):
+
+    # Check that encoder, inflater (and potentially decoder) all have a single layer
+    # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
+    if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
+        raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
+
+    _, par_deviations = get_kin_params_median_deviation(conf=conf, model=model)
 
     inputs = [
         "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
         for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_combo.index[0])
+        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_deviations.index[0])
     ]
 
     # Load train/val features
@@ -199,7 +205,7 @@ def linear_nn_init(
     new_inflater_weights = jnp.array(
         la.lstsq(
             features_pca[:, : model.n_latent],
-            par_combo[inputs].values,
+            par_deviations[inputs].values,
         )[0].flatten()
     )
     if new_inflater_weights.shape != model.deep_inflater.layers[0].weight.shape:
@@ -239,9 +245,31 @@ def linear_nn_init(
 def init_global_kin_params_adder(
         conf: Conf,
         model: DeepMechanisticModel,
-        # dataset: str,  # train or test
-        # problem: CytofProblem,
-        # pypesto_problem: pypesto.Problem,
 ):
-
-    return
+    if not conf.nn_pretrain:
+        par_medians, _ = get_kin_params_median_deviation(conf=conf, model=model)
+        # TODO @GiacomoFabrini: ask Fabian - how do we go about determining which parameters we want to keep
+        #  the median of for initialisation purposes?
+        # from my understanding: the names of the kinetic parameters are in model.pypesto_subproblem.x_names
+        # (which does NOT contain any x_names from the DL module components)
+        # we can thus get the names of the global parameters as those which do not start with the MODEL_FEATURE_PREFIX
+        global_par_names = [
+            name for name in model.pypesto_subproblem.x_names
+            if not name.startswith(MODEL_FEATURE_PREFIX)
+        ]
+        # now we just need to extract the corresponding entries from par_medians
+        new_global_kin_params = par_medians[global_par_names]
+        # TODO @GiacomoFabrini: does this work or do we need to replace with
+        #  [par_medians[name] for name in global_par_names]?
+        # Check shape match
+        if new_global_kin_params.shape != model.kin_params_combiner.learned_global_params.shape:
+            raise ValueError("Incorrect shape of new global kinetic parameters!")
+        # Update KinParams_Combiner parameters - initialised to global parameters median
+        model = eqx.tree_at(
+            lambda m: m.kin_params_combiner.learned_global_params,  # fetch weights from single layer of encoder
+            model,
+            new_global_kin_params
+        )
+    else:
+        raise ValueError("This function should only be called after network pretraining!")
+    return model
