@@ -209,7 +209,7 @@ rule estimate_parameters:
         oreg_encode='[0-9\.]+',
     retries: 1
     resources:
-        mem="4GB",
+        mem="1GB",
         runtime="24h",
         nodes=1,
         threads=2,
