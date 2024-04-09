@@ -17,22 +17,33 @@ class Conf(dict):
     samples: str = None
     sample: str = None
     n_hidden: int = None
-    encoder_layer_sizes: List[int]
-    encoder_layer_biases: List[bool]
-    inflater_layer_sizes: List[int]
-    inflater_layer_biases: List[bool]
-    decoder_layer_biases: List[bool]
-    activation_fn_name: str
-    reconstruct: bool
-    nn_pretrain: bool  # dictates when KinParams_Combiner params are switched to non-zero, learnable values
-    orth_reg_strategy: str = None  # values: "L1" / "L2"
-    l1reg_inflate: float = 0.0
-    oreg_inflate: float = 0.0
+    encoder_layer_sizes: List[int] = None
+    encoder_layer_biases: List[bool] = None
+    inflater_layer_sizes: List[int] = None
+    inflater_layer_biases: List[bool] = None
+    decoder_layer_biases: List[bool] = None
+    activation_fn_name: str = None
+    reconstruct: bool = None
+    nn_pretrain: bool = None  # dictates when KinParamsCombiner params are switched to non-zero, learnable values
+    orth_reg_strategy: str = None
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
+    l1reg_inflate: float = 0.0
+    oreg_inflate: float = 0.0
+    recon_loss: float = 0.0
+    symm_reg: float = 0.0
     job: int = None
     threads: int = 1
     n_starts: int = None
+    linear_benchmark: str = None
+
+
+@dataclasses.dataclass
+class EarlyStoppingParams(dict):
+    use_early_stopping: bool = True
+    patience: int = 9
+    min_improvement: float = 0
+
 
 CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
 

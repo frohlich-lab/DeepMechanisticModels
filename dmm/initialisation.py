@@ -20,6 +20,8 @@ from typing import Tuple, Union
 from util import load_petab_base_files
 
 
+# TODO @GiacomoFabrini: I think this needs changing. If conf.linear_benchmark == True,
+#  we want to pass the models as they are. If not, we want to pass pre-trained models...
 def load_models(
         conf: Conf,
         dataset: str = "train",
@@ -78,6 +80,17 @@ def load_models(
             for setting in settings[dataset]
         ]
     ]
+
+    # Linear benchmark: initialise via linear_nn_init
+    if (len(conf.encoder_layer_sizes) == 1) and (len(conf.inflater_layer_sizes) == 1) and conf.linear_benchmark:
+        dmms = [
+            linear_nn_init(
+                conf=conf,
+                model=dmm_model,
+                dataset=dataset
+            )
+            for dmm_model in dmms
+        ]
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
     return (*dmms), problem if len(settings[dataset]) > 1 else dmms[0], problem
@@ -147,6 +160,30 @@ def get_kin_params_median_deviation(
     return par_medians, par_deviations
 
 
+def load_and_subset_input_features(
+        conf: Conf,
+        model: DeepMechanisticModel,
+        dataset: str,
+):
+    features = pd.read_csv(
+        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset)),
+        index_col=0,
+    )
+    # extract sample names, ordering of those is important since samples
+    # must match when reshaping the inflated matrix
+    petab_samples = []
+    for name in model.pypesto_subproblem.x_names:
+        if not name.startswith(MODEL_FEATURE_PREFIX):
+            continue
+
+        sample = name.split("__")[-1]
+        if sample not in petab_samples and sample in features.index:
+            petab_samples.append(sample)
+
+    input_features = features.loc[petab_samples, :].values
+    return input_features
+
+
 def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
@@ -158,23 +195,10 @@ def linear_nn_init(
     if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
         raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
 
-    _, par_deviations = get_kin_params_median_deviation(conf=conf, model=model)
-
-    inputs = [
-        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
-        for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_deviations.index[0])
-    ]
-
     # Load train/val features
-    input_features_train = pd.read_csv(
-        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
-        index_col=0,
-    )
-    input_features_val = pd.read_csv(
-        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
-        index_col=0,
-    )
+    input_features_train = load_and_subset_input_features(conf=conf, model=model, dataset="train")
+    input_features_val = load_and_subset_input_features(conf=conf, model=model, dataset="val")
+
     # Fit PCA on input features - train
     pca = PCA(n_components=model.n_latent).fit(input_features_train)
 
@@ -199,6 +223,16 @@ def linear_nn_init(
             model,
             jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
         )
+
+    # Compute target for least square initialisation of inflater weights:
+    # kinetic parameter deviation around the median
+    _, par_deviations = get_kin_params_median_deviation(conf=conf, model=model)
+
+    inputs = [
+        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
+        for p in model.petab_importer.petab_problem.parameter_df.index
+        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_deviations.index[0])
+    ]
     # Overwrite inflater weights with least squares solution
     # select features_pca depending on `dataset`
     features_pca = features_train_pca if dataset == 'train' else features_val_pca
@@ -264,7 +298,7 @@ def init_global_kin_params_adder(
         # Check shape match
         if new_global_kin_params.shape != model.kin_params_combiner.learned_global_params.shape:
             raise ValueError("Incorrect shape of new global kinetic parameters!")
-        # Update KinParams_Combiner parameters - initialised to global parameters median
+        # Update KinParamsCombiner parameters - initialised to global parameters median
         model = eqx.tree_at(
             lambda m: m.kin_params_combiner.learned_global_params,  # fetch weights from single layer of encoder
             model,

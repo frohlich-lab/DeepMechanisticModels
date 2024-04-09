@@ -6,6 +6,7 @@ import numpy as np
 import pandas as pd
 import pypesto.petab
 from jax import config
+from jaxtyping import Array
 from . import MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from .petab_subproblem import load_petab
@@ -17,13 +18,32 @@ from .problem import Problem
 # can pretrain encoder-inflater or encoder-inflater-decoder
 config.update("jax_enable_x64", True)
 
-
 def init_biases(biases, layer_sizes, component_name):
     if biases is None:
         biases = [False] * len(layer_sizes)
     elif len(biases) != len(layer_sizes):
         raise ValueError(f"{component_name}: biases must have the same length as layer_sizes")
     return biases
+
+
+def get_reg_exp(orth_reg_strategy):
+    reg_exp_dict = {
+        "L1": 1,
+        "L2": 2,
+    }
+    if orth_reg_strategy not in reg_exp_dict.keys():
+        raise ValueError(f"Invalid orth_reg_strategy: {orth_reg_strategy}")
+    return reg_exp_dict[orth_reg_strategy]
+
+
+def mse(
+        predictions: Array,
+        targets: Array,
+):
+    """
+    Computes the Mean Squared Error (MSE) between predictions and targets.
+    """
+    return jnp.mean(jnp.square(predictions - targets))
 
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
@@ -270,117 +290,132 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     def n_params(self):
         return self.inflater_params_dict["inflater_layer_sizes"][-1]
 
-    # # TODO @GiacomoFabrini ask Fabian about this?!
-    # def embedding(self, params: np.ndarray) -> jnp.ndarray:
-    #     encode_weights, inflate_weights, kin_params = jnp.split(
-    #         params,
-    #         np.array(
-    #             (
-    #                 self.n_encode_weights,
-    #                 self.n_inflate_weights + self.n_encode_weights,
-    #             )
-    #         ),
-    #     )
-    #     return jnp.concatenate(
-    #         [
-    #             kin_params,
-    #             self.inflate_params(
-    #                 self.encode(encode_weights), inflate_weights
-    #             ).flatten(),
-    #         ]
-    #     )
+    def l1_encode_reg(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        L1 regularization of deep encoder weights.
+        """
+        l1reg_encode_loss = 0
+        for layer_num in range(len(self.deep_encoder.layers)):
+            w = self.deep_encoder.layers[layer_num].weight
+            l1reg_encode_loss += scale * jnp.mean(
+                jnp.abs(w)
+            )
+        return l1reg_encode_loss
+
+    def orth_encode_reg(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        Orthogonal regularization of deep encoder weights.
+        """
+        oreg_encode_loss = 0
+        reg_exponent = get_reg_exp(self.orth_reg_strategy)
+        for layer_num in range(len(self.deep_encoder.layers)):
+            w = self.deep_encoder.layers[layer_num].weight
+            m = jnp.dot(w.T, w)
+            oreg_encode_loss += scale * jnp.mean(
+                jnp.abs(m - jnp.eye(m.shape[0]))**reg_exponent
+            )
+        return oreg_encode_loss
+
+    def l1_inflate_reg(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        L1 regularization of deep inflater weights.
+        """
+        l1reg_inflate_loss = 0
+        for layer_num in range(len(self.deep_inflater.layers)):
+            w = self.deep_inflater.layers[layer_num].weight
+            l1reg_inflate_loss += scale * jnp.mean(
+                jnp.abs(w)
+            )
+        return l1reg_inflate_loss
+
+    def orth_inflate_reg(
+            self,
+            scale: float = 1.0
+    ):
+
+        """
+        Orthogonal regularization of deep inflater weights.
+        """
+        oreg_inflate_loss = 0
+        reg_exponent = get_reg_exp(self.orth_reg_strategy)
+        for layer_num in range(len(self.deep_inflater.layers)):
+            w = self.deep_inflater.layers[layer_num].weight
+            m = jnp.dot(w, w.T)
+            oreg_inflate_loss += scale * jnp.mean(
+                jnp.abs(m - jnp.diag(jnp.diag(m)))**reg_exponent
+            )
+        return oreg_inflate_loss
+
+    def reconstruction_loss(
+            self,
+            x: Array,  # TODO @GiacomoFabrini is this ok?
+            scale: float = 1.0
+    ):
+        """
+        Reconstruction loss of the autoencoder (in case self.reconstruct == True).
+        Simple Mean Squared Error (without the sqrt for now!)
+        """
+        reconstructed_x = self(x=x)[1]  # decoded
+        # TODO @GiacomoFabrini: consider moving all MSEs to RMSEs?!
+        #  Are they on the same scale/order of magnitude as
+        #  L1 terms if we leave them squared?!
+        return scale*mse(predictions=reconstructed_x, targets=x)
+
+    def symmetry_loss(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        Symmetry loss for the autoencoder (in case self.reconstruct == True),
+        pushes the decoder weights to be the transposed of the encoder weigths.
+        """
+        symmetry_reg = 0
+        num_layers = len(self.deep_encoder.layers)
+        # Iterate over the encoder and decoder layers
+        for encoder_layer, decoder_layer in zip(
+                self.deep_encoder.layers, self.deep_decoder.layers[::-1]  # zip them in reverse order
+        ):
+            # Compute the weight difference for each pair of corresponding layers
+            diff = encoder_layer.weight - decoder_layer.weight.T
+            # Then compute sum of squares differences
+            symmetry_reg += jnp.sum(jnp.square(diff))
+        symmetry_reg /= num_layers  # turns into mean square error
+        return scale * symmetry_reg
 
     # TODO @GiacomoFabrini code single loss function incorporating all 4 components + reconstruction loss
-    def loss_fn(self, ):
-        encode_weights = eqx.filter(model.deep_encoder, eqx.is_array)
-        inflate_weights = eqx.filter(model.deep_inflater, eqx.is_array)
-
-        l1reg_encode_reg_loss = l1reg_encode * jnp.mean(jnp.abs(encode_weights))
-        l1reg_inflate_reg_loss = l1reg_inflate * jnp.mean(jnp.abs(inflate_weights))
+    def loss_fn(
+            self,
+            input_data,
+            problem_train: pypesto.Problem,
+            scale_l1reg_encode,
+            scale_oreg_encode,
+            scale_l1reg_inflate,
+            scale_oreg_inflate,
+            scale_recon_loss,
+            scale_symm_loss,
+    ):
+        fval = problem_train.objective(self(x=input_data)[0])
+        loss = (
+                fval
+                + self.l1_encode_reg(scale=scale_l1reg_encode)
+                + self.orth_encode_reg(scale=scale_oreg_encode)
+                + self.l1_inflate_reg(scale=scale_l1reg_inflate)
+                + self.orth_inflate_reg(scale=scale_oreg_inflate)
+        )
 
         if self.reconstruct:
-            decode_weights = eqx.filter(model.deep_decoder, eqx.is_array)
-            l1reg_decode_reg_loss = l1reg_encode * jnp.mean(jnp.abs(decode_weights))
+            loss += (
+                    self.reconstruction_loss(x=input_data, scale=scale_recon_loss)
+                    + self.symmetry_loss(scale=scale_symm_loss)
+            )
 
-        if self.reconstruct:
-            return l1reg_encode_reg_loss + l1reg_inflate_reg_loss
-        else:
-            return l1reg_encode_reg_loss + l1reg_inflate_reg_loss
-
-    def orth_encode_reg(self, params: jnp.ndarray, scale: float = 1.0):
-        """
-        Orthogonal regularization of the encoder weights.
-        """
-        encode_weights, _, _ = jnp.split(
-            params,
-            np.array(
-                (
-                    self.n_encode_weights,
-                    self.n_encoder_pars,
-                )
-            ),
-        )
-        w = jnp.reshape(encode_weights, (self.n_features, self.n_latent))
-        m = jnp.dot(w.T, w)
-        if self.orth_reg_strategy == "L1":
-            # L1 norm - originally used in Fabian's runs
-            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
-        elif self.orth_reg_strategy == "L2":
-            # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)) ** 2)
-        else:
-            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-
-    def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
-        """
-        Orthogonal regularization of the inflate weights.
-        """
-        _, inflate_weights, _ = jnp.split(
-            params,
-            np.array(
-                (
-                    self.n_encode_weights,
-                    self.n_inflate_weights + self.n_encode_weights,
-                )
-            ),
-        )
-        w = jnp.reshape(inflate_weights, (self.n_latent, self.n_params))
-        m = jnp.dot(w, w.T)
-        if self.orth_reg_strategy == "L1":
-            # L1 norm - originally used in Fabian's runs
-            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
-        elif self.orth_reg_strategy == "L2":
-            # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))) ** 2)
-        else:
-            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
-
-    def l1_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
-        """
-        l1 regularization of the inflate output.
-        """
-        _, inflate_weights, _ = jnp.split(
-            params,
-            np.array(
-                (
-                    self.n_encode_weights,
-                    self.n_inflate_weights + self.n_encode_weights,
-                )
-            ),
-        )
-        return scale * jnp.mean(jnp.abs(inflate_weights))
-
-    def l1_encode_reg(self, params: jnp.ndarray, scale: float = 1.0):
-        """
-        l1 regularization of the inflate output.
-        """
-        encode_weights, _, _ = jnp.split(
-            params,
-            np.array(
-                (
-                    self.n_encode_weights,
-                    self.n_inflate_weights + self.n_encode_weights,
-                )
-            ),
-        )
-        return scale * jnp.mean(jnp.abs(encode_weights))
+        return loss, fval
