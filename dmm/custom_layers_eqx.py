@@ -1,7 +1,9 @@
 import equinox as eqx
 import jax.nn.initializers as initializers
-import jax.numpy as jnp
+# import jax.numpy as jnp
 from jax import config, random
+from jaxtyping import Array
+from typing import Optional, Union
 
 
 config.update("jax_enable_x64", True)
@@ -18,33 +20,34 @@ init_fn = {
 
 
 class CustomInitLinear(eqx.Module):
-    weights: jnp.ndarray
-    biases: jnp.ndarray
-    use_bias: bool
+    # same notation as eqx.nn.Linear layers: access with .weight and .bias, enable bias with use_bias
+    weight: Array
+    bias: Optional[Array]
+    use_bias: bool = eqx.static_field()
 
     def __init__(
             self,
-            fan_in,
-            fan_out,
+            in_features,  # again, follows the same notation as eqx.nn.Linear
+            out_features,
             key,
             weight_init,
             bias_init,
             use_bias=False,  # default: no bias
     ):
         weight_key, bias_key = random.split(key)
-        self.weights = weight_init(
-            weight_key,
-            (fan_out, fan_in)
-        )
-        self.biases = bias_init(
-            bias_key,
-            (fan_out,)
-        ) if use_bias else None
         self.use_bias = use_bias
+        self.weight = weight_init(
+            weight_key,
+            (out_features, in_features)
+        )
+        self.bias = bias_init(
+            bias_key,
+            (out_features,)
+        ) if self.use_bias else None
 
     def __call__(self, x):
-        out = self.weights @ x  # for consistency with equinox.nn.Linear definition
+        out = self.weight @ x  # for consistency with equinox.nn.Linear definition
         # doc: https://github.com/patrick-kidger/equinox/blob/main/equinox/nn/_linear.py
         if self.use_bias:
-            out += self.biases
+            out += self.bias
         return out
