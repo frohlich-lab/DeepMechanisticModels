@@ -2,7 +2,7 @@ import equinox as eqx
 
 from dmm.deepcomponent_eqx import (
     DeepComponent,
-    KinParams_Combiner,
+    KinParamsCombiner,
 )
 from jax import config, random
 from typing import (
@@ -180,8 +180,8 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         )
 
         # Instantiate global kinetic parameters component
-        self.kin_params_combiner = KinParams_Combiner(
-            component_name='kinparams_combiner',
+        self.kin_params_combiner = KinParamsCombiner(
+            component_name='kin_params_combiner',
             n_global_kin_params=n_global_kin_params
         )
 
