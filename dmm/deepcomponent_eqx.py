@@ -6,6 +6,7 @@ from dmm.custom_layers_eqx import (
     init_fn
 )
 from jax import config, nn, random
+from jaxtyping import Array
 from typing import (
     Callable,
     List,
@@ -24,6 +25,43 @@ act_fn_by_name = {
     "gelu": nn.gelu,
     "swish": nn.swish,
 }
+
+
+def generate_layer(
+        in_features,
+        out_features,
+        use_bias,
+        key,
+        weight_init_fn="eqx_default",
+        bias_init_fn="eqx_default",
+):
+    """
+    Produces either a Linear (eqx.nn.Linear) layer or a CustomInitLayer (where
+    weight and bias initialisations are performed through a chosen initialiser
+    from jax.nn.initializers()).
+    """
+    # Default option: eqx.nn.Linear (similar to He/Xavier without constant scaling factors)
+    if (weight_init_fn == "eqx_default") and (bias_init_fn == "eqx_default"):
+        return eqx.nn.Linear(
+            in_features=in_features,
+            out_features=out_features,
+            use_bias=use_bias,
+            key=key
+        )
+    # Select initializer from jax.nn.initializers() via init_fn dict
+    elif (weight_init_fn in init_fn.keys()) and (bias_init_fn in init_fn.keys()):
+        return CustomInitLinear(
+            in_features=in_features,
+            out_features=out_features,
+            use_bias=use_bias,  # default: no bias
+            key=key,
+            weight_init=init_fn[weight_init_fn],
+            bias_init=init_fn[bias_init_fn],
+        )
+    else:
+        # TODO @GiacomoFabrini consider improving this?!
+        # In case of mixed combinations or unknown init_fn names, raise ValueError
+        raise ValueError(f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}.")
 
 
 class DeepComponent(eqx.Module):
@@ -85,63 +123,40 @@ class DeepComponent(eqx.Module):
         # Define layer-wise architecture
         # Always specify either both weight_init_fn and bias_init_fn
         # or both as "eqx_default" -- mixed combinations will result in ValueError
-        if (weight_init_fn == "eqx_default") and (bias_init_fn == "eqx_default"):
-            # Default option: eqx.nn.Linear (similar to He/Xavier without constant scaling factors)
-            for layer_num, (
-                    (fan_in, fan_out),
-                    (key, bias)
-            ) in enumerate(
-                    zip(
-                        zip(layer_sizes[:-1], layer_sizes[1:]),
-                        zip(layer_keys, biases)
-                    )
-            ):
-                self.layers.append(
-                    eqx.nn.Linear(
-                        in_features=fan_in,
-                        out_features=fan_out,
-                        use_bias=bias,
-                        key=key
-                    )
-                )
-                # TODO @GiacomoFabrini: do we need these? (pt.1)
-                self.x_names.extend(
-                    [
-                        f"{self.component_name}_{layer_num}_{ind}_weight"
-                        for ind in range(fan_in * fan_out)
-                    ]
-                )
-        elif (weight_init_fn in init_fn.keys()) and (bias_init_fn in init_fn.keys()):
-            # Select initializer from jax.nn.initializers() via init_fn dict
-            for layer_num, (
-                    (fan_in, fan_out),
-                    (key, bias)
-            ) in enumerate(
+
+        for layer_num, (
+                (fan_in, fan_out),
+                (key, bias)
+        ) in enumerate(
                 zip(
                     zip(layer_sizes[:-1], layer_sizes[1:]),
                     zip(layer_keys, biases)
                 )
-            ):
-                self.layers.append(
-                    CustomInitLinear(
-                        fan_in=fan_in,
-                        fan_out=fan_out,
-                        use_bias=bias,  # default: no bias
-                        key=key,
-                        weight_init=init_fn[weight_init_fn],
-                        bias_init=init_fn[bias_init_fn],
-                    )
+        ):
+            self.layers.append(
+                generate_layer(
+                    in_features=fan_in,
+                    out_features=fan_out,
+                    use_bias=bias,
+                    key=key,
+                    weight_init_fn=weight_init_fn,
+                    bias_init_fn=bias_init_fn,
                 )
-                # TODO @GiacomoFabrini pt.2 from above
+            )
+            # TODO @GiacomoFabrini: do we need these?
+            self.x_names.extend(
+                [
+                    f"{self.component_name}_{layer_num}_{ind}_weight"
+                    for ind in range(fan_in * fan_out)
+                ]
+            )
+            if bias:
                 self.x_names.extend(
                     [
-                        f"{self.component_name}_{layer_num}_{ind}_weight"
-                        for ind in range(fan_in * fan_out)
+                        f"{self.component_name}_{layer_num}_{ind}_bias"
+                        for ind in range(fan_out)
                     ]
                 )
-        else:
-            # In case of mixed combinations or unknown init_fn names, raise ValueError
-            raise ValueError(f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}.")
 
         # activation function
         if activation_fn_name in act_fn_by_name.keys():
@@ -159,18 +174,18 @@ class DeepComponent(eqx.Module):
         return self.layers[-1](a)
 
 
-class KinParams_Combiner(eqx.Module):
+class KinParamsCombiner(eqx.Module):
     component_name: str = eqx.static_field()
     n_global_kin_params: int = eqx.static_field()
     x_names: List[str] = eqx.static_field()
-    learned_global_params: jnp.ndarray
+    learned_global_params: Array
 
     def __init__(self, component_name, n_global_kin_params):
         # Initialize the learned global (non-cell-specific) parameters to zeros
         self.component_name = component_name
         self.learned_global_params = jnp.zeros_like(n_global_kin_params)
         self.x_names = [
-            f"{self.component_name}_{0}_{ind}_weight"
+            f"{self.component_name}_{0}_{ind}_global_kin_param"
             for ind in range(n_global_kin_params)
         ]
 
