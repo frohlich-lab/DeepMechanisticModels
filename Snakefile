@@ -207,7 +207,7 @@ rule estimate_parameters:
         l1reg_inflate='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
-    retries: 1
+    retries: 2
     resources:
         mem="4GB",
         runtime="24h",

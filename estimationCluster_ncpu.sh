@@ -9,6 +9,8 @@
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=giacomo.fabrini@crick.ac.uk
 
+set -e
+
 ml Python/3.10.8-GCCcore-12.2.0-bare
 ml Singularity/3.6.4
 
