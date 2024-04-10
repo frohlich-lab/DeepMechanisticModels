@@ -97,6 +97,7 @@ def train(
         config={
             **conf,
             "patience": patience,  # logging patience hyperparam
+            "min_improvement": min_improvement,  # logging min_improvement hyperparam
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
@@ -248,6 +249,7 @@ def train(
         if np.any(np.isnan(x)):
             break
 
+    wandb.log({"final_epoch": epoch})  # monitor early stopping
     wandb.finish()
 
     # Consider adding scalar value 'epoch' to monitor whether early/unexpected training termination

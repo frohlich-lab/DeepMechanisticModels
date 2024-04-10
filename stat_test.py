@@ -10,27 +10,54 @@ import itertools as itt
 def stat_test_hyperparameter(df, hyperparameter, hp_value1, hp_value2, alternative):
     return pd.Series([*shapiro_test(df, hyperparameter, hp_value1, hp_value2),
                       *ttest_rel_test(df, hyperparameter, hp_value1, hp_value2, alternative=alternative),
-                      *wilcoxon_test(df, hyperparameter, hp_value1, hp_value2, alternative=alternative)],
+                      *wilcoxon_test(df, hyperparameter, hp_value1, hp_value2, alternative=alternative),
+                      num_pairs_stat_test(df, hyperparameter, hp_value1, hp_value2)],
                      index=['Shapiro_statistic', 'Shapiro_p-value',
                             't-test_statistic', 't-test_p-value',
-                            'Wilcoxon_statistic', 'Wilcoxon_p-value'])
+                            'Wilcoxon_statistic', 'Wilcoxon_p-value', 'Wilcoxon_z-statistic',
+                            'num_pairs'])
 
 
 def wilcoxon_test(df, hyperparameter, hp_value1, hp_value2, alternative):
-    return wilcoxon(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
-                    np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values), alternative=alternative,
-                    axis=None)
+    if min(
+        len(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values)),
+        len(np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values))
+    ) <= 50:
+        raise ValueError("Less than 50 samples, must select Wilcoxon test method == 'exact'.")
+    res = wilcoxon(
+        np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
+        np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values),
+        alternative=alternative,
+        method='approx',  # number of samples is generally > 50, so 'auto' defaults to 'approx'
+        # but fails to produce the z-statistic result, necessary for debugging
+        # see doc: https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.wilcoxon.html
+        axis=None
+    )
+    return res.statistic, res.pvalue, res.zstatistic
 
 
 def ttest_rel_test(df, hyperparameter, hp_value1, hp_value2, alternative):
-    return ttest_rel(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
-                     np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values), alternative=alternative,
-                     axis=None)
+    return ttest_rel(
+        np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
+        np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values),
+        alternative=alternative,
+        axis=None
+    )
 
 
 def shapiro_test(df, hyperparameter, hp_value1, hp_value2):
-    return shapiro(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values) -
-                   np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values))
+    return shapiro(
+        np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values) -
+        np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values)
+    )
+
+
+def num_pairs_stat_test(df, hyperparameter, hp_value1, hp_value2):
+    num_samples_hp1 = len(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values))
+    num_samples_hp2 = len(np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values))
+    if num_samples_hp1 != num_samples_hp2:
+        raise ValueError("Paired samples must have the same number of datapoints!")
+    return num_samples_hp1
 
 
 def statistical_significance_test(data_stat_tests):
@@ -67,10 +94,13 @@ def statistical_significance_test(data_stat_tests):
                 n_hidden1, n_hidden2 = n_hidden_pair
 
                 res_df_partial = dmm_stat_tests.groupby(by='context').apply(
-                    lambda df: stat_test_hyperparameter(df, hyperparameter='latent dim',
-                                                        hp_value1=n_hidden1,
-                                                        hp_value2=n_hidden2,
-                                                        alternative='less')
+                    lambda df: stat_test_hyperparameter(
+                        df=df,
+                        hyperparameter='latent dim',
+                        hp_value1=n_hidden1,
+                        hp_value2=n_hidden2,
+                        alternative='less'
+                    )
                 ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = f"{n_hidden1} vs {n_hidden2}"
@@ -102,10 +132,13 @@ def statistical_significance_test(data_stat_tests):
         elif hyperparameter == 'orth_reg_strategy':
             # Single comparison: L1 vs L2 - do not need list of DataFrames
             res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
-                lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
-                                                    hp_value1='L1',
-                                                    hp_value2='L2',
-                                                    alternative='greater')
+                lambda df: stat_test_hyperparameter(
+                    df=df,
+                    hyperparameter=hyperparameter,
+                    hp_value1='L1',
+                    hp_value2='L2',
+                    alternative='greater'
+                )
             ).reset_index().rename(columns={'latent dim': 'n_hidden'})
             res_df_partial['hyperparameter'] = hyperparameter
             res_df_partial['hyperparameter_value'] = 'L2 vs L1'
@@ -133,10 +166,13 @@ def statistical_significance_test(data_stat_tests):
             for pair in pairs:
                 hp_value1, hp_value2 = pair
                 res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
-                    lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
-                                                        hp_value1=hp_value1,
-                                                        hp_value2=hp_value2,
-                                                        alternative='greater')
+                    lambda df: stat_test_hyperparameter(
+                        df=df,
+                        hyperparameter=hyperparameter,
+                        hp_value1=hp_value1,
+                        hp_value2=hp_value2,
+                        alternative='greater'
+                    )
                 ).reset_index().rename(columns={'latent dim': 'n_hidden'})
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = hp_value2

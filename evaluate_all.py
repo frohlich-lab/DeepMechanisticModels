@@ -35,6 +35,47 @@ from evaluation_plotting import (group_plots,
                                   volcano_hyperparameter_significance)
 
 
+def get_best_performer_across_jobs(
+        dataframe,
+        group_attributes,
+        hyperparam_attributes,
+        target_attribute='rmse',
+):
+    """
+    Returns a pandas DataFrame with the hyperparameter set producing
+    the best (lowest) mean RMSE across all 10 jobs and all SPLITS (samples)
+    for each combination of the group_attributes (dataset = 'train'/'test',
+    context = 'cytof_init' / 'proteomics', 'transcriptomics',
+    ref = 'DMM'). The returned DataFrame reports both the mean and
+    the standard deviation of RMSEs across the 10 jobs.
+    """
+    temp_df = dataframe.reset_index().groupby(
+        group_attributes + hyperparam_attributes
+    ).agg({target_attribute: ['mean', 'std']})
+    temp_df = temp_df.reset_index()
+    temp_df.columns = [
+        ' '.join(col).strip()
+        for col in temp_df.columns.values
+    ]
+    min_rmse_indices = temp_df.groupby(
+        by=group_attributes
+    )[target_attribute + ' mean'].idxmin()
+    return temp_df.loc[min_rmse_indices]
+
+
+def get_absolute_best_performer(
+        dataframe,
+        group_attributes,
+        target_attribute='rmse',
+):
+    # Potential issues: this returns the first occurring minimum - there might be ties!
+    temp_dataframe = dataframe.reset_index()
+    min_rmse_indices = temp_dataframe.groupby(
+        by=group_attributes
+    )[target_attribute].idxmin()
+    return temp_dataframe.loc[min_rmse_indices]
+
+
 def aggregate_and_log(df):
     # Define aggregation groups for DMM
     gbs = [
@@ -97,7 +138,7 @@ def aggregate_and_log(df):
     pivot_data = pivot_data.reset_index()
     # Create list of the MultiIndex RMSE columns created above
     multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
-    # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns (same order for all rows)
+    # Create column 'rmse_list' listing all values from each of the MultiIndex columns (same order for all rows)
     pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]), axis=1)
     # Add the newly created column to the list of columns to be kept (cols)
     cols += ['rmse_list']
@@ -108,6 +149,24 @@ def aggregate_and_log(df):
 
     stat_test_res_df = statistical_significance_test(data_stat_tests)
 
+    # Get best performing hyperparameter set across jobs for each dataset/context/ref combination
+    best_hyperparam_df = get_best_performer_across_jobs(
+        dataframe=data,
+        group_attributes=['dataset', 'context', 'features', 'ref'],
+        hyperparam_attributes=[
+            'latent dim', 'orth_reg_strategy',
+            'l1reg_inflate', 'oreg_inflate',
+            'l1reg_encode', 'oreg_encode',
+        ],
+        target_attribute='rmse',
+    )
+    # Get absolute best performing hyperparameter set (single job) for each dataset/context/ref combination
+    absolute_best_df = get_absolute_best_performer(
+        dataframe=data,
+        group_attributes=['dataset', 'context', 'ref'],
+        target_attribute='rmse',
+    )
+
     # Log via W&B
     wandb.init(
         project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
@@ -117,7 +176,17 @@ def aggregate_and_log(df):
     )
 
     for evaluation_df, evaluation_tag in zip(
-            [data, stat_test_res_df], ["evaluate_all", "stat_tests_all"]
+            [
+                data,
+                best_hyperparam_df,
+                absolute_best_df,
+                stat_test_res_df
+            ], [
+                "evaluate_all",
+                "best_hyperparam_across_jobs",
+                "best_performing_single_job",
+                "stat_tests_all"
+            ]
     ):
         # Save dataframes to CSV
         evaluation_df.to_csv(
