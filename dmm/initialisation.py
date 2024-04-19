@@ -1,7 +1,7 @@
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
-# import numpy as np
+import numpy as np
 import pandas as pd
 import pypesto
 import scipy.linalg as la
@@ -36,11 +36,12 @@ def load_models(
 
     petab_base_files = load_petab_base_files(conf, reweight=True)
 
-    # Check n_hidden is equal to last encoder layer size as well as first inflater layer size
-    if conf.encoder_layer_sizes[-1] != conf.n_hidden:
-        raise ValueError("Chosen latent dimension mus match the size of the last encoder layer!")
-    elif conf.inflater_layer_sizes[0] != conf.n_hidden:
-        raise ValueError("Chosen latent dimension mus match the size of the first inflater layer!")
+    # NOT NEEDED - moved from full layer list to just n_hidden layer list
+    # # Check n_hidden is equal to last encoder layer size as well as first inflater layer size
+    # if conf.encoder_layer_sizes[-1] != conf.n_hidden:
+    #     raise ValueError("Chosen latent dimension mus match the size of the last encoder layer!")
+    # elif conf.inflater_layer_sizes[0] != conf.n_hidden:
+    #     raise ValueError("Chosen latent dimension mus match the size of the first inflater layer!")
 
     # TODO @GiacomoFabrini issues with test/val nomenclature here!
     settings = {
@@ -52,6 +53,7 @@ def load_models(
     dmm_params = {
         'problem': problem,
         'dataset': conf.data,
+        'n_latent': conf.n_hidden,
         'encoder_layer_sizes': conf.encoder_layer_sizes,
         'encoder_layer_biases': conf.encoder_layer_biases,
         'inflater_layer_sizes': conf.inflater_layer_sizes,
@@ -64,11 +66,15 @@ def load_models(
         **petab_base_files
     }
 
-    dmms = [
+    key = jr.PRNGKey(conf.job)
+    # TODO @GiacomoFabrini: do I need to split this key for train/test?
+
+    dmms = (
         DeepMechanisticModel(
             **dmm_params,
             samples_list=list(features.index),
-            n_input_features=features.shape[1]
+            n_input_features=features.shape[1],
+            key=key,
         )
         for features in [
             pd.read_csv(
@@ -79,21 +85,29 @@ def load_models(
             )
             for setting in settings[dataset]
         ]
-    ]
+    )
 
+    # TODO @GiacomoFabrini: move this out to its own place - need both model_train and model_test to run this
     # Linear benchmark: initialise via linear_nn_init
-    if (len(conf.encoder_layer_sizes) == 1) and (len(conf.inflater_layer_sizes) == 1) and conf.linear_benchmark:
-        dmms = [
-            linear_nn_init(
+    # 0 items in layer_sizes = no hidden layers
+    if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0) and conf.linear_benchmark:
+        if dataset == 'train+test':
+            dmm_train, pca_train = linear_nn_init(
                 conf=conf,
-                model=dmm_model,
-                dataset=dataset
+                model=dmms[0],
+                dataset='train',
+                pca=None,
             )
-            for dmm_model in dmms
-        ]
+            dmm_val, _ = linear_nn_init(
+                conf=conf,
+                model=dmms[1],
+                dataset='val',
+                pca=pca_train,
+            )
+            dmms = (dmm_train, dmm_val)
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
-    return (*dmms), problem if len(settings[dataset]) > 1 else dmms[0], problem
+    return (dmms, problem) if dataset == "train+test" else (dmms[0], problem)
 
 
 def get_kin_params_median_deviation(
@@ -126,9 +140,9 @@ def get_kin_params_median_deviation(
     # However, as cell-lines are not-paired,
     # we can combine different multistart parameter sets
     # across cell-lines.
-    # np.random.seed(conf.job)
-    key = jr.PRNGKey(conf.job)
-    poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
+    np.random.seed(conf.job)
+    # key = jr.PRNGKey(conf.job)
+    # poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
 
     # Multi-starts of per-sample training are sorted
     # by loss function (ascending order, lower is better,
@@ -140,15 +154,27 @@ def get_kin_params_median_deviation(
     # but slightly larger than 0, enabling some spread.
     # Lower index values will be more easily sampled,
     # leading to higher chance of sampling lower loss multi-starts.
+    # TODO @GiacomoFabrini - discuss with Fabian - cannot get this to work - kept old version for now
+    # par_combo = pd.concat(
+    #     [
+    #         pretraining.iloc[
+    #             pretraining.index
+    #             == jnp.min(jnp.array([jr.poisson(key=sampling_key, lam=2, shape=(1,))[0], len(pretraining) - 1]))
+    #             ]
+    #         for pretraining, sampling_key in zip(pretrained_samples.values(), poisson_sampling_keys)
+    #     ]
+    # )
+
     par_combo = pd.concat(
         [
             pretraining[
                 pretraining.index
-                == jnp.min([jr.poisson(key=sampling_key, lam=2, shape=(1,))[0], len(pretraining) - 1])
+                == np.min([np.random.poisson(2, 1)[0], len(pretraining) - 1])
                 ]
-            for pretraining, sampling_key in zip(pretrained_samples.values(), poisson_sampling_keys)
+            for pretraining in pretrained_samples.values()
         ]
     )
+
     par_combo.index = list(pretrained_samples.keys())
     par_combo = par_combo.reindex(model.sample_names)
     # Compute the median across samples
@@ -187,7 +213,8 @@ def load_and_subset_input_features(
 def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
-        dataset: str,  # train or test
+        dataset: str,  # train or test,
+        pca: PCA = None,
 ):
 
     # Check that encoder, inflater (and potentially decoder) all have a single layer
@@ -196,33 +223,37 @@ def linear_nn_init(
         raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
 
     # Load train/val features
-    input_features_train = load_and_subset_input_features(conf=conf, model=model, dataset="train")
-    input_features_val = load_and_subset_input_features(conf=conf, model=model, dataset="val")
+    input_features = load_and_subset_input_features(conf=conf, model=model, dataset=dataset)
 
-    # Fit PCA on input features - train
-    pca = PCA(n_components=model.n_latent).fit(input_features_train)
+    if (pca is None) and (dataset=='train'):
+        # Fit PCA on input features - train
+        pca = PCA(n_components=model.n_latent).fit(input_features_train)
+    elif (pca is None) and (dataset=='val'):
+        raise ValueError('Must pass pca from model_train')
 
     # transform input features - both train and val
-    features_train_pca = pca.transform(input_features_train)
-    features_val_pca = pca.transform(input_features_val)
+    features_pca = pca.transform(input_features)
 
     # Overwrite encoder weights with PCA components
     new_encoder_weights = jnp.array(
         pca.components_.T.flatten()
-    )
-    if new_encoder_weights.shape != model.deep_encoder.layers[0].weight.shape:
-        raise ValueError("Incorrect shape of new encoder weights!")
+    ).reshape(model.deep_encoder.layers[0].weight.shape)
+
+    # if new_encoder_weights.shape != model.deep_encoder.layers[0].weight.shape:
+    #     raise ValueError("Incorrect shape of new encoder weights!")
+
     model = eqx.tree_at(
         lambda m: m.deep_encoder.layers[0].weight,  # fetch weights from single layer of encoder
         model,
         new_encoder_weights
     )
-    if conf.encoder_layer_biases[0]:  # if use_bias=True for single layer
-        model = eqx.tree_at(
-            lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
-            model,
-            jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
-        )
+    if conf.encoder_layer_biases is not None:
+        if conf.encoder_layer_biases[0]:  # if use_bias=True for single layer
+            model = eqx.tree_at(
+                lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
+                model,
+                jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
+            )
 
     # Compute target for least square initialisation of inflater weights:
     # kinetic parameter deviation around the median
@@ -234,27 +265,29 @@ def linear_nn_init(
         if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_deviations.index[0])
     ]
     # Overwrite inflater weights with least squares solution
-    # select features_pca depending on `dataset`
-    features_pca = features_train_pca if dataset == 'train' else features_val_pca
     new_inflater_weights = jnp.array(
         la.lstsq(
             features_pca[:, : model.n_latent],
             par_deviations[inputs].values,
         )[0].flatten()
-    )
-    if new_inflater_weights.shape != model.deep_inflater.layers[0].weight.shape:
-        raise ValueError("Incorrect shape of new inflater weights!")
+    ).reshape(model.deep_inflater.layers[0].weight.shape)
+
+    # if new_inflater_weights.shape != model.deep_inflater.layers[0].weight.shape:
+    #     raise ValueError("Incorrect shape of new inflater weights!")
+
     model = eqx.tree_at(
         lambda m: m.deep_inflater.layers[0].weight,
         model,
         new_inflater_weights
     )
-    if conf.inflater_layer_biases[0]:  # same as done for encoder in case of use_bias=True
-        model = eqx.tree_at(
-            lambda m: m.deep_inflater.layers[0].bias,
-            model,
-            jnp.zeros_like(model.deep_inflater.layers[0].bias),
-        )
+    if conf.inflater_layer_biases is not None:
+        # same as done for encoder in case of use_bias=True
+        if conf.inflater_layer_biases[0]:
+            model = eqx.tree_at(
+                lambda m: m.deep_inflater.layers[0].bias,
+                model,
+                jnp.zeros_like(model.deep_inflater.layers[0].bias),
+            )
     # Overwrite decoder weights with inverse of encoder weights
     if conf.reconstruct:
         # initialise the decoder with the transpose of the encoder weights
@@ -266,13 +299,15 @@ def linear_nn_init(
             model,
             new_decoder_weights
         )
-        if conf.decoder_layer_biases[0]:  # same as done for encoder/inflater in case of use_bias=True
-            model = eqx.tree_at(
-                lambda m: m.deep_decoder.layers[0].bias,
-                model,
-                jnp.zeros_like(model.deep_decoder.layers[0].bias),
-            )
-    return model
+        if conf.decoder_layer_biases is not None:
+            # same as done for encoder/inflater in case of use_bias=True
+            if conf.decoder_layer_biases[0]:
+                model = eqx.tree_at(
+                    lambda m: m.deep_decoder.layers[0].bias,
+                    model,
+                    jnp.zeros_like(model.deep_decoder.layers[0].bias),
+                )
+    return model, pca
 
 
 # TODO @GiacomoFabrini: code initialisation for additive component following the inflater

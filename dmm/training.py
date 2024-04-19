@@ -99,6 +99,7 @@ def train(
         group=f"{conf['context']}_{conf['features']}",
         config={
             **conf,
+            "use_early_stopping": early_stopping_params.use_early_stopping,  # early-stopping enabled/disabled
             "patience": early_stopping_params.patience
                 if early_stopping_params.use_early_stopping else None,
             "min_improvement": early_stopping_params.min_improvement
@@ -135,6 +136,10 @@ def train(
             git_commit=repo.head.object.hexsha,
             git_remote_url=repo.remotes.origin.url,
         ),
+        tags=[
+            "deep_model",
+            "early_stop" if early_stopping_params.use_early_stopping else "no_early_stop",
+        ]
     )
 
     # Define W&B metrics in modular fashion
@@ -142,6 +147,7 @@ def train(
         "rmse_train": "min",
         "rmse_val": "min",
         "patience_counter": None,
+        "integration_error": None,
         "fval": "min",
         "loss": "min",
         L1EREG: "min",
@@ -295,7 +301,7 @@ def train(
                 # Debugging statements
                 print(
                     f"epoch {epoch} | "
-                    f"loss {rmse_dict['test']} | "
+                    f"rmse_val {rmse_dict['test']} | "
                     f"has improved? {early_stopper.has_improved} | "
                     f"patience count {early_stopper.patience_count}"
                 )
@@ -321,6 +327,12 @@ def train(
         x = model(input_features_train)[0]  # i.e. augmented_inflated
 
         if np.any(np.isnan(x)):
+            # keep track of integration errors
+            wandb.log(
+                {
+                    "integration_error": epoch,
+                }
+            )
             break
 
     wandb.log({"final_epoch": epoch})

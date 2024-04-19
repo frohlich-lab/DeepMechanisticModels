@@ -2,7 +2,7 @@ from typing import List
 
 import equinox as eqx
 import jax.numpy as jnp
-import numpy as np
+# import numpy as np
 import pandas as pd
 import pypesto.petab
 from jax import config
@@ -17,6 +17,7 @@ from .problem import Problem
 # then train end-to-end differentiable DMM
 # can pretrain encoder-inflater or encoder-inflater-decoder
 config.update("jax_enable_x64", True)
+
 
 def init_biases(biases, layer_sizes, component_name):
     if biases is None:
@@ -49,20 +50,21 @@ def mse(
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     data_name: str = eqx.static_field()
     pathway_name: str = eqx.static_field()
-    n_features: int = eqx.static_field()
-    n_samples: int = eqx.static_field()
-    n_model_inputs: int = eqx.static_field()
-    n_kin_params: int = eqx.static_field()
+    n_input_features: int = eqx.static_field()
+    n_latent: int = eqx.static_field()
+    n_inflated_specific_kin_params: int = eqx.static_field()
+    n_global_kin_params: int = eqx.static_field()
     sample_names: List[str] = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
-    encoder_params_dict: dict = eqx.static_field()
-    inflater_params_dict: dict = eqx.static_field()
-    decoder_params_dict: dict = eqx.static_field()
+    # encoder_params_dict: dict = eqx.static_field()
+    # inflater_params_dict: dict = eqx.static_field()
+    # decoder_params_dict: dict = eqx.static_field()
     orth_reg_strategy: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
+    nn_pretrain: bool = eqx.static_field()
 
     def __init__(
             self,
@@ -76,6 +78,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             condition_table: pd.DataFrame,
             samples_list: List[str],
             n_input_features: int,
+            n_latent: int,
             n_threads=1,
             # default for all modules: use eqx.nn.Linear layers
             encoder_weight_init_fn: str = "eqx_default",
@@ -88,9 +91,14 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             encoder_layer_biases: List[bool] = None,
             inflater_layer_biases: List[bool] = None,
             decoder_layer_biases: List[bool] = None,
+            # default: input and output layers have no bias - only matters if layer_biases is not None
+            encoder_input_output_bias: List[bool] = None,
+            inflater_input_output_bias: List[bool] = None,
+            decoder_input_output_bias: List[bool] = None,
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
+            nn_pretrain: bool = False,
     ):
         """
 
@@ -103,7 +111,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         -- ENCODER-specific params
         :param encoder_layer_sizes:
-            list of layer sizes for encoder component (and decoder component, in reverse).
+            list of hidden layer sizes for encoder component (and decoder component, in reverse).
 
         :param encoder_weight_init_fn:
             encoder weight initialisation strategy.
@@ -116,7 +124,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         -- INFLATER-specific params
         :param inflater_layer_sizes:
-            list of layer sizes for inflater component.
+            list of hidden layer sizes for inflater component.
 
         :param inflater_weight_init_fn:
             inflater weight initialisation strategy.
@@ -191,22 +199,23 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             if sample not in petab_samples and sample in samples_list:
                 petab_samples.append(sample)
 
-        self.n_samples = len(samples_list)
-        self.n_features = n_input_features
+        n_samples = len(samples_list)
+        self.n_input_features = n_input_features
+        self.n_latent = n_latent
 
-        # n_model_inputs = number of cell-line-specific parameters (per cell-line = sample)
-        # these kinetic parameters are the targets of the inflater module
-        self.n_model_inputs = int(
+        # n_inflated_specific_kin_params = number of cell-line-specific parameters (per cell-line = sample)
+        # these kinetic parameters are the targets of the inflater module (previously model_inputs)
+        self.n_inflated_specific_kin_params = int(
             sum(
                 name.startswith(MODEL_FEATURE_PREFIX)
                 for name in self.pypesto_subproblem.x_names
             )
-            / self.n_samples
+            / n_samples
         )
 
-        # n_kin_params = number of NON cell-line specific parameters
-        self.n_kin_params = (
-                self.pypesto_subproblem.dim - self.n_model_inputs * self.n_samples
+        # n_global_kin_params = number of NON cell-line specific parameters (previously n_kin_params)
+        self.n_global_kin_params = (
+                self.pypesto_subproblem.dim - self.n_inflated_specific_kin_params * n_samples
         )
 
         # set sample names
@@ -216,6 +225,28 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.orth_reg_strategy = orth_reg_strategy
         self.activation_fn_name = activation_fn_name
         self.reconstruct = reconstruct
+
+        # set network pretraining flag
+        self.nn_pretrain = nn_pretrain
+
+        # Update layer_sizes (hidden layers) to include input and output layers
+        encoder_layer_sizes = [self.n_input_features] + encoder_layer_sizes + [self.n_latent]
+        inflater_layer_sizes = [self.n_latent] + inflater_layer_sizes + [self.n_inflated_specific_kin_params]
+
+        # Same for biases - default
+        # if both lists are defined, augment them / if not, simply keep None and they will be initialised to False
+        if (encoder_layer_biases is not None) and (encoder_input_output_bias is not None):
+            encoder_layer_biases = ([encoder_input_output_bias[0]]
+                                    + encoder_layer_biases
+                                    + [encoder_input_output_bias[-1]])
+        if (decoder_layer_biases is not None) and (decoder_input_output_bias is not None):
+            decoder_layer_biases = ([decoder_input_output_bias[0]]
+                                    + decoder_layer_biases
+                                    + [decoder_input_output_bias[-1]])
+        if (inflater_layer_biases is not None) and (inflater_input_output_bias is not None):
+            inflater_layer_biases = ([inflater_input_output_bias[0]]
+                                     + inflater_layer_biases
+                                     + [inflater_input_output_bias[-1]])
 
         # Initialise module biases to default value if None (i.e. use_bias = False for all)
         # Check for shape mismatches between layer_sizes and layer_biases
@@ -236,21 +267,21 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         )
 
         # encoder parameters/properties
-        self.encoder_params_dict = {
+        encoder_params_dict = {
             "encoder_layer_sizes": encoder_layer_sizes,
             "encoder_layer_biases": encoder_layer_biases,
             "encoder_weight_init_fn": encoder_weight_init_fn,
             "encoder_bias_init_fn": encoder_bias_init_fn,
         }
         # inflater parameters/properties
-        self.inflater_params_dict = {
+        inflater_params_dict = {
             "inflater_layer_sizes": inflater_layer_sizes,
             "inflater_layer_biases": inflater_layer_biases,
             "inflater_weight_init_fn": inflater_weight_init_fn,
             "inflater_bias_init_fn": inflater_bias_init_fn,
         }
         # decoder parameters/properties
-        self.decoder_params_dict = {
+        decoder_params_dict = {
             "decoder_layer_biases": decoder_layer_biases,
             "decoder_weight_init_fn": decoder_weight_init_fn,
             "decoder_bias_init_fn": decoder_bias_init_fn,
@@ -258,16 +289,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            n_input_features=self.n_features,
-            n_inflated_specific_kin_params=self.n_model_inputs,
-            n_global_kin_params=self.n_kin_params,
-            **self.encoder_params_dict,
-            **self.inflater_params_dict,
-            **self.decoder_params_dict,
+            n_input_features=self.n_input_features,
+            n_inflated_specific_kin_params=self.n_inflated_specific_kin_params,
+            n_global_kin_params=self.n_global_kin_params,
+            **encoder_params_dict,
+            **inflater_params_dict,
+            **decoder_params_dict,
             key=key,
-            activation_fn_name=activation_fn_name,
+            activation_fn_name=self.activation_fn_name,
             orth_reg_strategy=self.orth_reg_strategy,
             reconstruct=self.reconstruct,
+            nn_pretrain=self.nn_pretrain,
         )
 
         problem.apply_objective_settings(
@@ -281,14 +313,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             if not name.startswith(MODEL_FEATURE_PREFIX)
             and ix in self.pypesto_subproblem.x_free_indices
         ]
-
-    @property
-    def n_latent(self):
-        return self.encoder_params_dict["encoder_layer_sizes"][-1]
-
-    @property
-    def n_params(self):
-        return self.inflater_params_dict["inflater_layer_sizes"][-1]
 
     def l1_encode_reg(
             self,
@@ -396,12 +420,12 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self,
             input_data,
             problem_train: pypesto.Problem,
-            scale_l1reg_encode,
-            scale_oreg_encode,
-            scale_l1reg_inflate,
-            scale_oreg_inflate,
-            scale_recon_loss,
-            scale_symm_loss,
+            scale_l1reg_encode=1.0,
+            scale_oreg_encode=1.0,
+            scale_l1reg_inflate=1.0,
+            scale_oreg_inflate=1.0,
+            scale_recon_loss=1.0,
+            scale_symm_loss=1.0,
     ):
         fval = problem_train.objective(self(x=input_data)[0])
         loss = (

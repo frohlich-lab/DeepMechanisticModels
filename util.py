@@ -5,6 +5,7 @@ import pypesto
 import scipy.linalg as la
 
 from common import (
+    Conf,
     CONDITIONS_FILE,
     # FEATURES_OUTFILE,
     MEASUREMENTS_FILE,

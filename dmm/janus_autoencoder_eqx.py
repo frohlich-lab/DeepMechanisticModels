@@ -44,6 +44,10 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param inflater_layer_biases:
         list of bool values indicating whether to add a learnable bias or not for inflater layers
 
+    -- KineticParametersCombiner PARAMS
+    :param n_global_kin_params:
+        Number of global kinetic parameters (ODE non cell-line-specific model parameters).
+
     -- DECODER PARAMS
     :param decoder_weight_init_fn:
         decoder weight initialisation strategy.
@@ -81,9 +85,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     :param n_inflated_specific_kin_params:
         Number of kinetic parameters to inflate to (inflater output size).
 
-    :param n_global_kin_params:
-        Number of global kinetic parameters (ODE non cell-line-specific model parameters).
-
 
     """
 
@@ -98,6 +99,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
     deep_decoder: eqx.Module
+    kin_params_combiner: KinParamsCombiner
 
     # TODO @GiacomoFabrini do we need self.x_names?
     def __init__(
@@ -129,21 +131,23 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
         # VALIDITY CHECKS
         # input size (self.n_features) must match input layer size of encoder (equal to decoder output size, if any)
-        if encoder_layer_sizes[0] != self.n_features:
-            raise ValueError("Input layer size must be the same as input feature space size!")
+        # AUTOMATICALLY TRUE - we set the hidden layer sizes, but the input layer is set via n_features
+        # if encoder_layer_sizes[0] != self.n_features:
+        #     raise ValueError("Input layer size must be the same as input feature space size!")
         # encoder layers must shrink towards bottleneck/latent representation
-        elif encoder_layer_sizes[-1] > encoder_layer_sizes[0]:
+        if encoder_layer_sizes[-1] > encoder_layer_sizes[0]:
             raise ValueError("Latent space size cannot be larger than input feature space size!")
         # TODO @GiacomoFabrini: need to implement this check in training/train - features.ndim not available here
         # elif features.ndim != 2:
         #     raise ValueError("features expected to be two-dimensional!")
         # encoder output size must match inflater input size (interface between components/modules)
-        elif encoder_layer_sizes[-1] != inflater_layer_sizes[0]:
-            raise ValueError("Encoder output size must match inflater input size!")
+        # AUTOMATICALLY TRUE - we set bottlenect layer based on n_latent
+        # elif encoder_layer_sizes[-1] != inflater_layer_sizes[0]:
+        #     raise ValueError("Encoder output size must match inflater input size!")
         # inflater output size must match the number of kinetic parameters to inflate to
-        elif inflater_layer_sizes[-1] != self.n_inflated_kin_params:
-            raise ValueError("Last inflater layer size must match the number of kinetic parameters to inflate to!")
-        # TODO @GiacomoFabrini check that number of non cell-specific parameters matches the custom final layer/module
+        # AUTOMATICALLY TRUE - we set output layer of inflater based on n_inflated_kin_params
+        # elif inflater_layer_sizes[-1] != self.n_inflated_kin_params:
+        #     raise ValueError("Last inflater layer size must match the number of kinetic parameters to inflate to!")
 
         # Set orthogonal regularisation strategy
         self.orth_reg_strategy = orth_reg_strategy

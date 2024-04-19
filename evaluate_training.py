@@ -35,6 +35,8 @@ samples = {
 
 def evaluate_training(dataset, conf):
     evaluations = []
+    # TODO @GiacomoFabrini THIS NEEDS TO CHANGE - THESE EVALUATIONS ARE NOT ACTUALLY USING THE MODEL,
+    #  JUST THE LINKED PETAB IMPORTER and PROBLEM...
     model, problem = load_models(conf, dataset)
 
     problem = create_pypesto_problem(model)

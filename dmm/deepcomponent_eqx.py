@@ -106,7 +106,7 @@ class DeepComponent(eqx.Module):
         layer_sizes,
         biases,
         key,
-        activation_fn_name,
+        activation_fn_name="relu",
         weight_init_fn="eqx_default",  # use eqx.nn.Linear layers by default
         bias_init_fn="eqx_default",
     ):
@@ -176,12 +176,11 @@ class DeepComponent(eqx.Module):
 
 class KinParamsCombiner(eqx.Module):
     component_name: str = eqx.static_field()
-    n_global_kin_params: int = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     learned_global_params: Array
 
     def __init__(self, component_name, n_global_kin_params):
-        # Initialize the learned global (non-cell-specific) parameters to zeros
+        # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
         self.learned_global_params = jnp.zeros_like(n_global_kin_params)
         self.x_names = [
