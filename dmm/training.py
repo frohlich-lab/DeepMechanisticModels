@@ -1,3 +1,4 @@
+import equinox as eqx
 import git
 import itertools as itt
 import numpy as np
@@ -11,6 +12,7 @@ from common import Conf, EarlyStoppingParams
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jax import value_and_grad
+from jaxtyping import Array, Float, Int, PyTree
 from jaxtyping import Array
 from optax import adam, apply_updates, linear_schedule
 from pathlib import Path
@@ -38,8 +40,6 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
 
     return JaxObjective(
         objective=ae.pypesto_subproblem.objective,
-        # ae.embedding,  # going away in next pypesto release
-        x_names=ae.x_names
     )
 
 
@@ -58,11 +58,12 @@ def create_pypesto_problem(
     """
 
     # TODO @GiacomoFabrini remove all arguments apart from the objective -- what about x_names?
+    objective = generate_pypesto_objective(ae)
     return pypesto.Problem(
-        objective=generate_pypesto_objective(ae),
-        x_names=ae.x_names,
-        lb=[-np.inf for _ in ae.x_names],
-        ub=[np.inf for _ in ae.x_names],
+        objective=objective,
+        lb=[-np.inf for _ in objective.x_names],
+        ub=[np.inf for _ in objective.x_names],
+        copy_objective=True
     )
 
 
@@ -94,6 +95,12 @@ def train(
 
     repo = git.Repo(search_parent_directories=True)
 
+    if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0):
+        # default is "relu" but it is not applied unless there is at least 1 hidden layer
+        activation_fn_tag = "None"
+    else:
+        activation_fn_tag = conf.activation_fn_name
+
     wandb.init(
         project=f"DeepMechanisticModels.{conf['data']}.{conf['model']}",
         group=f"{conf['context']}_{conf['features']}",
@@ -115,7 +122,7 @@ def train(
                 conf["samples"],
                 conf["n_hidden"],
                 conf["orth_reg_strategy"],
-                conf["activation_fn_name"],
+                activation_fn_tag,
                 conf["reconstruct"],
                 conf["encoder_layer_sizes"],
                 conf["encoder_layer_biases"],
@@ -129,6 +136,7 @@ def train(
                 conf["scale_recon_loss"] if conf.reconstruct else None,
                 conf["scale_symm_loss"] if conf.reconstruct else None,
                 conf["job"],
+                # TODO @GiacomoFabrini check everything is being logged
             )
         ),
         settings=wandb.Settings(
@@ -182,7 +190,7 @@ def train(
     schedule = linear_schedule(**schedule_config)
     opt = adam(schedule)
     # TODO @GiacomoFabrini: need to replace with equinox-jax optimisation!
-    opt_state = opt.init(x)
+    opt_state = opt.init(eqx.filter(x, eqx.is_array))
 
     opt_x = x.copy()
     opt_fval = np.inf
@@ -200,6 +208,29 @@ def train(
                 min_delta=early_stopping_params.min_improvement,
                 patience=early_stopping_params.patience
             )
+
+    @eqx.filter_jit
+    def make_step(
+            model: DeepMechanisticModel,
+            opt_state: PyTree,
+            input_data: Float[Array],
+            problem_train: pypesto.Problem,
+            conf: Conf,
+    ):
+        loss_value, grads = eqx.filter_value_and_grad(model.loss_fn)(
+            model=model,
+            input_data=input_data,
+            problem_train=problem_train,
+            scale_l1reg_encode=conf.scale_l1reg_encode,
+            scale_oreg_encode=conf.scale_oreg_encode,
+            scale_l1reg_inflate=conf.scale_l1reg_inflate,
+            scale_oreg_inflate=conf.scale_oreg_inflate,
+            scale_recon_loss=conf.scale_recon_loss,
+            scale_symm_loss=conf.scale_symm_loss,
+        )
+        updates, opt_state = opt.update(grads, opt_state, model)
+        model = eqx.apply_updates(model, updates)
+        return model, opt_state, loss_value, grads
 
     # Training loop
     for epoch in range(n_epoch + 1):

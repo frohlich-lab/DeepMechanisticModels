@@ -67,44 +67,30 @@ def load_models(
     }
 
     key = jr.PRNGKey(conf.job)
-    # TODO @GiacomoFabrini: do I need to split this key for train/test?
+    # Split keys for train/validation (otherwise identical weights, etc.)
+    if len(settings[dataset]) > 1:
+        keys = jr.split(key, num=len(settings[dataset]))
 
     dmms = (
         DeepMechanisticModel(
             **dmm_params,
             samples_list=list(features.index),
             n_input_features=features.shape[1],
-            key=key,
+            key=subkey,
         )
-        for features in [
-            pd.read_csv(
-                FEATURES_OUTFILE.format_map(
-                    dict(**conf.__dict__, dataset=setting)
-                ),
-                index_col=0
-            )
-            for setting in settings[dataset]
-        ]
+        for features, subkey in zip(
+            [
+                pd.read_csv(
+                    FEATURES_OUTFILE.format_map(
+                        dict(**conf.__dict__, dataset=setting)
+                    ),
+                    index_col=0
+                )
+                for setting in settings[dataset]
+            ],
+            keys
+        )
     )
-
-    # TODO @GiacomoFabrini: move this out to its own place - need both model_train and model_test to run this
-    # Linear benchmark: initialise via linear_nn_init
-    # 0 items in layer_sizes = no hidden layers
-    if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0) and conf.linear_benchmark:
-        if dataset == 'train+test':
-            dmm_train, pca_train = linear_nn_init(
-                conf=conf,
-                model=dmms[0],
-                dataset='train',
-                pca=None,
-            )
-            dmm_val, _ = linear_nn_init(
-                conf=conf,
-                model=dmms[1],
-                dataset='val',
-                pca=pca_train,
-            )
-            dmms = (dmm_train, dmm_val)
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
     return (dmms, problem) if dataset == "train+test" else (dmms[0], problem)
@@ -190,6 +176,7 @@ def load_and_subset_input_features(
         conf: Conf,
         model: DeepMechanisticModel,
         dataset: str,
+        pypesto_subproblem: pypesto.Problem = None,
 ):
     features = pd.read_csv(
         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset)),
@@ -198,7 +185,9 @@ def load_and_subset_input_features(
     # extract sample names, ordering of those is important since samples
     # must match when reshaping the inflated matrix
     petab_samples = []
-    for name in model.pypesto_subproblem.x_names:
+    if pypesto_subproblem is None:
+        pypesto_subproblem = model.pypesto_subproblem
+    for name in pypesto_subproblem.x_names:
         if not name.startswith(MODEL_FEATURE_PREFIX):
             continue
 
@@ -214,7 +203,7 @@ def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
         dataset: str,  # train or test,
-        pca: PCA = None,
+        pypesto_subproblem: pypesto.Problem = None,
 ):
 
     # Check that encoder, inflater (and potentially decoder) all have a single layer
@@ -222,25 +211,41 @@ def linear_nn_init(
     if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
         raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
 
-    # Load train/val features
-    input_features = load_and_subset_input_features(conf=conf, model=model, dataset=dataset)
+    # Always load training features
+    if dataset == 'train':
+        input_features_train = load_and_subset_input_features(conf=conf, model=model, dataset='train')
+    elif (dataset == 'val') and (pypesto_subproblem is not None):
+        input_features_train = load_and_subset_input_features(
+            conf=conf,
+            model=model,
+            dataset='train',
+            pypesto_subproblem=pypesto_subproblem,  # needed to get model.pypesto_subproblem.x_names
+        )
+    elif (dataset == 'val') and (pypesto_subproblem is None):
+        raise ValueError("Need to pass pypesto_subproblem from model_train for validation dataset!")
 
-    if (pca is None) and (dataset=='train'):
-        # Fit PCA on input features - train
-        pca = PCA(n_components=model.n_latent).fit(input_features_train)
-    elif (pca is None) and (dataset=='val'):
-        raise ValueError('Must pass pca from model_train')
+    # fit PCA to training features
+    pca = PCA(n_components=model.n_latent).fit(input_features_train)
 
-    # transform input features - both train and val
-    features_pca = pca.transform(input_features)
+    if dataset == 'train':
+        # simply transform the already loaded training input features
+        features_pca = pca.transform(input_features_train)
+    elif dataset == 'val':
+        # Load val features
+        input_features_val = load_and_subset_input_features(
+            conf=conf,
+            model=model,
+            dataset=dataset,
+            )
+        # and transform them with PCA fitted to training features
+        features_pca = pca.transform(input_features_val)
+    else:
+        raise ValueError("Unknown dataset type: must be train/val.")
 
     # Overwrite encoder weights with PCA components
     new_encoder_weights = jnp.array(
         pca.components_.T.flatten()
     ).reshape(model.deep_encoder.layers[0].weight.shape)
-
-    # if new_encoder_weights.shape != model.deep_encoder.layers[0].weight.shape:
-    #     raise ValueError("Incorrect shape of new encoder weights!")
 
     model = eqx.tree_at(
         lambda m: m.deep_encoder.layers[0].weight,  # fetch weights from single layer of encoder
@@ -271,9 +276,6 @@ def linear_nn_init(
             par_deviations[inputs].values,
         )[0].flatten()
     ).reshape(model.deep_inflater.layers[0].weight.shape)
-
-    # if new_inflater_weights.shape != model.deep_inflater.layers[0].weight.shape:
-    #     raise ValueError("Incorrect shape of new inflater weights!")
 
     model = eqx.tree_at(
         lambda m: m.deep_inflater.layers[0].weight,
@@ -307,7 +309,7 @@ def linear_nn_init(
                     model,
                     jnp.zeros_like(model.deep_decoder.layers[0].bias),
                 )
-    return model, pca
+    return model
 
 
 # TODO @GiacomoFabrini: code initialisation for additive component following the inflater

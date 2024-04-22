@@ -1,7 +1,7 @@
 import fire
 
 from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS
-from dmm.initialisation import load_models, load_and_subset_input_features
+from dmm.initialisation import linear_nn_init, load_models, load_and_subset_input_features
 from dmm.training import create_pypesto_problem, train
 from pathlib import Path
 
@@ -16,6 +16,24 @@ rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
     dataset="train+test",
 )
 
+# Linear benchmark: initialise via linear_nn_init
+# 0 items in layer_sizes = no hidden layers
+if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0) and conf.linear_benchmark:
+    model_train = linear_nn_init(
+        conf=conf,
+        model=model_train,
+        dataset="train",
+    )
+    model_test = linear_nn_init(
+        conf=conf,
+        model=model_test,
+        dataset="val",
+        pypesto_subproblem=model_train.pypesto_subproblem,  # needed to get PCA
+    )
+elif (len(conf.encoder_layer_sizes) > 0) and (len(conf.inflater_layer_sizes) > 0) and conf.linear_benchmark:
+    print("Linear benchmark is not possible with non-zero hidden layers! conf.linear_benchmark will be ignored.")
+
+# BROKEN FROM HERE ONWARDS
 pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )

@@ -5,6 +5,7 @@ import jax.numpy as jnp
 # import numpy as np
 import pandas as pd
 import pypesto.petab
+import petab
 from jax import config
 from jaxtyping import Array
 from . import MODEL_FEATURE_PREFIX
@@ -442,4 +443,4 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                     + self.symmetry_loss(scale=scale_symm_loss)
             )
 
-        return loss, fval
+        return loss
