@@ -128,7 +128,7 @@ def train(
     if (len(conf["encoder_layer_sizes"]) == 0) and (len(conf["inflater_layer_sizes"]) == 0):
         # default is "relu" but it is not applied unless there is at least 1 hidden layer
         activation_fn_tag = "None"
-        linear_benchmark_tag = conf["linear_benchmark
+        linear_benchmark_tag = conf["linear_benchmark"]
     else:
         activation_fn_tag = conf["activation_fn_name"]
         # in these circumstances, linear_benchmark gets ignored
