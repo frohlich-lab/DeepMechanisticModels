@@ -2,7 +2,7 @@ import fire
 
 from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS
 from dmm.initialisation import linear_nn_init, load_models, load_and_subset_input_features
-from dmm.training import create_pypesto_problem, train
+from dmm.training import create_pypesto_problem, map_params_to_array, train
 from pathlib import Path
 
 conf = fire.Fire(Conf)
@@ -51,7 +51,8 @@ input_features_train, input_features_test = (
 # simply pass the input_features_train into the pre-trained model_train
 # (transpose them to shape = (n_features, n_samples))
 # and extract the first component (output = augmented_inflated, decoded)
-x0 = model_train(input_features_train.T)[0]
+#x0 = model_train(input_features_train.T)[0]
+x0 = map_params_to_array(model_train)
 
 schedule_config = dict(
     init_value=1e-2,

@@ -177,18 +177,21 @@ class DeepComponent(eqx.Module):
 class KinParamsCombiner(eqx.Module):
     component_name: str = eqx.static_field()
     x_names: List[str] = eqx.static_field()
-    learned_global_params: Array
+    learned_median_params: Array
 
     def __init__(self, component_name, n_inflated_specific_kin_params, n_samples, n_global_kin_params):
         # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
-        n_params = n_global_kin_params + n_inflated_specific_kin_params * n_samples
-        self.learned_global_params = jnp.zeros_like(n_params)
+        # TODO @GiacomoFabrini check whether we need to reintroduce global parameters and how!
+        # n_params = n_global_kin_params + n_inflated_specific_kin_params * n_samples
+        self.learned_median_params = jnp.zeros_like(n_inflated_specific_kin_params)
+        self.global_kin_params = jnp.zeros_like(n_global_kin_params)
         self.x_names = [
             f"{self.component_name}_{0}_{ind}_kin_param"
-            for ind in range(n_params)
+            for ind in range(n_inflated_specific_kin_params)
         ]
 
     def __call__(self, x):
+        # input x is the inflated parameter deviations
         # Output is the input added to the array of learned parameters
-        return x + self.learned_global_params
+        return x + self.learned_median_params

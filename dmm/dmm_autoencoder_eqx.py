@@ -316,6 +316,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             and ix in self.pypesto_subproblem.x_free_indices
         ]
 
+    def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
+        return self(input_data)[0]
+
     def l1_encode_reg(
             self,
             scale: float = 1.0

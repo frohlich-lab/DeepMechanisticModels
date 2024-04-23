@@ -219,18 +219,20 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
+        # TODO @GiacomoFabrini check whether we need to reintroduce global components
         # Map inflated specific kinetic parameters back to overall kinetic parameters array
-        # 1. reshape into single array
-        inflated_reshaped = inflated.reshape(self.n_samples*self.n_inflated_specific_kin_params)
+        # 1. reshape into single array -> simply using .flatten()
+        # inflated_reshaped = inflated.reshape(self.n_samples*self.n_inflated_specific_kin_params)
         # 2. initialise kinetic parameters array
-        sample_inflated_kin_params = jnp.zeros(
-            self.n_global_kin_params+self.n_samples*self.n_inflated_specific_kin_params
-        )
+        # sample_inflated_kin_params = jnp.zeros(
+        #     self.n_global_kin_params+self.n_samples*self.n_inflated_specific_kin_params
+        # )
         # 3. set inflated kinetic parameters in bottom portion of kinetic parameters array
         # top n_global_kin_params (20 for now) are global, i.e. not cell-line-specific
-        sample_inflated_kin_params.at[self.n_global_kin_params:].set(inflated_reshaped)
+        # sample_inflated_kin_params.at[self.n_global_kin_params:].set(inflated.flatten())
         # During network pretraining, the combiner is simply adding zeros and its parameters are frozen
         # i.e. it is not learning the global params nor the median of the cell-line-specific params
         # TODO @GiacomoFabrini need to implement pretrain vs train difference in behaviour - freeze
-        augmented_inflated = self.kin_params_combiner(sample_inflated_kin_params)
+        augmented_inflated = self.kin_params_combiner(inflated)
+        # augmented_inflated: cell-line-specific parameters (inflated deviations + learned medians)
         return augmented_inflated, decoded

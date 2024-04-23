@@ -9,7 +9,10 @@ import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from amici.petab.simulations import rdatas_to_simulation_df
+from .deepcomponent_eqx import DeepComponent
+# CHECK WHETHER WE NEED TO ROLL BACK
+#from amici.petab.simulations import rdatas_to_simulation_df
+from amici.petab_objective import rdatas_to_simulation_df
 from common import Conf, EarlyStoppingParams
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
@@ -39,9 +42,11 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     :returns:
         Objective function that needs to be minimized for training.
     """
-
+    # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
         objective=ae.pypesto_subproblem.objective,
+        jax_fun=ae.embedding,
+        x_names=ae.x_names
     )
 
 
@@ -59,12 +64,48 @@ def create_pypesto_problem(
         Optimization pypesto_problem that needs to be solved for training.
     """
 
-    objective = generate_pypesto_objective(ae)
+    # objective = generate_pypesto_objective(ae)
+    # return pypesto.Problem(
+    #     objective=objective,
+    #     lb=[-np.inf for _ in objective.x_names],
+    #     ub=[np.inf for _ in objective.x_names],
+    # )
     return pypesto.Problem(
-        objective=objective,
-        lb=[-np.inf for _ in objective.x_names],
-        ub=[np.inf for _ in objective.x_names],
+        objective=generate_pypesto_objective(ae),
+        x_names=ae.x_names,
+        lb=[-np.inf for _ in ae.x_names],
+        ub=[np.inf for _ in ae.x_names],
     )
+
+
+def get_weights(
+        module: DeepComponent
+) -> jnp.ndarray:
+    weights = jnp.concatenate(
+        [
+            module.layers[i].weight.flatten()
+            for i in range(len(module.layers))
+        ]
+    )
+    return weights
+
+
+def map_params_to_array(
+        model: DeepMechanisticModel
+) -> jnp.ndarray:
+    encoder_params = get_weights(model.deep_encoder)
+    inflater_params = get_weights(model.deep_inflater)
+    kincombiner_params = model.kin_params_combiner.learned_median_params
+    param_array = jnp.concatenate([
+        module_params.flatten()
+        for module_params in [encoder_params, inflater_params, kincombiner_params]
+    ])
+    if model.reconstruct:
+        decoder_params = get_weights(model.deep_decoder)
+        param_array = jnp.concatenate([param_array.flatten(), decoder_params.flatten()])
+    if len(param_array) != len(model.x_names):
+        raise ValueError("Number of parameters does not match number of parameter names!")
+    return param_array
 
 
 def loss_fn(
