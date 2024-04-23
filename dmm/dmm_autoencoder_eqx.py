@@ -292,6 +292,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         super().__init__(
             n_input_features=self.n_input_features,
             n_inflated_specific_kin_params=self.n_inflated_specific_kin_params,
+            n_samples=n_samples,
             n_global_kin_params=self.n_global_kin_params,
             **encoder_params_dict,
             **inflater_params_dict,
@@ -417,30 +418,30 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return scale * symmetry_reg
 
     # TODO @GiacomoFabrini code single loss function incorporating all 4 components + reconstruction loss
-    def loss_fn(
-            self,
-            input_data,
-            problem_train: pypesto.Problem,
-            scale_l1reg_encode=1.0,
-            scale_oreg_encode=1.0,
-            scale_l1reg_inflate=1.0,
-            scale_oreg_inflate=1.0,
-            scale_recon_loss=1.0,
-            scale_symm_loss=1.0,
-    ):
-        fval = problem_train.objective(self(x=input_data)[0])
-        loss = (
-                fval
-                + self.l1_encode_reg(scale=scale_l1reg_encode)
-                + self.orth_encode_reg(scale=scale_oreg_encode)
-                + self.l1_inflate_reg(scale=scale_l1reg_inflate)
-                + self.orth_inflate_reg(scale=scale_oreg_inflate)
-        )
-
-        if self.reconstruct:
-            loss += (
-                    self.reconstruction_loss(x=input_data, scale=scale_recon_loss)
-                    + self.symmetry_loss(scale=scale_symm_loss)
-            )
-
-        return loss
+    # def loss_fn(
+    #         self,
+    #         input_data,
+    #         problem_train: pypesto.Problem,
+    #         scale_l1reg_encode=1.0,
+    #         scale_oreg_encode=1.0,
+    #         scale_l1reg_inflate=1.0,
+    #         scale_oreg_inflate=1.0,
+    #         scale_recon_loss=1.0,
+    #         scale_symm_loss=1.0,
+    # ):
+    #     fval = problem_train.objective(self(x=input_data)[0])
+    #     loss = (
+    #             fval
+    #             + self.l1_encode_reg(scale=scale_l1reg_encode)
+    #             + self.orth_encode_reg(scale=scale_oreg_encode)
+    #             + self.l1_inflate_reg(scale=scale_l1reg_inflate)
+    #             + self.orth_inflate_reg(scale=scale_oreg_inflate)
+    #     )
+    #
+    #     if self.reconstruct:
+    #         loss += (
+    #                 self.reconstruction_loss(x=input_data, scale=scale_recon_loss)
+    #                 + self.symmetry_loss(scale=scale_symm_loss)
+    #         )
+    #
+    #     return loss

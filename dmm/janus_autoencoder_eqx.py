@@ -1,4 +1,5 @@
 import equinox as eqx
+import jax.numpy as jnp
 
 from dmm.deepcomponent_eqx import (
     DeepComponent,
@@ -90,6 +91,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     n_input_features: int = eqx.static_field()  # encoder input size
     n_inflated_specific_kin_params: int = eqx.static_field()  # inflater output size
+    n_samples: int = eqx.static_field()
     n_global_kin_params: int = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     orth_reg_strategy: str = eqx.static_field()
@@ -106,6 +108,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             self,
             n_input_features: int,
             n_inflated_specific_kin_params: int,
+            n_samples: int,
             n_global_kin_params: int,
             encoder_layer_sizes: List[int],  # decoder layers are just going to be encoder_layer_sizes mirrored
             encoder_weight_init_fn: str,
@@ -127,6 +130,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
         self.n_input_features = n_input_features
         self.n_inflated_specific_kin_params = n_inflated_specific_kin_params
+        self.n_samples = n_samples
         self.n_global_kin_params = n_global_kin_params
 
         # VALIDITY CHECKS
@@ -186,6 +190,8 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # Instantiate global kinetic parameters component
         self.kin_params_combiner = KinParamsCombiner(
             component_name='kin_params_combiner',
+            n_inflated_specific_kin_params=n_inflated_specific_kin_params,
+            n_samples=n_samples,
             n_global_kin_params=n_global_kin_params
         )
 
@@ -213,7 +219,18 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
-        # Add global and cell-specific kinetic parameters
-        # During network pretraining, the combiner is simply adding zeros and its parameters are freezed
-        augmented_inflated = self.kin_params_combiner(inflated)
+        # Map inflated specific kinetic parameters back to overall kinetic parameters array
+        # 1. reshape into single array
+        inflated_reshaped = inflated.reshape(self.n_samples*self.n_inflated_specific_kin_params)
+        # 2. initialise kinetic parameters array
+        sample_inflated_kin_params = jnp.zeros(
+            self.n_global_kin_params+self.n_samples*self.n_inflated_specific_kin_params
+        )
+        # 3. set inflated kinetic parameters in bottom portion of kinetic parameters array
+        # top n_global_kin_params (20 for now) are global, i.e. not cell-line-specific
+        sample_inflated_kin_params.at[self.n_global_kin_params:].set(inflated_reshaped)
+        # During network pretraining, the combiner is simply adding zeros and its parameters are frozen
+        # i.e. it is not learning the global params nor the median of the cell-line-specific params
+        # TODO @GiacomoFabrini need to implement pretrain vs train difference in behaviour - freeze
+        augmented_inflated = self.kin_params_combiner(sample_inflated_kin_params)
         return augmented_inflated, decoded

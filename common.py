@@ -19,12 +19,9 @@ class Conf(dict):
     n_hidden: int = None
     encoder_layer_sizes: List[int] = None
     encoder_layer_biases: List[bool] = None
-    encoder_input_output_bias: List[bool] = None
     inflater_layer_sizes: List[int] = None
     inflater_layer_biases: List[bool] = None
-    inflater_input_output_bias: List[bool] = None
     decoder_layer_biases: List[bool] = None
-    decoder_input_output_bias: List[bool] = None
     activation_fn_name: str = "relu"
     reconstruct: bool = None
     nn_pretrain: bool = None  # dictates when KinParamsCombiner params are switched to non-zero, learnable values
@@ -33,8 +30,8 @@ class Conf(dict):
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
-    recon_loss: float = 0.0
-    symm_reg: float = 0.0
+    scale_recon_loss: float = 0.0
+    scale_symm_loss: float = 0.0
     job: int = None
     threads: int = 1
     n_starts: int = None

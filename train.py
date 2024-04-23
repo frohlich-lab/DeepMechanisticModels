@@ -49,8 +49,9 @@ input_features_train, input_features_test = (
 
 # To get the startpoint (x0) for kinetic parameters (x),
 # simply pass the input_features_train into the pre-trained model_train
-# and extract the first component (augmented_inflated)
-x0 = model_train(input_features_train)[0]
+# (transpose them to shape = (n_features, n_samples))
+# and extract the first component (output = augmented_inflated, decoded)
+x0 = model_train(input_features_train.T)[0]
 
 schedule_config = dict(
     init_value=1e-2,
@@ -71,6 +72,8 @@ early_stopping_params = EarlyStoppingParams(
 train(
     model=model_train,
     problem_train=pypesto_problem_train,
+    input_features_train=input_features_train.T,
+    input_features_test=input_features_test.T,
     problem_test=pypesto_problem_test,
     conf=conf.__dict__,
     rfile=rfile,

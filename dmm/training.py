@@ -1,13 +1,15 @@
 import equinox as eqx
 import git
 import itertools as itt
+import jax
+import jax.numpy as jnp
 import numpy as np
 import petab
 import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from amici.petab_objective import rdatas_to_simulation_df
+from amici.petab.simulations import rdatas_to_simulation_df
 from common import Conf, EarlyStoppingParams
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
@@ -57,14 +59,41 @@ def create_pypesto_problem(
         Optimization pypesto_problem that needs to be solved for training.
     """
 
-    # TODO @GiacomoFabrini remove all arguments apart from the objective -- what about x_names?
     objective = generate_pypesto_objective(ae)
     return pypesto.Problem(
         objective=objective,
         lb=[-np.inf for _ in objective.x_names],
         ub=[np.inf for _ in objective.x_names],
-        copy_objective=True
     )
+
+
+def loss_fn(
+        model: DeepMechanisticModel,
+        input_data,
+        problem_train: pypesto.Problem,
+        scale_l1reg_encode=1.0,
+        scale_oreg_encode=1.0,
+        scale_l1reg_inflate=1.0,
+        scale_oreg_inflate=1.0,
+        scale_recon_loss=1.0,
+        scale_symm_loss=1.0,
+):
+    fval = problem_train.objective(model(input_data)[0])
+    loss_val = (
+            fval
+            + model.l1_encode_reg(scale=scale_l1reg_encode)
+            + model.orth_encode_reg(scale=scale_oreg_encode)
+            + model.l1_inflate_reg(scale=scale_l1reg_inflate)
+            + model.orth_inflate_reg(scale=scale_oreg_inflate)
+    )
+
+    if model.reconstruct:
+        loss_val += (
+                model.reconstruction_loss(x=input_data, scale=scale_recon_loss)
+                + model.symmetry_loss(scale=scale_symm_loss)
+        )
+
+    return loss_val
 
 
 L1EREG = "l1reg_encode"
@@ -76,10 +105,11 @@ SYMM_LOSS = "symm_reg"
 
 
 def train(
-        input_features_train,
         model: DeepMechanisticModel,
         problem_train: pypesto.Problem,
         problem_test: pypesto.Problem,
+        input_features_train,
+        input_features_test,
         rfile: Path,
         conf: Conf,
         schedule_config: Dict,
@@ -95,11 +125,14 @@ def train(
 
     repo = git.Repo(search_parent_directories=True)
 
-    if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0):
+    if (len(conf["encoder_layer_sizes"]) == 0) and (len(conf["inflater_layer_sizes"]) == 0):
         # default is "relu" but it is not applied unless there is at least 1 hidden layer
         activation_fn_tag = "None"
+        linear_benchmark_tag = conf["linear_benchmark
     else:
-        activation_fn_tag = conf.activation_fn_name
+        activation_fn_tag = conf["activation_fn_name"]
+        # in these circumstances, linear_benchmark gets ignored
+        linear_benchmark_tag = "overridden"
 
     wandb.init(
         project=f"DeepMechanisticModels.{conf['data']}.{conf['model']}",
@@ -114,29 +147,29 @@ def train(
             "schedule_config": schedule_config,
             "optimizer": "adam",
             "scheduler": "linear",
-            "reconstruct": conf.reconstruct,
+            "reconstruct": conf["reconstruct"],
         },
         name="__".join(
-            hyperparam_label+":"+str(conf.hyperparam_label)  # e.g. samples:0_5__n_hidden:2__orth_reg_strategy:L2__ etc.
+            str(hyperparam_label)
             for hyperparam_label in (
                 conf["samples"],
                 conf["n_hidden"],
                 conf["orth_reg_strategy"],
                 activation_fn_tag,
                 conf["reconstruct"],
+                linear_benchmark_tag,
                 conf["encoder_layer_sizes"],
                 conf["encoder_layer_biases"],
                 conf["inflater_layer_sizes"],
                 conf["inflater_layer_biases"],
-                conf["decoder_layer_biases"] if conf.reconstruct else None,
+                conf["decoder_layer_biases"] if conf["reconstruct"] else None,
                 conf["l1reg_encode"],
                 conf["oreg_encode"],
                 conf["l1reg_inflate"],
                 conf["oreg_inflate"],
-                conf["scale_recon_loss"] if conf.reconstruct else None,
-                conf["scale_symm_loss"] if conf.reconstruct else None,
+                conf["scale_recon_loss"] if conf["reconstruct"] else None,
+                conf["scale_symm_loss"] if conf["reconstruct"] else None,
                 conf["job"],
-                # TODO @GiacomoFabrini check everything is being logged
             )
         ),
         settings=wandb.Settings(
@@ -173,14 +206,14 @@ def train(
             wandb.define_metric(metric, summary=metrics[metric])
 
     # TODO @GiacomoFabrini - this needs to be changed!
-    par_labels = ("encode", "inflate", "kinetic")
-    par_dims = (
-        model.n_encode_weights,
-        model.n_encoder_pars,
-        model.n_kin_params,
-    )
-    for val_type, xname in itt.product(("x", "g"), par_labels):
-        wandb.define_metric(f"{val_type}_{xname}")
+    # par_labels = ("encode", "inflate", "kinetic")
+    # par_dims = (
+    #     model.n_encode_weights,
+    #     model.n_encoder_pars,
+    #     model.n_kin_params,
+    # )
+    # for val_type, xname in itt.product(("x", "g"), par_labels):
+    #     wandb.define_metric(f"{val_type}_{xname}")
 
     # This will be a PEtab-compatible format
     x = x0.copy()
@@ -209,24 +242,32 @@ def train(
                 patience=early_stopping_params.patience
             )
 
-    @eqx.filter_jit
+    # TODO @GiacomoFabrini restore jitting once fixed
+    #@eqx.filter_jit
     def make_step(
             model: DeepMechanisticModel,
             opt_state: PyTree,
-            input_data: Float[Array],
+            input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape
             problem_train: pypesto.Problem,
             conf: Conf,
     ):
-        loss_value, grads = eqx.filter_value_and_grad(model.loss_fn)(
-            model=model,
+        loss_value, grads = eqx.filter_value_and_grad(loss_fn)(
+            model,
             input_data=input_data,
             problem_train=problem_train,
-            scale_l1reg_encode=conf.scale_l1reg_encode,
-            scale_oreg_encode=conf.scale_oreg_encode,
-            scale_l1reg_inflate=conf.scale_l1reg_inflate,
-            scale_oreg_inflate=conf.scale_oreg_inflate,
-            scale_recon_loss=conf.scale_recon_loss,
-            scale_symm_loss=conf.scale_symm_loss,
+            scale_l1reg_encode=conf["l1reg_encode"],
+            scale_oreg_encode=conf["oreg_encode"],
+            scale_l1reg_inflate=conf["l1reg_inflate"],
+            scale_oreg_inflate=conf["oreg_inflate"],
+            scale_recon_loss=conf["scale_recon_loss"],
+            scale_symm_loss=conf["scale_symm_loss"],
+        )
+        # p, s = eqx.partition(model, eqx.is_array)
+        # loss_w_grads = jax.value_and_grad(type(m).loss, argnums=0)
+        # f, grads = loss_w_grads(p, static=s, conf=conf, **kwargs)
+        grads = jax.tree_map(
+            lambda x: jnp.where(jnp.isfinite(x), x, jnp.zeros_like(x)),
+            grads,
         )
         updates, opt_state = opt.update(grads, opt_state, model)
         model = eqx.apply_updates(model, updates)
@@ -234,18 +275,22 @@ def train(
 
     # Training loop
     for epoch in range(n_epoch + 1):
-        loss, fval = model.loss_fn(
+        model, opt_state, loss_value, grads = make_step(
+            model=model,
+            opt_state=opt_state,
             input_data=input_features_train,
             problem_train=problem_train,
-            scale_l1reg_encode=conf.scale_l1reg_encode,
-            scale_oreg_encode=conf.scale_oreg_encode,
-            scale_l1reg_inflate=conf.scale_l1reg_inflate,
-            scale_oreg_inflate=conf.scale_oreg_inflate,
-            scale_recon_loss=conf.scale_recon_loss,
-            scale_symm_loss=conf.scale_symm_loss,
+            conf=conf,
         )
 
+        # TODO @GiacomoFabrini: replace once I find a fix
+        fval = problem_train.objective(model(input_features_train)[0])
+
+        # Update x
+        x = model(input_features_train)[0]
+
         # TODO @GiacomoFabrini only compute function values and log (restore) -- OK
+        # Log regularisation terms - not input dependent
         for reg_fun, label in zip(
             (
                 model.l1_encode_reg,
@@ -262,12 +307,12 @@ def train(
                 # Simply compute the value of the function
                 value_reg = reg_fun(scale=conf[label])
                 wandb.log({label: value_reg}, step=epoch)
-        # Log Reconstruction Loss (which requires additional input: input_features_train)
+        # Log Reconstruction Loss (which requires input data)
         wandb.log(
             {
                 RECON_LOSS: model.reconstruction_loss(
                     x=input_features_train,
-                    scale=conf.RECON_LOSS
+                    scale=conf[RECON_LOSS]
                 )
             }
         )
@@ -275,22 +320,19 @@ def train(
         wandb.log(
             {
                 "fval": fval,
-                "loss": loss
+                "loss": loss_value
             },
             step=epoch
         )
 
-        # TODO @GiacomoFabrini here is where you need to perform the optimisation step!
-        ###
-        ###
-        ###
-
+        # Log rmse values every 5 epochs + check early-stopping criteria
         if epoch % 5 == 0:
             rmse_dict = dict()
             # evaluate rmse on train and test dataset only after a certain number (5) of epochs
             for dataset, pp in zip(
                 ("train", "test"), (problem_train, problem_test)
             ):
+                # TODO @GiacomoFabrini I expect this will need input_features_test?!
                 rmse_dict[dataset] = rmse(pp, x)
 
             if rmse_dict["test"] < rmse_test_min:
@@ -347,15 +389,6 @@ def train(
                 if early_stopper.should_stop:
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
                     break
-
-        # TODO @GiacomoFabrini need to change this
-        updates, opt_state = opt.update(grads, opt_state)
-        x = apply_updates(x, updates)
-        # TODO @GiacomoFabrini need to update x here given the updates to the network
-        # PSEUDO CODE: x = compute_updated_kinetic_parameters(input_features_train, updates)
-        # could be as simple as x = model(input_features_train)[0], i.e. augmented_inflated
-        # after the model parameters have been updated!
-        x = model(input_features_train)[0]  # i.e. augmented_inflated
 
         if np.any(np.isnan(x)):
             # keep track of integration errors

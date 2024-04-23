@@ -179,13 +179,14 @@ class KinParamsCombiner(eqx.Module):
     x_names: List[str] = eqx.static_field()
     learned_global_params: Array
 
-    def __init__(self, component_name, n_global_kin_params):
+    def __init__(self, component_name, n_inflated_specific_kin_params, n_samples, n_global_kin_params):
         # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
-        self.learned_global_params = jnp.zeros_like(n_global_kin_params)
+        n_params = n_global_kin_params + n_inflated_specific_kin_params * n_samples
+        self.learned_global_params = jnp.zeros_like(n_params)
         self.x_names = [
-            f"{self.component_name}_{0}_{ind}_global_kin_param"
-            for ind in range(n_global_kin_params)
+            f"{self.component_name}_{0}_{ind}_kin_param"
+            for ind in range(n_params)
         ]
 
     def __call__(self, x):
