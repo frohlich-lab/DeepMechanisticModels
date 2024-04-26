@@ -24,18 +24,18 @@ class Conf(dict):
     decoder_layer_biases: List[bool] = None
     activation_fn_name: str = "relu"
     reconstruct: bool = None
-    nn_pretrain: bool = None  # dictates when KinParamsCombiner params are switched to non-zero, learnable values
     orth_reg_strategy: str = None
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
-    scale_recon_loss: float = 0.0
-    scale_symm_loss: float = 0.0
+    recon_loss: float = 0.0
+    symm_reg: float = 0.0
     job: int = None
     threads: int = 1
     n_starts: int = None
     linear_benchmark: str = None
+    use_early_stopping: bool = True
 
 
 @dataclasses.dataclass

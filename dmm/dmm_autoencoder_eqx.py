@@ -14,9 +14,9 @@ from .petab_subproblem import load_petab
 from .problem import Problem
 
 # TODO @GiacomoFabrini idea: pretrain whole network on n_params x n_samples
-# matrix coming from ODE pretraining
-# then train end-to-end differentiable DMM
-# can pretrain encoder-inflater or encoder-inflater-decoder
+#  matrix coming from ODE pretraining
+#  then train end-to-end differentiable DMM
+#  can pretrain encoder-inflater or encoder-inflater-decoder
 config.update("jax_enable_x64", True)
 
 
@@ -65,7 +65,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     orth_reg_strategy: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
-    nn_pretrain: bool = eqx.static_field()
 
     def __init__(
             self,
@@ -99,7 +98,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
-            nn_pretrain: bool = False,
     ):
         """
 
@@ -227,9 +225,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.activation_fn_name = activation_fn_name
         self.reconstruct = reconstruct
 
-        # set network pretraining flag
-        self.nn_pretrain = nn_pretrain
-
         # Update layer_sizes (hidden layers) to include input and output layers
         encoder_layer_sizes = [self.n_input_features] + encoder_layer_sizes + [self.n_latent]
         inflater_layer_sizes = [self.n_latent] + inflater_layer_sizes + [self.n_inflated_specific_kin_params]
@@ -292,7 +287,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         super().__init__(
             n_input_features=self.n_input_features,
             n_inflated_specific_kin_params=self.n_inflated_specific_kin_params,
-            n_samples=n_samples,
             n_global_kin_params=self.n_global_kin_params,
             **encoder_params_dict,
             **inflater_params_dict,
@@ -301,7 +295,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             activation_fn_name=self.activation_fn_name,
             orth_reg_strategy=self.orth_reg_strategy,
             reconstruct=self.reconstruct,
-            nn_pretrain=self.nn_pretrain,
         )
 
         problem.apply_objective_settings(
@@ -309,15 +302,15 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         )
 
         # augment TwoHeadedDeepAutoencoder.x_names with ODE x_names
-        self.x_names = self.x_names + [
-            name
-            for ix, name in enumerate(self.pypesto_subproblem.x_names)
-            if not name.startswith(MODEL_FEATURE_PREFIX)
-            and ix in self.pypesto_subproblem.x_free_indices
-        ]
+        # self.x_names = self.x_names + [
+        #     name
+        #     for ix, name in enumerate(self.pypesto_subproblem.x_names)
+        #     if not name.startswith(MODEL_FEATURE_PREFIX)
+        #     and ix in self.pypesto_subproblem.x_free_indices
+        # ]
 
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
-        return self(input_data)[0]
+        return self(input_data)[0]  # array containing all kinetic parameters (global first, cell-line-specific second)
 
     def l1_encode_reg(
             self,

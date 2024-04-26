@@ -11,8 +11,8 @@ import wandb
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .deepcomponent_eqx import DeepComponent
 # CHECK WHETHER WE NEED TO ROLL BACK
-#from amici.petab.simulations import rdatas_to_simulation_df
-from amici.petab_objective import rdatas_to_simulation_df
+from amici.petab.simulations import rdatas_to_simulation_df
+# from amici.petab_objective import rdatas_to_simulation_df
 from common import Conf, EarlyStoppingParams
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
@@ -44,9 +44,9 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
     # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
-        objective=ae.pypesto_subproblem.objective,
-        jax_fun=ae.embedding,
-        x_names=ae.x_names
+        objective=ae.pypesto_subproblem.objective,  # same base objective previously passed to JaxObjective
+        # jax_fun=ae.embedding,
+        # x_names=ae.x_names
     )
 
 
@@ -64,18 +64,18 @@ def create_pypesto_problem(
         Optimization pypesto_problem that needs to be solved for training.
     """
 
-    # objective = generate_pypesto_objective(ae)
-    # return pypesto.Problem(
-    #     objective=objective,
-    #     lb=[-np.inf for _ in objective.x_names],
-    #     ub=[np.inf for _ in objective.x_names],
-    # )
+    objective = generate_pypesto_objective(ae)
     return pypesto.Problem(
-        objective=generate_pypesto_objective(ae),
-        x_names=ae.x_names,
-        lb=[-np.inf for _ in ae.x_names],
-        ub=[np.inf for _ in ae.x_names],
+        objective=objective,
+        lb=[-np.inf for _ in objective.x_names],  # extract names from objective
+        ub=[np.inf for _ in objective.x_names],
     )
+    # return pypesto.Problem(
+    #     objective=generate_pypesto_objective(ae),
+    #     x_names=ae.x_names,
+    #     lb=[-np.inf for _ in ae.x_names],
+    #     ub=[np.inf for _ in ae.x_names],
+    # )
 
 
 def get_weights(
@@ -103,38 +103,41 @@ def map_params_to_array(
     if model.reconstruct:
         decoder_params = get_weights(model.deep_decoder)
         param_array = jnp.concatenate([param_array.flatten(), decoder_params.flatten()])
+    param_array = jnp.concatenate([param_array, model.kin_params_combiner.learned_global_kin_params.flatten()])
     if len(param_array) != len(model.x_names):
         raise ValueError("Number of parameters does not match number of parameter names!")
     return param_array
 
 
+# TODO @GiacomoFabrini: fetch scale params from conf
+@eqx.filter_value_and_grad
 def loss_fn(
         model: DeepMechanisticModel,
+        conf: Conf,
         input_data,
         problem_train: pypesto.Problem,
-        scale_l1reg_encode=1.0,
-        scale_oreg_encode=1.0,
-        scale_l1reg_inflate=1.0,
-        scale_oreg_inflate=1.0,
-        scale_recon_loss=1.0,
-        scale_symm_loss=1.0,
 ):
+    # problem_train.objective() now needs to get in input what was previously the output of the jax_fun, i.e. the output
+    # of ae.embedding(x). x contained the parameters (encoder, inflater, kinetic parameters) and ae.embedding(x)
+    # transformed the parameters into kinetic parameters (global) + inflated parameters (i.e. input data passed
+    # through the encoder, through the inflater and unrolled). This is now the first component of the output of the model
+    # call.
     fval = problem_train.objective(model(input_data)[0])
-    loss_val = (
+    loss_value = (
             fval
-            + model.l1_encode_reg(scale=scale_l1reg_encode)
-            + model.orth_encode_reg(scale=scale_oreg_encode)
-            + model.l1_inflate_reg(scale=scale_l1reg_inflate)
-            + model.orth_inflate_reg(scale=scale_oreg_inflate)
+            + model.l1_encode_reg(scale=conf["l1reg_encode"])
+            + model.orth_encode_reg(scale=conf["oreg_encode"])
+            + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
+            + model.orth_inflate_reg(scale=conf["oreg_inflate"])
     )
 
     if model.reconstruct:
-        loss_val += (
-                model.reconstruction_loss(x=input_data, scale=scale_recon_loss)
-                + model.symmetry_loss(scale=scale_symm_loss)
+        loss_value += (
+                model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
+                + model.symmetry_loss(scale=conf["symm_reg"])
         )
 
-    return loss_val
+    return loss_value
 
 
 L1EREG = "l1reg_encode"
@@ -208,8 +211,8 @@ def train(
                 conf["oreg_encode"],
                 conf["l1reg_inflate"],
                 conf["oreg_inflate"],
-                conf["scale_recon_loss"] if conf["reconstruct"] else None,
-                conf["scale_symm_loss"] if conf["reconstruct"] else None,
+                conf["recon_loss"] if conf["reconstruct"] else None,
+                conf["symm_reg"] if conf["reconstruct"] else None,
                 conf["job"],
             )
         ),
@@ -257,19 +260,19 @@ def train(
     #     wandb.define_metric(f"{val_type}_{xname}")
 
     # This will be a PEtab-compatible format
-    x = x0.copy()
+    # x = map_params_to_array(model)
 
     # Optimiser and related schedule defined here
     # TODO @GiacomoFabrini: change optimiser to optax.adamw (weight decay) and change schedule (later?!)
     schedule = linear_schedule(**schedule_config)
     opt = adam(schedule)
     # TODO @GiacomoFabrini: need to replace with equinox-jax optimisation!
-    opt_state = opt.init(eqx.filter(x, eqx.is_array))
+    opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
-    opt_x = x.copy()
-    opt_fval = np.inf
-    opt_grads = np.NaN * np.ones_like(x)
-    rmse_test_min = np.inf
+    # opt_x = x.copy()
+    # opt_fval = np.inf
+    # opt_grads = np.NaN * np.ones_like(x)
+    # rmse_test_min = np.inf
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
     if early_stopping_params.use_early_stopping:
@@ -284,7 +287,7 @@ def train(
             )
 
     # TODO @GiacomoFabrini restore jitting once fixed
-    #@eqx.filter_jit
+    @eqx.filter_jit
     def make_step(
             model: DeepMechanisticModel,
             opt_state: PyTree,
@@ -292,16 +295,11 @@ def train(
             problem_train: pypesto.Problem,
             conf: Conf,
     ):
-        loss_value, grads = eqx.filter_value_and_grad(loss_fn)(
+        loss_value, grads = loss_fn(
             model,
-            input_data=input_data,
-            problem_train=problem_train,
-            scale_l1reg_encode=conf["l1reg_encode"],
-            scale_oreg_encode=conf["oreg_encode"],
-            scale_l1reg_inflate=conf["l1reg_inflate"],
-            scale_oreg_inflate=conf["oreg_inflate"],
-            scale_recon_loss=conf["scale_recon_loss"],
-            scale_symm_loss=conf["scale_symm_loss"],
+            conf,
+            input_data,
+            problem_train,
         )
         # p, s = eqx.partition(model, eqx.is_array)
         # loss_w_grads = jax.value_and_grad(type(m).loss, argnums=0)

@@ -1,6 +1,7 @@
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
+import jax.tree_util as jtu
 import numpy as np
 import pandas as pd
 import pypesto
@@ -79,17 +80,17 @@ def load_models(
             key=subkey,
         )
         for features, subkey in zip(
-            [
-                pd.read_csv(
-                    FEATURES_OUTFILE.format_map(
-                        dict(**conf.__dict__, dataset=setting)
-                    ),
-                    index_col=0
-                )
-                for setting in settings[dataset]
-            ],
-            keys
-        )
+        [
+            pd.read_csv(
+                FEATURES_OUTFILE.format_map(
+                    dict(**conf.__dict__, dataset=setting)
+                ),
+                index_col=0
+            )
+            for setting in settings[dataset]
+        ],
+        keys
+    )
     )
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
@@ -99,6 +100,7 @@ def load_models(
 def get_kin_params_median_deviation(
         conf: Conf,
         model: DeepMechanisticModel,
+        return_full_combo: bool = False,
 ):
     pretrained_samples = {}
 
@@ -160,16 +162,18 @@ def get_kin_params_median_deviation(
             for pretraining in pretrained_samples.values()
         ]
     )
-
     par_combo.index = list(pretrained_samples.keys())
     par_combo = par_combo.reindex(model.sample_names)
-    # Compute the median across samples
-    par_medians = par_combo.median(skipna=True)
-    # Subtract the median from the parameters:
-    # par_combo now represents variation around the median
-    par_deviations = par_combo - par_medians
 
-    return par_medians, par_deviations
+    if return_full_combo:
+        return par_combo
+    else:
+        # Compute the median across samples
+        par_medians = par_combo.median(skipna=True)
+        # Subtract the median from the parameters:
+        # par_combo now represents variation around the median
+        par_deviations = par_combo - par_medians
+        return par_medians, par_deviations
 
 
 def load_and_subset_input_features(
@@ -205,7 +209,6 @@ def linear_nn_init(
         dataset: str,  # train or test,
         pypesto_subproblem: pypesto.Problem = None,
 ):
-
     # Check that encoder, inflater (and potentially decoder) all have a single layer
     # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
     if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
@@ -236,7 +239,7 @@ def linear_nn_init(
             conf=conf,
             model=model,
             dataset=dataset,
-            )
+        )
         # and transform them with PCA fitted to training features
         features_pca = pca.transform(input_features_val)
     else:
@@ -312,13 +315,15 @@ def linear_nn_init(
     return model
 
 
-# TODO @GiacomoFabrini: code initialisation for additive component following the inflater
-def init_global_kin_params_adder(
+# TODO @GiacomoFabrini: FIX THIS - code initialisation for additive component following the inflater.
+#  Change nn_pretrain - cannot come from conf
+def init_global_kin_params_combiner(
         conf: Conf,
         model: DeepMechanisticModel,
+        nn_pretrain: bool,
 ):
-    if not conf.nn_pretrain:
-        par_medians, _ = get_kin_params_median_deviation(conf=conf, model=model)
+    if not nn_pretrain:
+        par_medians, par_deviations = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=False)
         # TODO @GiacomoFabrini: ask Fabian - how do we go about determining which parameters we want to keep
         #  the median of for initialisation purposes?
         # from my understanding: the names of the kinetic parameters are in model.pypesto_subproblem.x_names
@@ -328,19 +333,68 @@ def init_global_kin_params_adder(
             name for name in model.pypesto_subproblem.x_names
             if not name.startswith(MODEL_FEATURE_PREFIX)
         ]
-        # now we just need to extract the corresponding entries from par_medians
-        new_global_kin_params = par_medians[global_par_names]
+        # now we just need to extract the corresponding entries from par_medians and convert to jnp array
+        new_global_kin_params = jnp.array(par_medians[global_par_names].values)
         # TODO @GiacomoFabrini: does this work or do we need to replace with
         #  [par_medians[name] for name in global_par_names]?
         # Check shape match
-        if new_global_kin_params.shape != model.kin_params_combiner.learned_global_params.shape:
-            raise ValueError("Incorrect shape of new global kinetic parameters!")
-        # Update KinParamsCombiner parameters - initialised to global parameters median
+        if new_global_kin_params.shape != model.kin_params_combiner.learned_global_kin_params.shape:
+            raise ValueError("Incorrect shape of new global kin parameters!")
+        # Update KinParamsCombiner parameters
         model = eqx.tree_at(
-            lambda m: m.kin_params_combiner.learned_global_params,  # fetch weights from single layer of encoder
+            lambda m: m.kin_params_combiner.learned_global_kin_params,  # fetch weights from single layer of encoder
             model,
             new_global_kin_params
         )
+
+
+        par_combo = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=True)
+        median_par_combo = pd.DataFrame(
+            np.repeat(
+                par_combo.median(skipna=True).values.reshape(1, -1),
+                repeats=par_combo.shape[0],
+                axis=0
+            ),
+            columns=par_combo.columns
+        )
+        median_par_combo.index = list(model.sample_names)
+        new_specific_par_medians = get_targets(model, median_par_combo)[0].reshape(-1, 1)
+        # Check shape match
+        if new_specific_par_medians.shape != model.kin_params_combiner.learned_median_params.shape:
+            raise ValueError("Incorrect shape of new learned median kinetic parameters!")
+        # Update KinParamsCombiner parameters - initialised to global parameters median
+        model = eqx.tree_at(
+            lambda m: m.kin_params_combiner.learned_median_params,  # fetch weights from single layer of encoder
+            model,
+            new_specific_par_medians,
+        )
+        return model
     else:
-        raise ValueError("This function should only be called after network pretraining!")
-    return model
+        # weights of kin_params_combiner are already initialised to zeros by default
+        # just need to freeze them
+        filter_spec = jtu.tree_map(lambda _: True, model)  # everything trained by default
+        filter_spec = eqx.tree_at(
+            lambda tree: (
+                tree.kin_params_combiner.learned_global_kin_params,
+                tree.kin_params_combiner.learned_median_params
+            ),
+            filter_spec,
+            replace=(
+                False,
+                False
+            ),
+        )
+    return model, filter_spec
+
+
+def get_targets(
+        model: DeepMechanisticModel,
+        par_combo: pd.DataFrame,
+) -> jnp.ndarray():
+    inputs = [
+        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
+        for p in model.petab_importer.petab_problem.parameter_df.index
+        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_combo.index[0])
+    ]
+
+    return par_combo[inputs].values

@@ -178,20 +178,24 @@ class KinParamsCombiner(eqx.Module):
     component_name: str = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     learned_median_params: Array
+    learned_global_kin_params: Array
 
-    def __init__(self, component_name, n_inflated_specific_kin_params, n_samples, n_global_kin_params):
+    def __init__(self, component_name, n_inflated_specific_kin_params, n_global_kin_params):
         # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
-        # TODO @GiacomoFabrini check whether we need to reintroduce global parameters and how!
-        # n_params = n_global_kin_params + n_inflated_specific_kin_params * n_samples
-        self.learned_median_params = jnp.zeros_like(n_inflated_specific_kin_params)
-        self.global_kin_params = jnp.zeros_like(n_global_kin_params)
+        # choosing (num_features, ) as shape to allow broadcasting in function call
+        self.learned_median_params = jnp.zeros(shape=(n_inflated_specific_kin_params, 1))
+        self.learned_global_kin_params = jnp.zeros(shape=(n_global_kin_params, ))
         self.x_names = [
-            f"{self.component_name}_{0}_{ind}_kin_param"
+            f"{self.component_name}_{0}_{ind}_global_kin_param"
+            for ind in range(n_global_kin_params)
+        ] + [
+            f"{self.component_name}_{0}_{ind}_median_kin_param"
             for ind in range(n_inflated_specific_kin_params)
         ]
 
     def __call__(self, x):
         # input x is the inflated parameter deviations
-        # Output is the input added to the array of learned parameters
-        return x + self.learned_median_params
+        specific_parameters = x + self.learned_median_params  # added regardless of cell-line (median component)
+        # output is the concatenation of the global parameters and the flattened specific ones
+        return jnp.concatenate([self.learned_global_kin_params, specific_parameters.flatten()])
