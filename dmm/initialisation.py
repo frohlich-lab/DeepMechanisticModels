@@ -21,8 +21,6 @@ from typing import Tuple, Union
 from util import load_petab_base_files
 
 
-# TODO @GiacomoFabrini: I think this needs changing. If conf.linear_benchmark == True,
-#  we want to pass the models as they are. If not, we want to pass pre-trained models...
 def load_models(
         conf: Conf,
         dataset: str = "train",
@@ -315,8 +313,6 @@ def linear_nn_init(
     return model
 
 
-# TODO @GiacomoFabrini: FIX THIS - code initialisation for additive component following the inflater.
-#  Change nn_pretrain - cannot come from conf
 def init_global_kin_params_combiner(
         conf: Conf,
         model: DeepMechanisticModel,

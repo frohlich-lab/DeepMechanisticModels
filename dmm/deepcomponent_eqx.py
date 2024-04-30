@@ -196,6 +196,8 @@ class KinParamsCombiner(eqx.Module):
 
     def __call__(self, x):
         # input x is the inflated parameter deviations
-        specific_parameters = x + self.learned_median_params  # added regardless of cell-line (median component)
+        # specific_parameters = x + self.learned_median_params  # added regardless of cell-line (median component)
+        # TODO @GiacomoFabrini - this fixes integration errors - discuss with Fabian and check this again!
+        specific_parameters = x
         # output is the concatenation of the global parameters and the flattened specific ones
         return jnp.concatenate([self.learned_global_kin_params, specific_parameters.flatten()])

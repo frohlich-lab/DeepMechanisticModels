@@ -110,7 +110,7 @@ else:
     )
     # TODO @GiacomoFabrini - is this enough to pass the pretrained model?
     # Now initialise the params of the KinParamsCombiner (No need for filter_spec?)
-    pretrained_model = init_global_kin_params_combiner(
+    model_train = init_global_kin_params_combiner(
         conf,
         pretrained_model,
         nn_pretrain=False,
@@ -122,11 +122,11 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
-# TODO @GiacomoFabrini -- need to link global params in KinParamsCombiner to global params with their names!
+# TODO @GiacomoFabrini -- need to link global params in KinParamsCombiner to global params with their names?!
 x0 = map_params_to_array(model_train)
 
 train(
-    model=pretrained_model,
+    model=model_train,  # can be pretrained or not (in case of linear benchmark)
     problem_train=pypesto_problem_train,
     input_features_train=input_features_train.T,
     input_features_test=input_features_test.T,

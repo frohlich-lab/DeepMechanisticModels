@@ -206,7 +206,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
-        # TODO @GiacomoFabrini need to implement pretrain vs train difference in behaviour - freeze
         augmented_inflated = self.kin_params_combiner(inflated)
         # augmented_inflated: concatenation of global kinetic parameters
         # and flattened cell-line-specific params (inflated deviations + learned medians)

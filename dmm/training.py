@@ -109,7 +109,6 @@ def map_params_to_array(
     return param_array
 
 
-# TODO @GiacomoFabrini: fetch scale params from conf
 @eqx.filter_value_and_grad
 def loss_fn(
         model: DeepMechanisticModel,
@@ -266,13 +265,14 @@ def train(
     # TODO @GiacomoFabrini: change optimiser to optax.adamw (weight decay) and change schedule (later?!)
     schedule = linear_schedule(**schedule_config)
     opt = adam(schedule)
-    # TODO @GiacomoFabrini: need to replace with equinox-jax optimisation!
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
-    # opt_x = x.copy()
-    # opt_fval = np.inf
-    # opt_grads = np.NaN * np.ones_like(x)
-    # rmse_test_min = np.inf
+    # TODO @GiacomoFabrini Do we still need these? Or can we change them in some way?
+    x = x0.copy()
+    opt_x = x.copy()
+    opt_fval = np.inf
+    opt_grads = np.NaN * np.ones_like(x)
+    rmse_test_min = np.inf
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
     if early_stopping_params.use_early_stopping:
@@ -286,7 +286,6 @@ def train(
                 patience=early_stopping_params.patience
             )
 
-    # TODO @GiacomoFabrini restore jitting once fixed
     @eqx.filter_jit
     def make_step(
             model: DeepMechanisticModel,
@@ -314,7 +313,7 @@ def train(
 
     # Training loop
     for epoch in range(n_epoch + 1):
-        model, opt_state, loss_value, grads = make_step(
+        model, opt_state, loss_train, grads = make_step(
             model=model,
             opt_state=opt_state,
             input_data=input_features_train,
@@ -322,61 +321,70 @@ def train(
             conf=conf,
         )
 
-        # TODO @GiacomoFabrini: replace once I find a fix
+        # Get current fval for logging purposes
         fval = problem_train.objective(model(input_features_train)[0])
 
-        # Update x
-        x = model(input_features_train)[0]
+        # Log fval and loss_train at this epoch
+        wandb.log(
+            {
+                "fval": fval,
+                "loss": loss_train,
+            },
+            step=epoch
+        )
 
-        # TODO @GiacomoFabrini only compute function values and log (restore) -- OK
-        # Log regularisation terms - not input dependent
+        # Log regularisation terms that are used both with one and two heads
         for reg_fun, label in zip(
             (
                 model.l1_encode_reg,
                 model.orth_encode_reg,
                 model.l1_inflate_reg,
                 model.orth_inflate_reg,
-                model.symmetry_loss,
             ),
-            (L1EREG, OEREG, L1IREG, OIREG, SYMM_LOSS),
+            (L1EREG, OEREG, L1IREG, OIREG),
         ):
-            # this is where the scale parameter of the various regularisation
-            # methods get changed via the hyperparameters in training_configuration.py
             if conf[label] > 0:
-                # Simply compute the value of the function
-                value_reg = reg_fun(scale=conf[label])
-                wandb.log({label: value_reg}, step=epoch)
-        # Log Reconstruction Loss (which requires input data)
-        wandb.log(
-            {
-                RECON_LOSS: model.reconstruction_loss(
-                    x=input_features_train,
-                    scale=conf[RECON_LOSS]
+                wandb.log(
+                    {
+                        label: reg_fun(scale=conf[label])
+                    },
+                    step=epoch
                 )
-            }
-        )
-        # Log fval and loss function value at this epoch
-        wandb.log(
-            {
-                "fval": fval,
-                "loss": loss_value
-            },
-            step=epoch
-        )
+
+        # Log decoder-dependent loss terms
+        if model.reconstruct:
+            wandb.log(
+                {
+                    RECON_LOSS: model.reconstruction_loss(
+                        x=input_features_train,
+                        scale=conf[RECON_LOSS]
+                    ),
+                    SYMM_LOSS: model.symmetry_loss(scale=conf[SYMM_LOSS])
+                }
+            )
+
+        # TODO model should be updated here to get correct fval, reg terms, etc.
+        #  Otherwise all logged values are shifted by 1 epoch
+        # model = eqx.apply_updates(model, updates)
+
+        # Update x - same param array that we had before
+        x = map_params_to_array(model)
+        # Map grads to same shape param array
+        grads = map_params_to_array(grads)
 
         # Log rmse values every 5 epochs + check early-stopping criteria
         if epoch % 5 == 0:
             rmse_dict = dict()
             # evaluate rmse on train and test dataset only after a certain number (5) of epochs
-            for dataset, pp in zip(
-                ("train", "test"), (problem_train, problem_test)
+            for dataset, pp, input_data in zip(
+                    ("train", "test"),
+                    (problem_train, problem_test),
+                    (input_features_train, input_features_test)
             ):
-                # TODO @GiacomoFabrini I expect this will need input_features_test?!
-                rmse_dict[dataset] = rmse(pp, x)
+                rmse_dict[dataset] = rmse(pp, model, input_data)
 
             if rmse_dict["test"] < rmse_test_min:
                 rmse_test_min = rmse_dict["test"]
-                # TODO @GiacomoFabrini this needs to be changed as well
                 opt_x = x.copy()
                 opt_fval = fval
                 opt_grads = grads.copy()
@@ -385,24 +393,24 @@ def train(
                 {
                     "rmse_train": rmse_dict["train"],
                     "rmse_val": rmse_dict["test"],
-                    **{
-                        f"{val_type}_{xname}": None
-                        if not np.all(np.isfinite(value))
-                        else wandb.Histogram(value)
-                        if val_type == "x"
-                        else wandb.Histogram(
-                            np.log10(np.abs(value[value != 0]))
-                        )
-                        # TODO @GiacomoFabrini: need to fix this with proper grads and x - what shall I do with xname?
-                        for val_type, values in (
-                            ("x", x),
-                            ("g", grads),
-                        )
-                        for xname, value in zip(
-                            par_labels,
-                            np.split(values, par_dims[:-1]),
-                        )
-                    },
+                    # **{
+                    #     f"{val_type}_{xname}": None
+                    #     if not np.all(np.isfinite(value))
+                    #     else wandb.Histogram(value)
+                    #     if val_type == "x"
+                    #     else wandb.Histogram(
+                    #         np.log10(np.abs(value[value != 0]))
+                    #     )
+                    #     # TODO @GiacomoFabrini: need to fix this with proper grads and x!
+                    #     for val_type, values in (
+                    #         ("x", x),
+                    #         ("g", grads),
+                    #     )
+                    #     for xname, value in zip(
+                    #         par_labels,
+                    #         np.split(values, par_dims[:-1]),
+                    #     )
+                    # },
                 },
                 step=epoch,
             )
@@ -446,7 +454,7 @@ def train(
     optimization_result.append(
         OptimizerResult(
             fval=opt_fval,
-            n_fval=epoch,  # save epoch number to diagnose early stopping
+            # n_fval=epoch,  # save epoch number to diagnose early stopping
             x=opt_x,
             grad=opt_grads,
             x0=x0,
@@ -465,9 +473,11 @@ def train(
     return result
 
 
-def rmse(pp, xx):
+def rmse(pp,
+         model: DeepMechanisticModel,
+         input_data):
     try:
-        x = pp.objective.jax_fun(xx)
+        x = model(input_data)[0]
         obj = pp.objective.base_objective
         amici_model = obj.amici_model
         petab_problem = obj.amici_object_builder.petab_problem
