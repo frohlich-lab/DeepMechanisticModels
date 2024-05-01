@@ -1,5 +1,5 @@
 import fire
-import jax.numpy as jnp
+# import jax.numpy as jnp
 
 from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS
 from dmm.initialisation import (linear_nn_init,
@@ -10,6 +10,7 @@ from dmm.initialisation import (linear_nn_init,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
 from dmm.training import create_pypesto_problem, map_params_to_array, train
+from dmm.wandb_init import init_wandb
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 
@@ -94,6 +95,8 @@ else:
         model_train,
         nn_pretrain=True,
     )
+    # Initialise W&B run
+    init_wandb(conf, early_stopping_params, schedule_config, pretrain=True)
     # Get pretrained model
     pretrained_model = pretrain_network(
         model=model_train,
@@ -122,9 +125,14 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
-# TODO @GiacomoFabrini -- need to link global params in KinParamsCombiner to global params with their names?!
+# TODO @GiacomoFabrini -- need to make sure the learned global parameters in KinParamsCombiner are in the same order
+#  as those in .x_names?! (they should be, but need to check)
+# Get PEtab-compatible embedding of model parameters (i.e global kin params concatenated with cell-line specific
+# parameters, flattened for all training set samples/cell-lines).
 x0 = map_params_to_array(model_train)
 
+# Initialise W&B run
+init_wandb(conf, early_stopping_params, schedule_config, pretrain=False)
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     problem_train=pypesto_problem_train,

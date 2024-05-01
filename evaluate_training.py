@@ -59,7 +59,7 @@ def evaluate_training(dataset, conf):
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
-        job=conf.job,# adding job here to produce one plot per multistart
+        job=conf.job, # adding job here to produce one plot per multistart
         orth_reg_strategy=conf.orth_reg_strategy,
         l1reg_inflate=conf.l1reg_inflate,
         oreg_inflate=conf.oreg_inflate,

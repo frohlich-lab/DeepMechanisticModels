@@ -119,3 +119,8 @@ SPLITS = {
 PRETRAIN = {
     "True",
 }
+
+OPTIMISERS = {
+    "adam",
+    "adamw",
+}

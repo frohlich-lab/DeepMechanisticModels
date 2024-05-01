@@ -3,12 +3,28 @@ import dataclasses
 
 from collections import namedtuple
 from cytof import get_samples
+from optax import adam, adamw
 from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
 from typing import List
 
 
-@dataclasses.dataclass
+# define abbreviations/labels for logging of loss terms
+L1EREG = "l1reg_encode"
+OEREG = "oreg_encode"
+L1IREG = "l1reg_inflate"
+OIREG = "oreg_inflate"
+RECON_LOSS = "recon_loss"
+SYMM_LOSS = "symm_reg"
+
+# Optimisers to choose from
+optimisers = {
+    "adam": adam,
+    "adamw": adamw,
+}
+
+
+@dataclasses.dataclass(repr=True)
 class Conf(dict):
     model: str
     data: str
@@ -23,6 +39,7 @@ class Conf(dict):
     inflater_layer_biases: List[bool] = None
     decoder_layer_biases: List[bool] = None
     activation_fn_name: str = "relu"
+    optimiser: str = "adam"
     reconstruct: bool = None
     orth_reg_strategy: str = None
     l1reg_encode: float = 0.0
@@ -36,6 +53,23 @@ class Conf(dict):
     n_starts: int = None
     linear_benchmark: str = None
     use_early_stopping: bool = True
+
+    def __str__(self):
+        """
+        Return string representation with selected hyperparameters.
+        """
+        values = (
+            getattr(self, field.name)
+            for field in dataclasses.fields(self)
+            if field.name not in [
+                "model", "data",
+                "sample",
+                "context", "features",
+                "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
+                "threads" "n_starts"
+            ]
+        )
+        return '__'.join(map(str, values))
 
 
 @dataclasses.dataclass
