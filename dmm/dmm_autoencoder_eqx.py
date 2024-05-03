@@ -317,8 +317,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         L1 regularization of deep encoder weights.
         """
         l1reg_encode_loss = 0
-        for layer_num in range(len(self.deep_encoder.layers)):
-            w = self.deep_encoder.layers[layer_num].weight
+        for layer in self.deep_encoder.layers:
+            w = layer.weight
             l1reg_encode_loss += scale * jnp.mean(
                 jnp.abs(w)
             )
@@ -333,8 +333,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         oreg_encode_loss = 0
         reg_exponent = get_reg_exp(self.orth_reg_strategy)
-        for layer_num in range(len(self.deep_encoder.layers)):
-            w = self.deep_encoder.layers[layer_num].weight
+        for layer in self.deep_encoder.layers:
+            w = layer.weight
             m = jnp.dot(w.T, w)
             oreg_encode_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.eye(m.shape[0]))**reg_exponent
@@ -349,8 +349,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         L1 regularization of deep inflater weights.
         """
         l1reg_inflate_loss = 0
-        for layer_num in range(len(self.deep_inflater.layers)):
-            w = self.deep_inflater.layers[layer_num].weight
+        for layer in self.deep_inflater.layers:
+            w = layer.weight
             l1reg_inflate_loss += scale * jnp.mean(
                 jnp.abs(w)
             )
@@ -366,8 +366,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         oreg_inflate_loss = 0
         reg_exponent = get_reg_exp(self.orth_reg_strategy)
-        for layer_num in range(len(self.deep_inflater.layers)):
-            w = self.deep_inflater.layers[layer_num].weight
+        for layer in self.deep_inflater.layers:
+            w = layer.weight
             m = jnp.dot(w, w.T)
             oreg_inflate_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.diag(jnp.diag(m)))**reg_exponent
