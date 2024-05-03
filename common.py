@@ -36,9 +36,15 @@ class Conf(dict):
     n_hidden: int = None
     encoder_layer_sizes: List[int] = None
     encoder_layer_biases: List[bool] = None
+    encoder_weight_init_fn: str = "eqx_default"
+    encoder_bias_init_fn: str = "eqx_default"
     inflater_layer_sizes: List[int] = None
     inflater_layer_biases: List[bool] = None
+    inflater_weight_init_fn: str = "eqx_default"
+    inflater_bias_init_fn: str = "eqx_default"
     decoder_layer_biases: List[bool] = None
+    decoder_weight_init_fn: str = "eqx_default"
+    decoder_bias_init_fn: str = "eqx_default"
     activation_fn_name: str = "relu"
     optimiser: str = "adam"
     reconstruct: bool = None
@@ -85,6 +91,18 @@ class Conf(dict):
             "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
             "threads", "n_starts", "linear_benchmark", "use_early_stopping"
         ]
+
+        # Avoid including in run name weight and bias initialisation strategies if default
+        for init_strategy, label in zip(
+                [self.encoder_weight_init_fn, self.encoder_bias_init_fn,
+                 self.inflater_weight_init_fn, self.inflater_bias_init_fn,
+                 self.decoder_weight_init_fn, self.decoder_bias_init_fn],
+                ["encoder_weight_init_fn", "encoder_bias_init_fn",
+                 "inflater_weight_init_fn", "inflater_bias_init_fn",
+                 "decoder_weight_init_fn", "decoder_bias_init_fn"]
+        ):
+            if init_strategy == "eqx_default":
+                unwanted_fields += [label]
 
         # Create a list of values for the fields that are not in the unwanted list
         filtered_values = [

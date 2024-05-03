@@ -8,12 +8,12 @@ from typing import Optional, Literal, Union
 
 # Dictionary mapping initialization strategies to JAX initializers (or potentially custom functions)
 init_fn = {
-    "he_normal": initializers.he_normal(),
-    "he_uniform": initializers.he_uniform(),
-    "lecun_normal": initializers.lecun_normal(),
-    "lecun_uniform": initializers.lecun_uniform(),
-    "xavier_normal": initializers.glorot_normal(),
-    "xavier_uniform": initializers.glorot_uniform(),
+    "HN": initializers.he_normal(),
+    "HU": initializers.he_uniform(),
+    "LN": initializers.lecun_normal(),
+    "LU": initializers.lecun_uniform(),
+    "XN": initializers.glorot_normal(),
+    "XU": initializers.glorot_uniform(),
 }
 
 
