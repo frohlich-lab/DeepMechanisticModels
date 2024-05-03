@@ -200,9 +200,6 @@ def train(
             input_data,
             problem_train,
         )
-        # p, s = eqx.partition(model, eqx.is_array)
-        # loss_w_grads = jax.value_and_grad(type(m).loss, argnums=0)
-        # f, grads = loss_w_grads(p, static=s, conf=conf, **kwargs)
         grads = jax.tree_map(
             lambda x: jnp.where(jnp.isfinite(x), x, jnp.zeros_like(x)),
             grads,
