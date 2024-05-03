@@ -8,14 +8,11 @@ import numpy as np
 import numpy.random
 import pandas as pd
 import petab
-from jax import config
 from sklearn import decomposition
 
 from . import MODEL_FEATURE_PREFIX, plot_and_save_fig
 from .encoder import AutoEncoder
 from .problem import Problem
-
-config.update("jax_enable_x64", True)
 
 
 def generate_synthetic_data(
