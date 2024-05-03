@@ -1,17 +1,17 @@
-from typing import List
-
 import equinox as eqx
 import jax.numpy as jnp
 # import numpy as np
 import pandas as pd
+# import petab
 import pypesto.petab
-import petab
-from jax import config
-from jaxtyping import Array
+
 from . import MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
+from jax import config
+from jaxtyping import Array
 from .petab_subproblem import load_petab
 from .problem import Problem
+from typing import List
 
 
 config.update("jax_enable_x64", True)

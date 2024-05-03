@@ -1,5 +1,5 @@
 import equinox as eqx
-import itertools as itt
+# import itertools as itt
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -8,25 +8,24 @@ import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel
+from .wandb_init import log_model_stats
 from .deepcomponent_eqx import DeepComponent
 # CHECK WHETHER WE NEED TO ROLL BACK
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
-from common import EarlyStoppingParams, optimisers, RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG
+from common import EarlyStoppingParams, get_scheduler, optimisers, RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
-from jax import value_and_grad
-from jaxtyping import Array, Float, Int, PyTree
+from jaxtyping import Float, PyTree
 from jaxtyping import Array
-from optax import linear_schedule
 from pathlib import Path
-from .problem import Problem
+# from .problem import Problem
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.objective.jax import JaxObjective
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
-from typing import Dict
+from typing import (Dict, Union)
 
 
 trace_path = Path(__file__).parents[1] / "traces"
@@ -77,8 +76,9 @@ def create_pypesto_problem(
     # )
 
 
+# TODO @GiacomoFabrini expand to get biases as well (and rename)
 def get_weights(
-        module: DeepComponent
+        module: Union[DeepComponent, eqx.Module]
 ) -> jnp.ndarray:
     weights = jnp.concatenate(
         [
@@ -94,10 +94,15 @@ def map_params_to_array(
 ) -> jnp.ndarray:
     encoder_params = get_weights(model.deep_encoder)
     inflater_params = get_weights(model.deep_inflater)
-    kincombiner_params = model.kin_params_combiner.learned_median_params
+    # TODO @GiacomoFabrini reinstate if reinstating .learned_median_params
+    # kincombiner_params = model.kin_params_combiner.learned_median_params
     param_array = jnp.concatenate([
         module_params.flatten()
-        for module_params in [encoder_params, inflater_params, kincombiner_params]
+        for module_params in [
+            encoder_params,
+            inflater_params,
+            # kincombiner_params
+        ]
     ])
     if model.reconstruct:
         decoder_params = get_weights(model.deep_decoder)
@@ -146,7 +151,6 @@ def train(
         input_features_test,
         rfile: Path,
         conf: Dict,
-        schedule_config: Dict,
         n_epoch,
         x0,  # PEtab-compatible embedding of initial parameters
         early_stopping_params: EarlyStoppingParams,
@@ -159,7 +163,7 @@ def train(
 
     # Get schedule and initialise optimiser
     # TODO @GiacomoFabrini: add more complex scheduler
-    schedule = linear_schedule(**schedule_config)
+    schedule = get_scheduler(conf, n_epoch)
     opt = optimisers[conf["optimiser"]](schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
@@ -171,7 +175,7 @@ def train(
     rmse_test_min = np.inf
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
-    if early_stopping_params.use_early_stopping:
+    if conf["use_early_stopping"]:
         if early_stopping_params.patience is None:
             raise ValueError("Patience value for early stopping is undefined.")
         elif early_stopping_params.min_improvement is None:
@@ -204,12 +208,13 @@ def train(
             grads,
         )
         updates, opt_state = opt.update(grads, opt_state, model)
-        model = eqx.apply_updates(model, updates)
-        return model, opt_state, loss_value, grads
+        # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
+        next_model = eqx.apply_updates(model, updates)
+        return next_model, model, opt_state, loss_value, grads
 
     # Training loop
     for epoch in range(n_epoch + 1):
-        model, opt_state, loss_train, grads = make_step(
+        next_model, model, opt_state, loss_train, grads = make_step(
             model=model,
             opt_state=opt_state,
             input_data=input_features_train,
@@ -256,17 +261,17 @@ def train(
                         scale=conf[RECON_LOSS]
                     ),
                     SYMM_LOSS: model.symmetry_loss(scale=conf[SYMM_LOSS])
-                }
+                },
+                step=epoch
             )
 
-        # TODO model should be updated here to get correct fval, reg terms, etc.
-        #  Otherwise all logged values are shifted by 1 epoch
-        # model = eqx.apply_updates(model, updates)
+        # Overwrite model with updated next_model
+        model = next_model
 
         # Update x - same param array that we had before
         x = map_params_to_array(model)
         # Map grads to same shape param array
-        grads = map_params_to_array(grads)
+        grads_array = map_params_to_array(grads)
 
         # Log rmse values every 5 epochs + check early-stopping criteria
         if epoch % 5 == 0:
@@ -283,35 +288,18 @@ def train(
                 rmse_test_min = rmse_dict["test"]
                 opt_x = x.copy()
                 opt_fval = fval
-                opt_grads = grads.copy()
+                opt_grads = grads_array.copy()
 
             wandb.log(
                 {
                     "rmse_train": rmse_dict["train"],
                     "rmse_val": rmse_dict["test"],
-                    # **{
-                    #     f"{val_type}_{xname}": None
-                    #     if not np.all(np.isfinite(value))
-                    #     else wandb.Histogram(value)
-                    #     if val_type == "x"
-                    #     else wandb.Histogram(
-                    #         np.log10(np.abs(value[value != 0]))
-                    #     )
-                    #     # TODO @GiacomoFabrini: need to fix this with proper grads and x!
-                    #     for val_type, values in (
-                    #         ("x", x),
-                    #         ("g", grads),
-                    #     )
-                    #     for xname, value in zip(
-                    #         par_labels,
-                    #         np.split(values, par_dims[:-1]),
-                    #     )
-                    # },
+                    **log_model_stats(model, grads, pretrain=False)
                 },
-                step=epoch,
+                step=epoch
             )
 
-            if early_stopping_params.use_early_stopping:
+            if conf["use_early_stopping"]:
                 # Update early stopper
                 early_stopper = early_stopper.update(rmse_dict["test"])
                 # Debugging statements
@@ -326,7 +314,7 @@ def train(
                     {
                         "patience_counter": early_stopper.patience_count,
                     },
-                    step=epoch,
+                    step=epoch
                 )
                 # Stop training if we have run out of patience
                 if early_stopper.should_stop:
@@ -394,3 +382,6 @@ def rmse(pp,
     except Exception as e:
         print(e)
         return np.NaN
+
+
+

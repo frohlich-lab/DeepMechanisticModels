@@ -178,7 +178,8 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # Instantiate global kinetic parameters component
         self.kin_params_combiner = KinParamsCombiner(
             component_name='kin_params_combiner',
-            n_inflated_specific_kin_params=n_inflated_specific_kin_params,
+            # TODO @GiacomoFabrini reinstate if reinstating .learned_median_params
+            # n_inflated_specific_kin_params=n_inflated_specific_kin_params,
             n_global_kin_params=n_global_kin_params
         )
 

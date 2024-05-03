@@ -124,3 +124,13 @@ OPTIMISERS = {
     "adam",
     "adamw",
 }
+
+# DEFAULT_LINEAR_SCHEDULE = dict(
+#     init_value=1e-2,
+#     transition_steps=100,
+#     end_value=1e-3,
+# )
+
+PATIENCE = 19  # before it was 9 - should correspond to (19+1)*5 = 100 epochs overall
+
+MIN_IMPROVEMENT = 0

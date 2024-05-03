@@ -13,6 +13,7 @@ from dmm.training import create_pypesto_problem, map_params_to_array, train
 from dmm.wandb_init import init_wandb
 from pathlib import Path
 from sklearn.model_selection import train_test_split
+from training_configuration import PATIENCE, MIN_IMPROVEMENT
 
 conf = fire.Fire(Conf)
 
@@ -34,26 +35,16 @@ input_features_train, input_features_test = (
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
 
-# Setup training configuration: schedule / early-stopping (same for pretraining and training) - FOR NOW
 # TODO @GiacomoFabrini - differentiate schedule and early-stop between network pretraining and whole DMM training?
-schedule_config = dict(
-    init_value=1e-2,
-    transition_steps=100,
-    end_value=1e-3,
-)
-
 early_stopping_params = EarlyStoppingParams(
-    use_early_stopping=True,  # enables flax.training.early_stopping
-    patience=9,  # number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
-    # flax evaluates early_stop.should_stop before updating early_stop.patience_count, so it actually stops
-    # when early_stop.patience_count=patience+1, hence setting it to 9 for a desired max early_stop.patience_count=10
-    min_improvement=0,  # min_delta for flax.training.early_stopping: absolute improvement
-    # 1% relative improvement on rmse_val around 0.5 corresponds to 5e-3 absolute improvement
-    # reducing this to 0 to prolong training - 04.04.2024 (Fabian's suggestion)
+    patience=PATIENCE,  # (n_epoch-1) where we tolerate `rmse_val` not improving by at least min_improvement
+    min_improvement=MIN_IMPROVEMENT,  # min absolute improvement not to lose patience (i.e. increase patience counter)
 )
 
-# TODO - KinParamsCombiner init?
-# Linear benchmark: initialise via linear_nn_init. 0 items in layer_sizes = no hidden layers.
+# There are three scenarios:
+# 1. No hidden layers, linear_benchmark enabled - PCA/least squares initialisation for encoder/inflater (old approach)
+# 2. No hidden layers, linear_benchmark disabled - pretraining
+# 3. Hidden layers, linear_benchmark enabled - linear benchmark ignored -> pretraining
 if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0) and conf.linear_benchmark:
     model_train = linear_nn_init(
         conf=conf,
@@ -76,8 +67,8 @@ if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0
         model_test,
         nn_pretrain=False,
     )
-elif (len(conf.encoder_layer_sizes) > 0) and (len(conf.inflater_layer_sizes) > 0) and conf.linear_benchmark:
-    raise ValueError("Linear benchmark is not possible with non-zero hidden layers!")
+# elif (len(conf.encoder_layer_sizes) > 0) and (len(conf.inflater_layer_sizes) > 0) and conf.linear_benchmark:
+#     raise ValueError("Linear benchmark is not possible with non-zero hidden layers!")
 else:
     # Get training targets as parameter deviations (second component, while first contains medians)
     _, par_deviation_train = get_kin_params_median_deviation(conf, model_train)
@@ -96,7 +87,7 @@ else:
         nn_pretrain=True,
     )
     # Initialise W&B run
-    init_wandb(conf, early_stopping_params, schedule_config, pretrain=True)
+    init_wandb(model_train, conf, early_stopping_params, pretrain=True)
     # Get pretrained model
     pretrained_model = pretrain_network(
         model=model_train,
@@ -107,7 +98,6 @@ else:
         validation_targets=targets_pretrain_val.T,
         conf=conf.__dict__,
         # rfile=rfile,
-        schedule_config=schedule_config,
         n_epoch=1000,
         early_stopping_params=early_stopping_params,
     )
@@ -132,7 +122,7 @@ pypesto_problem_train, pypesto_problem_test = (
 x0 = map_params_to_array(model_train)
 
 # Initialise W&B run
-init_wandb(conf, early_stopping_params, schedule_config, pretrain=False)
+init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     problem_train=pypesto_problem_train,
@@ -141,7 +131,6 @@ train(
     problem_test=pypesto_problem_test,
     conf=conf.__dict__,
     rfile=rfile,
-    schedule_config=schedule_config,
     n_epoch=1000,
     x0=x0,
     early_stopping_params=early_stopping_params,

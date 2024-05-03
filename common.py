@@ -1,12 +1,13 @@
-import numpy as np
 import dataclasses
+import numpy as np
+import optax
 
 from collections import namedtuple
 from cytof import get_samples
 from optax import adam, adamw
 from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
-from typing import List
+from typing import Dict, List, Optional
 
 
 # define abbreviations/labels for logging of loss terms
@@ -53,23 +54,45 @@ class Conf(dict):
     n_starts: int = None
     linear_benchmark: str = None
     use_early_stopping: bool = True
+    use_simple_linear_schedule: bool = True
+    max_lrate: float = 0.01  # absolute maximum learning rate (max in first schedule or in all schedules without decay)
+    lrate_span: float = 1e0  # ratio between max and min learning rates in a given schedule
+    lrate_decay: float = 0.98  # if < 1, the learning rate decays between schedules.
+    # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
+    warmup_fct: float = 0.0  # fraction of schedule epochs to be used for warmup
+    opt_steps: int = 10  # Number of steps in the first schedule (they multiply each time in length by opt_mult)
+    opt_mult: int = 2  # Multiplier for the number of steps in each schedule
 
-    def __str__(self):
+    # they did not use early_stop in original UDE paper
+
+    def __str__(
+            self,
+            replace: Optional[Dict[str, str]] = None,
+    ):
         """
         Return string representation with selected hyperparameters.
         """
-        values = (
-            getattr(self, field.name)
-            for field in dataclasses.fields(self)
-            if field.name not in [
-                "model", "data",
-                "sample",
-                "context", "features",
-                "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
-                "threads" "n_starts"
-            ]
-        )
-        return '__'.join(map(str, values))
+        # Generate a dictionary of field names and values
+        field_dict = {field.name: getattr(self, field.name) for field in dataclasses.fields(self)}
+
+        # Update the field_dict with any replacements specified
+        if replace is not None:
+            field_dict.update(replace)
+
+        # Filter out unwanted fields from the final string representation
+        unwanted_fields = [
+            "model", "data", "sample", "context", "features",
+            "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
+            "threads", "n_starts", "linear_benchmark", "use_early_stopping"
+        ]
+
+        # Create a list of values for the fields that are not in the unwanted list
+        filtered_values = [
+            field_dict[field] for field in field_dict if field not in unwanted_fields
+        ]
+
+        # Return the joined string of the filtered values
+        return '__'.join(map(str, filtered_values))
 
 
 @dataclasses.dataclass
@@ -269,3 +292,53 @@ def select_values(data, num_selected: int):
     selected_values = [data_list[i] for i in indices]
 
     return selected_values
+
+
+def get_scheduler(
+        conf: Dict,
+        n_epoch: int,
+) -> optax.Schedule:
+    """Get the learning rate scheduler.
+
+    Parameters
+    ----------
+    conf : configuration object
+    n_epoch : int - total number of training epochs
+
+    Returns
+    ----------
+    optax.sgdr_schedule
+        The learning rate scheduler.
+    """
+    if conf["use_simple_linear_schedule"]:
+        # Define custom steps to use the same machinery as below - schedule config should
+        # be entirely within conf object
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
+                'peak_value': conf["max_lrate"],  # after warm-up
+                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
+                'decay_steps': n_epoch,  # entire n_epoch
+                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch, # after decay
+            }  # single linear schedule
+        ]
+    else:
+        epochs_per_schedule = np.array([
+            conf["opt_steps"] * (conf["opt_mult"] ** i)
+            for i in range(int(n_epoch // conf["opt_steps"]))
+            if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
+        ])
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                'warmup_steps': int(
+                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
+                    * conf["warmup_fct"]
+                ),
+                'decay_steps': int(conf["opt_steps"]  * (conf["opt_mult"] ** i_schedule)),
+                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
+            }
+            for i_schedule in range(len(epochs_per_schedule))
+        ]
+    return optax.sgdr_schedule(schedules)

@@ -7,12 +7,12 @@ import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
+from .wandb_init import log_model_stats
 from .deepcomponent_eqx import DeepComponent
-from common import EarlyStoppingParams, optimisers, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
+from common import EarlyStoppingParams, get_scheduler, optimisers, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
 from flax.training.early_stopping import EarlyStopping
-from jaxtyping import Array, Float, Int, PyTree
-from optax import linear_schedule
-from pathlib import Path
+from jaxtyping import Array, Float, PyTree
+# from pathlib import Path
 from typing import Dict
 
 
@@ -102,7 +102,6 @@ def pretrain_network(
         validation_targets: Float[Array, '...'],
         # rfile: Path,
         conf: Dict,
-        schedule_config: Dict,
         n_epoch,
         early_stopping_params: EarlyStoppingParams,
 ) -> pypesto.Result:
@@ -112,13 +111,12 @@ def pretrain_network(
     """
 
     # Get schedule and initialise optimiser
-    # TODO @GiacomoFabrini: add more complex scheduler
-    schedule = linear_schedule(**schedule_config)
+    schedule = get_scheduler(conf, n_epoch)
     opt = optimisers[conf["optimiser"]](schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
-    if early_stopping_params.use_early_stopping:
+    if conf["use_early_stopping"]:
         if early_stopping_params.patience is None:
             raise ValueError("Patience value for early stopping is undefined.")
         elif early_stopping_params.min_improvement is None:
@@ -152,13 +150,14 @@ def pretrain_network(
             grads,
         )
         updates, opt_state = opt.update(grads, opt_state, model)
-        model = eqx.apply_updates(model, updates)
-        return model, opt_state, loss_value, grads
+        # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
+        next_model = eqx.apply_updates(model, updates)
+        return next_model, model, opt_state, loss_value, grads
 
     # Training loop
     for epoch in range(n_epoch + 1):
-        # Make training step - model is updated
-        model, opt_state, loss_train, grads = make_pretrain_step(
+        # Make training step - model is not updated to get current metrics
+        next_model, model, opt_state, loss_train, grads = make_pretrain_step(
             model,
             filter_spec,
             opt_state,
@@ -188,10 +187,10 @@ def pretrain_network(
         # Log individual regularisation terms - not input dependent (same for train and val)
         for reg_fun, label in zip(
                 (
-                        model.l1_encode_reg,
-                        model.orth_encode_reg,
-                        model.l1_inflate_reg,
-                        model.orth_inflate_reg,
+                    model.l1_encode_reg,
+                    model.orth_encode_reg,
+                    model.l1_inflate_reg,
+                    model.orth_inflate_reg,
                 ),
                 (L1EREG, OEREG, L1IREG, OIREG),
         ):
@@ -215,15 +214,18 @@ def pretrain_network(
                 step=epoch,
             )
 
+        # Overwrite `model` with updated `next_model`
+        model = next_model
+
         # Log rmse values every 5 epochs + check early-stopping criteria
         if epoch % 5 == 0:
             # TODO @GiacomoFabrini - log param values and grads
-            # wandb.log(
-            #     {
-            #
-            #     },
-            #     step=epoch,
-            # )
+            wandb.log(
+                {
+                  **log_model_stats(model, grads, pretrain=True)
+                },
+                step=epoch,
+            )
 
             if conf["use_early_stopping"]:
                 # Update early stopper
