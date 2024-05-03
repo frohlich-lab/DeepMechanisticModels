@@ -127,6 +127,10 @@ def pretrain_network(
                 patience=early_stopping_params.patience
             )
 
+    # Keep track of best performing model on validation set (actually a part of the DMM training set)
+    best_model = model
+    best_loss_val = jnp.inf
+
     @eqx.filter_jit
     def make_pretrain_step(
             model: DeepMechanisticModel,
@@ -173,6 +177,11 @@ def pretrain_network(
             input_data=validation_data,
             targets=validation_targets.flatten(),
         )
+
+        # Update best model and best loss estimate
+        if loss_val < best_loss_val:
+            best_loss_val = loss_val
+            best_model = model
 
         # Log loss_train and loss_val, as well as param values and grads
         # TODO @GiacomoFabrini add param value and grad logging
@@ -253,5 +262,4 @@ def pretrain_network(
     wandb.finish()
 
     # TODO @GiacomoFabrini - need to serialise model in some way?!
-
-    return model
+    return best_model

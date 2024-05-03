@@ -162,7 +162,6 @@ def train(
     """
 
     # Get schedule and initialise optimiser
-    # TODO @GiacomoFabrini: add more complex scheduler
     schedule = get_scheduler(conf, n_epoch)
     opt = optimisers[conf["optimiser"]](schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
@@ -172,6 +171,7 @@ def train(
     opt_x = x.copy()
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
+    best_model = model
     rmse_test_min = np.inf
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
@@ -190,7 +190,7 @@ def train(
     def make_step(
             model: DeepMechanisticModel,
             opt_state: PyTree,
-            input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape
+            input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
             problem_train: pypesto.Problem,
             conf: Dict,
     ):
@@ -283,6 +283,7 @@ def train(
 
             if rmse_dict["test"] < rmse_test_min:
                 rmse_test_min = rmse_dict["test"]
+                best_model = model
                 opt_x = x.copy()
                 opt_fval = fval
                 opt_grads = grads_array.copy()
@@ -350,6 +351,8 @@ def train(
     rfile.parent.mkdir(exist_ok=True, parents=True)
     writer = OptimizationResultHDF5Writer(str(rfile))
     writer.write(result, overwrite=True)
+
+    # TODO @GiacomoFabrini: need to serialise best_model here
 
     return result
 
