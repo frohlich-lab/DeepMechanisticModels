@@ -7,9 +7,7 @@ from typing import List, Union
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
-from jax import config
 
-config.update("jax_enable_x64", True)
 
 class AutoEncoder(eqx.Module):
     """

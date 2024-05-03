@@ -5,7 +5,7 @@ from dmm.custom_layers_eqx import (
     CustomInitLinear,
     init_fn
 )
-from jax import config, nn, random
+from jax import nn, random
 from jaxtyping import Array
 from typing import (
     Callable,
@@ -13,7 +13,6 @@ from typing import (
     Union,
 )
 
-config.update("jax_enable_x64", True)
 
 # TODO @GiacomoFabrini LATER: consider adding eqx.nn.PReLU (parametric leaky ReLU)
 act_fn_by_name = {

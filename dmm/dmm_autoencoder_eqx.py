@@ -7,14 +7,10 @@ import pypesto.petab
 
 from . import MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
-from jax import config
 from jaxtyping import Array
 from .petab_subproblem import load_petab
 from .problem import Problem
 from typing import List
-
-
-config.update("jax_enable_x64", True)
 
 
 def init_biases(biases, layer_sizes, component_name):

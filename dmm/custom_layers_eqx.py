@@ -1,12 +1,10 @@
 import equinox as eqx
 import jax.nn.initializers as initializers
 # import jax.numpy as jnp
-from jax import config, random
+import jax.random as jr
 from jaxtyping import Array
 from typing import Optional, Literal, Union
 
-
-config.update("jax_enable_x64", True)
 
 # Dictionary mapping initialization strategies to JAX initializers (or potentially custom functions)
 init_fn = {

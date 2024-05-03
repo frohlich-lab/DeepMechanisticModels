@@ -11,6 +11,7 @@ from dmm.initialisation import (linear_nn_init,
 from dmm.network_pretraining import pretrain_network
 from dmm.training import create_pypesto_problem, map_params_to_array, train
 from dmm.wandb_init import init_wandb
+from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from training_configuration import PATIENCE, MIN_IMPROVEMENT
@@ -18,6 +19,9 @@ from training_configuration import PATIENCE, MIN_IMPROVEMENT
 conf = fire.Fire(Conf)
 
 rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+
+# Set JAX configuration
+config.update("jax_enable_x64", True)
 
 # Setup models
 (model_train, model_test), problem = load_models(
