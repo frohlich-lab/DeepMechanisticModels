@@ -69,8 +69,6 @@ class Conf(dict):
     opt_steps: int = 10  # Number of steps in the first schedule (they multiply each time in length by opt_mult)
     opt_mult: int = 2  # Multiplier for the number of steps in each schedule
 
-    # they did not use early_stop in original UDE paper
-
     def __str__(
             self,
             replace: Optional[Dict[str, str]] = None,
@@ -89,6 +87,7 @@ class Conf(dict):
         unwanted_fields = [
             "model", "data", "sample", "context", "features",
             "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
+            "encoder_output_bias", "inflater_output_bias", "decoder_output_bias",
             "threads", "n_starts", "linear_benchmark", "use_early_stopping"
         ]
 
@@ -118,6 +117,14 @@ class EarlyStoppingParams(dict):
     use_early_stopping: bool = True
     patience: int = 9
     min_improvement: float = 0
+
+
+@dataclasses.dataclass
+class ModuleParams(dict):
+    layer_sizes: List[int]
+    layer_biases: Optional[List[bool]] = None  # no learnable bias
+    weight_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
+    bias_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
 
 
 CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])

@@ -10,7 +10,7 @@ from dmm.initialisation import (linear_nn_init,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
 from dmm.training import create_pypesto_problem, map_params_to_array, train
-from dmm.wandb_init import init_wandb
+from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
@@ -96,10 +96,10 @@ else:
     pretrained_model = pretrain_network(
         model=model_train,
         filter_spec=filter_spec,
-        training_data=data_pretrain_train.T,
-        training_targets=targets_pretrain_train.T,
-        validation_data=data_pretrain_val.T,
-        validation_targets=targets_pretrain_val.T,
+        training_data=data_pretrain_train,  # (batch_size, input_size)
+        training_targets=targets_pretrain_train,  # (batch_size, output_size)
+        validation_data=data_pretrain_val,
+        validation_targets=targets_pretrain_val,
         conf=conf.__dict__,
         # rfile=rfile,
         n_epoch=1000,
@@ -130,8 +130,8 @@ init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     problem_train=pypesto_problem_train,
-    input_features_train=input_features_train.T,
-    input_features_test=input_features_test.T,
+    input_features_train=input_features_train,
+    input_features_test=input_features_test,
     problem_test=pypesto_problem_test,
     conf=conf.__dict__,
     rfile=rfile,

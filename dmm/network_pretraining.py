@@ -7,8 +7,9 @@ import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
-from .wandb_init import log_model_stats
+from .wandb_init_log import log_model_stats
 from .deepcomponent_eqx import DeepComponent
+from .training_helper_funcs import get_finite_grads
 from common import EarlyStoppingParams, get_scheduler, optimisers, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
@@ -18,18 +19,6 @@ from typing import Dict
 
 # trace_path = Path(__file__).parents[1] / "traces"
 # TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
-
-
-def get_weights(
-        module: DeepComponent
-) -> jnp.ndarray:
-    weights = jnp.concatenate(
-        [
-            module.layers[i].weight.flatten()
-            for i in range(len(module.layers))
-        ]
-    )
-    return weights
 
 
 @eqx.filter_value_and_grad
@@ -42,12 +31,12 @@ def loss_and_grads_pretrain(
 ):
     # recombine the two parts of the model
     model = eqx.combine(diff_model, static_model)
-    # Get model output and remove components corresponding to global kinetic parameters
-    pred = model(input_data)[0][len(model.kin_params_combiner.learned_global_kin_params):]
+    # Get model output (inflated cell-line-specific parameter deviations)
+    pred = jax.vmap(model)(input_data)[0]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
     loss_value = (
-            mse(pred, targets)
+            mse(pred.flatten(), targets.flatten())
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -70,12 +59,12 @@ def loss_pretrain(
         input_data: Float[Array, '...'],
         targets: Float[Array, '...'],
 ):
-    # Get model output and remove components corresponding to global kinetic parameters
-    pred = model(input_data)[0][len(model.kin_params_combiner.learned_global_kin_params):]
+    # Get model output (inflated cell-line-specific parameter deviations)
+    pred = jax.vmap(model)(input_data)[0]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
     loss_value = (
-            mse(pred, targets)
+            mse(pred.flatten(), targets.flatten())
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -146,13 +135,10 @@ def pretrain_network(
             static_model,
             conf,
             input_data,
-            targets.flatten(),
+            targets,
         )
         # ensure gradients are finite
-        grads = jax.tree_map(
-            lambda x: jnp.where(jnp.isfinite(x), x, jnp.zeros_like(x)),
-            grads,
-        )
+        grads = get_finite_grads(grads)
         updates, opt_state = opt.update(grads, opt_state, model)
         # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
         next_model = eqx.apply_updates(model, updates)
@@ -175,7 +161,7 @@ def pretrain_network(
             model=model,
             conf=conf,
             input_data=validation_data,
-            targets=validation_targets.flatten(),
+            targets=validation_targets,
         )
 
         # Update best model and best loss estimate

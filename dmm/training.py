@@ -1,5 +1,4 @@
 import equinox as eqx
-# import itertools as itt
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -8,9 +7,9 @@ import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from .wandb_init import log_model_stats
-from .deepcomponent_eqx import DeepComponent
-# CHECK WHETHER WE NEED TO ROLL BACK
+from .wandb_init_log import log_model_stats
+from .training_helper_funcs import get_finite_grads, map_params_to_array
+# CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
 from common import EarlyStoppingParams, get_scheduler, optimisers, RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG
@@ -19,13 +18,12 @@ from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Float, PyTree
 from jaxtyping import Array
 from pathlib import Path
-# from .problem import Problem
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.objective.jax import JaxObjective
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
-from typing import (Dict, Union)
+from typing import Dict
 
 
 trace_path = Path(__file__).parents[1] / "traces"
@@ -76,41 +74,21 @@ def create_pypesto_problem(
     # )
 
 
-# TODO @GiacomoFabrini expand to get biases as well (and rename)
-def get_weights(
-        module: Union[DeepComponent, eqx.Module]
-) -> jnp.ndarray:
-    weights = jnp.concatenate(
+@eqx.filter_jit
+def model_output_to_petab_input(
+        model: DeepMechanisticModel,
+        input_data,
+):
+    # Get model output (inflated cell-line-specific parameter deviations)
+    pred = jax.vmap(model)(input_data)[0]
+    # Concatenate learnable global kinetic parameters with pred
+    augmented_pred = jnp.concatenate(
         [
-            module.layers[i].weight.flatten()
-            for i in range(len(module.layers))
+            model.kin_params_combiner.learned_global_kin_params,
+            pred.flatten()
         ]
     )
-    return weights
-
-
-def map_params_to_array(
-        model: DeepMechanisticModel
-) -> jnp.ndarray:
-    encoder_params = get_weights(model.deep_encoder)
-    inflater_params = get_weights(model.deep_inflater)
-    # TODO @GiacomoFabrini reinstate if reinstating .learned_median_params
-    # kincombiner_params = model.kin_params_combiner.learned_median_params
-    param_array = jnp.concatenate([
-        module_params.flatten()
-        for module_params in [
-            encoder_params,
-            inflater_params,
-            # kincombiner_params
-        ]
-    ])
-    if model.reconstruct:
-        decoder_params = get_weights(model.deep_decoder)
-        param_array = jnp.concatenate([param_array.flatten(), decoder_params.flatten()])
-    param_array = jnp.concatenate([param_array, model.kin_params_combiner.learned_global_kin_params.flatten()])
-    if len(param_array) != len(model.x_names):
-        raise ValueError("Number of parameters does not match number of parameter names!")
-    return param_array
+    return augmented_pred
 
 
 @eqx.filter_value_and_grad
@@ -125,7 +103,9 @@ def loss_fn(
     # transformed the parameters into kinetic parameters (global) + inflated parameters (i.e. input data passed
     # through encoder + inflater and flattened). This is now the first component of the output of the model.
     # call.
-    fval = problem_train.objective(model(input_data)[0])
+    fval = problem_train.objective(
+        model_output_to_petab_input(model, input_data)
+    )
     loss_value = (
             fval
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
@@ -200,10 +180,7 @@ def train(
             input_data,
             problem_train,
         )
-        grads = jax.tree_map(
-            lambda x: jnp.where(jnp.isfinite(x), x, jnp.zeros_like(x)),
-            grads,
-        )
+        grads = get_finite_grads(grads)
         updates, opt_state = opt.update(grads, opt_state, model)
         # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
         next_model = eqx.apply_updates(model, updates)
@@ -220,7 +197,9 @@ def train(
         )
 
         # Get current fval for logging purposes
-        fval = problem_train.objective(model(input_features_train)[0])
+        fval = problem_train.objective(
+            model_output_to_petab_input(model, input_features_train)
+        )
 
         # Log fval and loss_train at this epoch
         wandb.log(
@@ -361,7 +340,7 @@ def rmse(pp,
          model: DeepMechanisticModel,
          input_data):
     try:
-        x = model(input_data)[0]
+        x = model_output_to_petab_input(model, input_data)
         obj = pp.objective.base_objective
         amici_model = obj.amici_model
         petab_problem = obj.amici_object_builder.petab_problem

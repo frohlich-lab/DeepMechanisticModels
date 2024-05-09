@@ -1,4 +1,5 @@
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 # import numpy as np
 import pandas as pd
@@ -6,19 +7,12 @@ import pandas as pd
 import pypesto.petab
 
 from . import MODEL_FEATURE_PREFIX
+from common import ModuleParams
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from jaxtyping import Array
 from .petab_subproblem import load_petab
 from .problem import Problem
-from typing import List
-
-
-def init_biases(biases, layer_sizes, component_name):
-    if biases is None:
-        biases = [False] * len(layer_sizes)
-    elif len(biases) != len(layer_sizes):
-        raise ValueError(f"{component_name}: biases must have the same length as layer_sizes")
-    return biases
+from typing import List, Optional
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -39,6 +33,35 @@ def mse(
     Computes the Mean Squared Error (MSE) between predictions and targets.
     """
     return jnp.mean(jnp.square(predictions - targets))
+
+
+def init_biases(biases, num_layers):
+    if biases is None:
+        biases = [False] * num_layers
+    elif len(biases) == 1:  # admit [True] or [False] as shortcuts
+        biases = [biases[0]] * num_layers
+    elif len(biases) != num_layers:
+        raise ValueError("Biases must have the same length as layer_sizes!")
+    return biases
+
+
+def update_module_params_dict(
+        module_params: ModuleParams,
+        new_layer_sizes: List[int],
+) -> ModuleParams:
+    # Initialise biases (in case of None or single value definitions)
+    new_layer_biases = init_biases(
+        biases=module_params.layer_biases,
+        num_layers=(len(new_layer_sizes) - 1),
+    )
+    # Produce updated module parameters dictionary
+    updated_module_params = ModuleParams(
+        layer_sizes=new_layer_sizes,
+        layer_biases=new_layer_biases,
+        weight_init_fn=module_params.weight_init_fn,
+        bias_init_fn=module_params.bias_init_fn
+    )
+    return updated_module_params
 
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
@@ -63,8 +86,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self,
             problem: Problem,
             dataset: str,
-            encoder_layer_sizes: List[int],  # decoder_layer_sizes = encoder_layer_sizes[::-1]
-            inflater_layer_sizes: List[int],
+            encoder_params: ModuleParams,
+            inflater_params: ModuleParams,
+            decoder_params: ModuleParams,
             key: int,
             measurement_table: pd.DataFrame,
             observable_table: pd.DataFrame,
@@ -73,21 +97,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             n_input_features: int,
             n_latent: int,
             n_threads=1,
-            # default for all modules: use eqx.nn.Linear layers
-            encoder_weight_init_fn: str = "eqx_default",
-            encoder_bias_init_fn: str = "eqx_default",
-            inflater_weight_init_fn: str = "eqx_default",
-            inflater_bias_init_fn: str = "eqx_default",
-            decoder_weight_init_fn: str = "eqx_default",
-            decoder_bias_init_fn: str = "eqx_default",
-            # default: no learnable biases
-            encoder_layer_biases: List[bool] = None,
-            inflater_layer_biases: List[bool] = None,
-            decoder_layer_biases: List[bool] = None,
-            # default: input and output layers have no bias - only matters if layer_biases is not None
-            encoder_input_output_bias: List[bool] = None,
-            inflater_input_output_bias: List[bool] = None,
-            decoder_input_output_bias: List[bool] = None,
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
@@ -100,42 +109,14 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param problem:
             problem.pathway_name contains the name of pathway to use for model.
 
+        :param encoder_params:
+            dictionary containing parameters for encoder module.
 
-        -- ENCODER-specific params
-        :param encoder_layer_sizes:
-            list of hidden layer sizes for encoder component (and decoder component, in reverse).
+        :param inflater_params:
+            dictionary containing parameters for inflater module.
 
-        :param encoder_weight_init_fn:
-            encoder weight initialisation strategy.
-
-        :param encoder_bias_init_fn:
-            encoder bias initialisation strategy.
-
-        :param encoder_layer_biases:
-            list of bool values indicating whether to add a learnable bias or not for encoder layers.
-
-        -- INFLATER-specific params
-        :param inflater_layer_sizes:
-            list of hidden layer sizes for inflater component.
-
-        :param inflater_weight_init_fn:
-            inflater weight initialisation strategy.
-
-        :param inflater_bias_init_fn:
-            inflater bias initialisation strategy.
-
-        :param inflater_layer_biases:
-            list of bool values indicating whether to add a learnable bias or not for inflater layers.
-
-        -- DECODER-specific params
-        :param decoder_weight_init_fn:
-            decoder weight initialisation strategy.
-
-        :param decoder_bias_init_fn:
-            decoder bias initialisation strategy.
-
-        :param decoder_layer_biases:
-            list of bool values indicating whether to add a learnable bias or not for decoder layers.
+        :param decoder_params:
+            dictionary containing parameters for decoder module.
 
         -- OTHER params
         :param key:
@@ -219,74 +200,36 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.reconstruct = reconstruct
 
         # Update layer_sizes (hidden layers) to include input and output layers
-        encoder_layer_sizes = [self.n_input_features] + encoder_layer_sizes + [self.n_latent]
-        inflater_layer_sizes = [self.n_latent] + inflater_layer_sizes + [self.n_inflated_specific_kin_params]
+        updated_encoder_layer_sizes = ([self.n_input_features]
+                                       + encoder_params.layer_sizes
+                                       + [self.n_latent])
+        updated_inflater_layer_sizes = ([self.n_latent]
+                                        + inflater_params.layer_sizes
+                                        + [self.n_inflated_specific_kin_params])
 
-        # Same for biases - default
-        # if both lists are defined, augment them / if not, simply keep None and they will be initialised to False
-        if (encoder_layer_biases is not None) and (encoder_input_output_bias is not None):
-            encoder_layer_biases = ([encoder_input_output_bias[0]]
-                                    + encoder_layer_biases
-                                    + [encoder_input_output_bias[-1]])
-        if (decoder_layer_biases is not None) and (decoder_input_output_bias is not None):
-            decoder_layer_biases = ([decoder_input_output_bias[0]]
-                                    + decoder_layer_biases
-                                    + [decoder_input_output_bias[-1]])
-        if (inflater_layer_biases is not None) and (inflater_input_output_bias is not None):
-            inflater_layer_biases = ([inflater_input_output_bias[0]]
-                                     + inflater_layer_biases
-                                     + [inflater_input_output_bias[-1]])
-
-        # Initialise module biases to default value if None (i.e. use_bias = False for all)
-        # Check for shape mismatches between layer_sizes and layer_biases
-        encoder_layer_biases = init_biases(
-            biases=encoder_layer_biases,
-            layer_sizes=encoder_layer_sizes,
-            component_name="encoder"
+        # Get updated encoder, inflater and decoder parameter dictionaries
+        encoder_params_dict = update_module_params_dict(
+            module_params=encoder_params,
+            new_layer_sizes=updated_encoder_layer_sizes,
         )
-        inflater_layer_biases = init_biases(
-            biases=inflater_layer_biases,
-            layer_sizes=inflater_layer_sizes,
-            component_name="inflater"
+        inflater_params_dict = update_module_params_dict(
+            module_params=inflater_params,
+            new_layer_sizes=updated_inflater_layer_sizes,
         )
-        decoder_layer_biases = init_biases(
-            biases=decoder_layer_biases,
-            layer_sizes=encoder_layer_sizes,
-            component_name="decoder"
+        decoder_params_dict = update_module_params_dict(
+            module_params=decoder_params,
+            new_layer_sizes=updated_encoder_layer_sizes[::-1],  # same as during initialisation
         )
-
-        # encoder parameters/properties
-        encoder_params_dict = {
-            "encoder_layer_sizes": encoder_layer_sizes,
-            "encoder_layer_biases": encoder_layer_biases,
-            "encoder_weight_init_fn": encoder_weight_init_fn,
-            "encoder_bias_init_fn": encoder_bias_init_fn,
-        }
-        # inflater parameters/properties
-        inflater_params_dict = {
-            "inflater_layer_sizes": inflater_layer_sizes,
-            "inflater_layer_biases": inflater_layer_biases,
-            "inflater_weight_init_fn": inflater_weight_init_fn,
-            "inflater_bias_init_fn": inflater_bias_init_fn,
-        }
-        # decoder parameters/properties
-        decoder_params_dict = {
-            "decoder_layer_biases": decoder_layer_biases,
-            "decoder_weight_init_fn": decoder_weight_init_fn,
-            "decoder_bias_init_fn": decoder_bias_init_fn,
-        }
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            n_input_features=self.n_input_features,
             n_inflated_specific_kin_params=self.n_inflated_specific_kin_params,
             n_global_kin_params=self.n_global_kin_params,
-            **encoder_params_dict,
-            **inflater_params_dict,
-            **decoder_params_dict,
+            encoder_params=encoder_params_dict,
+            inflater_params=inflater_params_dict,
+            decoder_params=decoder_params_dict,
             key=key,
             activation_fn_name=self.activation_fn_name,
-            orth_reg_strategy=self.orth_reg_strategy,
             reconstruct=self.reconstruct,
         )
 
@@ -379,7 +322,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         Reconstruction loss of the autoencoder (in case self.reconstruct == True).
         Simple Mean Squared Error (without the sqrt for now!)
         """
-        reconstructed_x = self(x=x)[1]  # decoded
+        reconstructed_x = jax.vmap(self)(x)[1]  # decoded
         # TODO @GiacomoFabrini: consider moving all MSEs to RMSEs?!
         #  Are they on the same scale/order of magnitude as
         #  L1 terms if we leave them squared?!

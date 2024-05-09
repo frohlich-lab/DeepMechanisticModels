@@ -9,6 +9,7 @@ import scipy.linalg as la
 
 from common import (
     Conf,
+    ModuleParams,
     FEATURES_OUTFILE,
     MODEL_FEATURE_PREFIX,
     PER_SAMPLE_OUTFILE_PARS
@@ -48,21 +49,33 @@ def load_models(
         "train+test": ["train", "val"],
     }
 
+    # Define encoder, inflater and decoder parameters
+    encoder_params = ModuleParams(
+        layer_sizes=conf.encoder_layer_sizes,
+        layer_biases=conf.encoder_layer_biases,
+        weight_init_fn=conf.encoder_weight_init_fn,
+        bias_init_fn=conf.encoder_bias_init_fn,
+    )
+    inflater_params = ModuleParams(
+        layer_sizes=conf.inflater_layer_sizes,
+        layer_biases=conf.inflater_layer_biases,
+        weight_init_fn=conf.inflater_weight_init_fn,
+        bias_init_fn=conf.inflater_bias_init_fn,
+    )
+    decoder_params = ModuleParams(
+        layer_sizes=conf.encoder_layer_sizes[::-1],  # decoder layer sizes mirror encoder layer sizes
+        layer_biases=conf.decoder_layer_biases,
+        weight_init_fn=conf.decoder_weight_init_fn,
+        bias_init_fn=conf.decoder_bias_init_fn,
+    )
+
     dmm_params = {
         'problem': problem,
         'dataset': conf.data,
         'n_latent': conf.n_hidden,
-        'encoder_layer_sizes': conf.encoder_layer_sizes,
-        'encoder_layer_biases': conf.encoder_layer_biases,
-        'encoder_weight_init_fn': conf.encoder_weight_init_fn,
-        'encoder_bias_init_fn': conf.encoder_bias_init_fn,
-        'inflater_layer_sizes': conf.inflater_layer_sizes,
-        'inflater_layer_biases': conf.inflater_layer_biases,
-        'inflater_weight_init_fn': conf.inflater_weight_init_fn,
-        'inflater_bias_init_fn': conf.inflater_bias_init_fn,
-        'decoder_layer_biases': conf.decoder_layer_biases,
-        'decoder_weight_init_fn': conf.decoder_weight_init_fn,
-        'decoder_bias_init_fn': conf.decoder_bias_init_fn,
+        'encoder_params': encoder_params,
+        'inflater_params': inflater_params,
+        'decoder_params': decoder_params,
         'orth_reg_strategy': conf.orth_reg_strategy,
         'activation_fn_name': conf.activation_fn_name,
         'reconstruct': conf.reconstruct,
@@ -83,17 +96,17 @@ def load_models(
             key=subkey,
         )
         for features, subkey in zip(
-        [
-            pd.read_csv(
-                FEATURES_OUTFILE.format_map(
-                    dict(**conf.__dict__, dataset=setting)
-                ),
-                index_col=0
-            )
-            for setting in settings[dataset]
-        ],
-        keys
-    )
+            [
+                pd.read_csv(
+                    FEATURES_OUTFILE.format_map(
+                        dict(**conf.__dict__, dataset=setting)
+                    ),
+                    index_col=0
+                )
+                for setting in settings[dataset]
+            ],
+            keys
+        )
     )
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
