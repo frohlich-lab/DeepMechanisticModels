@@ -94,7 +94,7 @@ class DeepComponent(eqx.Module):
         of `init_fn` dictionary.
     """
 
-    component_name: str = eqx.static_field()
+    component_name: str  # = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     activation: Callable
@@ -174,7 +174,7 @@ class DeepComponent(eqx.Module):
 
 
 class KinParamsCombiner(eqx.Module):
-    component_name: str = eqx.static_field()
+    component_name: str  # = eqx.static_field()
     x_names: List[str] = eqx.static_field()
     # learned_median_params: Array
     learned_global_kin_params: Array
