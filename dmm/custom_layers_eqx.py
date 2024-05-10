@@ -23,7 +23,7 @@ class CustomInitLinear(eqx.nn.Linear):
     out_features: Union[int, Literal["scalar"]] = eqx.static_field()
     weight: Array
     bias: Optional[Array]
-    use_bias: bool  # = eqx.static_field()
+    use_bias: bool = eqx.static_field()
 
     def __init__(
             self,
