@@ -9,10 +9,11 @@ import pypesto.petab
 from . import MODEL_FEATURE_PREFIX
 from common import ModuleParams
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
+from dmm.deepcomponent_eqx import KinParamsCombiner
 from jaxtyping import Array
 from .petab_subproblem import load_petab
 from .problem import Problem
-from typing import List, Optional
+from typing import List
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -78,6 +79,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     activation_fn_name: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
 
+    kin_params_combiner: KinParamsCombiner
+
     def __init__(
             self,
             problem: Problem,
@@ -134,7 +137,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             number of threads to use for pypesto.
 
          :param samples_list:
-            List of samples (previously features.index).
+            List of samples (previously `features.index`).
 
         :param n_input_features:
             Number of features (not sure if needed).
@@ -219,14 +222,18 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            n_inflated_specific_kin_params=self.n_inflated_specific_kin_params,
-            n_global_kin_params=self.n_global_kin_params,
             encoder_params=encoder_params_dict,
             inflater_params=inflater_params_dict,
             decoder_params=decoder_params_dict,
             key=key,
             activation_fn_name=self.activation_fn_name,
             reconstruct=self.reconstruct,
+        )
+
+        # Instantiate Kinetic Parameters Combiner module
+        self.kin_params_combiner = KinParamsCombiner(
+            component_name='kin_params_combiner',
+            n_global_kin_params=self.n_global_kin_params
         )
 
         problem.apply_objective_settings(
@@ -307,7 +314,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             scale: float = 1.0
     ):
         """
-        Reconstruction loss of the autoencoder (in case self.reconstruct == True).
+        Reconstruction loss of the autoencoder (in case `self.reconstruct` == True).
         Simple Mean Squared Error (without the sqrt for now!)
         """
         reconstructed_x = jax.vmap(self)(x)[1]  # decoded
@@ -321,8 +328,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             scale: float = 1.0
     ):
         """
-        Symmetry loss for the autoencoder (in case self.reconstruct == True),
-        pushes the decoder weights to be the transposed of the encoder weigths.
+        Symmetry loss for the autoencoder (in case `self.reconstruct` == True),
+        pushes the decoder weights to be the transposed of the encoder weights.
         """
         symmetry_reg = 0
         num_layers = len(self.deep_encoder.layers)

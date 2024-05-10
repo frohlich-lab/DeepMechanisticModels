@@ -360,28 +360,6 @@ def init_global_kin_params_combiner(
             model,
             new_global_kin_params
         )
-
-        # TODO @GiacomoFabrini reinstate if reinstating learned_median_params
-        # par_combo = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=True)
-        # median_par_combo = pd.DataFrame(
-        #     np.repeat(
-        #         par_combo.median(skipna=True).values.reshape(1, -1),
-        #         repeats=par_combo.shape[0],
-        #         axis=0
-        #     ),
-        #     columns=par_combo.columns
-        # )
-        # median_par_combo.index = list(model.sample_names)
-        # new_specific_par_medians = get_targets(model, median_par_combo)[0].reshape(-1, 1)
-        # # Check shape match
-        # if new_specific_par_medians.shape != model.kin_params_combiner.learned_median_params.shape:
-        #     raise ValueError("Incorrect shape of new learned median kinetic parameters!")
-        # # Update KinParamsCombiner parameters - initialised to global parameters median
-        # model = eqx.tree_at(
-        #     lambda m: m.kin_params_combiner.learned_median_params,  # fetch weights from single layer of encoder
-        #     model,
-        #     new_specific_par_medians,
-        # )
         return model
     else:
         # weights of kin_params_combiner are already initialised to zeros by default
@@ -390,12 +368,10 @@ def init_global_kin_params_combiner(
         filter_spec = eqx.tree_at(
             lambda tree: (
                 tree.kin_params_combiner.learned_global_kin_params,
-                # tree.kin_params_combiner.learned_median_params
             ),
             filter_spec,
             replace=(
                 False,
-                # False
             ),
         )
     return model, filter_spec

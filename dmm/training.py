@@ -353,6 +353,3 @@ def rmse(pp,
     except Exception as e:
         print(e)
         return np.NaN
-
-
-

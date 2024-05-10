@@ -111,16 +111,13 @@ class DeepComponent(eqx.Module):
         # component/module name (encoder/inflater/decoder)
         self.component_name = component_name
 
-        # Initialise layers
+        # Initialise layers and prepare keys for layer initialisation
         self.layers = []
-
-        # Prepare keys for layer initialisation
         layer_keys = random.split(key, num=len(layer_sizes)-1)
 
         # Define layer-wise architecture
         # Always specify either both weight_init_fn and bias_init_fn
         # or both as "eqx_default" -- mixed combinations will result in ValueError
-
         for layer_num, (
                 (fan_in, fan_out),
                 (key, bias)
@@ -158,26 +155,29 @@ class DeepComponent(eqx.Module):
 
 
 class KinParamsCombiner(eqx.Module):
+    """
+    Kinetic Parameters Combiner module: combines cell-line specific kinetic parameter components (deviations)
+    with the corresponding global (non-cell-specific) kinetic parameter components (medians).
+
+    :param component_name:
+        module name: "encoder" / "inflater" / "decoder".
+
+    :param learned_global_kin_params:
+        learned global (non-cell-specific) kinetic parameter components.
+    """
     component_name: str = eqx.static_field()
-    # learned_median_params: Array
     learned_global_kin_params: Array
 
     def __init__(
             self,
             component_name,
-            # n_inflated_specific_kin_params,
             n_global_kin_params
     ):
         # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
-        # choosing (num_features, ) as shape to allow broadcasting in function call
-        # self.learned_median_params = jnp.zeros(shape=(n_inflated_specific_kin_params, 1))
         self.learned_global_kin_params = jnp.zeros(shape=(n_global_kin_params, ))
 
     def __call__(self, x):
         # input x is the inflated parameter deviations
-        # specific_parameters = x + self.learned_median_params  # added regardless of cell-line (median component)
-        # TODO @GiacomoFabrini - this fixes integration errors - discuss with Fabian and check this again!
-        specific_parameters = x
         # output is the concatenation of the global parameters and the flattened specific ones
-        return jnp.concatenate([self.learned_global_kin_params, specific_parameters.flatten()])
+        return jnp.concatenate([self.learned_global_kin_params, x.flatten()])

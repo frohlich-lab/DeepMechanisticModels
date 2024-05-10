@@ -120,7 +120,7 @@ pypesto_problem_train, pypesto_problem_test = (
 )
 
 # TODO @GiacomoFabrini -- need to make sure the learned global parameters in KinParamsCombiner are in the same order
-#  as those which were in .x_names before?! (they should be, but need to check)
+#  as those which were in .x_names before?! (they should be, but need to check - CHECK INITIALISATION!)
 # Get PEtab-compatible embedding of model parameters (i.e global kin params concatenated with cell-line specific
 # parameters, flattened for all training set samples/cell-lines).
 x0 = map_params_to_array(model_train)

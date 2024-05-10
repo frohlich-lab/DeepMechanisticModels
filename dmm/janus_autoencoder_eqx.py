@@ -6,6 +6,7 @@ from dmm.deepcomponent_eqx import (
     KinParamsCombiner,
 )
 from jax import config, random
+from typing import Union
 
 config.update("jax_enable_x64", True)
 
@@ -13,7 +14,7 @@ config.update("jax_enable_x64", True)
 class TwoHeadedDeepAutoencoder(eqx.Module):
     """
     A potentially deep, non-linear and two-headed Autoencoder.
-        - First head: encoder -> inflater (kinetic parameters of ODE model).
+        - First head: encoder -> inflater (kinetic parameters/cell-line-specific parameter deviations of ODE model).
         - Second head: encoder -> decoder (input reconstruction): traditional autoencoder behaviour.
 
     :param encoder_params:
@@ -24,13 +25,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     :param decoder_params:
         Parameters for the decoder module.
-
-    -- KineticParametersCombiner PARAMS
-    :param n_global_kin_params:
-        Number of global kinetic parameters (ODE non cell-line-specific model parameters).
-
-    :param n_inflated_specific_kin_params:
-        Number of kinetic parameters to inflate to (inflater output size).
 
     -- OTHER PARAMETERS
     :param key:
@@ -46,19 +40,14 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         via reconstruction loss in true autoencoder spirit.
     """
 
-    n_inflated_specific_kin_params: int = eqx.static_field()  # inflater output size
-    n_global_kin_params: int = eqx.static_field()
     reconstruct: bool = eqx.static_field()
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
-    deep_decoder: eqx.Module
-    kin_params_combiner: KinParamsCombiner
+    deep_decoder: Union[eqx.Module, DeepComponent]
 
     def __init__(
             self,
-            n_inflated_specific_kin_params: int,
-            n_global_kin_params: int,
             encoder_params: ModuleParams,
             inflater_params: ModuleParams,
             decoder_params: ModuleParams,
@@ -66,9 +55,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
             reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
     ):
-
-        self.n_inflated_specific_kin_params = n_inflated_specific_kin_params
-        self.n_global_kin_params = n_global_kin_params
 
         # CHECKS
         # encoder layers must shrink towards bottleneck/latent representation
@@ -106,14 +92,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             bias_init_fn=inflater_params.bias_init_fn,
         )
 
-        # Instantiate global kinetic parameters component
-        self.kin_params_combiner = KinParamsCombiner(
-            component_name='kin_params_combiner',
-            # TODO @GiacomoFabrini reinstate if reinstating .learned_median_params
-            # n_inflated_specific_kin_params=n_inflated_specific_kin_params,
-            n_global_kin_params=n_global_kin_params
-        )
-
+        # Instantiate decoder component if two-headed autoencoder
         if self.reconstruct:
             self.deep_decoder = DeepComponent(
                 component_name="decoder",
@@ -132,8 +111,4 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
-        # augmented_inflated = self.kin_params_combiner(inflated)
-        # augmented_inflated: concatenation of global kinetic parameters
-        # and flattened cell-line-specific params (inflated deviations + learned medians)
-        # Removed for now after introducing jax.vmap to handle multiple training examples (cell-lines)
         return inflated, decoded

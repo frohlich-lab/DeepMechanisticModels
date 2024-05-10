@@ -169,8 +169,7 @@ def pretrain_network(
             best_loss_val = loss_val
             best_model = model
 
-        # Log loss_train and loss_val, as well as param values and grads
-        # TODO @GiacomoFabrini add param value and grad logging
+        # Log loss_train and loss_val
         wandb.log(
             {
                 "loss_train": loss_train,
@@ -212,9 +211,8 @@ def pretrain_network(
         # Overwrite `model` with updated `next_model`
         model = next_model
 
-        # Log rmse values every 5 epochs + check early-stopping criteria
+        # Log param values and grads every 5 epochs + check early-stopping criteria
         if epoch % 5 == 0:
-            # TODO @GiacomoFabrini - log param values and grads
             wandb.log(
                 {
                   **log_model_stats(model, grads, pretrain=True)
@@ -247,5 +245,5 @@ def pretrain_network(
     wandb.log({"final_epoch": epoch})
     wandb.finish()
 
-    # TODO @GiacomoFabrini - need to serialise model in some way?!
+    # TODO @GiacomoFabrini - might be good (but not essential) to serialise `best_model`
     return best_model
