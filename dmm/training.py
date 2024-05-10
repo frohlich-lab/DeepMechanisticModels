@@ -41,8 +41,6 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
         objective=ae.pypesto_subproblem.objective,  # same base objective previously passed to JaxObjective
-        # jax_fun=ae.embedding,
-        # x_names=ae.x_names
     )
 
 
@@ -66,12 +64,6 @@ def create_pypesto_problem(
         lb=[-np.inf for _ in objective.x_names],  # extract names from objective
         ub=[np.inf for _ in objective.x_names],
     )
-    # return pypesto.Problem(
-    #     objective=generate_pypesto_objective(ae),
-    #     x_names=ae.x_names,
-    #     lb=[-np.inf for _ in ae.x_names],
-    #     ub=[np.inf for _ in ae.x_names],
-    # )
 
 
 @eqx.filter_jit

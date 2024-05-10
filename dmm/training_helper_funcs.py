@@ -53,6 +53,4 @@ def map_params_to_array(
         decoder_params = get_parameters(model.deep_decoder)
         param_array = jnp.concatenate([param_array.flatten(), decoder_params.flatten()])
     param_array = jnp.concatenate([param_array, model.kin_params_combiner.learned_global_kin_params.flatten()])
-    if len(param_array) != len(model.x_names):
-        raise ValueError("Number of parameters does not match number of parameter names!")
     return param_array

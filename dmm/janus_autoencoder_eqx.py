@@ -53,7 +53,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     n_inflated_specific_kin_params: int = eqx.static_field()  # inflater output size
     n_global_kin_params: int = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
     reconstruct: bool = eqx.static_field()
 
     deep_encoder: DeepComponent
@@ -61,7 +60,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     deep_decoder: eqx.Module
     kin_params_combiner: KinParamsCombiner
 
-    # TODO @GiacomoFabrini do we need self.x_names?
     def __init__(
             self,
             n_inflated_specific_kin_params: int,
@@ -121,8 +119,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             n_global_kin_params=n_global_kin_params
         )
 
-        self.x_names = self.deep_encoder.x_names + self.deep_inflater.x_names + self.kin_params_combiner.x_names
-
         if self.reconstruct:
             self.deep_decoder = DeepComponent(
                 component_name="decoder",
@@ -133,9 +129,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 weight_init_fn=decoder_params.weight_init_fn,
                 bias_init_fn=decoder_params.bias_init_fn,
             )
-
-            self.x_names += self.deep_decoder.x_names
-
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head
 

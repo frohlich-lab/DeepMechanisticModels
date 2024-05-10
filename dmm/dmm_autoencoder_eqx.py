@@ -72,12 +72,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     n_inflated_specific_kin_params: int = eqx.static_field()
     n_global_kin_params: int = eqx.static_field()
     sample_names: List[str] = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
-    # encoder_params_dict: dict = eqx.static_field()
-    # inflater_params_dict: dict = eqx.static_field()
-    # decoder_params_dict: dict = eqx.static_field()
     orth_reg_strategy: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
@@ -236,14 +232,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         problem.apply_objective_settings(
             self.pypesto_subproblem.objective, n_threads=n_threads
         )
-
-        # augment TwoHeadedDeepAutoencoder.x_names with ODE x_names
-        # self.x_names = self.x_names + [
-        #     name
-        #     for ix, name in enumerate(self.pypesto_subproblem.x_names)
-        #     if not name.startswith(MODEL_FEATURE_PREFIX)
-        #     and ix in self.pypesto_subproblem.x_free_indices
-        # ]
 
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
         return self(input_data)[0]  # array containing all kinetic parameters (global first, cell-line-specific second)

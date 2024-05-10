@@ -95,7 +95,6 @@ class DeepComponent(eqx.Module):
     """
 
     component_name: str  # = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     activation: Callable
 
@@ -112,9 +111,8 @@ class DeepComponent(eqx.Module):
         # component/module name (encoder/inflater/decoder)
         self.component_name = component_name
 
-        # Initialise layers and x_names
+        # Initialise layers
         self.layers = []
-        self.x_names = []
 
         # Prepare keys for layer initialisation
         layer_keys = random.split(key, num=len(layer_sizes)-1)
@@ -142,20 +140,6 @@ class DeepComponent(eqx.Module):
                     bias_init_fn=bias_init_fn,
                 )
             )
-            # TODO @GiacomoFabrini: do we need these?
-            self.x_names.extend(
-                [
-                    f"{self.component_name}_{layer_num}_{ind}_weight"
-                    for ind in range(fan_in * fan_out)
-                ]
-            )
-            if bias:
-                self.x_names.extend(
-                    [
-                        f"{self.component_name}_{layer_num}_{ind}_bias"
-                        for ind in range(fan_out)
-                    ]
-                )
 
         # activation function
         if activation_fn_name in act_fn_by_name.keys():
@@ -175,7 +159,6 @@ class DeepComponent(eqx.Module):
 
 class KinParamsCombiner(eqx.Module):
     component_name: str  # = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
     # learned_median_params: Array
     learned_global_kin_params: Array
 
@@ -190,14 +173,6 @@ class KinParamsCombiner(eqx.Module):
         # choosing (num_features, ) as shape to allow broadcasting in function call
         # self.learned_median_params = jnp.zeros(shape=(n_inflated_specific_kin_params, 1))
         self.learned_global_kin_params = jnp.zeros(shape=(n_global_kin_params, ))
-        self.x_names = [
-            f"{self.component_name}_{0}_{ind}_global_kin_param"
-            for ind in range(n_global_kin_params)
-        ]
-        # ] + [
-        #     f"{self.component_name}_{0}_{ind}_median_kin_param"
-        #     for ind in range(n_inflated_specific_kin_params)
-        # ]
 
     def __call__(self, x):
         # input x is the inflated parameter deviations
