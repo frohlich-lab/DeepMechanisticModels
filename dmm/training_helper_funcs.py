@@ -40,13 +40,13 @@ def map_params_to_array(
     encoder_params = get_parameters(model.deep_encoder)
     inflater_params = get_parameters(model.deep_inflater)
     # TODO @GiacomoFabrini reinstate if reinstating .learned_median_params
-    # kincombiner_params = model.kin_params_combiner.learned_median_params
+    # kin_combiner_params = model.kin_params_combiner.learned_median_params
     param_array = jnp.concatenate([
         module_params.flatten()
         for module_params in [
             encoder_params,
             inflater_params,
-            # kincombiner_params
+            # kin_combiner_params
         ]
     ])
     if model.reconstruct:

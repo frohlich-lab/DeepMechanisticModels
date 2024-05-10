@@ -1,5 +1,4 @@
 import equinox as eqx
-import jax.numpy as jnp
 
 from common import ModuleParams
 from dmm.deepcomponent_eqx import (
@@ -7,10 +6,6 @@ from dmm.deepcomponent_eqx import (
     KinParamsCombiner,
 )
 from jax import config, random
-from jaxtyping import Array
-from typing import (
-    List,
-)
 
 config.update("jax_enable_x64", True)
 
