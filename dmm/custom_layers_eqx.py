@@ -34,12 +34,14 @@ class CustomInitLinear(eqx.nn.Linear):
             bias_init,
             use_bias=False,  # default: no bias
     ):
-        self.in_features = in_features
-        self.out_features = out_features
-        self.use_bias = use_bias
+        super().__init__(
+            in_features=in_features,
+            out_features=out_features,
+            use_bias=use_bias,
+            key=key,
+        )
 
         weight_key, bias_key = jr.split(key)
-        self.use_bias = use_bias
         self.weight = weight_init(
             weight_key,
             (out_features, in_features)
@@ -48,10 +50,3 @@ class CustomInitLinear(eqx.nn.Linear):
             bias_key,
             (out_features,)
         ) if self.use_bias else None
-
-    # def __call__(self, x):
-    #     out = self.weight @ x  # for consistency with equinox.nn.Linear definition
-    #     # doc: https://github.com/patrick-kidger/equinox/blob/main/equinox/nn/_linear.py
-    #     if self.use_bias:
-    #         out += self.bias
-    #     return out
