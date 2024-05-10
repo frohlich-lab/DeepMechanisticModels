@@ -9,20 +9,20 @@ import pypesto
 from petab.models.pysb_model import PySBModel
 from pypesto.objective.jax import JaxObjective
 from pypesto.optimize import OptimizeOptions, minimize
-from pypesto.petab import PetabImporter #general PetabImporter compared to old PetabImporterPysb
+from pypesto.petab import PetabImporter  # general PetabImporter compared to old PetabImporterPysb
 from pypesto.startpoint import UniformStartpoints
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall
 from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
-from .autoencoder import DeepMechanisticModel
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .problem import Problem
 
 
 def generate_per_sample_pretraining_problems(
     importer: PetabImporter, problem: Problem, dataset: str, sample: str
-) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
+) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
@@ -74,7 +74,7 @@ def generate_per_sample_pretraining_problems(
         ]
     ]
 
-    model_name=pp.model.model_id
+    model_name = pp.model.model_id
 
     # general PetabImporter compared to old PetabImporterPysb
     return PetabImporter(
@@ -96,13 +96,13 @@ def generate_per_sample_pretraining_problems(
 
 
 def generate_per_sample_reg_pretraining_problem(
-    importer: PetabImporter, #general PetabImporter compared to old PetabImporterPysb
+    importer: PetabImporter,  # general PetabImporter compared to old PetabImporterPysb
     problem: Problem,
     avg_pars: pd.DataFrame,
     dataset: str,
     sample: str,
     alpha: float = 0.0,
-) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
+) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
@@ -201,11 +201,11 @@ def generate_per_sample_reg_pretraining_problem(
 
 
 def generate_average_pretraining_problem(
-    importer: PetabImporter, #general PetabImporter compared to old PetabImporterPysb
+    importer: PetabImporter,  # general PetabImporter compared to old PetabImporterPysb
     problem: Problem,
     dataset: str,
     samples: List[str],
-) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
+) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
     """
     Creates a pypesto problem that can be used to train the mechanistic model on the average of all samples
     """
@@ -298,35 +298,35 @@ def generate_average_pretraining_problem(
         ),
     )
 
-
-def generate_cross_sample_pretraining_problem(
-    model: DeepMechanisticModel, problem: Problem
-) -> pypesto.Problem:
-    """
-    Creates a pypesto problem that can be used to train population
-    parameters as well as individual sample specific parameters. This is
-    effectively just the unconstrained petab subproblem.
-    """
-    x_names = model.x_names[model.n_encode_weights :]
-
-    obj = JaxObjective(
-        model.pypesto_subproblem.objective,
-        model.inflate,
-        x_names=x_names,
-    )
-
-    pypesto_problem = pypesto.Problem(
-        objective=obj,
-        x_names=x_names,
-        lb=[
-            problem.bounds[xname.split("_")[-1]][0] - 2.0 for xname in x_names
-        ],
-        ub=[
-            problem.bounds[xname.split("_")[-1]][1] + 2.0 for xname in x_names
-        ],
-    )
-    problem.apply_objective_settings(pypesto_problem.objective)
-    return pypesto_problem
+# NOT IN USE (uses old model).
+# def generate_cross_sample_pretraining_problem(
+#     model: DeepMechanisticModel, problem: Problem
+# ) -> pypesto.Problem:
+#     """
+#     Creates a pypesto problem that can be used to train population
+#     parameters as well as individual sample specific parameters. This is
+#     effectively just the unconstrained petab subproblem.
+#     """
+#     x_names = model.x_names[model.n_encode_weights :]
+#
+#     obj = JaxObjective(
+#         model.pypesto_subproblem.objective,
+#         model.inflate,
+#         x_names=x_names,
+#     )
+#
+#     pypesto_problem = pypesto.Problem(
+#         objective=obj,
+#         x_names=x_names,
+#         lb=[
+#             problem.bounds[xname.split("_")[-1]][0] - 2.0 for xname in x_names
+#         ],
+#         ub=[
+#             problem.bounds[xname.split("_")[-1]][1] + 2.0 for xname in x_names
+#         ],
+#     )
+#     problem.apply_objective_settings(pypesto_problem.objective)
+#     return pypesto_problem
 
 
 def pretrain(
@@ -334,8 +334,8 @@ def pretrain(
     nstarts: int,
     optimizer,
     startpoint_method: Optional[Callable] = None,
-    hfile=None,
-    engine=None,
+    hfile = None,
+    engine = None,
 ) -> pypesto.Result:
     """
     Pretrain the provided problem via optimization.
