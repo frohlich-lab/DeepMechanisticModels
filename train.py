@@ -16,9 +16,6 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from training_configuration import PATIENCE, MIN_IMPROVEMENT
 
-from cytof.problem import CytofProblem
-import jax.random as jr
-from dmm.initialisation import load_petab_base_files
 
 conf = fire.Fire(Conf)
 

@@ -345,24 +345,13 @@ def init_global_kin_params_combiner(
         nn_pretrain: bool,
 ):
     if not nn_pretrain:
-        par_medians, par_deviations = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=False)
-        # TODO @GiacomoFabrini: ask Fabian - how do we go about determining which parameters we want to keep
-        #  the median of for initialisation purposes?
-        # from my understanding: the names of the kinetic parameters are in model.pypesto_subproblem.x_names
-        # (which does NOT contain any x_names from the DL module components)
-        # we can thus get the names of the global parameters as those which do not start with the MODEL_FEATURE_PREFIX
-        global_par_names = [
-            name for name in model.pypesto_subproblem.x_names
-            if not name.startswith(MODEL_FEATURE_PREFIX)
-        ]
-        # now we just need to extract the corresponding entries from par_medians and convert to jnp array
-        new_global_kin_params = jnp.array(par_medians[global_par_names].values)
-        # TODO @GiacomoFabrini: does this work or do we need to replace with
-        #  [par_medians[name] for name in global_par_names]?
-        # Check shape match
+        par_medians, _ = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=False)
+        # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
+        new_global_kin_params = jnp.array(par_medians.values)
+        # Check shape match prior to initialisation
         if new_global_kin_params.shape != model.kin_params_combiner.learned_global_kin_params.shape:
             raise ValueError("Incorrect shape of new global kin parameters!")
-        # Update KinParamsCombiner parameters
+        # Initialise KinParamsCombiner parameters
         model = eqx.tree_at(
             lambda m: m.kin_params_combiner.learned_global_kin_params,  # fetch weights from single layer of encoder
             model,
