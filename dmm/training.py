@@ -122,6 +122,7 @@ def train(
         input_features_train,
         input_features_test,
         rfile: Path,
+        model_file: Path,
         conf: Dict,
         n_epoch,
         x0,  # PEtab-compatible embedding of initial parameters
@@ -319,12 +320,13 @@ def train(
         optimize_result=optimization_result,
     )
 
+    # Save results
     rfile.parent.mkdir(exist_ok=True, parents=True)
     writer = OptimizationResultHDF5Writer(str(rfile))
     writer.write(result, overwrite=True)
-
-    # TODO @GiacomoFabrini: need to serialise best_model here
-
+    # Save best model
+    model_file.parent.mkdir(exist_ok=True, parents=True)
+    best_model.save(model_file)
     return result
 
 

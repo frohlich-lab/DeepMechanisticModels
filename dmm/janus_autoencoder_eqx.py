@@ -40,6 +40,9 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         via reconstruction loss in true autoencoder spirit.
     """
 
+    encoder_params: ModuleParams = eqx.static_field()
+    inflater_params: ModuleParams = eqx.static_field()
+    decoder_params: ModuleParams = eqx.static_field()
     reconstruct: bool = eqx.static_field()
 
     deep_encoder: DeepComponent
@@ -64,6 +67,11 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # elif features.ndim != 2:
         #     raise ValueError("features expected to be two-dimensional!")
 
+        # Set module parameters
+        self.encoder_params = encoder_params
+        self.inflater_params = inflater_params
+        self.decoder_params = decoder_params
+
         # Set reconstruct flag
         self.reconstruct = reconstruct
 
@@ -73,35 +81,35 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # Instantiate encoder component
         self.deep_encoder = DeepComponent(
             component_name="encoder",
-            layer_sizes=encoder_params.layer_sizes,
-            biases=encoder_params.layer_biases,
+            layer_sizes=self.encoder_params.layer_sizes,
+            biases=self.encoder_params.layer_biases,
             key=key_encoder,
             activation_fn_name=activation_fn_name,
-            weight_init_fn=encoder_params.weight_init_fn,
-            bias_init_fn=encoder_params.bias_init_fn,
+            weight_init_fn=self.encoder_params.weight_init_fn,
+            bias_init_fn=self.encoder_params.bias_init_fn,
         )
 
         # Instantiate inflater component
         self.deep_inflater = DeepComponent(
             component_name="inflater",
-            layer_sizes=inflater_params.layer_sizes,
-            biases=inflater_params.layer_biases,
+            layer_sizes=self.inflater_params.layer_sizes,
+            biases=self.inflater_params.layer_biases,
             key=key_inflater,
             activation_fn_name=activation_fn_name,
-            weight_init_fn=inflater_params.weight_init_fn,
-            bias_init_fn=inflater_params.bias_init_fn,
+            weight_init_fn=self.inflater_params.weight_init_fn,
+            bias_init_fn=self.inflater_params.bias_init_fn,
         )
 
         # Instantiate decoder component if two-headed autoencoder
         if self.reconstruct:
             self.deep_decoder = DeepComponent(
                 component_name="decoder",
-                layer_sizes=decoder_params.layer_sizes,
-                biases=decoder_params.layer_biases,
+                layer_sizes=self.decoder_params.layer_sizes,
+                biases=self.decoder_params.layer_biases,
                 key=key_decoder,
                 activation_fn_name=activation_fn_name,
-                weight_init_fn=decoder_params.weight_init_fn,
-                bias_init_fn=decoder_params.bias_init_fn,
+                weight_init_fn=self.decoder_params.weight_init_fn,
+                bias_init_fn=self.decoder_params.bias_init_fn,
             )
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head

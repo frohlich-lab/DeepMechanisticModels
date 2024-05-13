@@ -163,7 +163,7 @@ FEATURES_OUTFILE = str(
     )
 )
 
-
+# TODO @GiacomoFabrini: need to expand these values!
 defaults = {
     x: f"{{{x}}}"
     for x in [
@@ -186,6 +186,11 @@ tpl_results_file = "__".join(defaults.values())
 TRAINING_OUTFILE_RESULTS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
 )
+
+TRAINED_BEST_MODELS = str(
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_best_model.eqx")
+)
+
 COLLECTED_TRAINING_RESULTS = str(
     results_dir
     / "{model}"

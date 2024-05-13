@@ -1,7 +1,7 @@
 import fire
 # import jax.numpy as jnp
 
-from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS
+from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
@@ -16,9 +16,14 @@ from pathlib import Path
 from sklearn.model_selection import train_test_split
 from training_configuration import PATIENCE, MIN_IMPROVEMENT
 
+from cytof.problem import CytofProblem
+import jax.random as jr
+from dmm.initialisation import load_petab_base_files
+
 conf = fire.Fire(Conf)
 
-rfile = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Set JAX configuration
 config.update("jax_enable_x64", True)
@@ -134,8 +139,9 @@ train(
     input_features_test=input_features_test,
     problem_test=pypesto_problem_test,
     conf=conf.__dict__,
-    rfile=rfile,
-    n_epoch=1000,
+    rfile=results_file,
+    model_file=model_file,
+    n_epoch=10,
     x0=x0,
     early_stopping_params=early_stopping_params,
 )

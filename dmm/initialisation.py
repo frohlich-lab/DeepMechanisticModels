@@ -21,6 +21,15 @@ from typing import Tuple, Union
 from util import load_petab_base_files
 
 
+def make_dmm(*, dmm_params, features, key):
+    return DeepMechanisticModel(
+        **dmm_params,
+        sample_name_list=list(features.index),
+        n_input_features=features.shape[1],
+        key=key,
+    )
+
+
 def load_models(
         conf: Conf,
         dataset: str = "train",
@@ -89,10 +98,9 @@ def load_models(
         keys = jr.split(key, num=len(settings[dataset]))
 
     dmms = (
-        DeepMechanisticModel(
-            **dmm_params,
-            samples_list=list(features.index),
-            n_input_features=features.shape[1],
+        make_dmm(
+            dmm_params=dmm_params,
+            features=features,
             key=subkey,
         )
         for features, subkey in zip(
@@ -120,7 +128,7 @@ def get_kin_params_median_deviation(
 ):
     pretrained_samples = {}
 
-    for sample in model.sample_names:
+    for sample in model.sample_name_list:
         df = pd.read_csv(
             PER_SAMPLE_OUTFILE_PARS.format(
                 **{**conf.__dict__, **dict(sample=sample)}
@@ -179,7 +187,7 @@ def get_kin_params_median_deviation(
         ]
     )
     par_combo.index = list(pretrained_samples.keys())
-    par_combo = par_combo.reindex(model.sample_names)
+    par_combo = par_combo.reindex(model.sample_name_list)
 
     if return_full_combo:
         return par_combo
