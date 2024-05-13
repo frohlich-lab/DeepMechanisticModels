@@ -417,6 +417,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param key: PRNG key
         :return: Model instance
         """
+        # Ensure filename is a Path object - TODO @GiacomoFabrini: is this necessary?
+        filename = Path(filename)
         with Path.open(filename, 'rb') as f:
             # Load model hyperparameters
             hyperparam_str = f.readline().decode().strip()

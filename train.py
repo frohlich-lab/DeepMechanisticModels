@@ -138,7 +138,7 @@ train(
     conf=conf.__dict__,
     rfile=results_file,
     model_file=model_file,
-    n_epoch=10,
+    n_epoch=1000,
     x0=x0,
     early_stopping_params=early_stopping_params,
 )

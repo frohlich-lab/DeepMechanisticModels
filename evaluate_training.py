@@ -1,12 +1,15 @@
 import fire
 import jax
+import jax.random as jr
 import pandas as pd
 import pypesto
 
 from common import (
     Conf,
     TRAINING_OUTFILE_RESULTS,
+    TRAINED_BEST_MODELS,
     EVALUATION_TRAINING,
+    FEATURES_OUTFILE,
     Wildcards,
     fig_dir,
     results_dir,
@@ -17,6 +20,7 @@ from dmm.analysis import evaluate_simulations
 from dmm.training import create_pypesto_problem
 from dmm.initialisation import load_models
 from pypesto.store import OptimizationResultHDF5Reader
+from util import load_petab_base_files
 
 
 conf = fire.Fire(Conf)
@@ -35,31 +39,53 @@ samples = {
 
 def evaluate_training(dataset, conf):
     evaluations = []
-    # TODO @GiacomoFabrini THIS NEEDS TO CHANGE - THESE EVALUATIONS ARE NOT ACTUALLY USING THE MODEL,
-    #  JUST THE LINKED PETAB IMPORTER and PROBLEM...
-    model, problem = load_models(conf, dataset)
 
-    problem = create_pypesto_problem(model)
+    # Initialise model skeleton and get CytofProblem
+    model, cytof_problem = load_models(conf, dataset)
 
-    infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
+    # Create pypesto problem
+    pypesto_problem = create_pypesto_problem(model)
+    # Extract base objective
+    obj = pypesto_problem.objective.base_objective
 
-    reader = OptimizationResultHDF5Reader(infile)
-    result = pypesto.Result(problem)
-    result.optimize_result = reader.read().optimize_result
+    # Define filepaths for training results and serialized model
+    # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
+    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
 
-    x = problem.objective.infun(result.optimize_result.list[0]["x"])
+    # Load training results - TODO @GiacomoFabrini - do we really need these?
+    # reader = OptimizationResultHDF5Reader(infile)
+    # result = pypesto.Result(pypesto_problem)
+    # result.optimize_result = reader.read().optimize_result
 
-    obj = problem.objective.base_objective
+    # Load serialised best model
+    petab_base_files = load_petab_base_files(conf, reweight=True)
+    model.load(
+        trained_model_file,
+        cytof_problem,
+        petab_base_files['measurement_table'],
+        petab_base_files['observable_table'],
+        petab_base_files['condition_table'],
+        jr.PRNGKey(conf.job)
+    )
+
+    # Load input features (train/val) to evaluate trained model
+    input_features = pd.read_csv(
+        FEATURES_OUTFILE.format_map(
+            dict(**conf.__dict__, dataset=dataset)
+        ),
+        index_col=0
+    ).values
 
     evaluate_simulations(
+        model=model,
+        input_features=input_features,
         obj=obj,
-        x=x,
         samples=samples[dataset],
         petab_problem=model.petab_importer.petab_problem,
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
-        job=conf.job, # adding job here to produce one plot per multistart
+        job=conf.job,  # adding job here to produce one plot per multistart
         orth_reg_strategy=conf.orth_reg_strategy,
         l1reg_inflate=conf.l1reg_inflate,
         oreg_inflate=conf.oreg_inflate,

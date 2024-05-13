@@ -1,3 +1,4 @@
+import jax
 import os
 import re
 from pathlib import Path
@@ -15,6 +16,7 @@ from pypesto.C import MODE_RES
 from pypesto.store import OptimizationResultHDF5Reader
 
 from dmm.plotting import plot_cross_samples
+from dmm.training import model_output_to_petab_input
 
 
 def process_simulation(
@@ -105,8 +107,9 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def evaluate_simulations(
+    model,
+    input_features,
     obj,
-    x,
     samples,
     petab_problem,
     context,
@@ -124,7 +127,11 @@ def evaluate_simulations(
     evaluations,
     model_type,
 ):
-    res = obj(x, mode=MODE_RES, return_dict=True)
+    res = obj(
+        model_output_to_petab_input(model, input_features),
+        mode=MODE_RES,
+        return_dict=True
+    )
 
     if isinstance(obj, pypesto.objective.AggregatedObjective):
         amici_model = obj._objectives[0].amici_model

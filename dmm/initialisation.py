@@ -96,6 +96,8 @@ def load_models(
     # Split keys for train/validation (otherwise identical weights, etc.)
     if len(settings[dataset]) > 1:
         keys = jr.split(key, num=len(settings[dataset]))
+    else:
+        keys = [key]
 
     dmms = (
         make_dmm(
@@ -118,7 +120,10 @@ def load_models(
     )
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
-    return (dmms, problem) if dataset == "train+test" else (dmms[0], problem)
+    if dataset == "train+test":
+        return tuple(dmms), problem
+    else:
+        return *dmms, problem
 
 
 def get_kin_params_median_deviation(
