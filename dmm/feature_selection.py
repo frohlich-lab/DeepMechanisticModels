@@ -31,6 +31,7 @@ def contextualize_measurements(
         "proteomics",
         "cytof_init",
         "cytof_dynamic",
+        "cytof_dynamic_full",
     ):
         raise ValueError(f"Unknown contextualization: {contextualization}")
 
@@ -57,28 +58,27 @@ def contextualize_measurements(
         input_measurements = input_measurements[
             input_measurements[petab.TIME] == 0
         ]
-    # For cytof_dynamic: only keep the observables that are part of the pathway model
-    # TODO @GiacomoFabrini: create full_cytof_dynamic with all markers/observables, even
-        # those outside the model, so that we can evaluate whether the model is capable
-        # to regularise and pick out the relevant information/input markers.
-    if contextualization == "cytof_dynamic":
-        input_measurements = input_measurements[
-            input_measurements[petab.OBSERVABLE_ID].isin(
-                list(observable_table.index)
-            )
-        ]
+    if contextualization.split("_")[0] == "cytof":
         # Split SIMULATION_CONDITION_ID and keep the stimulus info (0th is cell line, 1st is stimulus)
         input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
             petab.SIMULATION_CONDITION_ID
         ].apply(lambda x: x.split("__")[1])
-
 
         pivot_columns = (
             petab.OBSERVABLE_ID,
             petab.SIMULATION_CONDITION_ID,
             petab.TIME,
         )
+        if contextualization == "cytof_dynamic":
+            # For cytof_dynamic, subset observables to those within the model (ERK, MEK)
+            input_measurements = input_measurements[
+                input_measurements[petab.OBSERVABLE_ID].isin(
+                    list(observable_table.index)
+                )
+            ]
+            # For cytof_dynamic_full, keep all observables
     elif contextualization == "cytof_init":
+        # For cytof_init, subset to timepoint 0
         input_measurements = input_measurements[
             input_measurements[petab.SIMULATION_CONDITION_ID].apply(
                 lambda x: x.endswith("__EGF")

@@ -74,7 +74,8 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    # ("cytof_dynamic", "all"),
+    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
+    # ("cytof_dynamic_full", "all"),  # all observables
     ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
@@ -86,21 +87,6 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
 )
-# NOT CURRENTLY IN USE, REPLACED BY CONTEXTS_FEATURES
-# CONTEXTS = (
-#     "proteomics",
-#     "transcriptomics",
-#     "cytof_init",
-#     "cytof_dynamic",
-# )
-# FEATURES = (
-#     "pca",
-#     "all",
-#     "rfe",
-#     "lasso",
-#     "elastic",
-#     "sequential",
-# )
 PATHWAYS = ("EGFR_MAPK",)
 DATASETS = ("dream_cytof",)
 # DATASETS = {
