@@ -368,7 +368,8 @@ rule evaluate_references:
 
 rule evaluate_regressors:
     input:
-        script='evaluate_regressors.py'
+        script='evaluate_regressors.py',
+        data=rules.process_data.output.datafiles  # wait for download and processing
     output:
         csv=[
             EVALUATION_REGRESSOR.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
