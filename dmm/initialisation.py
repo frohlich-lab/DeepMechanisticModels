@@ -61,21 +61,21 @@ def load_models(
     # Define encoder, inflater and decoder parameters
     encoder_params = ModuleParams(
         layer_sizes=conf.encoder_layer_sizes,
-        layer_biases=conf.encoder_layer_biases,
-        weight_init_fn=conf.encoder_weight_init_fn,
-        bias_init_fn=conf.encoder_bias_init_fn,
+        layer_biases=conf.use_layer_bias,
+        weight_init_fn=conf.nn_init_fn,
+        bias_init_fn=conf.nn_init_fn,
     )
     inflater_params = ModuleParams(
         layer_sizes=conf.inflater_layer_sizes,
-        layer_biases=conf.inflater_layer_biases,
-        weight_init_fn=conf.inflater_weight_init_fn,
-        bias_init_fn=conf.inflater_bias_init_fn,
+        layer_biases=conf.use_layer_bias,
+        weight_init_fn=conf.nn_init_fn,
+        bias_init_fn=conf.nn_init_fn,
     )
     decoder_params = ModuleParams(
         layer_sizes=conf.encoder_layer_sizes[::-1],  # decoder layer sizes mirror encoder layer sizes
-        layer_biases=conf.decoder_layer_biases,
-        weight_init_fn=conf.decoder_weight_init_fn,
-        bias_init_fn=conf.decoder_bias_init_fn,
+        layer_biases=conf.use_layer_bias,
+        weight_init_fn=conf.nn_init_fn,
+        bias_init_fn=conf.nn_init_fn,
     )
 
     dmm_params = {

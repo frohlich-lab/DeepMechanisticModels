@@ -21,15 +21,12 @@ from evaluation_plotting import (group_plots,
                                   n_hidden_pairwise_heatmap,
                                   volcano_hyperparameter_significance)
 from training_configuration import (
-    ORTH_REG_STRATEGIES,
-    ALPHAS,
-    BETAS,
-    CONTEXTS_FEATURES,
-    DELTAS,
-    GAMMAS,
-    LATENT_DIMS,
-    PRETRAIN,
-    SPLITS,
+    CONTEXTS_FEATURES, SPLITS, PRETRAIN,
+    LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
+    RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
+    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
+    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
+    USE_EARLY_STOP,
 )
 from stat_test import statistical_significance_test
 
@@ -146,7 +143,7 @@ conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
 
-# METHODS = ("pca embedding", "end-to-end")
+# METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 
 JOBS = tuple([i for i in range(10)])  # need to change this - NO HARDCODING
 dfs = []
@@ -159,37 +156,75 @@ for samples in SPLITS:
         # training
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
-            for orth_reg_strategy, alpha, beta, gamma, delta, ldim, job, pretrain, (
-                ctxt,
-                features,
-            ) in itt.product(
+            for ((ctxt, features), pretrain, ldim,
+                 reconstruct, activation_fn_name, optimiser,
+                 (encoder_layer_sizes, inflater_layer_sizes, linear_benchmark),
+                 use_layer_bias, nn_init_fn,
+                 orth_reg_strategy, alpha, beta, gamma, delta, epsilon, zeta,
+                 max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
+                 use_simple_linear_schedule, use_early_stopping, job,
+                 ) in itt.product(
+                CONTEXTS_FEATURES,
+                PRETRAIN,
+                LATENT_DIMS,
+                NETWORK_LAYOUT,
+                USE_BIAS,
+                NN_INIT_FN,
+                RECONSTRUCT,
+                ACTIVATION_FNS,
+                OPTIMISERS,
                 ORTH_REG_STRATEGIES,
                 ALPHAS,
                 BETAS,
                 GAMMAS,
                 DELTAS,
-                LATENT_DIMS,
+                EPSILONS,
+                ZETAS,
+                MAX_LEARNING_RATES,
+                LEARNING_RATE_SPANS,
+                LEARNING_RATE_DECAYS,
+                WARMUP_FCTS,
+                OPT_STEPS,
+                OPT_MULT,
+                LINEAR_SCHEDULE,
+                USE_EARLY_STOP,
                 JOBS,
-                PRETRAIN,
-                CONTEXTS_FEATURES,
             )
             if os.path.exists(
                 efile := EVALUATION_TRAINING.format(
                     **{
                         **conf.__dict__,
                         **dict(
+                            dataset=dataset,
+                            context=ctxt,
+                            features=features,
+                            samples=samples,
+                            pretrain=pretrain,
+                            n_hidden=ldim,
+                            encoder_layer_sizes=encoder_layer_sizes,
+                            inflater_layer_sizes=inflater_layer_sizes,
+                            linear_benchmark=linear_benchmark,
+                            use_layer_bias=use_layer_bias,
+                            nn_init_fn=nn_init_fn,
+                            reconstruct=reconstruct,
+                            activation_fn_name=activation_fn_name,
+                            optimiser=optimiser,
                             orth_reg_strategy=orth_reg_strategy,
                             l1reg_inflate=alpha,
                             oreg_inflate=beta,
                             l1reg_encode=gamma,
                             oreg_encode=delta,
-                            n_hidden=ldim,
+                            recon_loss=epsilon,
+                            symm_reg=zeta,
+                            max_lrate=max_lrate,
+                            lrate_span=lrate_span,
+                            lrate_decay=lrate_decay,
+                            warmup_fct=warmup_fct,
+                            opt_steps=opt_steps,
+                            opt_mult=opt_mult,
+                            use_simple_linear_schedule=use_simple_linear_schedule,
+                            use_early_stopping=use_early_stopping,
                             job=job,
-                            context=ctxt,
-                            samples=samples,
-                            dataset=dataset,
-                            pretrain=pretrain,
-                            features=features,
                         ),
                     },
                 )
@@ -285,6 +320,17 @@ for samples in SPLITS:
         print(f'Finished processing regressors for {samples}, {dataset}')
 
         print(f'Starting to build hyperparam/job combination copies for references models - {samples}, {dataset}')
+        missing_hyperparams = [
+            "features",
+            "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
+            "use_layer_bias", "nn_init_fn",
+            "reconstruct", "activation_fn_name", "optimiser",
+            "orth_reg_strategy",
+            "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
+            "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
+            "use_simple_linear_schedule", "use_early_stopping",
+            "job",
+        ]
         avg_ps_dfs = []
         for context in CONTEXT_SET:
             # need to replicate info across contexts for "avg_model" and "sample"
@@ -295,17 +341,11 @@ for samples in SPLITS:
             ]:
                 avg_ps_df = rdf.copy()
                 # they have no hyperparams -- None
-                avg_ps_df["orth_reg_strategy"] = None
-                avg_ps_df["l1reg_inflate"] = None
-                avg_ps_df["oreg_inflate"] = None
-                avg_ps_df["l1reg_encode"] = None
-                avg_ps_df["oreg_encode"] = None
-                avg_ps_df["layers"] = None
                 avg_ps_df["context"] = context
                 # avg_ps_df["type"] = method
                 # avg_ps_df["pretrain"] = pretrain
-                avg_ps_df["features"] = None
-                avg_ps_df["job"] = None
+                for col in missing_hyperparams:
+                    avg_ps_df[col] = None
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -314,16 +354,10 @@ for samples in SPLITS:
         # but no hyperparameters
         for _, rdf in regressor_dfs.items():
             avg_ps_df = rdf.copy()
-            avg_ps_df["orth_reg_strategy"] = None
-            avg_ps_df["l1reg_inflate"] = None
-            avg_ps_df["oreg_inflate"] = None
-            avg_ps_df["l1reg_encode"] = None
-            avg_ps_df["oreg_encode"] = None
-            avg_ps_df["layers"] = None
+            for col in missing_hyperparams:
+                avg_ps_df[col] = None
             # avg_ps_df["type"] = method
             # avg_ps_df["pretrain"] = pretrain
-            avg_ps_df["features"] = None
-            avg_ps_df["job"] = None
             avg_ps_dfs.append(avg_ps_df)
             # Once appended, this can be deleted
             del avg_ps_df

@@ -1,10 +1,127 @@
+PATHWAYS = ("EGFR_MAPK",)
+
+DATASETS = ("dream_cytof",)
+# DATASETS = {
+#    'synthetic_16_0.2_0.0',
+#     'synthetic_32_0.2_0.0',
+#     'synthetic_64_0.2_0.0',
+#     'synthetic_128_0.2_0.0',
+# }
+
+# Input contexts/features & feature selection strategy
+CONTEXTS_FEATURES = (
+    ("cytof_init", "all"),
+    # ("cytof_init", "rfe"),
+    # ("cytof_init", "lasso"),
+    # ("cytof_init", "elastic"),
+    # ("cytof_init", "sequential"),
+    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
+    # ("cytof_dynamic_full", "all"),  # all observables
+    # ("proteomics", "all"),
+    # ("proteomics", "rfe"),
+    # ("proteomics", "lasso"),
+    # ("proteomics", "elastic"),
+    # ("proteomics", "sequential"),
+    # ("transcriptomics", "all"),
+    # ("transcriptomics", "rfe"),
+    # ("transcriptomics", "lasso"),
+    # ("transcriptomics", "elastic"),
+    # ("transcriptomics", "sequential"),
+)
+
+# Cross-validation splits
+SPLITS = {
+    "0_5",
+    # '1_5',
+    # '2_5',
+    # '3_5',
+    # '4_5'
+}
+
+PRETRAIN = {
+    "True",
+}
+
+# Network Structure and Initialisation Hyperparameters
+
+# n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
+# From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
+# appears to be better? -- stat tests show the same.
+LATENT_DIMS = (
+    2,
+    # 3,
+    # 4,
+    # 6,
+    # 8,
+    # 10,
+    # 12
+)
+
+# TODO @GiacomoFabrini - would be good to modularly define architectures, e.g. layer size/width goes down/up
+#  by a certain factor with progressing encoder/inflater layer up to a specified depth - discuss with Fabian
+# MAX_ENCODER_DEPTH = 5
+#
+# MAX_INFLATER_DEPTH = 5
+
+NETWORK_LAYOUT = (
+    ([], [], "True"),  # no hidden layers in encoder nor inflater, linear benchmark (PCA/least squares initialisation)
+    # ([], [], "False"),  # no hidden layers in encoder nor inflater, no linear benchmark, i.e. random initialisation
+    # ([10], [10], "False"),  # single hidden layer in encoder and inflater
+    ([10, 5], [5, 10], "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
+    # ([20, 10, 5], [5, 5, 10], "False"),  # 3 hidden layers
+)
+
+# For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
+# hyperparameter
+USE_BIAS = (
+    # "True",
+    "False",
+)
+
+# For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
+# NN_INIT_FN hyperparameter
+NN_INIT_FN = (
+    "eqx_default",
+    # "HN",  # He Normal
+    # "HU",  # He Uniform
+    # "LN",  # LeCun Normal
+    # "LU",  # LeCun Uniform
+    # "XN",  # Xavier/Glorot Normal
+    # "XU",  # Xavier/Glorot Uniform
+)
+
+
+# RECONSTRUCT: whether to add a second head to the autoencoder or not
+RECONSTRUCT = (
+    "True",
+    # "False",
+)
+
+
+# Training Hyperparameters
+# Activation Functions: activation_fn_name
+ACTIVATION_FNS = (
+    # "tanh",
+    "relu",
+    # "leaky_relu",
+    # "swish",
+)
+
+# optimiser to use
+OPTIMISERS = {
+    "adam",
+    # "adamw",
+}
+
+
+# REGULARISATION HYPERPARAMETERS
 # ORTHOGONAL REGULARISATION STRATEGIES: L1 vs L2
 ORTH_REG_STRATEGIES = (
     # "L1",
     "L2",  # restricting to L2 only post stat tests
 )
 
-# ALPHAS: values for l1reg_inflate: l1 regularisation of layers that inflate from latent/bottleneck to kinetic params.
+# ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 # From W&B, it seems that rmse_val.min is positively correlated with l1reg params
 # i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
 ALPHAS = (
@@ -15,11 +132,11 @@ ALPHAS = (
     # 1e3,
     # 1e4, # tested
     1e6,  # reenable
-    1e8,
-    1e10,  # increasing values
+    # 1e8,
+    # 1e10,  # increasing values
 )
 
-# BETAS: values for oreg_inflate: orthogonal regularisation for layers that inflate from bottleneck to kinetic params.
+# BETAS: oreg_inflate, orthogonal regularisation for inflater network.
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
 BETAS = (
@@ -29,9 +146,9 @@ BETAS = (
     # 1e6, # tested
     # 1e7,
     # 1e8,
-    )
+)
 
-# GAMMAS: values for l1reg_encode: l1 regularisation of encoder network (from inputs to bottleneck).
+# GAMMAS: l1reg_encode, l1 regularisation of encoder network
 GAMMAS = (
     0,  # tested
     # 1e1,
@@ -40,83 +157,97 @@ GAMMAS = (
     # 1e3,
     # 1e4,  # tested
     1e6,  # tested
-    1e8,
-    1e10,  # increasing values
+    # 1e8,
+    # 1e10,  # increasing values
 )
 
-# DELTAS: values for oreg_encode: orthogonal regularisation of encoder network (from inputs to bottleneck)
+# DELTAS: oreg_encode, orthogonal regularisation of encoder network
 DELTAS = (
     0,  # tested
     # 1e2, # tested
     # 1e4, # tested
     1e6,  # tested
     # 1e7,
-    1e8,
-    1e10,  # increasing values
+    # 1e8,
+    # 1e10,  # increasing values
 )
 
-# n_hidden: number of dimensions of bottleneck representation obtained using the encoder.
-# From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
-# appears to be better? -- stat tests show the same.
-LATENT_DIMS = (
+# EPSILONS: recon_loss, reconstruction loss scale hyperparameter
+EPSILONS = (
+    1,
+)
+
+# ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
+ZETAS = (
+    1,
+)
+
+
+# LEARNING SCHEDULE HYPERPARAMETERS
+# MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
+MAX_LEARNING_RATES = {
+    # 1e-1,
+    # 1e-2,
+    1e-3,
+}
+
+# LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
+LEARNING_RATE_SPANS = {
+    # 1e0,
+    1e1,  # ratio of 10
+    # 1e2,  # ratio of 100
+    # 1e3,
+}
+
+# LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
+LEARNING_RATE_DECAYS = {
+    # 0.9**0, # no decay
+    0.9**1,
+    # 0.9**2,
+    # 0.9**3,
+}
+
+# WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
+WARMUP_FCTS = {
+    # 0.4,
+    0.2,
+    # 0.1,
+    # 0.05,
+    # 1e-2,
+    # 1e-3,
+}
+
+# OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
+OPT_STEPS = {
+    # 1,
+    # 2,
+    10,
+}
+
+# OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
+OPT_MULT = {
+    # 1,
     2,
     # 3,
-    4,
-    6,
-    8,
-    # 10,
-    # 12
-)
-
-CONTEXTS_FEATURES = (
-    ("cytof_init", "all"),
-    # ("cytof_init", "rfe"),
-    # ("cytof_init", "lasso"),
-    # ("cytof_init", "elastic"),
-    # ("cytof_init", "sequential"),
-    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
-    # ("cytof_dynamic_full", "all"),  # all observables
-    ("proteomics", "all"),
-    # ("proteomics", "rfe"),
-    # ("proteomics", "lasso"),
-    # ("proteomics", "elastic"),
-    # ("proteomics", "sequential"),
-    ("transcriptomics", "all"),
-    # ("transcriptomics", "rfe"),
-    # ("transcriptomics", "lasso"),
-    # ("transcriptomics", "elastic"),
-    # ("transcriptomics", "sequential"),
-)
-PATHWAYS = ("EGFR_MAPK",)
-DATASETS = ("dream_cytof",)
-# DATASETS = {
-#    'synthetic_16_0.2_0.0',
-#     'synthetic_32_0.2_0.0',
-#     'synthetic_64_0.2_0.0',
-#     'synthetic_128_0.2_0.0',
-# }
-SPLITS = {
-    "0_5",
-    # '1_5',
-    # '2_5',
-    # '3_5',
-    # '4_5'
-}
-PRETRAIN = {
-    "True",
 }
 
-OPTIMISERS = {
-    "adam",
-    "adamw",
+# LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
+# with the given max learning rate, warm-up and decay
+LINEAR_SCHEDULE = {
+    # True,
+    False,
 }
 
-# DEFAULT_LINEAR_SCHEDULE = dict(
-#     init_value=1e-2,
-#     transition_steps=100,
-#     end_value=1e-3,
-# )
 
+# EARLY-STOPPING HYPERPARAMETERS
+# USE_EARLY_STOP: use_early_stopping, enables early-stopping via flax.training.early_stopping
+USE_EARLY_STOP = {
+    True,
+    # False,
+}
+
+# PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
 PATIENCE = 19  # before it was 9 - should correspond to (19+1)*5 = 100 epochs overall
 
+# MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0

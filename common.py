@@ -32,22 +32,20 @@ class Conf(dict):
     context: str = None
     features: str = None
     samples: str = None
+    pretrain: bool = None
     sample: str = None
+    # Network structure
     n_hidden: int = None
     encoder_layer_sizes: List[int] = None
-    encoder_layer_biases: List[bool] = None
-    encoder_weight_init_fn: str = "eqx_default"
-    encoder_bias_init_fn: str = "eqx_default"
     inflater_layer_sizes: List[int] = None
-    inflater_layer_biases: List[bool] = None
-    inflater_weight_init_fn: str = "eqx_default"
-    inflater_bias_init_fn: str = "eqx_default"
-    decoder_layer_biases: List[bool] = None
-    decoder_weight_init_fn: str = "eqx_default"
-    decoder_bias_init_fn: str = "eqx_default"
+    use_layer_bias: List[bool] = None
+    nn_init_fn: str = "eqx_default"
+    linear_benchmark: str = None
+    reconstruct: bool = None
+    # Training
     activation_fn_name: str = "relu"
     optimiser: str = "adam"
-    reconstruct: bool = None
+    # Regularisation
     orth_reg_strategy: str = None
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
@@ -55,19 +53,21 @@ class Conf(dict):
     oreg_inflate: float = 0.0
     recon_loss: float = 0.0
     symm_reg: float = 0.0
-    job: int = None
-    threads: int = 1
-    n_starts: int = None
-    linear_benchmark: str = None
-    use_early_stopping: bool = True
-    use_simple_linear_schedule: bool = True
-    max_lrate: float = 0.01  # absolute maximum learning rate (max in first schedule or in all schedules without decay)
+    # Learning schedule hyperparameters
+    max_lrate: float = 0.01  # maximum learning rate (max in first schedule or in all without decay)
     lrate_span: float = 1e0  # ratio between max and min learning rates in a given schedule
     lrate_decay: float = 0.98  # if < 1, the learning rate decays between schedules.
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
     warmup_fct: float = 0.0  # fraction of schedule epochs to be used for warmup
     opt_steps: int = 10  # Number of steps in the first schedule (they multiply each time in length by opt_mult)
     opt_mult: int = 2  # Multiplier for the number of steps in each schedule
+    use_simple_linear_schedule: bool = True
+    # Early-stopping
+    use_early_stopping: bool = True
+    # Other hyperparams
+    job: int = None
+    threads: int = 1
+    n_starts: int = None
 
     def __str__(
             self,
@@ -85,23 +85,9 @@ class Conf(dict):
 
         # Filter out unwanted fields from the final string representation
         unwanted_fields = [
-            "model", "data", "sample", "context", "features",
-            "encoder_layer_biases", "inflater_layer_biases", "decoder_layer_biases",
-            "encoder_output_bias", "inflater_output_bias", "decoder_output_bias",
-            "threads", "n_starts", "linear_benchmark", "use_early_stopping"
+            "model", "data", "sample", "samples", "context", "features",
+            "threads", "n_starts",
         ]
-
-        # Avoid including in run name weight and bias initialisation strategies if default
-        for init_strategy, label in zip(
-                [self.encoder_weight_init_fn, self.encoder_bias_init_fn,
-                 self.inflater_weight_init_fn, self.inflater_bias_init_fn,
-                 self.decoder_weight_init_fn, self.decoder_bias_init_fn],
-                ["encoder_weight_init_fn", "encoder_bias_init_fn",
-                 "inflater_weight_init_fn", "inflater_bias_init_fn",
-                 "decoder_weight_init_fn", "decoder_bias_init_fn"]
-        ):
-            if init_strategy == "eqx_default":
-                unwanted_fields += [label]
 
         # Create a list of values for the fields that are not in the unwanted list
         filtered_values = [
@@ -163,20 +149,18 @@ FEATURES_OUTFILE = str(
     )
 )
 
-# TODO @GiacomoFabrini: need to expand these values!
 defaults = {
     x: f"{{{x}}}"
     for x in [
-        "context",
-        "features",
-        "samples",
-        # "pretrain",
+        "context", "features", "samples", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
         "n_hidden",
+        "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
+        "use_layer_bias", "nn_init_fn",
+        "reconstruct", "activation_fn_name", "optimiser",
         "orth_reg_strategy",
-        "l1reg_inflate",
-        "oreg_inflate",
-        "l1reg_encode",
-        "oreg_encode",
+        "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
+        "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
+        "use_simple_linear_schedule", "use_early_stopping",
         "job",
     ]
 }
@@ -235,22 +219,9 @@ REGR_FEATURES_TRAIN = str(
     / "{samples}_{mode}_{context}_features_train.joblib"
 )
 
-defaults = {
-    x: f"{{{x}}}"
-    for x in [
-        "context",
-        "samples",
-        "n_hidden",
-        "job", # need job field in EVALUATION_TRAINING
-        "features",
-        "orth_reg_strategy",
-        "l1reg_inflate",
-        "oreg_inflate",
-        "l1reg_encode",
-        "oreg_encode",
-    ]
-}
+# using same defaults as above
 tpl_evaluation_file = "__".join(defaults.values())
+
 EVALUATION_TRAINING = str(
     evaluations_dir
     / "{model}"

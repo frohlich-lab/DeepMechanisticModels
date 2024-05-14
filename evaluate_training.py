@@ -2,11 +2,11 @@ import fire
 import jax
 import jax.random as jr
 import pandas as pd
-import pypesto
+# import pypesto
 
 from common import (
     Conf,
-    TRAINING_OUTFILE_RESULTS,
+    # TRAINING_OUTFILE_RESULTS,
     TRAINED_BEST_MODELS,
     EVALUATION_TRAINING,
     FEATURES_OUTFILE,
@@ -19,7 +19,7 @@ from common import (
 from dmm.analysis import evaluate_simulations
 from dmm.training import create_pypesto_problem
 from dmm.initialisation import load_models
-from pypesto.store import OptimizationResultHDF5Reader
+# from pypesto.store import OptimizationResultHDF5Reader
 from util import load_petab_base_files
 
 
@@ -38,6 +38,7 @@ samples = {
 
 
 def evaluate_training(dataset, conf):
+    # Initialise list to store evaluations
     evaluations = []
 
     # Initialise model skeleton and get CytofProblem
@@ -48,7 +49,7 @@ def evaluate_training(dataset, conf):
     # Extract base objective
     obj = pypesto_problem.objective.base_objective
 
-    # Define filepaths for training results and serialized model
+    # Define filepaths for training results and serialized model - only the latter is needed
     # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
     trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
 
@@ -80,22 +81,13 @@ def evaluate_training(dataset, conf):
         model=model,
         input_features=input_features,
         obj=obj,
+        conf=conf,
         samples=samples[dataset],
         petab_problem=model.petab_importer.petab_problem,
-        context=conf.context,
-        split=conf.samples,
         dataset=dataset,
-        job=conf.job,  # adding job here to produce one plot per multistart
-        orth_reg_strategy=conf.orth_reg_strategy,
-        l1reg_inflate=conf.l1reg_inflate,
-        oreg_inflate=conf.oreg_inflate,
-        l1reg_encode=conf.l1reg_encode,
-        oreg_encode=conf.oreg_encode,
-        latent_dim=conf.n_hidden,
-        features=conf.features,
         outdir=outdir / "simulation",
         evaluations=evaluations,
-        model_type="full",
+        model_type="full",  # TODO @GiacomoFabrini what does this mean?
     )
 
     return pd.DataFrame(evaluations)

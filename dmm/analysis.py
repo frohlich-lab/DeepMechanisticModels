@@ -23,17 +23,9 @@ def process_simulation(
     evaluations,
     measurement_df,
     simulation_df,
-    context,
-    job,
+    conf,
     sample,
     model_type,
-    orth_reg_strategy,
-    l1reg_inflate,
-    oreg_inflate,
-    l1reg_encode,
-    oreg_encode,
-    hidden_layers,
-    features,
 ):
     idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     mdf = measurement_df[idx]
@@ -48,23 +40,35 @@ def process_simulation(
             condition = r[petab.SIMULATION_CONDITION_ID].split("__")[1]
         else:
             condition = r[petab.SIMULATION_CONDITION_ID]
+
+        # Subset conf
+        subset_hyperparams = [
+            "context", "features", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
+            "n_hidden",
+            # TODO @GiacomoFabrini - are all these needed?
+            "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
+            "use_layer_bias", "nn_init_fn",
+            "reconstruct", "activation_fn_name", "optimiser",
+            "orth_reg_strategy",
+            "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
+            "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
+            "use_simple_linear_schedule", "use_early_stopping",
+            "job",
+        ]
+        subset_conf_dict = dict(
+            (k, conf.__dict__[k])
+            for k in subset_hyperparams
+            if k in conf.__dict__
+        )
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
-                "job": job,  # job-specific residuals
                 "sample": sample,
                 "type": model_type,
-                "context": context,
-                "orth_reg_strategy": orth_reg_strategy,
-                "l1reg_inflate": l1reg_inflate,
-                "oreg_inflate": oreg_inflate,
-                "l1reg_encode": l1reg_encode,
-                "oreg_encode": oreg_encode,
-                "layers": hidden_layers,
-                "features": features,
                 "observable": r[petab.OBSERVABLE_ID],
                 "condition": condition,
                 "time": r[petab.TIME],
+                **subset_conf_dict,
             }
         )
 
@@ -110,19 +114,10 @@ def evaluate_simulations(
     model,
     input_features,
     obj,
+    conf,
     samples,
     petab_problem,
-    context,
-    split,
     dataset,
-    job,
-    orth_reg_strategy,
-    l1reg_inflate,
-    oreg_inflate,
-    l1reg_encode,
-    oreg_encode,
-    latent_dim,
-    features,
     outdir,
     evaluations,
     model_type,
@@ -162,17 +157,9 @@ def evaluate_simulations(
             evaluations=evaluations,
             measurement_df=petab_problem.measurement_df,
             simulation_df=simulation_df,
-            context=context,
-            job=job,
+            conf=conf,
             sample=sample,
             model_type=model_type,
-            orth_reg_strategy=orth_reg_strategy,
-            l1reg_inflate=l1reg_inflate,
-            oreg_inflate=oreg_inflate,
-            l1reg_encode=l1reg_encode,
-            oreg_encode=oreg_encode,
-            hidden_layers=latent_dim,
-            features=features,
         )
 
     plot_cross_samples(
@@ -181,15 +168,13 @@ def evaluate_simulations(
         outdir / dataset,
         "__".join(
             [
-                split,
-                context,
-                str(job),  # include job number to produce one plot per multistart
-                str(latent_dim),
-                str(l1reg_inflate),
+                conf.samples,
+                conf.context,
+                conf.features,
                 dataset,
                 model_type,
             ]
-        ),
+        ) + conf.__str__(),
     )
 
 
