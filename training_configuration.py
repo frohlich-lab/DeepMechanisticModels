@@ -17,12 +17,12 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "all"),
+    ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    # ("transcriptomics", "all"),
+    ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
