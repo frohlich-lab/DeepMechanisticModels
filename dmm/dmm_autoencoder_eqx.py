@@ -40,12 +40,13 @@ def mse(
 
 
 def init_biases(biases, num_layers):
-    if biases is None:
+    if (biases is None) or (not biases):  # None or False
         biases = [False] * num_layers
-    elif len(biases) == 1:  # admit [True] or [False] as shortcuts
-        biases = [biases[0]] * num_layers
-    elif len(biases) != num_layers:
-        raise ValueError("Biases must have the same length as layer_sizes!")
+    elif biases:
+        biases = [True] * num_layers
+    # removed - either all layers have biases or none have biases
+    # elif len(biases) != num_layers:
+    #     raise ValueError("Biases must have the same length as layer_sizes!")
     return biases
 
 
