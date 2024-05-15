@@ -284,13 +284,12 @@ def linear_nn_init(
         model,
         new_encoder_weights
     )
-    if conf.encoder_layer_biases is not None:
-        if conf.encoder_layer_biases[0]:  # if use_bias=True for single layer
-            model = eqx.tree_at(
-                lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
-                model,
-                jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
-            )
+    if conf.use_layer_bias:
+        model = eqx.tree_at(
+            lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
+            model,
+            jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
+        )
 
     # Compute target for least square initialisation of inflater weights:
     # kinetic parameter deviation around the median
@@ -314,14 +313,12 @@ def linear_nn_init(
         model,
         new_inflater_weights
     )
-    if conf.inflater_layer_biases is not None:
-        # same as done for encoder in case of use_bias=True
-        if conf.inflater_layer_biases[0]:
-            model = eqx.tree_at(
-                lambda m: m.deep_inflater.layers[0].bias,
-                model,
-                jnp.zeros_like(model.deep_inflater.layers[0].bias),
-            )
+    if conf.use_layer_bias:
+        model = eqx.tree_at(
+            lambda m: m.deep_inflater.layers[0].bias,
+            model,
+            jnp.zeros_like(model.deep_inflater.layers[0].bias),
+        )
     # Overwrite decoder weights with inverse of encoder weights
     if conf.reconstruct:
         # initialise the decoder with the transpose of the encoder weights
@@ -333,14 +330,12 @@ def linear_nn_init(
             model,
             new_decoder_weights
         )
-        if conf.decoder_layer_biases is not None:
-            # same as done for encoder/inflater in case of use_bias=True
-            if conf.decoder_layer_biases[0]:
-                model = eqx.tree_at(
-                    lambda m: m.deep_decoder.layers[0].bias,
-                    model,
-                    jnp.zeros_like(model.deep_decoder.layers[0].bias),
-                )
+        if conf.use_layer_bias:
+            model = eqx.tree_at(
+                lambda m: m.deep_decoder.layers[0].bias,
+                model,
+                jnp.zeros_like(model.deep_decoder.layers[0].bias),
+            )
     return model
 
 
