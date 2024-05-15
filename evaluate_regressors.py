@@ -109,6 +109,7 @@ def build_pipeline(
 
     return Pipeline(steps)
 
+
 def train_pipeline(
         pipeline_steps,
         conf,
@@ -152,9 +153,10 @@ def train_pipeline(
     pipeline = build_pipeline(
                 steps_list=pipeline_steps,
                 input_data=input_data
-            )
+    )
 
     return pipeline.fit(input_data, output_data), features_train
+
 
 def evaluate_standard_regression(
         dataset,
@@ -165,7 +167,6 @@ def evaluate_standard_regression(
         trained_pipeline,
         features_train,
 ):
-
 
     # Check the regressors have been trained
     if trained_pipeline is None:
@@ -185,7 +186,7 @@ def evaluate_standard_regression(
     input_data, _ = load_data(
         contextualization=context,
         samples=samples_eval,
-        features=features_train if dataset=="test" else None,
+        features=features_train if dataset == "test" else None,
         **petab_base_files,
     )
     output_data, _ = load_data(
@@ -222,7 +223,6 @@ def evaluate_standard_regression(
             'time'
         ]
     ).reset_index().drop(columns='index').rename(columns={0: "measurement"})
-
 
     # Produce plots to analyse performance
     # import original output data as in avg/avg_model
@@ -267,25 +267,41 @@ def evaluate_standard_regression(
     # Process simulations/regressions, i.e. produce CSVs with residuals
     evaluations = []
 
+    # instantiate a replacement conf for regressors
+    # all regularisation hyperparams are 0 by default
+    # job is None by default
+    # features are None by default (previously we were saving them as "none")
+    # orth_reg_strategy is now None (previously "None")
+    # context is now None by default (previously "none")
+    regr_conf = Conf(
+        model=conf.model,
+        data=conf.data,
+        context=context,
+        activation_fn_name=None,
+        optimiser=None,
+        nn_init_fn=None,
+        max_lrate=None,
+        lrate_span=None,
+        lrate_decay=None,
+        warmup_fct=None,
+        opt_steps=None,
+        opt_mult=None,
+        use_simple_linear_schedule=None,
+        use_early_stopping=None,
+    )
+
     for sample in samples[dataset]:
         process_simulation(
             evaluations=evaluations,
             measurement_df=output_data,
             simulation_df=reg_pred,
-            context=context,
+            conf=regr_conf,
             sample=sample,
             model_type=mode,
-            orth_reg_strategy="None",  # not needed for regression
-            job=None, # not needed here
-            l1reg_inflate=0.0,
-            oreg_encode=0.0,
-            l1reg_encode=0.0,
-            oreg_inflate=0.0,
-            hidden_layers=0,
-            features="none",
         )
 
     return pd.DataFrame(evaluations)
+
 
 # Evaluate regressors
 for dataset, context, mode in itt.product(
@@ -322,7 +338,6 @@ for dataset, context, mode in itt.product(
         )
         dump(trained_pipeline, trained_pipeline_file)
         dump(features_train, features_train_file)
-
 
     df = evaluate_standard_regression(
         dataset=dataset,

@@ -44,6 +44,27 @@ samples = {
     "test": test_samples(Wildcards(conf.data, conf.samples)),
 }
 
+# instantiate a replacement conf for references
+# all regularisation hyperparams are 0 by default
+# features/orth_reg_strategy/context are None by default (previously we were saving them as "none"/"None")
+# job is None by default
+# all hyperparams with default value != None are overridden
+ref_conf = Conf(
+    model=conf.model,
+    data=conf.data,
+    activation_fn_name=None,
+    optimiser=None,
+    nn_init_fn=None,
+    max_lrate=None,
+    lrate_span=None,
+    lrate_decay=None,
+    warmup_fct=None,
+    opt_steps=None,
+    opt_mult=None,
+    use_simple_linear_schedule=None,
+    use_early_stopping=None,
+)
+
 
 def evaluate_pretraining_per_sample(dataset, conf, just_return=False):
     evaluations = []
@@ -91,18 +112,11 @@ def evaluate_pretraining_per_sample(dataset, conf, just_return=False):
             evaluations=evaluations,
             measurement_df=importer.petab_problem.measurement_df,
             simulation_df=simulation_df,
-            context="none",
+            conf=ref_conf,
             sample=sample,
             model_type="per_sample",
-            orth_reg_strategy="None", # not needed for regression
-            job=None,  # not needed here
-            l1reg_inflate=0.0,
-            oreg_encode=0.0,
-            l1reg_encode=0.0,
-            oreg_inflate=0.0,
-            hidden_layers=0,
-            features="none",
         )
+
 
         plot_single_sample(
             importer.petab_problem.measurement_df,
@@ -165,17 +179,9 @@ def evaluate_average(dataset, conf):
             evaluations=evaluations,
             measurement_df=df_meas,
             simulation_df=df_sim,
-            context="none",
+            conf=ref_conf,
             sample=sample,
             model_type="avg",
-            orth_reg_strategy="None", # not needed for regression
-            job=None,  # not needed here
-            l1reg_inflate=0.0,
-            oreg_encode=0.0,
-            l1reg_encode=0.0,
-            oreg_inflate=0.0,
-            hidden_layers=0,
-            features="none",
         )
 
     return pd.DataFrame(evaluations)
@@ -256,17 +262,9 @@ def evaluate_average_model(dataset, conf):
             evaluations=evaluations,
             measurement_df=df_meas,
             simulation_df=avg_model,
-            context="none",
+            conf=ref_conf,
             sample=sample,
             model_type="avg_model",
-            orth_reg_strategy="None", # not needed for regression
-            job=None,  # not needed
-            l1reg_inflate=0.0,
-            oreg_encode=0.0,
-            l1reg_encode=0.0,
-            oreg_inflate=0.0,
-            hidden_layers=0,
-            features="none",
         )
 
     return pd.DataFrame(evaluations)
