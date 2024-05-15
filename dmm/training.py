@@ -273,12 +273,12 @@ def train(
                 # Update early stopper
                 early_stopper = early_stopper.update(rmse_dict["test"])
                 # Debugging statements
-                print(
-                    f"epoch {epoch} | "
-                    f"rmse_val {rmse_dict['test']} | "
-                    f"has improved? {early_stopper.has_improved} | "
-                    f"patience count {early_stopper.patience_count}"
-                )
+                # print(
+                #     f"epoch {epoch} | "
+                #     f"rmse_val {rmse_dict['test']} | "
+                #     f"has improved? {early_stopper.has_improved} | "
+                #     f"patience count {early_stopper.patience_count}"
+                # )
                 # Log current patience count
                 wandb.log(
                     {
@@ -300,6 +300,7 @@ def train(
             )
             break
 
+    print(f"Best rmse_val: {rmse_test_min}")
     wandb.log({"final_epoch": epoch})
     wandb.finish()
 
