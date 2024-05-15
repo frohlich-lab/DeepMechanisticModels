@@ -320,17 +320,7 @@ for samples in SPLITS:
         print(f'Finished processing regressors for {samples}, {dataset}')
 
         print(f'Starting to build hyperparam/job combination copies for references models - {samples}, {dataset}')
-        missing_hyperparams = [
-            "features",
-            "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-            "use_layer_bias", "nn_init_fn",
-            "reconstruct", "activation_fn_name", "optimiser",
-            "orth_reg_strategy",
-            "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-            "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-            "use_simple_linear_schedule", "use_early_stopping",
-            "job",
-        ]
+        # Removed addition of None hyperparameters - already done before the `process_simulations` step
         avg_ps_dfs = []
         for context in CONTEXT_SET:
             # need to replicate info across contexts for "avg_model" and "sample"
@@ -340,24 +330,16 @@ for samples in SPLITS:
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
-                # they have no hyperparams -- None
                 avg_ps_df["context"] = context
                 # avg_ps_df["type"] = method
-                # avg_ps_df["pretrain"] = pretrain
-                for col in missing_hyperparams:
-                    avg_ps_df[col] = None
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
 
         # regression baselines already have context
-        # but no hyperparameters
         for _, rdf in regressor_dfs.items():
             avg_ps_df = rdf.copy()
-            for col in missing_hyperparams:
-                avg_ps_df[col] = None
             # avg_ps_df["type"] = method
-            # avg_ps_df["pretrain"] = pretrain
             avg_ps_dfs.append(avg_ps_df)
             # Once appended, this can be deleted
             del avg_ps_df
