@@ -17,12 +17,12 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    ("proteomics", "all"),
+    # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    ("transcriptomics", "all"),
+    # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
@@ -63,13 +63,13 @@ LATENT_DIMS = (
 #
 # MAX_INFLATER_DEPTH = 5
 
-NETWORK_LAYOUT = (
-    ([], [], "True"),  # no hidden layers in encoder nor inflater, linear benchmark (PCA/least squares initialisation)
-    # ([], [], "False"),  # no hidden layers in encoder nor inflater, no linear benchmark, i.e. random initialisation
-    # ([10], [10], "False"),  # single hidden layer in encoder and inflater
-    ([10, 5], [5, 10], "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
-    # ([20, 10, 5], [5, 5, 10], "False"),  # 3 hidden layers
-)
+NETWORK_LAYOUT = {
+    # ('[]', '[]', "True"),  # no hidden layers, linear benchmark (PCA/least squares initialisation)
+    # ('[]', '[]', "False"),  # no hidden layers, no linear benchmark, i.e. random initialisation
+    # ('[10]', '[10]', "False"),  # single hidden layer in encoder and inflater
+    ('[10,5]', '[5,10]', "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
+    # ('[20, 10, 5]', '[5, 5, 10]', "False"),  # 3 hidden layers
+}
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
 # hyperparameter
