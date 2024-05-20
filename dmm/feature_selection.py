@@ -93,7 +93,8 @@ def contextualize_measurements(
         index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
         columns=pivot_columns,  # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
         values=petab.MEASUREMENT,  # the actual measurement/signal
-        aggfunc=np.nanmean,  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
+        aggfunc="mean",  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
+        # np.nanmean generates FutureWarning
     )
 
     return input_data
@@ -126,8 +127,8 @@ def load_data(
                 mask = input_data.loc[:, target].isna()
                 input_data.loc[mask, target] = input_data.loc[mask, source]
         #  regression imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"): # all currently considered observables - might need to access, not hardcode
-            for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"): # all currently considered conditions - might need to access, not hardcode
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):  # all currently considered observables - might need to access, not hardcode
+            for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"):  # all currently considered conditions - might need to access, not hardcode
                 for missing_time, [time_before, time_after] in zip([7.0, 13.0, 40.0],
                                                                    [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]):
 
