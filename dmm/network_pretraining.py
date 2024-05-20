@@ -10,7 +10,8 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .wandb_init_log import log_model_stats
 from .deepcomponent_eqx import DeepComponent
 from .training_helper_funcs import get_finite_grads
-from common import EarlyStoppingParams, get_scheduler, optimisers, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
+from common import (EarlyStoppingParams, get_scheduler, optimisers,
+                    L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
 # from pathlib import Path
@@ -224,12 +225,13 @@ def pretrain_network(
                 # Update early stopper
                 early_stopper = early_stopper.update(loss_val)
                 # Debugging statements
-                # print(
-                #     f"epoch {epoch} | "
-                #     f"loss_val {loss_val} | "
-                #     f"has improved? {early_stopper.has_improved} | "
-                #     f"patience count {early_stopper.patience_count}"
-                # )
+                if debug_mode:
+                    print(
+                        f"epoch {epoch} | "
+                        f"loss_val {loss_val} | "
+                        f"has improved? {early_stopper.has_improved} | "
+                        f"patience count {early_stopper.patience_count}"
+                    )
                 # Log current patience count
                 wandb.log(
                     {

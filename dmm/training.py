@@ -13,7 +13,8 @@ from .training_helper_funcs import get_finite_grads, map_params_to_array
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
-from common import EarlyStoppingParams, get_scheduler, optimisers, RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG
+from common import (EarlyStoppingParams, get_scheduler, optimisers,
+                    RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG, debug_mode)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Float, PyTree
@@ -280,12 +281,13 @@ def train(
                 # Update early stopper
                 early_stopper = early_stopper.update(rmse_dict["test"])
                 # Debugging statements
-                # print(
-                #     f"epoch {epoch} | "
-                #     f"rmse_val {rmse_dict['test']} | "
-                #     f"has improved? {early_stopper.has_improved} | "
-                #     f"patience count {early_stopper.patience_count}"
-                # )
+                if debug_mode:
+                    print(
+                        f"epoch {epoch} | "
+                        f"rmse_val {rmse_dict['test']} | "
+                        f"has improved? {early_stopper.has_improved} | "
+                        f"patience count {early_stopper.patience_count}"
+                    )
                 # Log current patience count
                 wandb.log(
                     {

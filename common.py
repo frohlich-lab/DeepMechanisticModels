@@ -1,6 +1,7 @@
 import dataclasses
 import numpy as np
 import optax
+import os
 
 from collections import namedtuple
 from cytof import get_samples
@@ -115,6 +116,9 @@ class ModuleParams(dict):
     weight_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
     bias_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
 
+
+# Get the DEBUG environment variable
+debug_mode = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 
 CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
 
