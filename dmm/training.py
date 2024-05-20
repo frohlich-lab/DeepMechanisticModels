@@ -179,7 +179,8 @@ def train(
         )
         grads = get_finite_grads(grads)
         updates, opt_state = opt.update(grads, opt_state, model)
-        # Zero-out the updates based on filter_spec_per_param (keep where True) -- equivalent to freezing on a per-parameter basis
+        # Zero-out the updates based on filter_spec_per_param (keep where True).
+        # This is equivalent to freezing on a per-parameter basis
         filtered_updates = apply_filter_to_updates(updates, filter_spec_per_param)
         # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
         next_model = eqx.apply_updates(model, filtered_updates)

@@ -11,12 +11,11 @@ from . import MODEL_FEATURE_PREFIX
 from common import ModuleParams
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from dmm.deepcomponent_eqx import KinParamsCombiner
-from jax.random import KeyArray
 from jaxtyping import Array
 from pathlib import Path
 from .petab_subproblem import load_petab
 from .problem import Problem
-from typing import List, Union
+from typing import Any, List, Union
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -94,7 +93,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             encoder_params: ModuleParams,
             inflater_params: ModuleParams,
             decoder_params: ModuleParams,
-            key: int,
+            key: Any,
             measurement_table: pd.DataFrame,
             observable_table: pd.DataFrame,
             condition_table: pd.DataFrame,
@@ -405,7 +404,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             measurement_table: pd.DataFrame,  # not serialisable in json
             observable_table: pd.DataFrame,  # not serialisable in json
             condition_table: pd.DataFrame,  # not serialisable in json
-            key: KeyArray
+            key: Any,
     ) -> 'DeepMechanisticModel':
         """
         Loads DMM model from a file.

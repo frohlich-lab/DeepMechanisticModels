@@ -377,7 +377,7 @@ def init_global_kin_params_combiner(
 def get_targets(
         model: DeepMechanisticModel,
         par_combo: pd.DataFrame,
-) -> jnp.ndarray():
+) -> jnp.ndarray:
     inputs = [
         "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
         for p in model.petab_importer.petab_problem.parameter_df.index
