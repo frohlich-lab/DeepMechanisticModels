@@ -157,3 +157,4 @@ pretraining/*
 cytof/amici_models/*
 data/amici_models/*
 wandb/*
+*.eqx
