@@ -16,7 +16,7 @@ from training_configuration import (
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
-    USE_EARLY_STOP,
+    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN
 )
 
 basedir = Path(os.getcwd())
@@ -225,6 +225,7 @@ rule estimate_parameters:
         opt_mult='[0-9\.]+',
         use_simple_linear_schedule='True|False',
         use_early_stopping='True|False',
+        drop_reg_after_pretrain='True|False',
         job='[0-9]+',
     retries: 1
     resources:
@@ -246,7 +247,7 @@ rule estimate_parameters:
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                 'recon_loss', 'symm_reg',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
-                'use_simple_linear_schedule', 'use_early_stopping',
+                'use_simple_linear_schedule', 'use_early_stopping', 'drop_reg_after_pretrain',
                 'job',
             )
         ) + ' --threads={threads}'
@@ -315,6 +316,7 @@ rule evaluate_training:
         opt_mult='[0-9\.]+',
         use_simple_linear_schedule='True|False',
         use_early_stopping='True|False',
+        drop_reg_after_pretrain='True|False',
         job='[0-9]+',
     resources:
         mem="16GB",
@@ -335,7 +337,7 @@ rule evaluate_training:
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
                 'recon_loss', 'symm_reg',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
-                'use_simple_linear_schedule', 'use_early_stopping',
+                'use_simple_linear_schedule', 'use_early_stopping', 'drop_reg_after_pretrain',
                 'job',
             )
         )
@@ -438,6 +440,7 @@ rule evaluate_all:
                 use_simple_linear_schedule=LINEAR_SCHEDULE,
                 use_early_stopping=USE_EARLY_STOP,  # patience and min_improvement imported in `train.py`
                 job=STARTS,
+                drop_reg_after_pretrain=DROP_REG_POST_PRETRAIN,
             )
         ],
         reference=expand(
