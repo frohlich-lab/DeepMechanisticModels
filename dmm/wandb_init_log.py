@@ -67,13 +67,20 @@ def init_wandb(
         "integration_error": None,
         "fval": "min",
         "loss": "min",
-        L1EREG: "min",
-        OEREG: "min",
-        L1IREG: "min",
-        OIREG: "min",
-        RECON_LOSS: "min",
-        SYMM_LOSS: "min",
     }
+    # If in pretraining, keep regularisation terms
+    # Same if in full model training with drop_reg_after_pretrain=False
+    if pretrain or not conf.drop_reg_after_pretrain:
+        reg_metrics = {
+            L1EREG: "min",
+            OEREG: "min",
+            L1IREG: "min",
+            OIREG: "min",
+            RECON_LOSS: "min",
+            SYMM_LOSS: "min",
+        }
+        metrics = {**metrics, **reg_metrics}
+
     for metric in metrics.keys():
         # if metric summary not specified
         if metrics[metric] is None:

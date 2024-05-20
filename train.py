@@ -9,12 +9,12 @@ from dmm.initialisation import (linear_nn_init,
                                 load_and_subset_input_features,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
-from dmm.training import create_pypesto_problem, map_params_to_array, train
+from dmm.training import create_pypesto_problem, map_params_to_array, sparsify_model, train
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT
+from training_configuration import PATIENCE, MIN_IMPROVEMENT, SPARSE_THRESHOLD
 
 
 conf = fire.Fire(Conf)
@@ -86,7 +86,7 @@ else:
         test_size=0.2,
         random_state=42
     )
-    # Define filter_spec to freeze the KinParamsCombiner in the model
+    # Define filter_spec_per_param to freeze the KinParamsCombiner in the model
     model_train, filter_spec = init_global_kin_params_combiner(
         conf,
         model_train,
@@ -108,7 +108,7 @@ else:
         early_stopping_params=early_stopping_params,
     )
     # TODO @GiacomoFabrini - is this enough to pass the pretrained model?
-    # Now initialise the params of the KinParamsCombiner (No need for filter_spec?)
+    # Now initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
         conf,
         pretrained_model,
@@ -121,6 +121,14 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
+# Keep sparsity pattern learnt during regularisation, but drop regularisation, i.e.
+# zero-out parameters below a given threshold and prepare filter_spec_per_param to mask updates (freeze).
+model_train, filter_spec_per_param = sparsify_model(
+    model_train,
+    conf.drop_reg_after_pretrain,
+    SPARSE_THRESHOLD,
+)
+
 # TODO @GiacomoFabrini -- need to make sure the learned global parameters in KinParamsCombiner are in the same order
 #  as those which were in .x_names before?! (they should be, but need to check - CHECK INITIALISATION!)
 # Get PEtab-compatible embedding of model parameters (i.e global kin params concatenated with cell-line specific
@@ -131,6 +139,7 @@ x0 = map_params_to_array(model_train)
 init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
+    filter_spec_per_param=filter_spec_per_param,
     problem_train=pypesto_problem_train,
     input_features_train=input_features_train,
     input_features_test=input_features_test,

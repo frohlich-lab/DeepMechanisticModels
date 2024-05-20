@@ -251,3 +251,11 @@ PATIENCE = 19  # before it was 9 - should correspond to (19+1)*5 = 100 epochs ov
 
 # MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0
+
+# Drop regularisation after pretraining
+DROP_REG_POST_PRETRAIN = {
+    "True",
+    # "False",
+}
+
+SPARSE_THRESHOLD = 1e-3

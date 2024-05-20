@@ -64,6 +64,8 @@ class Conf(dict):
     use_simple_linear_schedule: bool = True
     # Early-stopping
     use_early_stopping: bool = True
+    # Drop regularisation after pretraining
+    drop_reg_after_pretrain: bool = False
     # Other hyperparams
     job: int = None
     threads: int = 1
@@ -161,7 +163,7 @@ defaults = {
         "orth_reg_strategy",
         "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
         "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-        "use_simple_linear_schedule", "use_early_stopping",
+        "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
         "job",
     ]
 }
