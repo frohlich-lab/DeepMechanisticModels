@@ -88,9 +88,11 @@ class Conf(dict):
 
         # Filter out unwanted fields from the final string representation
         unwanted_fields = [
-            "model", "data", "sample", "samples", "context", "features", "pretrain",
+            "model", "data", "sample", "samples", "context", "features",
+            "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
+            "drop_reg_after_pretrain",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
