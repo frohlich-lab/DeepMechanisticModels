@@ -9,7 +9,8 @@ from dmm.initialisation import (linear_nn_init,
                                 load_and_subset_input_features,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
-from dmm.training import create_pypesto_problem, map_params_to_array, sparsify_model, train
+from dmm.training import create_pypesto_problem, map_params_to_array, train
+from dmm.training_helper_funcs import sparsify_model
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
@@ -107,7 +108,6 @@ else:
         n_epoch=1000,
         early_stopping_params=early_stopping_params,
     )
-    # TODO @GiacomoFabrini - is this enough to pass the pretrained model?
     # Now initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
         conf,
@@ -129,8 +129,6 @@ model_train, filter_spec_per_param = sparsify_model(
     SPARSE_THRESHOLD,
 )
 
-# TODO @GiacomoFabrini -- need to make sure the learned global parameters in KinParamsCombiner are in the same order
-#  as those which were in .x_names before?! (they should be, but need to check - CHECK INITIALISATION!)
 # Get PEtab-compatible embedding of model parameters (i.e global kin params concatenated with cell-line specific
 # parameters, flattened for all training set samples/cell-lines).
 x0 = map_params_to_array(model_train)

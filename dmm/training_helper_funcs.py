@@ -3,7 +3,8 @@ import jax.numpy as jnp
 
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from jax import tree_map
+from jax.tree_util import tree_map
+from jaxtyping import Array, PyTree
 from typing import Union
 
 
@@ -61,3 +62,92 @@ def map_params_to_array(
         ]
     )
     return param_array
+
+
+def sparsify_model(
+        model: DeepMechanisticModel,
+        drop_regularisation_post_pretraining: bool,
+        threshold: float,
+):
+    def zero_out_and_freeze(
+            model: DeepMechanisticModel,
+            filter_spec: PyTree,
+            threshold: float
+    ):
+        """
+        Takes in input a DeepMechanisticModel, the corresponding filter_spec_per_param (all True) and a threshold.
+        Returns in output the same model with zeroed out parameters below
+        the threshold * max absolute value in the corresponding layer and category (weights - does not work on biases)
+        of a given module, as well as a modified filter_spec_per_param, with zeroed-out values frozen (set to False).
+        """
+
+        def zero_out_layer_params(
+                param: Array,
+                thresh: float,
+        ):
+            """
+            Takes in input the parameters (weights/biases) of a layer and a threshold.
+            Returns in output the same parameters with zeroed-out values below the threshold * max absolute value,
+            as well as the reverse of the mask (True if parameter has not been zero-ed out and should be kept,
+            False if parameter has been zero-ed out and should be frozen in further training).
+            Currently, it does not affect biases (single bias value per layer, i.e. never masked out).
+            """
+            # Compute min accepted value as threshold `thresh` * max absolute value in a given layer
+            min_accepted_value = thresh * jnp.max(jnp.abs(param))
+            # return layer parameters with zeroed-out values below `min_accepted_value`
+            mask = jnp.abs(param) < min_accepted_value
+            new_param = jnp.where(mask, 0.0, param)
+            return new_param, ~mask
+
+        # Define modules in the model and filter_spec_per_param
+        modules = [model.deep_encoder, model.deep_inflater]
+        filter_specs = [filter_spec.deep_encoder, filter_spec.deep_inflater]
+        if model.reconstruct:
+            modules.append(model.deep_decoder)
+            filter_specs.append(filter_spec.deep_decoder)
+
+        for module, fs_module in zip(
+                modules,
+                filter_specs
+        ):
+            # Iterate through layers, zeroing out weights/biases below the max absolute per-layer value * threshold
+            for i, layer in enumerate(module.layers):
+                if hasattr(layer, 'weight'):
+                    module.layers[i] = eqx.tree_at(
+                        lambda lyr: lyr.weight, layer, zero_out_layer_params(layer.weight, threshold)[0]
+                    )
+                    fs_module.layers[i] = eqx.tree_at(
+                        lambda lyr: lyr.weight, fs_module.layers[i], zero_out_layer_params(layer.weight, threshold)[1]
+                    )
+                # Currently not filtering nor affecting biases, as there is only a single bias value per layer,
+                # so it would never be masked out with the current strategy + there are only few bias terms.
+                # if hasattr(layer, 'bias') and (layer.bias is not None):
+                #     module.layers[i] = eqx.tree_at(
+                #         lambda lyr: lyr.bias, layer, zero_out_layer_params(layer.bias, threshold)[0]
+                #     )
+                #     fs_module.layers[i] = eqx.tree_at(
+                #         lambda lyr: lyr.bias, fs_module.layers[i], zero_out_layer_params(layer.bias, threshold)[1]
+                #     )
+        return model, filter_spec
+
+    # Default to training all parameters
+    filter_spec = tree_map(lambda _: True, model)
+
+    if drop_regularisation_post_pretraining:
+        # Zero out parameters that are below threshold * max in the corresponding layer and category (weight/bias
+        # if any) and freeze corresponding zero-ed out parameters
+        model, filter_spec = zero_out_and_freeze(model, filter_spec, threshold)
+    return model, filter_spec
+
+
+def apply_filter_to_updates(updates, filter_spec):
+    """
+    Zeroes out the updates corresponding to False values in the filter_spec_per_param.
+    """
+
+    def mask_update(update, mask):
+        return jnp.where(mask, update, 0.0)
+
+    # Apply the mask to zero out updates where filter_spec_per_param is False
+    masked_updates = tree_map(mask_update, updates, filter_spec)
+    return masked_updates
