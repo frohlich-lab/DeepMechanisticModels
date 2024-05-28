@@ -1,16 +1,18 @@
-import pandas as pd
 import seaborn as sns
 import matplotlib.pyplot as plt
 import pandas as pd
+
 from common import EVALUATE_ALL, CONTEXT_SET
-from training_configuration import CONTEXTS_FEATURES
+
 
 # Base plotting functions for FacetGrid
 def lineplot_methods(data, *args, **kwargs):
     sns.lineplot(data[data["ref"] == "DMM"], *args, **kwargs)
 
+
 def scatterplot_func(data, *args, **kwargs):
     sns.scatterplot(data, *args, **kwargs)
+
 
 # Set reference-specific colours and linestyle
 ref_cmap = sns.color_palette("tab10")
@@ -69,7 +71,7 @@ def group_plots(
             y="rmse",
             hue="features",
             errorbar="se",
-            style="latent dim",
+            style="n_hidden",
             palette="rocket",
             markers=True,
         )
@@ -86,8 +88,8 @@ def group_plots(
         if (group == "job") or (group == "orth_reg_strategy"):
             g.set(ylim=(0, 1.1))  # symlog for unregularised settings;
         else:
-            # g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7))  # symlog to include unregularised hyperparam combos
-            g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))  # symlog to include unregularised hyperparam combos
+            # g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7))  # symlog to include unregularised settings
+            g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))  # symlog to include unregularised settings
         # g.add_legend()
         plt.tight_layout()
         rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
@@ -96,23 +98,12 @@ def group_plots(
         efile = rfile.replace(".pdf", ".csv")
         dataframe.to_csv(efile)
 
+
 def performance_barplot(
         dataframe: pd.DataFrame,
         conf
 ):
     # PERFORMANCE BARPLOT
-    # # avg_model, regression baselines, method (DMM, average with min-max range
-    # # across SPLITS, i.e. "samples", and multistarts, i.e. jobs), per_sample
-    #
-    # data2 = data.groupby(by = ['dataset',
-    #                            'context', 'features',
-    #                            'ref',
-    #                            #'pretrain',
-    #                            'orth_reg_strategy', 'latent dim',
-    #                            'l1reg_inflate', 'oreg_inflate',
-    #                            'l1reg_encode', 'oreg_encode'], as_index=False)['rmse'].mean()
-    # useless? It already seems to aggregate over all other features when producing the barplot
-
     _ = plt.figure()
     g = sns.FacetGrid(
         data=dataframe,
@@ -208,9 +199,6 @@ def n_hidden_pairwise_heatmap(
             square=True,
             vmin=0, vmax=1
         )
-        ax.invert_yaxis()
-        ax.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
-        ax.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
         plt.title(f"adjusted p-value | {context}")
         plt.subplot(num_contexts, 2, index + 1)
         ax2 = sns.heatmap(
@@ -223,9 +211,10 @@ def n_hidden_pairwise_heatmap(
             square=True,
             vmin=1e5, vmax=1.2e7
         )
-        ax2.invert_yaxis()
-        ax2.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
-        ax2.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
+        for axis in [ax, ax2]:
+            axis.invert_yaxis()
+            axis.set_yticks([0.5, 1.5, 2.5, 3.5], labels=[2, 4, 6, 8])
+            axis.set_xticks([-0.5, 0.5, 1.5, 2.5], labels=[2, 4, 6, 8])
         plt.title(f"test statistic | {context}")
         index += 2  # increase subplot index
     # Finally, save the whole figure combining all contexts
@@ -233,5 +222,3 @@ def n_hidden_pairwise_heatmap(
     rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
     plt.savefig(rfile)
     plt.savefig(rfile.replace('pdf', 'svg'))
-
-

@@ -1,13 +1,12 @@
 import dataclasses
 import numpy as np
-import optax
 import os
 
 from collections import namedtuple
 from cytof import get_samples
-from optax import adam, adamw
+from optax import adam, adamw, Schedule, sgdr_schedule
 from pathlib import Path
-from training_configuration import CONTEXTS_FEATURES
+from training.training_configuration import CONTEXTS_FEATURES
 from typing import Dict, List, Optional
 
 
@@ -33,21 +32,21 @@ class Conf(dict):
     context: str = None
     features: str = None
     samples: str = None
-    pretrain: bool = None
+    pretrain: bool = False
     sample: str = None
     # Network structure
-    n_hidden: int = None
+    n_hidden: int = 0
     encoder_layer_sizes: List[int] = None
     inflater_layer_sizes: List[int] = None
-    use_layer_bias: List[bool] = None
-    nn_init_fn: str = "eqx_default"
-    linear_benchmark: str = None
-    reconstruct: bool = None
+    use_layer_bias: List[bool] = False
+    nn_init_fn: str = "None"
+    linear_benchmark: str = False
+    reconstruct: bool = False
     # Training
-    activation_fn_name: str = "relu"
-    optimiser: str = "adam"
+    activation_fn_name: str = "None"
+    optimiser: str = "None"
     # Regularisation
-    orth_reg_strategy: str = None
+    orth_reg_strategy: str = "None"
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
@@ -55,20 +54,22 @@ class Conf(dict):
     recon_loss: float = 0.0
     symm_reg: float = 0.0
     # Learning schedule hyperparameters
-    max_lrate: float = 0.01  # maximum learning rate (max in first schedule or in all without decay)
-    lrate_span: float = 1e0  # ratio between max and min learning rates in a given schedule
-    lrate_decay: float = 0.98  # if < 1, the learning rate decays between schedules.
+    max_lrate: Optional[float] = 0.01  # maximum learning rate (max in first schedule or in all without decay)
+    lrate_span: Optional[float] = 1e0  # ratio between max and min learning rates in a given schedule
+    lrate_decay: Optional[float] = 0.98  # if < 1, the learning rate decays between schedules.
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
-    warmup_fct: float = 0.0  # fraction of schedule epochs to be used for warmup
-    opt_steps: int = 10  # Number of steps in the first schedule (they multiply each time in length by opt_mult)
-    opt_mult: int = 2  # Multiplier for the number of steps in each schedule
-    use_simple_linear_schedule: bool = True
+    warmup_fct: Optional[float] = 0.0  # fraction of schedule epochs to be used for warmup
+    opt_steps: int = 0  # Number of steps in the first schedule
+    opt_mult: int = 0  # Multiplier for the number of steps in each schedule
+    use_simple_linear_schedule: bool = False
     # Early-stopping
-    use_early_stopping: bool = True
+    use_early_stopping: bool = False
     # Drop regularisation after pretraining
     drop_reg_after_pretrain: bool = False
+    # Sparsity threshold
+    sparsity_threshold: float = 0.0
     # Other hyperparams
-    job: int = None
+    job: int = 0
     threads: int = 1
     n_starts: int = None
 
@@ -92,7 +93,7 @@ class Conf(dict):
             "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
-            "drop_reg_after_pretrain",
+            "drop_reg_after_pretrain", "sparsity_threshold",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
@@ -169,12 +170,12 @@ defaults = {
         "orth_reg_strategy",
         "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
         "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-        "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
+        "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain", "sparsity_threshold",
         "job",
     ]
 }
-tpl_results_file = "__".join(defaults.values())
 
+tpl_results_file = "__".join(defaults.values())
 
 TRAINING_OUTFILE_RESULTS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
@@ -307,7 +308,7 @@ def select_values(data, num_selected: int):
 def get_scheduler(
         conf: Dict,
         n_epoch: int,
-) -> optax.Schedule:
+) -> Schedule:
     """Get the learning rate scheduler.
 
     Parameters
@@ -329,7 +330,7 @@ def get_scheduler(
                 'peak_value': conf["max_lrate"],  # after warm-up
                 'warmup_steps': int(n_epoch * conf["warmup_fct"]),
                 'decay_steps': n_epoch,  # entire n_epoch
-                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch, # after decay
+                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
             }  # single linear schedule
         ]
     else:
@@ -346,9 +347,9 @@ def get_scheduler(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
                 ),
-                'decay_steps': int(conf["opt_steps"]  * (conf["opt_mult"] ** i_schedule)),
+                'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
                 'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
             }
             for i_schedule in range(len(epochs_per_schedule))
         ]
-    return optax.sgdr_schedule(schedules)
+    return sgdr_schedule(schedules)

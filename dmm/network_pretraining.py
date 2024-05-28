@@ -1,25 +1,16 @@
 import equinox as eqx
-# import itertools as itt
 import jax
 import jax.numpy as jnp
-# import numpy as np
-import pypesto
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .wandb_init_log import log_model_stats
-from .deepcomponent_eqx import DeepComponent
 from .training_helper_funcs import get_finite_grads
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
-# from pathlib import Path
 from typing import Dict
-
-
-# trace_path = Path(__file__).parents[1] / "traces"
-# TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
 
 @eqx.filter_value_and_grad

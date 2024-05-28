@@ -1,5 +1,4 @@
 import fire
-# import jax.numpy as jnp
 
 from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS
 from dmm.initialisation import (linear_nn_init,
@@ -9,19 +8,20 @@ from dmm.initialisation import (linear_nn_init,
                                 load_and_subset_input_features,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
-from dmm.training import create_pypesto_problem, map_params_to_array, train
-from dmm.training_helper_funcs import sparsify_model
+from dmm.training import train
+from dmm.training_helper_funcs import create_pypesto_problem, map_params_to_array, sparsify_model
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT, SPARSE_THRESHOLD
+from training.training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS
 
 
 conf = fire.Fire(Conf)
 
-results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
-model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
+# Remove blank spaces introduced by encoder/inflater_layer_sizes
+results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__).replace(" ", ""))
+model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__).replace(" ", ""))
 
 # Set JAX configuration
 config.update("jax_enable_x64", True)
@@ -126,10 +126,10 @@ pypesto_problem_train, pypesto_problem_test = (
 model_train, filter_spec_per_param = sparsify_model(
     model_train,
     conf.drop_reg_after_pretrain,
-    SPARSE_THRESHOLD,
+    conf.sparsity_threshold,
 )
 
-# Get PEtab-compatible embedding of model parameters (i.e global kin params concatenated with cell-line specific
+# Get PEtab-compatible embedding of model parameters (i.e. global kin params concatenated with cell-line specific
 # parameters, flattened for all training set samples/cell-lines).
 x0 = map_params_to_array(model_train)
 
@@ -145,7 +145,7 @@ train(
     conf=conf.__dict__,
     rfile=results_file,
     model_file=model_file,
-    n_epoch=1000,
+    n_epoch=N_EPOCHS,
     x0=x0,
     early_stopping_params=early_stopping_params,
 )

@@ -1,10 +1,10 @@
-from pathlib import Path
-
 import matplotlib.pyplot as plt
-import pandas
+import pandas as pd
 import petab
+
+from pathlib import Path
 from plotnine import *
-from typing import List
+from typing import List, Tuple, Union
 
 PLOTNINE_THEME = {
     "dpi": 300,
@@ -17,17 +17,28 @@ PLOTNINE_THEME = {
 }
 
 
-def plot_single_sample(
-    measurement_df: pandas.DataFrame,
-    simulation_df: pandas.DataFrame,
-    figdir: Path,
-    sample: str,
-    prefix: str,
-):
-    mdf = measurement_df.copy()
-    sdf = simulation_df.copy()
+def set_errorbar(mdf: pd.DataFrame) -> Tuple[pd.DataFrame, bool]:
+    if petab.NOISE_PARAMETERS in mdf.columns:
+        errorbar = True
+        mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
+        mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
+    else:
+        errorbar = False
+    return mdf, errorbar
 
-    for df in [sdf, mdf]:
+
+def process_dataframes(mdf: pd.DataFrame, sdfs: Union[pd.DataFrame, List[pd.DataFrame]]):
+    if isinstance(sdfs, list):
+        # sdfs is already a list of dataframes
+        single_dataframe_flag = False
+        pass
+    elif isinstance(sdfs, pd.DataFrame):
+        # sdfs is a single dataframe -> wrap in a list, but remember we will need to unpack
+        sdfs = [sdfs]
+        single_dataframe_flag = True
+    else:
+        raise TypeError("sdfs must be a pd.DataFrame or a list of pd.DataFrames")
+    for df in [*sdfs, mdf]:
         df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
             lambda x: x.replace("_obs", "")
         )
@@ -49,13 +60,25 @@ def plot_single_sample(
         df.rename(
             columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True
         )
-
-    if petab.NOISE_PARAMETERS in mdf.columns:
-        errorbar = True
-        mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
-        mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
+    if single_dataframe_flag:
+        return mdf, sdfs[0]
     else:
-        errorbar = False
+        return mdf, sdfs
+
+
+def plot_single_sample(
+    measurement_df: pd.DataFrame,
+    simulation_df: pd.DataFrame,
+    figdir: Path,
+    sample: str,
+    prefix: str,
+):
+    mdf = measurement_df.copy()
+    sdf = simulation_df.copy()
+
+    # Process dataframes and handle errorbar
+    mdf, sdf = process_dataframes(mdf, sdf)
+    mdf, errorbar = set_errorbar(mdf)
 
     kwargs = {"x": "time", "color": "treatment", "group": "treatment"}
 
@@ -104,8 +127,8 @@ def plot_cross_samples(measurement_df, simulation_df, figdir, prefix):
 
 
 def plot_single_sample_multiple_simulations(
-    measurement_df: pandas.DataFrame,
-    simulation_dfs: List[pandas.DataFrame],
+    measurement_df: pd.DataFrame,
+    simulation_dfs: List[pd.DataFrame],
     linetypes: List[str],
     linesizes: List[float],
     figdir: Path,
@@ -115,38 +138,13 @@ def plot_single_sample_multiple_simulations(
     mdf = measurement_df.copy()
     sdfs = [simulation_df.copy() for simulation_df in simulation_dfs]
 
-    for df in [*sdfs, mdf]:
-        df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
-            lambda x: x.replace("_obs", "")
-        )
-
-        if df.shape[0] > 0:  # for avg and avg_model, avoids error at evaluation of test samples during train (empty df)
-            if len(df[petab.SIMULATION_CONDITION_ID].iloc[0].split("__")) > 1:
-                df[petab.SIMULATION_CONDITION_ID] = df[
-                    petab.SIMULATION_CONDITION_ID
-                ].apply(
-                    lambda x: ("" if x.split("__")[1].startswith("EGF") else "EGF+")
-                    + x.split("__")[1]
-                )
-            else:
-                df[petab.SIMULATION_CONDITION_ID] = df[
-                    petab.SIMULATION_CONDITION_ID
-                ].apply(
-                    lambda x: (x if x == "EGF" else "EGF+"+x)
-                )
-        df.rename(
-            columns={petab.SIMULATION_CONDITION_ID: "treatment"}, inplace=True
-        )
-
-    if petab.NOISE_PARAMETERS in mdf.columns:
-        errorbar = True
-        mdf["ymax"] = mdf[petab.MEASUREMENT] + mdf[petab.NOISE_PARAMETERS]
-        mdf["ymin"] = mdf[petab.MEASUREMENT] - mdf[petab.NOISE_PARAMETERS]
-    else:
-        errorbar = False
+    # Process dataframes and handle errorbar
+    mdf, sdfs = process_dataframes(mdf, sdfs)
+    mdf, errorbar = set_errorbar(mdf)
 
     kwargs = {"x": "time", "color": "treatment", "group": "treatment"}
 
+    # Measurement data
     plot = (
             ggplot()
             + geom_point(
@@ -181,6 +179,7 @@ def plot_single_sample_multiple_simulations(
 def plot_cross_samples_multiple_simulations(
         measurement_df,
         simulation_dfs,
+        labels,  # TODO use to distinguish profiles/curves!
         linetypes: List[str],
         linesizes: List[float],
         figdir,

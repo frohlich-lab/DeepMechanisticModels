@@ -7,8 +7,6 @@ from amici.petab_objective import rdatas_to_simulation_df
 from common import (
     Conf,
     EVALUATION_REFERENCE,
-    MEASUREMENTS_FILE,
-    OBSERVABLES_FILE,
     Wildcards,
     fig_dir,
     pretrain_dir,
@@ -18,14 +16,55 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
 from dmm.petab_subproblem import load_petab
-# from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples, plot_single_sample
 from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
-# from training_configuration import CONTEXTS_FEATURES
+from evaluate_models.evaluation_utils import get_measurements_and_obervables
 from util import load_petab_base_files
+
+
+def process_per_sample_pretrain(sample: str, problem, conf: Conf, petab_base_files):
+    rfile = indir / f"{sample}.csv"
+    if not rfile.exists():
+        return None
+
+    petab_base_importer = load_petab(
+        problem,
+        conf.data,
+        **petab_base_files,
+    )
+
+    importer = generate_per_sample_pretraining_problems(
+        petab_base_importer,
+        problem,
+        conf.data,
+        sample,
+    )
+
+    problem_sample = importer.create_problem()
+    df = pd.read_csv(rfile, index_col=[0])
+    problem.apply_objective_settings(problem_sample.objective)
+
+    ress = []
+    fvals = []
+    for ipar in range(len(df)):
+        x = problem_sample.get_reduced_vector(
+            df.values[ipar, :], problem_sample.x_free_indices
+        )
+        res = problem_sample.objective(x, return_dict=True)
+        ress.append(res)
+        fvals.append(res["fval"])
+
+    # Convert the simulation to PEtab format.
+    simulation_df = rdatas_to_simulation_df(
+        ress[np.argmin(fvals)]["rdatas"],
+        model=problem_sample.objective.amici_model,
+        measurement_df=importer.petab_problem.measurement_df,
+    )
+    return importer, simulation_df
+
 
 conf = fire.Fire(Conf)
 
@@ -44,70 +83,33 @@ samples = {
     "test": test_samples(Wildcards(conf.data, conf.samples)),
 }
 
-# instantiate a replacement conf for references
-# all regularisation hyperparams are 0 by default
-# features/orth_reg_strategy/context are None by default (previously we were saving them as "none"/"None")
-# job is None by default
-# all hyperparams with default value != None are overridden
+# instantiate a replacement conf for references,
+# only setting to 0 those parameters that are not already 0 by default
 ref_conf = Conf(
     model=conf.model,
     data=conf.data,
-    activation_fn_name=None,
-    optimiser=None,
-    nn_init_fn=None,
     max_lrate=None,
     lrate_span=None,
     lrate_decay=None,
-    warmup_fct=None,
-    opt_steps=None,
-    opt_mult=None,
-    use_simple_linear_schedule=None,
-    use_early_stopping=None,
 )
 
 
-def evaluate_pretraining_per_sample(dataset, conf, just_return=False):
+def evaluate_pretraining_per_sample(
+        dataset: str,
+        conf: Conf,
+        samples: dict,
+):
     evaluations = []
     problem = CytofProblem(conf.model)
     petab_base_files = load_petab_base_files(conf)
+
+    # dictionary of samples - standard behaviour for `evaluate_reference`
     for sample in samples[dataset]:
-        rfile = indir / f"{sample}.csv"
-        if not rfile.exists():
+        output = process_per_sample_pretrain(sample, problem, conf, petab_base_files)
+        if output is None:
+            # file not found
             continue
-
-        petab_base_importer = load_petab(
-            problem,
-            conf.data,
-            **petab_base_files,
-        )
-
-        importer = generate_per_sample_pretraining_problems(
-            petab_base_importer,
-            problem,
-            conf.data,
-            sample,
-        )
-
-        problem_sample = importer.create_problem()
-        df = pd.read_csv(rfile, index_col=[0])
-        problem.apply_objective_settings(problem_sample.objective)
-
-        ress = []
-        fvals = []
-        for ipar in range(len(df)):
-            x = problem_sample.get_reduced_vector(
-                df.values[ipar, :], problem_sample.x_free_indices
-            )
-            res = problem_sample.objective(x, return_dict=True)
-            ress.append(res)
-            fvals.append(res["fval"])
-
-        # Convert the simulation to PEtab format.
-        simulation_df = rdatas_to_simulation_df(
-            ress[np.argmin(fvals)]["rdatas"],
-            model=problem_sample.objective.amici_model,
-            measurement_df=importer.petab_problem.measurement_df,
-        )
+        importer, simulation_df = output
         process_simulation(
             evaluations=evaluations,
             measurement_df=importer.petab_problem.measurement_df,
@@ -116,7 +118,6 @@ def evaluate_pretraining_per_sample(dataset, conf, just_return=False):
             sample=sample,
             model_type="per_sample",
         )
-
 
         plot_single_sample(
             importer.petab_problem.measurement_df,
@@ -128,16 +129,12 @@ def evaluate_pretraining_per_sample(dataset, conf, just_return=False):
     return pd.DataFrame(evaluations)
 
 
-def evaluate_average(dataset, conf):
-    df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_meas = df_meas[
-        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-    ]
+def evaluate_average(
+        dataset: str,
+        conf: Conf,
+        samples: dict,
+) -> pd.DataFrame:
+    df_meas, df_obs = get_measurements_and_obervables(conf)
 
     df_train = df_meas[
         df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
@@ -159,7 +156,7 @@ def evaluate_average(dataset, conf):
     ]
 
     for ir, r in df_meas.iterrows():
-        # pick closest time point to avoid issues with non-canonical time points
+        # pick the closest time point to avoid issues with non-canonical time points
         candidates = avg_model.loc[
             (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1]),
             petab.MEASUREMENT,
@@ -183,20 +180,15 @@ def evaluate_average(dataset, conf):
             sample=sample,
             model_type="avg",
         )
-
     return pd.DataFrame(evaluations)
 
 
-def evaluate_average_model(dataset, conf):
-    df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_meas = df_meas[
-        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-    ]
+def evaluate_average_model(
+        dataset: str,
+        conf: Conf,
+        samples: dict,
+) -> pd.DataFrame:
+    df_meas, df_obs = get_measurements_and_obervables(conf)
 
     problem = CytofProblem(conf.model)
     petab_base_files = load_petab_base_files(conf)
@@ -266,15 +258,13 @@ def evaluate_average_model(dataset, conf):
             sample=sample,
             model_type="avg_model",
         )
-
     return pd.DataFrame(evaluations)
 
 
 # Evaluate references/baselines
 for dataset in ["train", "test"]:
-
     # model average ("avg_model")
-    df = evaluate_average_model(dataset, conf)
+    df = evaluate_average_model(dataset, conf, samples)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,
@@ -284,7 +274,7 @@ for dataset in ["train", "test"]:
     )
 
     # average -- this looks NOT to be in use at the moment (only avg_model)
-    df = evaluate_average(dataset, conf)
+    df = evaluate_average(dataset, conf, samples)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,
@@ -294,7 +284,7 @@ for dataset in ["train", "test"]:
     )
 
     # per sample ("sample")
-    df = evaluate_pretraining_per_sample(dataset, conf)
+    df = evaluate_pretraining_per_sample(dataset, conf, samples)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,

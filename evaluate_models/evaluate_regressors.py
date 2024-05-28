@@ -10,8 +10,6 @@ from common import (
     EVALUATION_REGRESSOR,
     REGR_TRAINED_PIPELINE,
     REGR_FEATURES_TRAIN,
-    MEASUREMENTS_FILE,
-    OBSERVABLES_FILE,
     Wildcards,
     fig_dir,
     pretrain_dir,
@@ -22,6 +20,7 @@ from common import (
 from dmm.analysis import process_simulation
 from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples
+from evaluate_models.evaluate_reference import get_measurements_and_obervables
 from joblib import dump, load
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
@@ -35,7 +34,6 @@ from sklearn.preprocessing import StandardScaler
 from util import load_petab_base_files
 
 
-
 conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
@@ -45,9 +43,9 @@ indir = pretrain_dir / conf.model / conf.data
 # cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
 # TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
-    # "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
-    # that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
-    # CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
+#  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
+#  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
+#  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
@@ -159,11 +157,11 @@ def train_pipeline(
 
 
 def evaluate_standard_regression(
-        dataset,
-        conf,
+        dataset: str,
+        conf: Conf,
         samples,
-        context,
-        mode,  # 'linreg', 'lasso', 'elasticnet'
+        context: str,
+        mode: str,  # 'linreg', 'lasso', 'elasticnet'
         trained_pipeline,
         features_train,
 ):
@@ -226,15 +224,7 @@ def evaluate_standard_regression(
 
     # Produce plots to analyse performance
     # import original output data as in avg/avg_model
-    df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
-    )
-    df_meas = df_meas[
-        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
-    ]
+    df_meas, df_obs = get_measurements_and_obervables(conf)
     # Groupby to average replicates as done for regression output
     df_meas = df_meas.groupby(
         ['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
@@ -267,27 +257,14 @@ def evaluate_standard_regression(
     # Process simulations/regressions, i.e. produce CSVs with residuals
     evaluations = []
 
-    # instantiate a replacement conf for regressors
-    # all regularisation hyperparams are 0 by default
-    # job is None by default
-    # features are None by default (previously we were saving them as "none")
-    # orth_reg_strategy is now None (previously "None")
-    # context is now None by default (previously "none")
+    # instantiate a replacement conf for regressors,
+    # only setting to 0 those parameters that are not already 0 by default
     regr_conf = Conf(
         model=conf.model,
         data=conf.data,
-        context=context,
-        activation_fn_name=None,
-        optimiser=None,
-        nn_init_fn=None,
-        max_lrate=None,
-        lrate_span=None,
-        lrate_decay=None,
-        warmup_fct=None,
-        opt_steps=None,
-        opt_mult=None,
-        use_simple_linear_schedule=None,
-        use_early_stopping=None,
+        max_lrate=0,
+        lrate_span=0,
+        lrate_decay=0,
     )
 
     for sample in samples[dataset]:

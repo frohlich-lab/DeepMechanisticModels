@@ -2,11 +2,9 @@ import fire
 import jax
 import jax.random as jr
 import pandas as pd
-# import pypesto
 
 from common import (
     Conf,
-    # TRAINING_OUTFILE_RESULTS,
     TRAINED_BEST_MODELS,
     EVALUATION_TRAINING,
     FEATURES_OUTFILE,
@@ -17,27 +15,27 @@ from common import (
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
-from dmm.training import create_pypesto_problem
+from dmm.training_helper_funcs import create_pypesto_problem
 from dmm.initialisation import load_models
-# from pypesto.store import OptimizationResultHDF5Reader
 from util import load_petab_base_files
 
 
 conf = fire.Fire(Conf)
-
-samples_training = training_samples(Wildcards(conf.data, conf.samples))
-samples_test = test_samples(Wildcards(conf.data, conf.samples))
-
 outdir = fig_dir / conf.model / conf.data
 indir = results_dir / conf.model / conf.data
 
+# TODO @GiacomoFabrini: check here "val" vs "test"
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
 }
 
 
-def evaluate_training(dataset, conf):
+def evaluate_training(
+        dataset: str,
+        conf: Conf,
+        samples: dict,
+) -> pd.DataFrame:
     # Initialise list to store evaluations
     evaluations = []
 
@@ -69,10 +67,15 @@ def evaluate_training(dataset, conf):
         jr.PRNGKey(conf.job)
     )
 
+    # TODO @GiacomoFabrini need to fix this inconsistency in naming!
     # Load input features (train/val) to evaluate trained model
+    if dataset == 'train':
+        features_dataset = 'train'
+    elif dataset == 'test':
+        features_dataset = 'val'
     input_features = pd.read_csv(
         FEATURES_OUTFILE.format_map(
-            dict(**conf.__dict__, dataset=dataset)
+            dict(**conf.__dict__, dataset=features_dataset)
         ),
         index_col=0
     ).values
@@ -93,9 +96,11 @@ def evaluate_training(dataset, conf):
     return pd.DataFrame(evaluations)
 
 
+# TODO @GiacomoFabrini: check here "val" vs "test"
 for dataset in ("train", "test"):
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test
     jax.clear_caches()
-    df = evaluate_training(dataset, conf)
-    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__))
+    df = evaluate_training(dataset, conf, samples)
+    # Need to remove blank spaces introduced by encoder/inflater_layer_sizes
+    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__).replace(" ", ""))

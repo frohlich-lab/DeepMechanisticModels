@@ -60,6 +60,7 @@ print(
     f"selected {len(features)} features for {conf.features} feature selection on {conf.context} data: {features}"
 )
 
+# TODO @GiacomoFabrini - make sure to check this when changing into val and adding untouched test
 for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
     outfile = FEATURES_OUTFILE.format_map(
         dict(**conf.__dict__, dataset=dataset)

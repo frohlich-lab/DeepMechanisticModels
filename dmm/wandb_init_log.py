@@ -4,8 +4,8 @@ import numpy as np
 import wandb
 
 from common import Conf, EarlyStoppingParams, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
-from .custom_layers_eqx import CustomInitLinear
-from .dmm_autoencoder_eqx import DeepMechanisticModel
+from dmm.custom_layers_eqx import CustomInitLinear
+from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 
 
 def init_wandb(
@@ -56,6 +56,7 @@ def init_wandb(
             "linear_benchmark"
             if conf.linear_benchmark and (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0)
             else "not_benchmark",
+            "network_pretraining" if pretrain else "DMM_training",
         ]
     )
 

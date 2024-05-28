@@ -1,85 +1,31 @@
 import equinox as eqx
-import jax
-import jax.numpy as jnp
 import numpy as np
+import optax
 import petab
 import pypesto
 import wandb
 
-from .dmm_autoencoder_eqx import DeepMechanisticModel
-from .wandb_init_log import log_model_stats
-from .training_helper_funcs import apply_filter_to_updates, get_finite_grads, map_params_to_array
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG, debug_mode)
+from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from dmm.wandb_init_log import log_model_stats
+from dmm.training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
+                                       map_params_to_array, model_output_to_petab_input)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
 from pathlib import Path
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
-from pypesto.objective.jax import JaxObjective
 from pypesto.result.optimize import OptimizeResult, OptimizerResult
 from pypesto.store import OptimizationResultHDF5Writer
 from typing import Dict
 
 trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
-
-
-def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
-    """
-    Creates a pypesto objective function (this is the loss function) that
-    needs to be minimized to train the respective autoencoder
-
-    :returns:
-        Objective function that needs to be minimized for training.
-    """
-    # return JaxObjective(objective=ae.pypesto_subproblem.objective)
-    return JaxObjective(
-        objective=ae.pypesto_subproblem.objective,  # same base objective previously passed to JaxObjective
-    )
-
-
-def create_pypesto_problem(
-        ae: DeepMechanisticModel,
-) -> pypesto.Problem:
-    """
-    Creates a pypesto.Problem that defines the optimization problem to solve
-    for the training of the provided DeepMechanisticModel/Autoencoder (ae).
-
-    :param ae:
-        Autoencoder that will be trained
-
-    :returns:
-        Optimization pypesto_problem that needs to be solved for training.
-    """
-
-    objective = generate_pypesto_objective(ae)
-    return pypesto.Problem(
-        objective=objective,
-        lb=[-np.inf for _ in objective.x_names],  # extract names from objective
-        ub=[np.inf for _ in objective.x_names],
-    )
-
-
-# @eqx.filter_jit
-def model_output_to_petab_input(
-        model: DeepMechanisticModel,
-        input_data,
-):
-    # Get model output (inflated cell-line-specific parameter deviations)
-    pred = jax.vmap(model)(input_data)[0]
-    # Concatenate learnable global kinetic parameters with pred
-    augmented_pred = jnp.concatenate(
-        [
-            model.kin_params_combiner.learned_global_kin_params,
-            pred.flatten()
-        ]
-    )
-    return augmented_pred
 
 
 @eqx.filter_value_and_grad
@@ -116,6 +62,32 @@ def loss_fn(
     return loss_value
 
 
+@eqx.filter_jit
+def make_step(
+        model: DeepMechanisticModel,
+        filter_spec_per_param: PyTree,
+        opt: optax.GradientTransformation,
+        opt_state: PyTree,
+        input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
+        problem_train: pypesto.Problem,
+        conf: Dict,
+):
+    loss_value, grads = loss_fn(
+        model,
+        conf,
+        input_data,
+        problem_train,
+    )
+    grads = get_finite_grads(grads)
+    updates, opt_state = opt.update(grads, opt_state, model)
+    # Zero-out the updates based on filter_spec_per_param (keep where True).
+    # This is equivalent to freezing on a per-parameter basis
+    filtered_updates = apply_filter_to_updates(updates, filter_spec_per_param)
+    # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
+    next_model = eqx.apply_updates(model, filtered_updates)
+    return next_model, model, opt_state, loss_value, grads
+
+
 def train(
         model: DeepMechanisticModel,
         filter_spec_per_param: PyTree,
@@ -140,6 +112,10 @@ def train(
     opt = optimisers[conf["optimiser"]](schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
+    # Initialise default values for early_stopper and epoch
+    early_stopper = None
+    epoch = 0
+
     # TODO @GiacomoFabrini Do we still need these? Or can we change them in some way?
     x = x0.copy()
     opt_x = x.copy()
@@ -160,35 +136,12 @@ def train(
                 patience=early_stopping_params.patience
             )
 
-    # @eqx.filter_jit
-    def make_step(
-            model: DeepMechanisticModel,
-            filter_spec_per_param: PyTree,
-            opt_state: PyTree,
-            input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
-            problem_train: pypesto.Problem,
-            conf: Dict,
-    ):
-        loss_value, grads = loss_fn(
-            model,
-            conf,
-            input_data,
-            problem_train,
-        )
-        grads = get_finite_grads(grads)
-        updates, opt_state = opt.update(grads, opt_state, model)
-        # Zero-out the updates based on filter_spec_per_param (keep where True).
-        # This is equivalent to freezing on a per-parameter basis
-        filtered_updates = apply_filter_to_updates(updates, filter_spec_per_param)
-        # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
-        next_model = eqx.apply_updates(model, filtered_updates)
-        return next_model, model, opt_state, loss_value, grads
-
     # Training loop
     for epoch in range(n_epoch + 1):
         next_model, model, opt_state, loss_train, grads = make_step(
             model=model,
             filter_spec_per_param=filter_spec_per_param,
+            opt=opt,
             opt_state=opt_state,
             input_data=input_features_train,
             problem_train=problem_train,

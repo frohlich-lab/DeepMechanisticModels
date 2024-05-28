@@ -2,19 +2,16 @@ import equinox as eqx
 import jax
 import jax.numpy as jnp
 import json
-# import numpy as np
 import pandas as pd
-# import petab
 import pypesto.petab
 
-from . import MODEL_FEATURE_PREFIX
-from common import ModuleParams
+from common import ModuleParams, MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from dmm.deepcomponent_eqx import KinParamsCombiner
 from jaxtyping import Array
 from pathlib import Path
-from .petab_subproblem import load_petab
-from .problem import Problem
+from dmm.petab_subproblem import load_petab
+from dmm.problem import Problem
 from typing import Any, List, Union
 
 

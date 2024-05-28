@@ -122,10 +122,10 @@ ORTH_REG_STRATEGIES = (
 )
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
-# From W&B, it seems that rmse_val.min is positively correlated with l1reg params
+# From W&B, it seems that rmse_val.min is positively correlated with `l1reg` params
 # i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
 ALPHAS = (
-    0,  # tested
+    # 0,  # tested
     # 1e1,
     # 5e1,
     # 1e2, # tested
@@ -140,7 +140,7 @@ ALPHAS = (
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
 BETAS = (
-    0,  # tested
+    # 0,  # tested
     1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
     # 1e4, # tested
     # 1e6, # tested
@@ -150,7 +150,7 @@ BETAS = (
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
 GAMMAS = (
-    0,  # tested
+    # 0,  # tested
     # 1e1,
     # 5e1,
     # 1e2,  # tested
@@ -163,7 +163,7 @@ GAMMAS = (
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 DELTAS = (
-    0,  # tested
+    # 0,  # tested
     # 1e2, # tested
     # 1e4, # tested
     1e6,  # tested
@@ -174,12 +174,12 @@ DELTAS = (
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = (
-    1,
+    1.0,
 )
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
 ZETAS = (
-    1,
+    1.0,
 )
 
 
@@ -258,4 +258,8 @@ DROP_REG_POST_PRETRAIN = {
     # "False",
 }
 
-SPARSE_THRESHOLD = 1e-3
+SPARSITY_THRESHOLD = 1e-3
+
+RETURN_STAT_TESTS = False
+
+N_EPOCHS = 100

@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import shapiro, ttest_rel, wilcoxon, false_discovery_control
-from training_configuration import (ORTH_REG_STRATEGIES,
-                                    ALPHAS, BETAS, GAMMAS, DELTAS,
-                                    LATENT_DIMS)
+from training.training_configuration import (ORTH_REG_STRATEGIES,
+                                             ALPHAS, BETAS, GAMMAS, DELTAS,
+                                             LATENT_DIMS)
 import itertools as itt
 
 
@@ -31,6 +31,15 @@ def ttest_rel_test(df, hyperparameter, hp_value1, hp_value2, alternative):
 def shapiro_test(df, hyperparameter, hp_value1, hp_value2):
     return shapiro(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values) -
                    np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values))
+
+
+def adjust_p_value(res_df, cols, group_attributes, method_func=false_discovery_control):
+    for col in cols:
+        res_df[f"adj_{col}"] = res_df.groupby(
+            by=group_attributes)[col].transform(
+            lambda x: method_func(x)
+        )
+    return res_df
 
 
 def statistical_significance_test(data_stat_tests):
@@ -67,11 +76,11 @@ def statistical_significance_test(data_stat_tests):
                 n_hidden1, n_hidden2 = n_hidden_pair
 
                 res_df_partial = dmm_stat_tests.groupby(by='context').apply(
-                    lambda df: stat_test_hyperparameter(df, hyperparameter='latent dim',
+                    lambda df: stat_test_hyperparameter(df, hyperparameter='n_hidden',
                                                         hp_value1=n_hidden1,
                                                         hp_value2=n_hidden2,
                                                         alternative='less')
-                ).reset_index().rename(columns={'latent dim': 'n_hidden'})
+                ).reset_index()
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = f"{n_hidden1} vs {n_hidden2}"
                 res_df_partial['n_hidden1'] = n_hidden1
@@ -101,27 +110,24 @@ def statistical_significance_test(data_stat_tests):
 
         elif hyperparameter == 'orth_reg_strategy':
             # Single comparison: L1 vs L2 - do not need list of DataFrames
-            res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
+            res_df_partial = dmm_stat_tests.groupby(by=['context', 'n_hidden']).apply(
                 lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
                                                     hp_value1='L1',
                                                     hp_value2='L2',
                                                     alternative='greater')
-            ).reset_index().rename(columns={'latent dim': 'n_hidden'})
+            ).reset_index()
             res_df_partial['hyperparameter'] = hyperparameter
             res_df_partial['hyperparameter_value'] = 'L2 vs L1'
             res_df_partial['n_hidden1'] = None
             res_df_partial['n_hidden2'] = None
             res_df_partial['test_kind'] = "RMSE_L1 > RMSE_L2"
             # p-values for orth_reg_strategy can be adjusted right away
-            res_df_partial['adj_t-test_p-value'] = res_df_partial.groupby(
-                by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
-                lambda x: false_discovery_control(x)
+            res_df_partial = adjust_p_value(
+                res_df_partial,
+                ['t-test_p-value', 'Wilcoxon_p-value'],
+                ['n_hidden', 'context', 'hyperparameter'],
+                method_func=false_discovery_control,
             )
-            res_df_partial['adj_Wilcoxon_p-value'] = res_df_partial.groupby(
-                by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
-                lambda x: false_discovery_control(x)
-            )
-
             # Append to list of overall results
             res_dfs.append(res_df_partial)
 
@@ -132,12 +138,12 @@ def statistical_significance_test(data_stat_tests):
             pairs = [pair for pair in itt.combinations(hyperparameter_values[hyperparameter], 2) if pair[0] == 0]
             for pair in pairs:
                 hp_value1, hp_value2 = pair
-                res_df_partial = dmm_stat_tests.groupby(by=['context', 'latent dim']).apply(
+                res_df_partial = dmm_stat_tests.groupby(by=['context', 'n_hidden']).apply(
                     lambda df: stat_test_hyperparameter(df, hyperparameter=hyperparameter,
                                                         hp_value1=hp_value1,
                                                         hp_value2=hp_value2,
                                                         alternative='greater')
-                ).reset_index().rename(columns={'latent dim': 'n_hidden'})
+                ).reset_index()
                 res_df_partial['hyperparameter'] = hyperparameter
                 res_df_partial['hyperparameter_value'] = hp_value2
                 res_df_partial['n_hidden1'] = None
@@ -149,13 +155,11 @@ def statistical_significance_test(data_stat_tests):
             # Concatenate into single DataFrame to adjust p-values
             res_df_hp = pd.concat([*res_dfs_hp])
             # Compute adjusted p-values for t-test and Wilcoxon test
-            res_df_hp['adj_t-test_p-value'] = res_df_hp.groupby(
-                by=['n_hidden', 'context', 'hyperparameter'])['t-test_p-value'].transform(
-                lambda x: false_discovery_control(x)
-            )
-            res_df_hp['adj_Wilcoxon_p-value'] = res_df_hp.groupby(
-                by=['n_hidden', 'context', 'hyperparameter'])['Wilcoxon_p-value'].transform(
-                lambda x: false_discovery_control(x)
+            res_df_hp = adjust_p_value(
+                res_df_hp,
+                ['t-test_p-value', 'Wilcoxon_p-value'],
+                ['n_hidden', 'context', 'hyperparameter'],
+                method_func=false_discovery_control,
             )
             # Append to list of overall results
             res_dfs.append(res_df_hp)

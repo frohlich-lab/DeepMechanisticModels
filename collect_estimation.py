@@ -6,7 +6,7 @@ import re
 
 from common import Conf, COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
 from dmm.initialisation import load_models
-from dmm.training import create_pypesto_problem
+from dmm.training_helper_funcs import create_pypesto_problem
 from pathlib import Path
 from pypesto.store import (
     OptimizationResultHDF5Reader,
@@ -56,7 +56,7 @@ for file in os.listdir(indir):
 
 print(
     sorted([r["fval"] for r in optimizer_results])[
-        0 : min(5, len(optimizer_results))
+        0: min(5, len(optimizer_results))
     ]
 )
 

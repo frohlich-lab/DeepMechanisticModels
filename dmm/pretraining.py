@@ -1,23 +1,20 @@
-from pathlib import Path
-from typing import Callable, List, Optional
-
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petab
 import pypesto
+
+from common import MODEL_FEATURE_PREFIX
+from dmm.problem import Problem
+from pathlib import Path
 from petab.models.pysb_model import PySBModel
-from pypesto.objective.jax import JaxObjective
 from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.petab import PetabImporter  # general PetabImporter compared to old PetabImporterPysb
 from pypesto.startpoint import UniformStartpoints
 from pypesto.store import OptimizationResultHDF5Writer
 from pypesto.visualize import waterfall
 from pysb import Model
-
-from . import MODEL_FEATURE_PREFIX
-from .dmm_autoencoder_eqx import DeepMechanisticModel
-from .problem import Problem
+from typing import Callable, List, Optional
 
 
 def generate_per_sample_pretraining_problems(

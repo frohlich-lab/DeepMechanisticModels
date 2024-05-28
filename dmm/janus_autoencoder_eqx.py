@@ -1,10 +1,7 @@
 import equinox as eqx
 
 from common import ModuleParams
-from dmm.deepcomponent_eqx import (
-    DeepComponent,
-    KinParamsCombiner,
-)
+from dmm.deepcomponent_eqx import DeepComponent
 from jax import config, random
 from typing import Union
 

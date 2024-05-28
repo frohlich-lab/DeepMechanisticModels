@@ -1,14 +1,13 @@
-from typing import List, Sequence
-
 import numpy as np
 import pandas as pd
 import petab
 import pysb
-from petab.models.pysb_model import PySBModel
-from pypesto.petab import PetabImporter #general PetabImporter compared to old PetabImporterPysb
 
-from . import MODEL_FEATURE_PREFIX
-from .problem import Problem
+from common import MODEL_FEATURE_PREFIX
+from dmm.problem import Problem
+from petab.models.pysb_model import PySBModel
+from pypesto.petab import PetabImporter
+from typing import List, Sequence
 
 
 def generate_parameter_table(
@@ -119,7 +118,7 @@ def load_petab(
     condition_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     samples: Sequence[str] = None,
-) -> PetabImporter: #general PetabImporter compared to old PetabImporterPysb
+) -> PetabImporter:
     """
     Imports data from a csv and converts it to the petab format. This
     function is used to connect the mechanistic model to the specified data

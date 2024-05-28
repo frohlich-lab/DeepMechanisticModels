@@ -1,22 +1,20 @@
-import jax
-import os
-import re
-from pathlib import Path
-
 import amici
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import os
+import re
 import petab
 import pypesto.objective
 import seaborn as sns
+
 from amici.petab_objective import rdatas_to_simulation_df
+from dmm.plotting import plot_cross_samples
+from dmm.training_helper_funcs import model_output_to_petab_input
+from pathlib import Path
 from pypesto import OptimizeResult
 from pypesto.C import MODE_RES
 from pypesto.store import OptimizationResultHDF5Reader
-
-from dmm.plotting import plot_cross_samples
-from dmm.training import model_output_to_petab_input
 
 
 def process_simulation(
@@ -42,17 +40,17 @@ def process_simulation(
             condition = r[petab.SIMULATION_CONDITION_ID]
 
         # Subset conf
+        # TODO @GiacomoFabrini - are all these needed?
         subset_hyperparams = [
-            "context", "features", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
+            "context", "features", "pretrain",
             "n_hidden",
-            # TODO @GiacomoFabrini - are all these needed?
             "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
             "use_layer_bias", "nn_init_fn",
             "reconstruct", "activation_fn_name", "optimiser",
             "orth_reg_strategy",
             "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-            "use_simple_linear_schedule", "use_early_stopping",
+            "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
             "job",
         ]
         subset_conf_dict = dict(
@@ -181,7 +179,7 @@ def evaluate_simulations(
 def plot_loss_vs_regularization(df):
     df["cf"] = df["context"] + "_" + df["features"]
     dfa = (
-        df.groupby(["l1reg_inflate", "layers", "cf", "sample", "job"])  # keep job-level info (one rmse value per job)
+        df.groupby(["l1reg_inflate", "n_hidden", "cf", "sample", "job"])  # keep job-level info (one rmse value per job)
         .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
         .rename(columns={"res": "rmse"})
         .reset_index()
@@ -195,7 +193,7 @@ def plot_loss_vs_regularization(df):
         errorbar=lambda x: (x.min(), x.max()),  # display error bars from min rmse to max rmse across jobs
         hue="cf",
         palette="rocket",
-        style="layers",
+        style="n_hidden",
         markers=True,
     )
     [ax.set(yscale="log", xscale="log") for ax in g.axes]
