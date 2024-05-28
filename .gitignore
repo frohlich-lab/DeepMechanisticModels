@@ -161,3 +161,4 @@ wandb/*
 Graph.sh
 estimationLocal.sh
 estimationLocal_WANDB_OFFLINE.sh
+dryRunLocal.sh
