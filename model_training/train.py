@@ -78,7 +78,6 @@ if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0
 #     raise ValueError("Linear benchmark is not possible with non-zero hidden layers!")
 else:
     # Get training targets as parameter deviations (second component, while first contains medians)
-    # Get model_training targets as parameter deviations (second component, while first contains medians)
     _, par_deviation_train = get_kin_params_median_deviation(conf, model_train)
     targets_train = get_targets(model_train, par_deviation_train)
     # Split model_training data and targets into pretrain train and val data and targets not to leak true validation
