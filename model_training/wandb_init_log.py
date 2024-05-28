@@ -57,6 +57,7 @@ def init_wandb(
             if conf.linear_benchmark and (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0)
             else "not_benchmark",
             "network_pretraining" if pretrain else "DMM_training",
+            "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
         ]
     )
 

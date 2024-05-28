@@ -10,7 +10,7 @@ import seaborn as sns
 
 from amici.petab_objective import rdatas_to_simulation_df
 from dmm.plotting import plot_cross_samples
-from dmm.training_helper_funcs import model_output_to_petab_input
+from model_training.training_helper_funcs import model_output_to_petab_input
 from pathlib import Path
 from pypesto import OptimizeResult
 from pypesto.C import MODE_RES

@@ -1,9 +1,9 @@
 import pandas as pd
 import numpy as np
 from scipy.stats import shapiro, ttest_rel, wilcoxon, false_discovery_control
-from training.training_configuration import (ORTH_REG_STRATEGIES,
-                                             ALPHAS, BETAS, GAMMAS, DELTAS,
-                                             LATENT_DIMS)
+from training_configuration import (ORTH_REG_STRATEGIES,
+                                    ALPHAS, BETAS, GAMMAS, DELTAS,
+                                    LATENT_DIMS)
 import itertools as itt
 
 

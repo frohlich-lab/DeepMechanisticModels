@@ -7,14 +7,14 @@ from dmm.initialisation import (linear_nn_init,
                                 load_models,
                                 load_and_subset_input_features,
                                 get_targets)
-from dmm.network_pretraining import pretrain_network
-from dmm.training import train
-from dmm.training_helper_funcs import create_pypesto_problem, map_params_to_array, sparsify_model
-from dmm.wandb_init_log import init_wandb
+from model_training.network_pretraining import pretrain_network
+from model_training.training import train
+from model_training.training_helper_funcs import create_pypesto_problem, map_params_to_array, sparsify_model
+from model_training.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from training.training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS
+from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS
 
 
 conf = fire.Fire(Conf)
@@ -32,7 +32,7 @@ config.update("jax_enable_x64", True)
     dataset="train+test",
 )
 
-# Load training and validation features
+# Load model_training and validation features
 input_features_train, input_features_test = (
     load_and_subset_input_features(
         conf=conf,
@@ -42,7 +42,7 @@ input_features_train, input_features_test = (
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
 
-# TODO @GiacomoFabrini - differentiate schedule and early-stop between network pretraining and whole DMM training?
+# TODO @GiacomoFabrini - differentiate schedule and early-stop between network pretraining and whole DMM model_training?
 early_stopping_params = EarlyStoppingParams(
     patience=PATIENCE,  # (n_epoch-1) where we tolerate `rmse_val` not improving by at least min_improvement
     min_improvement=MIN_IMPROVEMENT,  # min absolute improvement not to lose patience (i.e. increase patience counter)
@@ -78,9 +78,10 @@ if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0
 #     raise ValueError("Linear benchmark is not possible with non-zero hidden layers!")
 else:
     # Get training targets as parameter deviations (second component, while first contains medians)
+    # Get model_training targets as parameter deviations (second component, while first contains medians)
     _, par_deviation_train = get_kin_params_median_deviation(conf, model_train)
     targets_train = get_targets(model_train, par_deviation_train)
-    # Split training data and targets into pretrain train and val data and targets not to leak true validation
+    # Split model_training data and targets into pretrain train and val data and targets not to leak true validation
     data_pretrain_train, data_pretrain_val, targets_pretrain_train, targets_pretrain_val = train_test_split(
         input_features_train,
         targets_train,
@@ -130,7 +131,7 @@ model_train, filter_spec_per_param = sparsify_model(
 )
 
 # Get PEtab-compatible embedding of model parameters (i.e. global kin params concatenated with cell-line specific
-# parameters, flattened for all training set samples/cell-lines).
+# parameters, flattened for all model_training set samples/cell-lines).
 x0 = map_params_to_array(model_train)
 
 # Initialise W&B run

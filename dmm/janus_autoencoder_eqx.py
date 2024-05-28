@@ -60,7 +60,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         # encoder layers must shrink towards bottleneck/latent representation
         if encoder_params.layer_sizes[-1] > encoder_params.layer_sizes[0]:
             raise ValueError("Latent space size cannot be larger than input feature space size!")
-        # TODO @GiacomoFabrini: need to implement this check in training/train - features.ndim not available here
+        # TODO @GiacomoFabrini: need to implement this check in model_training/train - features.ndim not available here
         # elif features.ndim != 2:
         #     raise ValueError("features expected to be two-dimensional!")
 

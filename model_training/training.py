@@ -11,9 +11,9 @@ from amici.petab.simulations import rdatas_to_simulation_df
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG, debug_mode)
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
-from dmm.wandb_init_log import log_model_stats
-from dmm.training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
-                                       map_params_to_array, model_output_to_petab_input)
+from model_training.wandb_init_log import log_model_stats
+from model_training.training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
+                                                  map_params_to_array, model_output_to_petab_input)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree

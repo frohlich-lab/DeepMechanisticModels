@@ -10,7 +10,7 @@ from common import (
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
     CONTEXT_SET
 )
-from training.training_configuration import (
+from training_configuration import (
     PATHWAYS, DATASETS, CONTEXTS_FEATURES, SPLITS, PRETRAIN,
     LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
@@ -190,8 +190,8 @@ rule select_features:
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters
 rule estimate_parameters:
     input:
-        script='training/train.py',
-        training=mencoder_dir / 'training.py',
+        script='model_training/train.py',
+        training='model_training/training.py',
         data=rules.process_data.output.datafiles,
         data_rw=rules.reweight_data.output.data,
         model=rules.compile_mechanistic_model.output.model,
