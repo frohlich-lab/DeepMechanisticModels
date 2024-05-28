@@ -6,7 +6,7 @@ from collections import namedtuple
 from cytof import get_samples
 from optax import adam, adamw, Schedule, sgdr_schedule
 from pathlib import Path
-from training.training_configuration import CONTEXTS_FEATURES
+from training_configuration import CONTEXTS_FEATURES
 from typing import Dict, List, Optional
 
 
