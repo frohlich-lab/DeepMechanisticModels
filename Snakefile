@@ -39,7 +39,7 @@ envvars:
 
 rule process_data:
     input:
-        script='process_data.py',
+        script='processing_util/process_data.py',
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=cytof_dir / 'pw_{model}.py',
@@ -91,7 +91,7 @@ rule compile_mechanistic_model:
 
 rule pretrain_per_sample:
     input:
-        script='pretrain_per_sample.py',
+        script='pretrain_references/pretrain_per_sample.py',
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
@@ -115,7 +115,7 @@ rule pretrain_per_sample:
 
 rule pretrain_average_model:
     input:
-        script='pretrain_average.py',
+        script='pretrain_references/pretrain_average.py',
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
@@ -139,7 +139,7 @@ rule pretrain_average_model:
 
 rule reweight_data:
     input:
-        script='reweight_data.py',
+        script='processing_util/reweight_data.py',
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
@@ -164,7 +164,7 @@ rule reweight_data:
 
 rule select_features:
     input:
-        script='select_features.py',
+        script='processing_util/select_features.py',
         data=rules.process_data.output.datafiles,
         data_rw=rules.reweight_data.output.data,
     output:
@@ -190,7 +190,7 @@ rule select_features:
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters
 rule estimate_parameters:
     input:
-        script='train.py',
+        script='training/train.py',
         training=mencoder_dir / 'training.py',
         data=rules.process_data.output.datafiles,
         data_rw=rules.reweight_data.output.data,
@@ -285,7 +285,7 @@ rule estimate_parameters:
 
 rule evaluate_training:
     input:
-        script='evaluate_training.py',
+        script='evaluate_models/evaluate_training.py',
         training=rules.estimate_parameters.output.model
     output:
         csv=[
@@ -346,7 +346,7 @@ rule evaluate_training:
 
 rule evaluate_references:
     input:
-        script='evaluate_reference.py',
+        script='evaluate_models/evaluate_reference.py',
         pretrain_per_sample=per_sample_pretraining_test,
         pretrain_average=rules.pretrain_average_model.output.pretraining
     output:
@@ -372,7 +372,7 @@ rule evaluate_references:
 
 rule evaluate_regressors:
     input:
-        script='evaluate_regressors.py',
+        script='evaluate_models/evaluate_regressors.py',
         data=rules.process_data.output.datafiles  # wait for download and processing
     output:
         csv=[
@@ -401,7 +401,7 @@ rule evaluate_regressors:
 
 rule evaluate_all:
     input:
-        script='evaluate_all.py',
+        script='evaluate_models/evaluate_all.py',
         training=[
             y
             for x in rules.evaluate_training.output.csv
