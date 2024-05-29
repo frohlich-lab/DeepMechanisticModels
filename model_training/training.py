@@ -9,7 +9,7 @@ import wandb
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
-                    RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1IREG, OIREG, debug_mode)
+                    RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, debug_mode)
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from model_training.wandb_init_log import log_model_stats
 from model_training.training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
@@ -52,6 +52,11 @@ def loss_fn(
                 + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
                 + model.orth_inflate_reg(scale=conf["oreg_inflate"])
         )
+        if model.reconstruct:
+            loss_value += (
+                model.l1_decode_reg(scale=conf["l1reg_encode"])
+                + model.orth_decode_reg(scale=conf["oreg_encode"])
+            )
 
     if model.reconstruct:
         loss_value += (
@@ -162,27 +167,34 @@ def train(
             step=epoch
         )
 
-        if not conf["drop_reg_after_pretrain"]:
-            # Log regularisation terms that are used both with one and two heads
-            for reg_fun, label in zip(
-                    (
-                            model.l1_encode_reg,
-                            model.orth_encode_reg,
-                            model.l1_inflate_reg,
-                            model.orth_inflate_reg,
-                    ),
-                    (L1EREG, OEREG, L1IREG, OIREG),
-            ):
-                if conf[label] > 0:
-                    wandb.log(
-                        {
-                            label: reg_fun(scale=conf[label])
-                        },
-                        step=epoch
-                    )
+        # Set up regularisation logging
+        reg_funs = [
+            # Encoder
+            model.l1_encode_reg,
+            model.orth_encode_reg,
+            # Inflater
+            model.l1_inflate_reg,
+            model.orth_inflate_reg,
+        ]
+        log_labels = [
+            # Encoder
+            L1EREG, OEREG,
+            # Inflater
+            L1IREG, OIREG
+        ]
+        hp_names = [
+            # Encoder
+            L1EREG, OEREG,
+            # Inflater
+            L1IREG, OIREG
+        ]
 
-        # Log decoder-dependent loss terms
         if model.reconstruct:
+            # include decoder regularisation terms
+            reg_funs.extend([model.l1_decode_reg, model.orth_decode_reg])
+            log_labels.extend([L1DREG, ODREG])
+            hp_names.extend([L1EREG, OEREG])  # scales of decoder reg match encoder!
+            # log additional loss terms (reconstruction - training - and symmetry loss)
             wandb.log(
                 {
                     RECON_LOSS: model.reconstruction_loss(
@@ -193,6 +205,21 @@ def train(
                 },
                 step=epoch
             )
+        if not conf["drop_reg_after_pretrain"]:
+            # Log input-independent regularisation terms (same across training and validation)
+            for (
+                    reg_fun,
+                    log_label,
+                    hp_name
+            ) in zip(
+                    reg_funs,
+                    log_labels,
+                    hp_names,
+            ):
+                if conf[hp_name] > 0:
+                    # Simply compute the value of the function
+                    value_reg = reg_fun(scale=conf[hp_name])
+                    wandb.log({log_label: value_reg}, step=epoch)
 
         # Overwrite model with updated next_model
         model = next_model

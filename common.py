@@ -13,6 +13,8 @@ from typing import Dict, List, Optional
 # define abbreviations/labels for logging of loss terms
 L1EREG = "l1reg_encode"
 OEREG = "oreg_encode"
+L1DREG = "l1reg_decode"  # uses the same scale as l1reg_encode
+ODREG = "oreg_decode"  # uses the same scale as oreg_encode
 L1IREG = "l1reg_inflate"
 OIREG = "oreg_inflate"
 RECON_LOSS = "recon_loss"

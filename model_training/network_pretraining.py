@@ -7,7 +7,7 @@ from dmm.dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .wandb_init_log import log_model_stats
 from .training_helper_funcs import get_finite_grads
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
-                    L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)
+                    L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
 from typing import Dict
@@ -35,10 +35,13 @@ def loss_and_grads_pretrain(
             + model.orth_inflate_reg(scale=conf["oreg_inflate"])
     )
 
-    # if two-headed autoencoder, add decoder terms (reconstruction + encoder-decoder symmetry)
+    # if two-headed autoencoder, add decoder terms (reconstruction, encoder-decoder symmetry, and regularisation terms
+    # with same scales as encoder)
     if model.reconstruct:
         loss_value += (
-                model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
+                model.l1_decode_reg(scale=conf["l1reg_encode"])
+                + model.orth_decode_reg(scale=conf["oreg_encode"])
+                + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
     return loss_value
@@ -63,10 +66,13 @@ def loss_pretrain(
             + model.orth_inflate_reg(scale=conf["oreg_inflate"])
     )
 
-    # if two-headed autoencoder, add decoder terms (reconstruction + encoder-decoder symmetry)
+    # if two-headed autoencoder, add decoder terms (reconstruction, encoder-decoder symmetry, and regularisation terms
+    # with same scales as encoder)
     if model.reconstruct:
         loss_value += (
-                model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
+                model.l1_decode_reg(scale=conf["l1reg_encode"])
+                + model.orth_decode_reg(scale=conf["oreg_encode"])
+                + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
     return loss_value
@@ -170,27 +176,37 @@ def pretrain_network(
             step=epoch
         )
 
-        # Log individual regularisation terms - not input dependent (same for train and val)
-        for reg_fun, label in zip(
-                (
-                    model.l1_encode_reg,
-                    model.orth_encode_reg,
-                    model.l1_inflate_reg,
-                    model.orth_inflate_reg,
-                ),
-                (L1EREG, OEREG, L1IREG, OIREG),
-        ):
-            # this is where the scale parameter of the various regularisation
-            # methods get changed via the hyperparameters in training_configuration.py
-            if conf[label] > 0:
-                # Simply compute the value of the function
-                value_reg = reg_fun(scale=conf[label])
-                wandb.log({label: value_reg}, step=epoch)
+        # Set up regularisation logging
+        reg_funs = [
+            # Encoder
+            model.l1_encode_reg,
+            model.orth_encode_reg,
+            # Inflater
+            model.l1_inflate_reg,
+            model.orth_inflate_reg,
+        ]
+        log_labels = [
+            # Encoder
+            L1EREG, OEREG,
+            # Inflater
+            L1IREG, OIREG
+        ]
+        hp_names = [
+            # Encoder
+            L1EREG, OEREG,
+            # Inflater
+            L1IREG, OIREG
+        ]
+
         if model.reconstruct:
-            # log additional loss terms in case of two-headed deep autoencoder
+            # include decoder regularisation terms
+            reg_funs.extend([model.l1_decode_reg, model.orth_decode_reg])
+            log_labels.extend([L1DREG, ODREG])
+            hp_names.extend([L1EREG, OEREG])  # scales of decoder reg match encoder!
+            # log additional loss terms (reconstruction and symmetry loss)
             wandb.log(
                 {
-                    # log validation reconstruction loss (different between training and validation)
+                    # for reconstruction loss: log validation loss
                     RECON_LOSS: model.reconstruction_loss(
                         x=validation_data,
                         scale=conf[RECON_LOSS],
@@ -199,6 +215,22 @@ def pretrain_network(
                 },
                 step=epoch,
             )
+        # Log input-independent regularisation terms (same across training and validation)
+        for (
+                reg_fun,
+                log_label,
+                hp_name
+        ) in zip(
+                reg_funs,
+                log_labels,
+                hp_names,
+        ):
+            # this is where the scale parameter of the various regularisation
+            # methods get changed via the hyperparameters in training_configuration.py
+            if conf[hp_name] > 0:
+                # Simply compute the value of the function
+                value_reg = reg_fun(scale=conf[hp_name])
+                wandb.log({log_label: value_reg}, step=epoch)
 
         # Overwrite `model` with updated `next_model`
         model = next_model

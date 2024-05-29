@@ -289,6 +289,38 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
         return oreg_encode_loss
 
+    def l1_decode_reg(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        L1 regularization of deep decoder weights.
+        """
+        l1reg_decode_loss = 0
+        for layer in self.deep_decoder.layers:
+            w = layer.weight
+            l1reg_decode_loss += scale * jnp.mean(
+                jnp.abs(w)
+            )
+        return l1reg_decode_loss
+
+    def orth_decode_reg(
+            self,
+            scale: float = 1.0
+    ):
+        """
+        Orthogonal regularization of deep encoder weights.
+        """
+        oreg_decode_loss = 0
+        reg_exponent = get_reg_exp(self.orth_reg_strategy)
+        for layer in self.deep_decoder.layers:
+            w = layer.weight
+            m = jnp.dot(w, w.T)
+            oreg_decode_loss += scale * jnp.mean(
+                jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
+            )
+        return oreg_decode_loss
+
     def l1_inflate_reg(
             self,
             scale: float = 1.0
