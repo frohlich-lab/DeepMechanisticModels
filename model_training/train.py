@@ -1,11 +1,12 @@
 import fire
+import jax.tree_util as jtu
 
 from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
-                                load_models,
-                                load_and_subset_input_features,
+                                setup_models,
+                                subset_features,
                                 get_targets)
 from model_training.network_pretraining import pretrain_network
 from model_training.training import train
@@ -15,6 +16,7 @@ from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
 from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS
+from util import load_petab_base_files
 
 
 conf = fire.Fire(Conf)
@@ -26,18 +28,21 @@ model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__).replace(" ", ""))
 # Set JAX configuration
 config.update("jax_enable_x64", True)
 
-# Setup models
-(model_train, model_test), problem = load_models(
+# Get petab_base_files
+petab_base_files = load_petab_base_files(conf, reweight=True)
+# Setup models + load and (potentially) transform input features (e.g. PCA)
+(model_train, model_test), problem, features = setup_models(
     conf,
+    petab_base_files,
     dataset="train+test",
+    return_features=True,
 )
 
-# Load training and validation features
+# Subset input features to cell-lines in train/val sets
 input_features_train, input_features_test = (
-    load_and_subset_input_features(
-        conf=conf,
+    subset_features(
+        features=features[dataset],
         model=model,
-        dataset=dataset,
     )
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
@@ -53,29 +58,30 @@ early_stopping_params = EarlyStoppingParams(
 # 2. No hidden layers, linear_benchmark disabled - pretraining
 # 3. Hidden layers, linear_benchmark enabled - linear benchmark ignored -> pretraining
 if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0) and conf.linear_benchmark:
-    model_train = linear_nn_init(
-        conf=conf,
-        model=model_train,
-        dataset="train",
+    input_features = {
+        "train": input_features_train,
+        "val": input_features_test
+    }
+    # First perform initialisation of encoder/inflater/decoder weights according to
+    # previous linear benchmark strategy and then initialise KinParamsCombiner module
+    # TODO @GiacomoFabrini: could also just process model_train, as model_test is only needed for its
+    #  model_test.pypesto_subproblem
+    model_train, model_test = (
+        init_global_kin_params_combiner(
+            conf=conf,
+            model=linear_nn_init(
+                conf=conf,
+                model=model,
+                features=input_features,
+                dataset=dataset,
+            ),
+            nn_pretrain=False,
+        )
+        for model, dataset in zip((model_train, model_test), ["train", "val"])
     )
-    model_test = linear_nn_init(
-        conf=conf,
-        model=model_test,
-        dataset="val",
-        pypesto_subproblem=model_train.pypesto_subproblem,  # needed to get PCA
-    )
-    model_train = init_global_kin_params_combiner(
-        conf,
-        model_train,
-        nn_pretrain=False,
-    )
-    model_test = init_global_kin_params_combiner(
-        conf,
-        model_test,
-        nn_pretrain=False,
-    )
-# elif (len(conf.encoder_layer_sizes) > 0) and (len(conf.inflater_layer_sizes) > 0) and conf.linear_benchmark:
-#     raise ValueError("Linear benchmark is not possible with non-zero hidden layers!")
+
+    # Setup filter_spec for model training (all True - learnable params)
+    filter_spec_per_param = jtu.tree_map(lambda _: True, model_train)
 else:
     # Get training targets as parameter deviations (second component, while first contains medians)
     _, par_deviation_train = get_kin_params_median_deviation(conf, model_train)
@@ -108,11 +114,19 @@ else:
         n_epoch=1000,
         early_stopping_params=early_stopping_params,
     )
-    # Now initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
+    # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
         conf,
         pretrained_model,
         nn_pretrain=False,
+    )
+    # For pretrained models: it might be desirable to keep the learnt sparsity pattern, but drop regularisation.
+    # We do this by zeroing-out parameters below a given threshold + filtering their updates (effectively freezing
+    # them) via a filter_spec.
+    model_train, filter_spec_per_param = sparsify_model(
+        model_train,
+        conf.drop_reg_after_pretrain,
+        conf.sparsity_threshold,
     )
 
 # Whole DMM Training
@@ -121,27 +135,19 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
-# Keep sparsity pattern learnt during regularisation, but drop regularisation, i.e.
-# zero-out parameters below a given threshold and prepare filter_spec_per_param to mask updates (freeze).
-model_train, filter_spec_per_param = sparsify_model(
-    model_train,
-    conf.drop_reg_after_pretrain,
-    conf.sparsity_threshold,
-)
-
 # Get PEtab-compatible embedding of model parameters (i.e. global kin params concatenated with cell-line specific
 # parameters, flattened for all training set samples/cell-lines).
 x0 = map_params_to_array(model_train)
 
-# Initialise W&B run
+# Initialise W&B run and train
 init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     filter_spec_per_param=filter_spec_per_param,
     problem_train=pypesto_problem_train,
+    problem_test=pypesto_problem_test,
     input_features_train=input_features_train,
     input_features_test=input_features_test,
-    problem_test=pypesto_problem_test,
     conf=conf.__dict__,
     rfile=results_file,
     model_file=model_file,

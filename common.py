@@ -33,6 +33,8 @@ class Conf(dict):
     data: str
     context: str = None
     features: str = None
+    # Transform input features via standard scaling and PCA
+    features_transform: str = "pca"
     samples: str = None
     pretrain: bool = False
     sample: str = None
@@ -40,9 +42,9 @@ class Conf(dict):
     n_hidden: int = 0
     encoder_layer_sizes: List[int] = None
     inflater_layer_sizes: List[int] = None
+    linear_benchmark: str = False
     use_layer_bias: List[bool] = False
     nn_init_fn: str = "None"
-    linear_benchmark: str = False
     reconstruct: bool = False
     # Training
     activation_fn_name: str = "None"
@@ -161,20 +163,36 @@ FEATURES_OUTFILE = str(
     )
 )
 
+FEATURES_PIPELINE = str(
+    features_dir
+    / "{model}"
+    / "{data}"
+    / "{samples}_{features}_{context}_trained_pca_pipeline.joblib"
+)
+
+default_attributes = [
+    k
+    for k, v in vars(Conf).items()
+    if not k.startswith('__') and k not in ['model', 'data', 'sample', 'threads', 'n_starts']
+]
+
+# The automatically generated default attributes list should encompass the following
+# default_attributes = [
+#     "context", "features", "features_transform", "samples", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
+#     "n_hidden",
+#     "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
+#     "use_layer_bias", "nn_init_fn",
+#     "reconstruct", "activation_fn_name", "optimiser",
+#     "orth_reg_strategy",
+#     "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
+#     "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
+#     "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain", "sparsity_threshold",
+#     "job",
+# ]
+
 defaults = {
     x: f"{{{x}}}"
-    for x in [
-        "context", "features", "samples", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
-        "n_hidden",
-        "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-        "use_layer_bias", "nn_init_fn",
-        "reconstruct", "activation_fn_name", "optimiser",
-        "orth_reg_strategy",
-        "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-        "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-        "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain", "sparsity_threshold",
-        "job",
-    ]
+    for x in default_attributes
 }
 
 tpl_results_file = "__".join(defaults.values())

@@ -16,7 +16,8 @@ from common import (
 )
 from dmm.analysis import evaluate_simulations
 from model_training.training_helper_funcs import create_pypesto_problem
-from dmm.initialisation import load_models
+from dmm.initialisation import setup_models
+from typing import Dict
 from util import load_petab_base_files
 
 
@@ -35,12 +36,13 @@ def evaluate_training(
         dataset: str,
         conf: Conf,
         samples: dict,
+        petab_base_files: Dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     # Initialise list to store evaluations
     evaluations = []
 
     # Initialise model skeleton and get CytofProblem
-    model, cytof_problem = load_models(conf, dataset)
+    model, cytof_problem = setup_models(conf, petab_base_files, dataset)
 
     # Create pypesto problem
     pypesto_problem = create_pypesto_problem(model)
@@ -49,15 +51,14 @@ def evaluate_training(
 
     # Define filepaths for training results and serialized model - only the latter is needed
     # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
-    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
+    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__).replace(" ", "")
 
-    # Load training results - TODO @GiacomoFabrini - do we really need these?
+    # Load training results - TODO @GiacomoFabrini - do we need these?
     # reader = OptimizationResultHDF5Reader(infile)
     # result = pypesto.Result(pypesto_problem)
     # result.optimize_result = reader.read().optimize_result
 
     # Load serialised best model
-    petab_base_files = load_petab_base_files(conf, reweight=True)
     model.load(
         trained_model_file,
         cytof_problem,
@@ -96,11 +97,16 @@ def evaluate_training(
     return pd.DataFrame(evaluations)
 
 
+# Load petab_base_files (once only)
+petab_base_files = load_petab_base_files(conf, reweight=True)
 # TODO @GiacomoFabrini: check here "val" vs "test"
-for dataset in ("train", "test"):
+for dataset in [
+        # "train",
+        "test"
+]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test
     jax.clear_caches()
-    df = evaluate_training(dataset, conf, samples)
+    df = evaluate_training(dataset=dataset, conf=conf, samples=samples, petab_base_files=petab_base_files)
     # Need to remove blank spaces introduced by encoder/inflater_layer_sizes
     df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__).replace(" ", ""))

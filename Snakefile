@@ -16,7 +16,7 @@ from training_configuration import (
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
-    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD
+    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD, FEATURES_TRANSFORM
 )
 
 basedir = Path(os.getcwd())
@@ -227,6 +227,7 @@ rule estimate_parameters:
         use_early_stopping='True|False',
         drop_reg_after_pretrain='True|False',
         sparsity_threshold='[0-9\.]+',
+        features_transform='\w+',
         job='[0-9]+',
     retries: 1
     resources:
@@ -240,7 +241,7 @@ rule estimate_parameters:
             for arg in (
                 'model', 'data',
                 'samples', 'pretrain',
-                'context', 'features', 'n_hidden',
+                'context', 'features', 'features_transform', 'n_hidden',
                 'encoder_layer_sizes', 'inflater_layer_sizes', 'linear_benchmark',
                 'use_layer_bias', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
@@ -319,6 +320,7 @@ rule evaluate_training:
         use_early_stopping='True|False',
         drop_reg_after_pretrain='True|False',
         sparsity_threshold='[0-9\.]+',
+        features_transform='\w+',
         job='[0-9]+',
     resources:
         mem="16GB",
@@ -331,7 +333,7 @@ rule evaluate_training:
             for arg in (
                 'model', 'data',
                 'samples', 'pretrain',
-                'context', 'features', 'n_hidden',
+                'context', 'features', 'features_transform', 'n_hidden',
                 'encoder_layer_sizes', 'inflater_layer_sizes', 'linear_benchmark',
                 'use_layer_bias', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
@@ -418,6 +420,7 @@ rule evaluate_all:
                     )
                 ),
                 model='{model}',data='{data}',
+                features_transform=FEATURES_TRANSFORM,
                 samples=SPLITS,
                 pretrain=PRETRAIN,
                 n_hidden=LATENT_DIMS,

@@ -29,6 +29,12 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "sequential"),
 )
 
+# input features transformation (e.g. PCA)
+FEATURES_TRANSFORM = {
+    "pca",
+    # "None",
+}
+
 # Cross-validation splits
 SPLITS = {
     "0_5",
@@ -258,8 +264,11 @@ DROP_REG_POST_PRETRAIN = {
     # "False",
 }
 
+# Threshold to sparsify the model weights if dropping regularisation post pretraining (while keeping learnt sparsity)
 SPARSITY_THRESHOLD = 1e-3
 
+# Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
 
+# Maximum number of epochs for training - not varied between individual runs, just globally set here
 N_EPOCHS = 100

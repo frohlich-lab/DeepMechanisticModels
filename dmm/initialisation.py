@@ -2,23 +2,28 @@ import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
 import jax.tree_util as jtu
+import joblib
 import numpy as np
+import os
 import pandas as pd
 import pypesto
 import scipy.linalg as la
+from pandas import DataFrame
 
 from common import (
     Conf,
     ModuleParams,
     FEATURES_OUTFILE,
+    FEATURES_PIPELINE,
     MODEL_FEATURE_PREFIX,
     PER_SAMPLE_OUTFILE_PARS
 )
 from cytof.problem import CytofProblem
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from sklearn.decomposition import PCA
-from typing import Tuple, Union
-from util import load_petab_base_files
+from sklearn.preprocessing import StandardScaler
+from sklearn.pipeline import Pipeline
+from typing import Dict, List, Tuple, Union
 
 
 def make_dmm(*, dmm_params, features, key):
@@ -30,26 +35,88 @@ def make_dmm(*, dmm_params, features, key):
     )
 
 
-def load_models(
+def get_features(
         conf: Conf,
+        datasets: List[str]
+) -> Dict[str, pd.DataFrame]:
+    features = {
+        dataset: pd.read_csv(
+                    FEATURES_OUTFILE.format_map(
+                        dict(**conf.__dict__, dataset=dataset)
+                    ),
+                    index_col=0
+                )
+        for dataset in datasets
+    }
+    return features
+
+
+def pca_transform_features(
+        features: Dict[str, pd.DataFrame],
+        conf: Conf,
+        pipeline=None
+) -> Dict[str, DataFrame]:
+    """
+    :param features: dictionary of feature pd.DataFrames
+    :param conf: configuration object
+    :param pipeline: trained pipeline (optional)
+
+    :return: dictionary of transformed features pd.DataFrames
+    """
+    if pipeline is None:
+        # Construct the pipeline
+        pipeline = Pipeline([
+            ('scaler', StandardScaler()),
+            ('pca', PCA(n_components=0.95))
+        ])
+        # Fit the pipeline on the training data
+        try:
+            pipeline.fit(features["train"])
+        except KeyError:
+            # "train" key not found in the features dictionary
+            raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
+        except Exception as e:
+            # any other exceptions that might occur during fitting
+            raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
+
+        # Serialise the scaling+PCA pipeline
+        joblib.dump(pipeline, FEATURES_PIPELINE.format_map(conf.__dict__))
+
+    # Transform features and return them ensuring same pd.DataFrame format as pristine input
+    transformed_features = {
+        dataset: pd.DataFrame(
+            pipeline.transform(features[dataset]),
+            index=features[dataset].index,
+            columns=[f'pca_{i}' for i in range(pipeline.named_steps['pca'].n_components_)]
+        )
+        for dataset in features.keys()
+    }
+    return transformed_features
+
+
+def setup_models(
+        conf: Conf,
+        petab_base_files,
         dataset: str = "train",
-) -> Tuple[
-    Union[
-        Tuple[DeepMechanisticModel, DeepMechanisticModel],
-        DeepMechanisticModel,
+        return_features: bool = False,
+) -> Union[
+    Tuple[
+        Union[
+            Tuple[DeepMechanisticModel, DeepMechanisticModel],
+            DeepMechanisticModel,
+        ],
+        CytofProblem,
     ],
-    CytofProblem,
+    Tuple[
+        Union[
+            Tuple[DeepMechanisticModel, DeepMechanisticModel],
+            DeepMechanisticModel,
+        ],
+        CytofProblem,
+        Dict[str, pd.DataFrame],
+    ]
 ]:
     problem = CytofProblem(conf.model)
-
-    petab_base_files = load_petab_base_files(conf, reweight=True)
-
-    # NOT NEEDED - moved from full layer list to just n_hidden layer list
-    # # Check n_hidden is equal to last encoder layer size as well as first inflater layer size
-    # if conf.encoder_layer_sizes[-1] != conf.n_hidden:
-    #     raise ValueError("Chosen latent dimension mus match the size of the last encoder layer!")
-    # elif conf.inflater_layer_sizes[0] != conf.n_hidden:
-    #     raise ValueError("Chosen latent dimension mus match the size of the first inflater layer!")
 
     # TODO @GiacomoFabrini issues with test/val nomenclature here!
     settings = {
@@ -57,6 +124,17 @@ def load_models(
         "test": ["val"],
         "train+test": ["train", "val"],
     }
+    # loads features corresponding to requested dataset settings
+    features = get_features(conf, datasets=settings[dataset])
+
+    if conf.features_transform == "pca":
+        # Check whether pipeline has already been trained. If so, load it. If not, train it.
+        pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
+        if os.path.exists(pipeline_file):
+            pipeline = joblib.load(FEATURES_PIPELINE.format_map(conf.__dict__))
+        else:
+            pipeline = None
+        features = pca_transform_features(features, conf, pipeline)
 
     # Define encoder, inflater and decoder parameters
     encoder_params = ModuleParams(
@@ -106,24 +184,18 @@ def load_models(
             key=subkey,
         )
         for features, subkey in zip(
-            [
-                pd.read_csv(
-                    FEATURES_OUTFILE.format_map(
-                        dict(**conf.__dict__, dataset=setting)
-                    ),
-                    index_col=0
-                )
-                for setting in settings[dataset]
-            ],
+            [features[feature_dataset] for feature_dataset in settings[dataset]],
             keys
         )
     )
 
     # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
-    if dataset == "train+test":
-        return tuple(dmms), problem
-    else:
-        return *dmms, problem
+    # if dataset == "train+test":
+    #     return tuple(dmms), problem
+    # else:
+    #     return *dmms, problem
+    result = (tuple(dmms), problem) if dataset == "train+test" else (*dmms, problem)
+    return (*result, features) if return_features else result
 
 
 def get_kin_params_median_deviation(
@@ -205,16 +277,38 @@ def get_kin_params_median_deviation(
         return par_medians, par_deviations
 
 
-def load_and_subset_input_features(
-        conf: Conf,
+# def load_and_subset_input_features(
+#         conf: Conf,
+#         model: DeepMechanisticModel,
+#         dataset: str,
+#         pypesto_subproblem: pypesto.Problem = None,
+# ):
+#     features = pd.read_csv(
+#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset)),
+#         index_col=0,
+#     )
+#     # extract sample names, ordering of those is important since samples
+#     # must match when reshaping the inflated matrix
+#     petab_samples = []
+#     if pypesto_subproblem is None:
+#         pypesto_subproblem = model.pypesto_subproblem
+#     for name in pypesto_subproblem.x_names:
+#         if not name.startswith(MODEL_FEATURE_PREFIX):
+#             continue
+#
+#         sample = name.split("__")[-1]
+#         if sample not in petab_samples and sample in features.index:
+#             petab_samples.append(sample)
+#
+#     input_features = features.loc[petab_samples, :].values
+#     return input_features
+
+
+def subset_features(
+        features: pd.DataFrame,
         model: DeepMechanisticModel,
-        dataset: str,
         pypesto_subproblem: pypesto.Problem = None,
-):
-    features = pd.read_csv(
-        FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset)),
-        index_col=0,
-    )
+) -> np.ndarray:
     # extract sample names, ordering of those is important since samples
     # must match when reshaping the inflated matrix
     petab_samples = []
@@ -235,45 +329,25 @@ def load_and_subset_input_features(
 def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
-        dataset: str,  # train or test,
-        pypesto_subproblem: pypesto.Problem = None,
+        features: Dict[str, np.ndarray],
+        dataset: str,
 ):
     # Check that encoder, inflater (and potentially decoder) all have a single layer
     # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
     if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
         raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
 
-    # Always load training features
-    if dataset == 'train':
-        input_features_train = load_and_subset_input_features(conf=conf, model=model, dataset='train')
-    elif (dataset == 'val') and (pypesto_subproblem is not None):
-        input_features_train = load_and_subset_input_features(
-            conf=conf,
-            model=model,
-            dataset='train',
-            pypesto_subproblem=pypesto_subproblem,  # needed to get model.pypesto_subproblem.x_names
-        )
-    elif (dataset == 'val') and (pypesto_subproblem is None):
-        raise ValueError("Need to pass pypesto_subproblem from model_train for validation dataset!")
+    try:
+        # fit PCA to training features
+        pca = PCA(n_components=model.n_latent).fit(features["train"])
+    except KeyError:
+        # "train" key not found in the features dictionary
+        raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
+    except Exception as e:
+        # any other exceptions that might occur during fitting
+        raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
 
-    # fit PCA to training features
-    pca = PCA(n_components=model.n_latent).fit(input_features_train)
-
-    if dataset == 'train':
-        # simply transform the already loaded training input features
-        features_pca = pca.transform(input_features_train)
-    elif dataset == 'val':
-        # Load val features
-        input_features_val = load_and_subset_input_features(
-            conf=conf,
-            model=model,
-            dataset=dataset,
-        )
-        # and transform them with PCA fitted to training features
-        features_pca = pca.transform(input_features_val)
-    else:
-        raise ValueError("Unknown dataset type: must be train/val.")
-
+    features_pca = pca.transform(features[dataset])
     # Overwrite encoder weights with PCA components
     new_encoder_weights = jnp.array(
         pca.components_.T.flatten()

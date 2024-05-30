@@ -5,7 +5,7 @@ import pypesto.visualize
 import re
 
 from common import Conf, COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
-from dmm.initialisation import load_models
+from dmm.initialisation import setup_models
 from model_training.training_helper_funcs import create_pypesto_problem
 from pathlib import Path
 from pypesto.store import (
@@ -17,7 +17,7 @@ from pypesto.visualize import waterfall
 
 conf = fire.Fire(Conf)
 
-model, problem = load_models(conf, "train")
+model, problem = setup_models(conf, "train")
 pypesto_problem = create_pypesto_problem(model)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)
