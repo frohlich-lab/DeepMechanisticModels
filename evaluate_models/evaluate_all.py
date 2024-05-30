@@ -9,6 +9,7 @@ import wandb
 
 from common import (
     Conf,
+    default_attributes,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
@@ -21,12 +22,12 @@ from common import (
 )
 from dmm.analysis import plot_loss_vs_regularization
 from training_configuration import (
-    CONTEXTS_FEATURES, SPLITS, PRETRAIN,
+    CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
     LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
-    LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS
+    LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS, SPARSITY_THRESHOLD
 )
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluate_models.evaluation_plotting import (n_hidden_pairwise_heatmap,
@@ -135,29 +136,16 @@ def get_absolute_best_performer(
 
 
 def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
-    # TODO @GiacomoFabrini - define this list somewhere and import it!
     # Define aggregation groups for DMM
-    gbs = [
-        "dataset",
-        "context", "features", "samples", "pretrain",
-        "ref",
-        "n_hidden",
-        "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-        "use_layer_bias", "nn_init_fn", "reconstruct", "activation_fn_name", "optimiser",
-        "orth_reg_strategy",
-        "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-        "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-        "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
-        "job",
-    ]
+    gbs_dmm = ["dataset", "ref"] + default_attributes
 
     data_dmm = pd.DataFrame(
         [
             dict(
-                zip(gbs, group),
+                zip(gbs_dmm, group),
                 rmse=np.sqrt(np.square(group_df["res"]).mean()),  # mean RMSE across all jobs (not best result)
             )
-            for group, group_df in df.groupby(gbs)
+            for group, group_df in df.groupby(gbs_dmm)
         ]
     )
 
@@ -199,7 +187,8 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
         # Create list of the MultiIndex RMSE columns created above
         multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
         # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns
-        pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]), axis=1)
+        pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
+                                                   axis=1)
         # Add the newly created column to the list of columns to be kept (cols)
         cols += ['rmse_list']
         # Subset the pivot table and reduce MultiIndex back to single-level index
@@ -213,15 +202,7 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
     best_hyperparam_dmm = get_best_performer_across_jobs(
         dataframe=data[data.ref == 'DMM'],
         group_attributes=['dataset', 'context', 'features', 'pretrain'],
-        hyperparam_attributes=[
-            "n_hidden",
-            "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-            "use_layer_bias", "nn_init_fn", "reconstruct", "activation_fn_name", "optimiser",
-            "orth_reg_strategy",
-            "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-            "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-            "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
-        ],
+        hyperparam_attributes=[x for x in default_attributes if x not in ['context', 'features', 'pretrain']],
         mode='DMM',
         target_attribute='rmse',
     )
@@ -301,39 +282,23 @@ for samples in SPLITS:
         # training
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
-            for ((ctxt, features), pretrain, ldim,
-                 reconstruct, activation_fn_name, optimiser,
-                 (encoder_layer_sizes, inflater_layer_sizes, linear_benchmark),
-                 use_layer_bias, nn_init_fn,
-                 orth_reg_strategy, alpha, beta, gamma, delta, epsilon, zeta,
-                 max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
-                 use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain, job,
-                 ) in itt.product(
-                CONTEXTS_FEATURES,
-                PRETRAIN,
-                LATENT_DIMS,
-                RECONSTRUCT,
-                ACTIVATION_FNS,
-                OPTIMISERS,
+            for (
+                (ctxt, features), features_transform, pretrain, n_hidden,
+                reconstruct, activation_fn_name, optimiser,
+                (encoder_layer_sizes, inflater_layer_sizes, linear_benchmark),
+                use_layer_bias, nn_init_fn, orth_reg_strategy,
+                alpha, beta, gamma, delta, epsilon, zeta,
+                max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
+                use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain, sparsity_threshold,
+                job,
+            ) in itt.product(
+                CONTEXTS_FEATURES, FEATURES_TRANSFORM, PRETRAIN, LATENT_DIMS,
+                RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
                 NETWORK_LAYOUT,
-                USE_BIAS,
-                NN_INIT_FN,
-                ORTH_REG_STRATEGIES,
-                ALPHAS,
-                BETAS,
-                GAMMAS,
-                DELTAS,
-                EPSILONS,
-                ZETAS,
-                MAX_LEARNING_RATES,
-                LEARNING_RATE_SPANS,
-                LEARNING_RATE_DECAYS,
-                WARMUP_FCTS,
-                OPT_STEPS,
-                OPT_MULT,
-                LINEAR_SCHEDULE,
-                USE_EARLY_STOP,
-                DROP_REG_POST_PRETRAIN,
+                USE_BIAS, NN_INIT_FN, ORTH_REG_STRATEGIES,
+                ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
+                MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
+                LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
                 JOBS,
             )
             if os.path.exists(
@@ -344,9 +309,10 @@ for samples in SPLITS:
                             dataset=dataset,
                             context=ctxt,
                             features=features,
+                            features_transform=features_transform,
                             samples=samples,
                             pretrain=pretrain,
-                            n_hidden=ldim,
+                            n_hidden=n_hidden,
                             encoder_layer_sizes=encoder_layer_sizes,
                             inflater_layer_sizes=inflater_layer_sizes,
                             linear_benchmark=linear_benchmark,
@@ -371,6 +337,7 @@ for samples in SPLITS:
                             use_simple_linear_schedule=use_simple_linear_schedule,
                             use_early_stopping=use_early_stopping,
                             drop_reg_after_pretrain=drop_reg_after_pretrain,
+                            sparsity_threshold=sparsity_threshold,
                             job=job,
                         ),
                     },
@@ -560,12 +527,12 @@ df_meas, df_obs = get_measurements_and_obervables(conf)
 # TODO: need to loop through SPLITS and get samples + the best configuration does not specify a single job!
 # We need to fetch all of them and plot mean ± std
 for dataset, context, split in itt.product(
-    [
-        # "train",
-        "test",
-    ],
-    CONTEXT_SET,
-    SPLITS
+        [
+            # "train",
+            "test",
+        ],
+        CONTEXT_SET,
+        SPLITS
 ):
     samples_dict = {
         "train": training_samples(Wildcards(conf.data, split)),
