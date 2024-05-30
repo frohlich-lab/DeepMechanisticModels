@@ -7,9 +7,9 @@ import re
 from common import (
     Conf,
     CONDITIONS_FILE,
+    data_dir,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
-    data_dir,
 )
 from dmm.generate_data import generate_synthetic_data
 

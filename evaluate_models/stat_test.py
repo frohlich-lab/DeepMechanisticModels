@@ -18,13 +18,15 @@ def stat_test_hyperparameter(df, hyperparameter, hp_value1, hp_value2, alternati
 
 def wilcoxon_test(df, hyperparameter, hp_value1, hp_value2, alternative):
     return wilcoxon(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
-                    np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values), alternative=alternative,
+                    np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values),
+                    alternative=alternative,
                     axis=None)
 
 
 def ttest_rel_test(df, hyperparameter, hp_value1, hp_value2, alternative):
     return ttest_rel(np.concatenate(df[df[hyperparameter] == hp_value1]['rmse_list'].values),
-                     np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values), alternative=alternative,
+                     np.concatenate(df[df[hyperparameter] == hp_value2]['rmse_list'].values),
+                     alternative=alternative,
                      axis=None)
 
 
