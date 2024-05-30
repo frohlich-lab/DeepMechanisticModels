@@ -31,6 +31,7 @@ from sklearn.linear_model import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from typing import Dict, List
 from util import load_petab_base_files
 
 
@@ -53,9 +54,9 @@ samples = {
 
 
 def build_pipeline(
-        steps_list: str,
+        steps_list: List[str],
         input_data: np.ndarray,
-):
+) -> Pipeline:
     """
     builds a sklearn.pipeline.Pipeline consisting of:
     - StandardScaler(),
@@ -84,7 +85,7 @@ def build_pipeline(
     }
 
     # PCA + one among linear regression/lasso/elasticnet
-    if (steps_list is not None) and (len(steps_list )>0):
+    if (steps_list is not None) and (len(steps_list) > 0):
         for step in steps_list:
             if step == "pca":
                 inputs = Pipeline(steps).fit_transform(input_data)
@@ -109,9 +110,9 @@ def build_pipeline(
 
 
 def train_pipeline(
-        pipeline_steps,
-        conf,
-        context,
+        pipeline_steps: List[str],
+        petab_base_files: Dict[str, pd.DataFrame],
+        context: str,
         samples_train,
 ):
     """
@@ -129,10 +130,6 @@ def train_pipeline(
     :param samples_train:
         data to train the regressor Pipeline on
     """
-
-    # Load petab files
-    petab_base_files = load_petab_base_files(conf, reweight=False)
-    del petab_base_files["condition_table"]
 
     # Load input and output data
     input_data, features_train = load_data(
@@ -162,20 +159,16 @@ def evaluate_standard_regression(
         samples,
         context: str,
         mode: str,  # 'linreg', 'lasso', 'elasticnet'
-        trained_pipeline,
+        trained_pipeline: Pipeline,
         features_train,
-):
+        petab_base_files: Dict[str, pd.DataFrame],
+) -> pd.DataFrame:
 
     # Check the regressors have been trained
     if trained_pipeline is None:
         raise ValueError("No trained_pipeline provided for this regressor!")
     elif (dataset == "test") and (features_train is None):
         raise ValueError(f"No features_train provided for {dataset} evaluation!")
-
-    # Load petab files
-    petab_base_files = load_petab_base_files(conf, reweight=False)
-    # so far data has not been reweighed when evaluating references, only for training
-    del petab_base_files["condition_table"]
 
     # Subset to "train"/"test"
     samples_eval = samples[dataset]
@@ -280,6 +273,10 @@ def evaluate_standard_regression(
     return pd.DataFrame(evaluations)
 
 
+# Get petab_base_files
+petab_base_files = load_petab_base_files(conf)
+del petab_base_files["condition_table"]
+
 # Evaluate regressors
 for dataset, context, mode in itt.product(
     ["train", "test"], CONTEXT_SET, ["linreg", "lasso", "elasticnet"]
@@ -309,7 +306,7 @@ for dataset, context, mode in itt.product(
         print(f"Building pipeline and training estimator for {mode} on {context}...")
         trained_pipeline, features_train = train_pipeline(
             pipeline_steps=["pca", mode],
-            conf=conf,
+            petab_base_files=petab_base_files,
             context=context,
             samples_train=samples["train"],
         )
@@ -323,7 +320,8 @@ for dataset, context, mode in itt.product(
         context=context,
         mode=mode,
         trained_pipeline=trained_pipeline,
-        features_train=features_train
+        features_train=features_train,
+        petab_base_files=petab_base_files,
     )
 
     df.to_csv(

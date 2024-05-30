@@ -22,10 +22,16 @@ from dmm.pretraining import (
     generate_per_sample_pretraining_problems,
 )
 from evaluate_models.evaluation_utils import get_measurements_and_obervables
+from typing import Dict
 from util import load_petab_base_files
 
 
-def process_per_sample_pretrain(sample: str, problem, conf: Conf, petab_base_files):
+def process_per_sample_pretrain(
+        sample: str,
+        problem,
+        conf: Conf,
+        petab_base_files: Dict[str, pd.DataFrame]
+):
     rfile = indir / f"{sample}.csv"
     if not rfile.exists():
         return None
@@ -98,10 +104,10 @@ def evaluate_pretraining_per_sample(
         dataset: str,
         conf: Conf,
         samples: dict,
-):
+        petab_base_files: Dict[str, pd.DataFrame],
+) -> pd.DataFrame:
     evaluations = []
     problem = CytofProblem(conf.model)
-    petab_base_files = load_petab_base_files(conf)
 
     # dictionary of samples - standard behaviour for `evaluate_reference`
     for sample in samples[dataset]:
@@ -152,8 +158,8 @@ def evaluate_average(
 
     df_sim = df_meas.copy()
     df_sim = df_sim.loc[
-        df_sim[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset]), :
-    ]
+             df_sim[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset]), :
+             ]
 
     for ir, r in df_meas.iterrows():
         # pick the closest time point to avoid issues with non-canonical time points
@@ -187,11 +193,11 @@ def evaluate_average_model(
         dataset: str,
         conf: Conf,
         samples: dict,
+        petab_base_files: Dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     df_meas, df_obs = get_measurements_and_obervables(conf)
 
     problem = CytofProblem(conf.model)
-    petab_base_files = load_petab_base_files(conf)
     rfile = indir / f"model_average_{conf.samples}.csv"
 
     petab_base_importer = load_petab(
@@ -261,10 +267,13 @@ def evaluate_average_model(
     return pd.DataFrame(evaluations)
 
 
+# Get petab_base_files
+petab_base_files = load_petab_base_files(conf)
+
 # Evaluate references/baselines
 for dataset in ["train", "test"]:
     # model average ("avg_model")
-    df = evaluate_average_model(dataset, conf, samples)
+    df = evaluate_average_model(dataset, conf, samples, petab_base_files)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,
@@ -284,7 +293,7 @@ for dataset in ["train", "test"]:
     )
 
     # per sample ("sample")
-    df = evaluate_pretraining_per_sample(dataset, conf, samples)
+    df = evaluate_pretraining_per_sample(dataset, conf, samples, petab_base_files)
     df.to_csv(
         EVALUATION_REFERENCE.format(
             **conf.__dict__,

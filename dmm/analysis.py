@@ -9,6 +9,7 @@ import pypesto.objective
 import seaborn as sns
 
 from amici.petab_objective import rdatas_to_simulation_df
+from common import default_attributes
 from dmm.plotting import plot_cross_samples
 from model_training.training_helper_funcs import model_output_to_petab_input
 from pathlib import Path
@@ -40,19 +41,9 @@ def process_simulation(
             condition = r[petab.SIMULATION_CONDITION_ID]
 
         # Subset conf
-        # TODO @GiacomoFabrini - are all these needed?
-        subset_hyperparams = [
-            "context", "features", "pretrain",
-            "n_hidden",
-            "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-            "use_layer_bias", "nn_init_fn",
-            "reconstruct", "activation_fn_name", "optimiser",
-            "orth_reg_strategy",
-            "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-            "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-            "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain",
-            "job",
-        ]
+        # TODO @GiacomoFabrini - are all the defaults needed?
+        subset_hyperparams = default_attributes
+
         subset_conf_dict = dict(
             (k, conf.__dict__[k])
             for k in subset_hyperparams
