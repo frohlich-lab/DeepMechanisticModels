@@ -253,7 +253,7 @@ USE_EARLY_STOP = {
 }
 
 # PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
-PATIENCE = 19  # before it was 9 - should correspond to (19+1)*5 = 100 epochs overall
+PATIENCE = 9  # should be about 50 epochs (19 would correspond to about 100 epochs)
 
 # MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0
@@ -271,4 +271,5 @@ SPARSITY_THRESHOLD = 1e-3
 RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 100
+N_EPOCHS = 1000
+PRETRAIN_N_EPOCHS = 2000

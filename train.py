@@ -15,7 +15,7 @@ from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS
+from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, PRETRAIN_N_EPOCHS
 from util import load_petab_base_files
 
 
@@ -111,7 +111,7 @@ else:
         validation_targets=targets_pretrain_val,
         conf=conf.__dict__,
         # rfile=rfile,
-        n_epoch=1000,
+        n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
     )
     # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
