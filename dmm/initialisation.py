@@ -189,11 +189,6 @@ def setup_models(
         )
     )
 
-    # returns (dmm_train, dmm_val), problem | dmm_train, problem | dmm_val, problem depending on `dataset`
-    # if dataset == "train+test":
-    #     return tuple(dmms), problem
-    # else:
-    #     return *dmms, problem
     result = (tuple(dmms), problem) if dataset == "train+test" else (*dmms, problem)
     return (*result, features) if return_features else result
 
@@ -337,21 +332,44 @@ def linear_nn_init(
     if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
         raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
 
-    try:
-        # fit PCA to training features
-        pca = PCA(n_components=model.n_latent).fit(features["train"])
-    except KeyError:
-        # "train" key not found in the features dictionary
-        raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
-    except Exception as e:
-        # any other exceptions that might occur during fitting
-        raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
+    if conf.features_transform == 'pca':
+        # Features have already been PCA-transformed, just need to subset
+        features_pca = features[dataset][:, :model.n_latent]
+        # Initialise with all zeros
+        new_encoder_weights = jnp.zeros_like(model.deep_encoder.layers[0].weight)
+        # and replace upper model.n_latent * model.n_latent block with identity matrix of size model.n_latent
+        new_encoder_weights = new_encoder_weights.at[:model.n_latent, :model.n_latent].set(jnp.eye(model.n_latent))
+    else:
+        # Features are pristine
+        try:
+            # fit PCA to training features
+            pca = PCA(n_components=model.n_latent).fit(features["train"])
+        except KeyError:
+            # "train" key not found in the features dictionary
+            raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
+        except Exception as e:
+            # any other exceptions that might occur during fitting
+            raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
 
-    features_pca = pca.transform(features[dataset])
-    # Overwrite encoder weights with PCA components
-    new_encoder_weights = jnp.array(
-        pca.components_.T.flatten()
-    ).reshape(model.deep_encoder.layers[0].weight.shape)
+        features_pca = pca.transform(features[dataset])
+        # Compute new encoder weights with PCA components -- PREVIOUS SOLUTION
+        # This will NOT produce the first n_hidden/model.n_latent PCA-transformed features as embedding
+        # new_encoder_weights = jnp.array(
+        #     pca.components_.T.flatten()
+        # ).reshape(model.deep_encoder.layers[0].weight.shape)
+        # APPROACH 1: last squares solution
+        # new_encoder_weights = jnp.array(
+        #     la.lstsq(
+        #         features[dataset],
+        #         features_pca[:, :model.n_latent],
+        #     )[0].flatten()
+        # ).reshape(model.deep_encoder.layers[0].weight.shape)
+        # APPROACH 2: pinv -- lower numerical discrepancy between actual computed embedding, i.e.
+        # `jax.vmap(model.deep_encoder)(features[dataset])` and target `features_pca`
+        new_encoder_weights = jnp.dot(
+            jnp.linalg.pinv(features[dataset]),  # pseudo-inverse
+            features_pca
+        ).T
 
     model = eqx.tree_at(
         lambda m: m.deep_encoder.layers[0].weight,  # fetch weights from single layer of encoder
@@ -377,7 +395,7 @@ def linear_nn_init(
     # Overwrite inflater weights with least squares solution
     new_inflater_weights = jnp.array(
         la.lstsq(
-            features_pca[:, : model.n_latent],
+            features_pca,  # initialisation should ensure correct number of columns (i.e. model.n_latent)
             par_deviations[inputs].values,
         )[0].flatten()
     ).reshape(model.deep_inflater.layers[0].weight.shape)
