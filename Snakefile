@@ -190,8 +190,10 @@ rule select_features:
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters
 rule estimate_parameters:
     input:
-        script='train.py',
-        training='training.py',
+        script = 'train.py',
+        # encoder = mencoder_dir / 'encoder.py',
+        training = mencoder_dir / 'training.py',
+        # autoencoder = mencoder_dir / 'autoencoder.py',
         data=rules.process_data.output.datafiles,
         data_rw=rules.reweight_data.output.data,
         model=rules.compile_mechanistic_model.output.model,
