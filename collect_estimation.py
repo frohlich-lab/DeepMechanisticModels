@@ -6,7 +6,7 @@ import re
 
 from common import Conf, COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
 from dmm.initialisation import setup_models
-from training_helper_funcs import create_pypesto_problem
+from dmm.training_helper_funcs import create_pypesto_problem
 from pathlib import Path
 from pypesto.store import (
     OptimizationResultHDF5Reader,
