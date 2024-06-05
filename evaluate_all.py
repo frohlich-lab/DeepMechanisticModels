@@ -30,10 +30,10 @@ from training_configuration import (
     LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS, SPARSITY_THRESHOLD
 )
 from dmm.plotting import plot_cross_samples_multiple_simulations
-from evaluate_models.evaluation_plotting import (n_hidden_pairwise_heatmap,
-                                                 volcano_hyperparameter_significance)
-from evaluate_models.evaluation_utils import get_measurements_and_obervables, process_sim_df
-from evaluate_models.stat_test import statistical_significance_test
+from evaluation_plotting import (n_hidden_pairwise_heatmap,
+                                 volcano_hyperparameter_significance)
+from evaluation_utils import get_measurements_and_obervables, process_sim_df
+from stat_test import statistical_significance_test
 from typing import List
 
 REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]

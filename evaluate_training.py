@@ -15,7 +15,7 @@ from common import (
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
-from model_training.training_helper_funcs import create_pypesto_problem
+from training_helper_funcs import create_pypesto_problem
 from dmm.initialisation import setup_models
 from typing import Dict
 from util import load_petab_base_files

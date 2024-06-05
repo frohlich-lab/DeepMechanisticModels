@@ -21,7 +21,7 @@ from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
-from evaluate_models.evaluation_utils import get_measurements_and_obervables
+from evaluation_utils import get_measurements_and_obervables
 from typing import Dict
 from util import load_petab_base_files
 

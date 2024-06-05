@@ -7,8 +7,8 @@ import petab
 from dmm.initialisation import setup_models as  load_model  # TODO: still in use?!
 from ..autoencoder import DeepMechanisticModel, load_petab
 from ..generate_data import generate_synthetic_data
-from model_training.training import train
-from model_training.training_helper_funcs import generate_pypesto_objective
+from training import train
+from training_helper_funcs import generate_pypesto_objective
 
 pathway_model = "FLT3_MAPK"
 

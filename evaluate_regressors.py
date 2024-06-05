@@ -20,7 +20,7 @@ from common import (
 from dmm.analysis import process_simulation
 from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples
-from evaluate_models.evaluate_reference import get_measurements_and_obervables
+from evaluate_reference import get_measurements_and_obervables
 from joblib import dump, load
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
