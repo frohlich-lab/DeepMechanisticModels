@@ -283,14 +283,14 @@ for dataset in ["train", "test"]:
     )
 
     # average -- this looks NOT to be in use at the moment (only avg_model)
-    df = evaluate_average(dataset, conf, samples)
-    df.to_csv(
-        EVALUATION_REFERENCE.format(
-            **conf.__dict__,
-            dataset=dataset,
-            mode="average",
-        )
-    )
+    # df = evaluate_average(dataset, conf, samples)
+    # df.to_csv(
+    #     EVALUATION_REFERENCE.format(
+    #         **conf.__dict__,
+    #         dataset=dataset,
+    #         mode="average",
+    #     )
+    # )
 
     # per sample ("sample")
     df = evaluate_pretraining_per_sample(dataset, conf, samples, petab_base_files)
