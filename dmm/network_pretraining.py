@@ -3,7 +3,7 @@ import jax
 import jax.numpy as jnp
 import wandb
 
-from dmm.dmm_autoencoder_eqx import DeepMechanisticModel, mse
+from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .wandb_init_log import log_model_stats
 from .training_helper_funcs import get_finite_grads
 from common import (EarlyStoppingParams, get_scheduler, optimisers,

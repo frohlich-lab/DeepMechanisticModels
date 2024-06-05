@@ -11,7 +11,7 @@ from dmm.initialisation import (linear_nn_init,
 from dmm.network_pretraining import pretrain_network
 from dmm.training import train
 from dmm.training_helper_funcs import create_pypesto_problem, map_params_to_array, sparsify_model
-from wandb_init_log import init_wandb
+from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 from sklearn.model_selection import train_test_split
