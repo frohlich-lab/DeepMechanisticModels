@@ -7,7 +7,7 @@ from cytof import get_samples
 from optax import adam, adamw, Schedule, sgdr_schedule
 from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 
 
 # define abbreviations/labels for logging of loss terms
@@ -40,8 +40,8 @@ class Conf(dict):
     sample: str = None
     # Network structure
     n_hidden: int = 0
-    encoder_layer_sizes: List[int] = None
-    inflater_layer_sizes: List[int] = None
+    encoder_layer_sizes: Union[str, List[int]] = None
+    inflater_layer_sizes: Union[str, List[int]] = None
     linear_benchmark: str = False
     use_layer_bias: List[bool] = False
     nn_init_fn: str = "None"
@@ -107,6 +107,25 @@ class Conf(dict):
 
         # Return the joined string of the filtered values
         return '__'.join(map(str, filtered_values))
+
+    def convert_layer_sizes(self):
+        """
+        Convert encoder_layer_sizes and inflater_layer_sizes from a string format
+        to a list of integers if they are not already lists.
+        """
+        if isinstance(self.encoder_layer_sizes, str):
+            # Handle special case of no hidden layers
+            if self.encoder_layer_sizes == "":
+                self.encoder_layer_sizes = []
+            else:
+                # Map string format "size1_size2_...._sizeN" to list [size1, size2, ..., sizeN]
+                self.encoder_layer_sizes = list(map(int, self.encoder_layer_sizes.split('_')))
+
+        if isinstance(self.inflater_layer_sizes, str):
+            if self.inflater_layer_sizes == "":
+                self.inflater_layer_sizes = []
+            else:
+                self.inflater_layer_sizes = list(map(int, self.inflater_layer_sizes.split('_')))
 
 
 @dataclasses.dataclass

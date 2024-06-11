@@ -16,6 +16,8 @@ from pypesto.visualize import waterfall
 
 
 conf = fire.Fire(Conf)
+# Convert layer sizes from string to list
+conf.convert_layer_sizes()
 
 model, problem = setup_models(conf, "train")
 pypesto_problem = create_pypesto_problem(model)

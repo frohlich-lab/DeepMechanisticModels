@@ -70,11 +70,11 @@ LATENT_DIMS = (
 # MAX_INFLATER_DEPTH = 5
 
 NETWORK_LAYOUT = {
-    # ('[]', '[]', "True"),  # no hidden layers, linear benchmark (PCA/least squares initialisation)
-    # ('[]', '[]', "False"),  # no hidden layers, no linear benchmark, i.e. random initialisation
-    # ('[10]', '[10]', "False"),  # single hidden layer in encoder and inflater
-    ('[10,5]', '[5,10]', "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
-    # ('[20, 10, 5]', '[5, 5, 10]', "False"),  # 3 hidden layers
+    # ('', '', "True"),  # no hidden layers, linear benchmark (PCA/least squares initialisation)
+    # ('', '', "False"),  # no hidden layers, no linear benchmark, i.e. random initialisation
+    # ('10', '10', "False"),  # single hidden layer in encoder and inflater
+    ("10_5", "5_10", "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
+    # ('20_10_5', '5_5_10', "False"),  # 3 hidden layers
 }
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
