@@ -94,6 +94,30 @@ def pca_transform_features(
     return transformed_features
 
 
+def process_model_layers(conf: Conf):
+    """
+    Convert encoder_layer_sizes and inflater_layer_sizes from a string format
+    to a list of integers if they are not already lists.
+    """
+    module_layer_sizes = {}
+    attributes = ['encoder_layer_sizes', 'inflater_layer_sizes']
+
+    for attr in attributes:
+        if isinstance(conf[attr], str):
+            # Handle special case of no hidden layers
+            if conf[attr] == "":
+                module_layer_sizes[attr] = []
+            else:
+                # Map string format "size1_._size2_._...._._sizeN" to list [size1, size2, ..., sizeN]
+                module_layer_sizes[attr] = list(map(int, conf[attr] .split('_._')))
+        elif isinstance(conf[attr], int):
+            # Handle case of single hidden layer -> convert int to list
+            module_layer_sizes[attr] = [conf[attr]]
+        else:
+            raise TypeError(f"Invalid type for {attr} - must be either str or int. Found {type(conf[attr])}!")
+    return module_layer_sizes
+
+
 def setup_models(
         conf: Conf,
         petab_base_files,
@@ -136,21 +160,24 @@ def setup_models(
             pipeline = None
         features = pca_transform_features(features, conf, pipeline)
 
+    # Process network architecture parameters
+    model_layers = process_model_layers(conf)
+
     # Define encoder, inflater and decoder parameters
     encoder_params = ModuleParams(
-        layer_sizes=conf.encoder_layer_sizes,
+        layer_sizes=model_layers['encoder_layer_sizes'],
         layer_biases=conf.use_layer_bias,
         weight_init_fn=conf.nn_init_fn,
         bias_init_fn=conf.nn_init_fn,
     )
     inflater_params = ModuleParams(
-        layer_sizes=conf.inflater_layer_sizes,
+        layer_sizes=model_layers['inflater_layer_sizes'],
         layer_biases=conf.use_layer_bias,
         weight_init_fn=conf.nn_init_fn,
         bias_init_fn=conf.nn_init_fn,
     )
     decoder_params = ModuleParams(
-        layer_sizes=conf.encoder_layer_sizes[::-1],  # decoder layer sizes mirror encoder layer sizes
+        layer_sizes=model_layers['encoder_layer_sizes'][::-1],  # decoder layer sizes mirror encoder layer sizes
         layer_biases=conf.use_layer_bias,
         weight_init_fn=conf.nn_init_fn,
         bias_init_fn=conf.nn_init_fn,

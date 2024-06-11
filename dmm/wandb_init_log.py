@@ -6,6 +6,7 @@ import wandb
 from common import Conf, EarlyStoppingParams, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
 from dmm.custom_layers_eqx import CustomInitLinear
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from dmm.initialisation import process_model_layers
 
 
 def init_wandb(
@@ -19,11 +20,15 @@ def init_wandb(
     """
     repo = git.Repo(search_parent_directories=True)
 
-    if (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0):
-        # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
-        activation_fn_tag = "None"
+    module_layers = process_model_layers(conf)
+
+    if (len(module_layers['encoder_layer_sizes']) == 0) and (len(module_layers['inflater_layer_sizes']) == 0):
+        no_hidden_layers = True
     else:
-        activation_fn_tag = conf.activation_fn_name
+        no_hidden_layers = False
+
+    # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
+    activation_fn_tag = "None" if no_hidden_layers else conf.activation_fn_name
 
     if pretrain:
         group = f"{conf.context}_{conf.features}_network_pretrain"  # distinguish from whole DMM training
@@ -49,13 +54,9 @@ def init_wandb(
             git_remote_url=repo.remotes.origin.url,
         ),
         tags=[
-            "deep_model"
-            if (len(conf.encoder_layer_sizes) > 0) and (len(conf.inflater_layer_sizes) > 0)
-            else "shallow_model",
+            "shallow_model" if no_hidden_layers else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
-            "linear_benchmark"
-            if conf.linear_benchmark and (len(conf.encoder_layer_sizes) == 0) and (len(conf.inflater_layer_sizes) == 0)
-            else "not_benchmark",
+            "linear_benchmark" if (conf.linear_benchmark and no_hidden_layers) else "not_benchmark",
             "network_pretraining" if pretrain else "DMM_training",
             "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
         ]

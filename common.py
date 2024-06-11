@@ -40,8 +40,8 @@ class Conf(dict):
     sample: str = None
     # Network structure
     n_hidden: int = 0
-    encoder_layer_sizes: Union[str, List[int]] = None
-    inflater_layer_sizes: Union[str, List[int]] = None
+    encoder_layer_sizes: Union[str, int] = None
+    inflater_layer_sizes: Union[str, int] = None
     linear_benchmark: str = False
     use_layer_bias: List[bool] = False
     nn_init_fn: str = "None"
@@ -107,30 +107,6 @@ class Conf(dict):
 
         # Return the joined string of the filtered values
         return '__'.join(map(str, filtered_values))
-
-    def __post_init__(self):
-        """
-        Convert encoder_layer_sizes and inflater_layer_sizes from a string format
-        to a list of integers if they are not already lists.
-        """
-        if isinstance(self.encoder_layer_sizes, str):
-            # Handle special case of no hidden layers
-            if self.encoder_layer_sizes == "":
-                self.encoder_layer_sizes = []
-            else:
-                # Map string format "size1_._size2_._...._._sizeN" to list [size1, size2, ..., sizeN]
-                self.encoder_layer_sizes = list(map(int, self.encoder_layer_sizes.split('_._')))
-        elif isinstance(self.encoder_layer_sizes, int):
-            # Handle case of single hidden layer -> convert int to list
-            self.encoder_layer_sizes = [self.encoder_layer_sizes]
-
-        if isinstance(self.inflater_layer_sizes, str):
-            if self.inflater_layer_sizes == "":
-                self.inflater_layer_sizes = []
-            else:
-                self.inflater_layer_sizes = list(map(int, self.inflater_layer_sizes.split('_._')))
-        elif isinstance(self.inflater_layer_sizes, int):
-            self.inflater_layer_sizes = [self.inflater_layer_sizes]
 
 
 @dataclasses.dataclass
