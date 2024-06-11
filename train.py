@@ -20,8 +20,6 @@ from util import load_petab_base_files
 
 
 conf = fire.Fire(Conf)
-# Convert layer sizes from string to list
-conf.convert_layer_sizes()
 
 # Remove blank spaces introduced by encoder/inflater_layer_sizes
 results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__).replace(" ", ""))

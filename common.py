@@ -27,7 +27,7 @@ optimisers = {
 }
 
 
-@dataclasses.dataclass(repr=True)
+@dataclasses.dataclass(repr=True, init=True)
 class Conf(dict):
     model: str
     data: str
@@ -108,7 +108,7 @@ class Conf(dict):
         # Return the joined string of the filtered values
         return '__'.join(map(str, filtered_values))
 
-    def convert_layer_sizes(self):
+    def __post_init__(self):
         """
         Convert encoder_layer_sizes and inflater_layer_sizes from a string format
         to a list of integers if they are not already lists.

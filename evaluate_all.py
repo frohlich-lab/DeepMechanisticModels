@@ -266,8 +266,6 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
 
 
 conf = fire.Fire(Conf)
-# Convert layer sizes from string to list
-conf.convert_layer_sizes()
 
 outdir = fig_dir / conf.model / conf.data
 

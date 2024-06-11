@@ -73,8 +73,6 @@ def process_per_sample_pretrain(
 
 
 conf = fire.Fire(Conf)
-# Convert layer sizes from string to list
-conf.convert_layer_sizes()
 
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
