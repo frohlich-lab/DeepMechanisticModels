@@ -118,8 +118,8 @@ class Conf(dict):
             if self.encoder_layer_sizes == "":
                 self.encoder_layer_sizes = []
             else:
-                # Map string format "size1__size2__....__sizeN" to list [size1, size2, ..., sizeN]
-                self.encoder_layer_sizes = list(map(int, self.encoder_layer_sizes.split('__')))
+                # Map string format "size1_._size2_._...._._sizeN" to list [size1, size2, ..., sizeN]
+                self.encoder_layer_sizes = list(map(int, self.encoder_layer_sizes.split('_._')))
         elif isinstance(self.encoder_layer_sizes, int):
             # Handle case of single hidden layer -> convert int to list
             self.encoder_layer_sizes = [self.encoder_layer_sizes]
@@ -128,7 +128,7 @@ class Conf(dict):
             if self.inflater_layer_sizes == "":
                 self.inflater_layer_sizes = []
             else:
-                self.inflater_layer_sizes = list(map(int, self.inflater_layer_sizes.split('__')))
+                self.inflater_layer_sizes = list(map(int, self.inflater_layer_sizes.split('_._')))
         elif isinstance(self.inflater_layer_sizes, int):
             self.inflater_layer_sizes = [self.inflater_layer_sizes]
 
