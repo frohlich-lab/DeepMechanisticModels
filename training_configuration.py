@@ -73,8 +73,8 @@ NETWORK_LAYOUT = {
     # ('', '', "True"),  # no hidden layers, linear benchmark (PCA/least squares initialisation)
     # ('', '', "False"),  # no hidden layers, no linear benchmark, i.e. random initialisation
     # ('10', '10', "False"),  # single hidden layer in encoder and inflater
-    ("10__5", "5__10", "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
-    # ('20__10__5', '5__5__10', "False"),  # 3 hidden layers
+    ("10_._5", "5_._10", "False"),  # multiple hidden layers in encoder and inflater - 2 hidden layers
+    # ('20_._10_._5', '5_._5_._10', "False"),  # 3 hidden layers
 }
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
