@@ -20,7 +20,7 @@ def init_wandb(
     """
     repo = git.Repo(search_parent_directories=True)
 
-    module_layers = process_model_layers(conf)
+    module_layers = process_model_layers(conf.__dict__)
 
     if (len(module_layers['encoder_layer_sizes']) == 0) and (len(module_layers['inflater_layer_sizes']) == 0):
         no_hidden_layers = True

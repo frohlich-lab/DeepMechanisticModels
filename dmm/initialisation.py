@@ -94,10 +94,16 @@ def pca_transform_features(
     return transformed_features
 
 
-def process_model_layers(conf: Conf):
+def process_model_layers(conf: dict) -> dict:
     """
-    Convert encoder_layer_sizes and inflater_layer_sizes from a string format
-    to a list of integers if they are not already lists.
+    Convert encoder_layer_sizes and inflater_layer_sizes from string/integer format
+    to a list of integers.
+
+    params:
+        conf: dictionary version of Conf.
+
+    returns:
+        module_layer_sizes: dictionary with keys 'encoder_layer_sizes' and 'inflater_layer_sizes'.
     """
     module_layer_sizes = {}
     attributes = ['encoder_layer_sizes', 'inflater_layer_sizes']
@@ -161,7 +167,7 @@ def setup_models(
         features = pca_transform_features(features, conf, pipeline)
 
     # Process network architecture parameters
-    model_layers = process_model_layers(conf)
+    model_layers = process_model_layers(conf.__dict__)
 
     # Define encoder, inflater and decoder parameters
     encoder_params = ModuleParams(
