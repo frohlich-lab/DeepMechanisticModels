@@ -1,13 +1,15 @@
 import fire
 import jax
 import jax.random as jr
+import joblib
+import os
 import pandas as pd
 
 from common import (
     Conf,
     TRAINED_BEST_MODELS,
     EVALUATION_TRAINING,
-    FEATURES_OUTFILE,
+    FEATURES_PIPELINE,
     Wildcards,
     fig_dir,
     results_dir,
@@ -16,7 +18,7 @@ from common import (
 )
 from dmm.analysis import evaluate_simulations
 from dmm.training_helper_funcs import create_pypesto_problem
-from dmm.initialisation import setup_models
+from dmm.initialisation import get_features, pca_transform_features, setup_models
 from typing import Dict
 from util import load_petab_base_files
 
@@ -35,6 +37,7 @@ samples = {
 
 def evaluate_training(
         dataset: str,
+        features: Dict[str, pd.DataFrame],
         conf: Conf,
         samples: dict,
         petab_base_files: Dict[str, pd.DataFrame],
@@ -52,7 +55,7 @@ def evaluate_training(
 
     # Define filepaths for training results and serialized model - only the latter is needed
     # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
-    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__).replace(" ", "")
+    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
 
     # Load training results - TODO @GiacomoFabrini - do we need these?
     # reader = OptimizationResultHDF5Reader(infile)
@@ -70,17 +73,12 @@ def evaluate_training(
     )
 
     # TODO @GiacomoFabrini need to fix this inconsistency in naming!
-    # Load input features (train/val) to evaluate trained model
+    # Extract needed features from input dictionary
     if dataset == 'train':
         features_dataset = 'train'
     elif dataset == 'test':
         features_dataset = 'val'
-    input_features = pd.read_csv(
-        FEATURES_OUTFILE.format_map(
-            dict(**conf.__dict__, dataset=features_dataset)
-        ),
-        index_col=0
-    ).values
+    input_features = features[features_dataset].values
 
     evaluate_simulations(
         model=model,
@@ -100,14 +98,34 @@ def evaluate_training(
 
 # Load petab_base_files (once only)
 petab_base_files = load_petab_base_files(conf, reweight=True)
+
+# Load and transform features
+features = get_features(conf, datasets=['train', 'val'])
+if conf.features_transform == "pca":
+    # Load pre-trained pipeline if it exists
+    pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
+    if os.path.exists(pipeline_file):
+        pipeline = joblib.load(FEATURES_PIPELINE.format_map(conf.__dict__))
+    else:
+        pipeline = None
+    features = pca_transform_features(features, conf, pipeline)
+
+
 # TODO @GiacomoFabrini: check here "val" vs "test"
 for dataset in [
-        # "train",
+        "train",
         "test"
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test
     jax.clear_caches()
-    df = evaluate_training(dataset=dataset, conf=conf, samples=samples, petab_base_files=petab_base_files)
-    # Need to remove blank spaces introduced by encoder/inflater_layer_sizes
-    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__).replace(" ", ""))
+    df = evaluate_training(
+        dataset=dataset,
+        features=features,
+        conf=conf,
+        samples=samples,
+        petab_base_files=petab_base_files
+    )
+    df.to_csv(
+        EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__)
+    )

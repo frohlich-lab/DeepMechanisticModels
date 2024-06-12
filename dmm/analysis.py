@@ -157,13 +157,14 @@ def evaluate_simulations(
         outdir / dataset,
         "__".join(
             [
+                dataset,
                 conf.samples,
                 conf.context,
                 conf.features,
-                dataset,
                 model_type,
+                conf.__str__(),
             ]
-        ) + conf.__str__(),
+        )
     )
 
 

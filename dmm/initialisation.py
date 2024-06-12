@@ -8,7 +8,6 @@ import os
 import pandas as pd
 import pypesto
 import scipy.linalg as la
-from pandas import DataFrame
 
 from common import (
     Conf,
@@ -55,7 +54,7 @@ def pca_transform_features(
         features: Dict[str, pd.DataFrame],
         conf: Conf,
         pipeline=None
-) -> Dict[str, DataFrame]:
+) -> Dict[str, pd.DataFrame]:
     """
     :param features: dictionary of feature pd.DataFrames
     :param conf: configuration object

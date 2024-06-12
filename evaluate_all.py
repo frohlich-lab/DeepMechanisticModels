@@ -598,7 +598,7 @@ for dataset, context, split in itt.product(
                     data=conf.data,
                 ),
             },
-        ).replace(" ", ""),
+        ),
         index_col=0
     )
     absolute_best_dmm_sim_df = process_sim_df(absolute_best_dmm_sim_df)
