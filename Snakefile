@@ -233,7 +233,7 @@ rule estimate_parameters:
         job='[0-9]+',
     retries: 1
     resources:
-        mem="1GB",
+        mem="4GB",
         runtime="24h",
         nodes=1,
         threads=2,
