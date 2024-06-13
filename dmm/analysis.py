@@ -4,6 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import re
+
+import pandas as pd
 import petab
 import pypesto.objective
 import seaborn as sns
@@ -99,18 +101,12 @@ def load_optimize_result_pretraining_cross_samples(
     return result
 
 
-def evaluate_simulations(
-    model,
-    input_features,
-    obj,
-    conf,
-    samples,
-    petab_problem,
-    dataset,
-    outdir,
-    evaluations,
-    model_type,
-):
+def simulate_dmm(
+        model,
+        input_features,
+        obj,
+        petab_problem
+) -> pd.DataFrame:
     res = obj(
         model_output_to_petab_input(model, input_features),
         mode=MODE_RES,
@@ -140,6 +136,23 @@ def evaluate_simulations(
         model=amici_model,
         measurement_df=petab_problem.measurement_df,
     )
+    return simulation_df
+
+
+def evaluate_simulations(
+    model,
+    input_features,
+    obj,
+    conf,
+    samples,
+    petab_problem,
+    dataset,
+    outdir,
+    evaluations,
+    model_type,
+):
+    # Simulate DMM model
+    simulation_df = simulate_dmm(model, input_features,obj, petab_problem)
 
     for sample in samples:
         process_simulation(

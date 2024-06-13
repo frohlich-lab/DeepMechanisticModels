@@ -4,23 +4,40 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import petab
 import wandb
 
 from common import (
     Conf,
+    CONTEXT_SET,
     default_attributes,
+    evaluations_dir,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
+    FEATURES_PIPELINE,
     fig_dir,
-    evaluations_dir,
-    CONTEXT_SET,
+    pretrain_dir,
+    REGR_FEATURES_TRAIN,
+    REGR_TRAINED_PIPELINE,
     training_samples,
     test_samples,
     Wildcards,
 )
-from dmm.analysis import plot_loss_vs_regularization
+from cytof.problem import CytofProblem
+from dataclasses import replace
+from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
+from dmm.feature_selection import load_data
+from dmm.initialisation import get_features, pca_transform_features
+from dmm.plotting import plot_cross_samples_multiple_simulations
+from evaluation_plotting import (n_hidden_pairwise_heatmap,
+                                 volcano_hyperparameter_significance)
+from evaluation_utils import (get_measurements_and_obervables,
+                              load_model_and_obj,
+                              simulate_avg_model,
+                              process_avg_model_simulation,
+                              process_per_sample_pretrain)
+from joblib import load
+from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
     LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
@@ -29,35 +46,75 @@ from training_configuration import (
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
     LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS, SPARSITY_THRESHOLD
 )
-from dmm.plotting import plot_cross_samples_multiple_simulations
-from evaluation_plotting import (n_hidden_pairwise_heatmap,
-                                 volcano_hyperparameter_significance)
-from evaluation_utils import get_measurements_and_obervables, process_sim_df
-from stat_test import statistical_significance_test
 from typing import List
+from util import load_petab_base_files
+
 
 REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]
 
 
-def convert_attributes_to_int(dictionary, attributes):
-    """
-    Convert the values of specified attributes in the dictionary to integers if possible.
+def get_dmm_conf(
+        conf: Conf,
+        dmm_params: dict,
+        dataset: str,
+        context: str,
+) -> Conf:
+    dmm_conf = Conf(model=conf.model, data=conf.data)
+    for key, value in dmm_params[dataset][context].items():
+        if hasattr(dmm_conf, key) and key not in ["model", "data"]:
+            if key in ["n_hidden", "opt_steps", "opt_mult", "job"]:
+                value = int(value)
+            setattr(dmm_conf, key, value)
+    return dmm_conf
 
-    Parameters:
-    dictionary (dict): The dictionary containing the attributes.
-    attributes (list): The list of attributes whose values need to be converted to integers.
 
-    Returns:
-    dict: The dictionary with specified attributes' values converted to integers.
-    """
-    for attr in attributes:
-        if attr in dictionary:
-            try:
-                dictionary[attr] = int(dictionary[attr])
-            except (ValueError, TypeError):
-                # If conversion fails, leave the value as is
-                pass
-    return dictionary
+def load_and_transform_features(
+        conf: Conf,
+        dataset: str
+) -> np.ndarray:
+    features = get_features(
+        conf=conf,
+        datasets=['train', 'val']
+    )
+    if conf.features_transform == "pca":
+        # Load pre-trained pipeline if it exists
+        pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
+        if os.path.exists(pipeline_file):
+            pipeline = load(FEATURES_PIPELINE.format_map(conf.__dict__))
+        else:
+            pipeline = None
+        features = pca_transform_features(features, conf, pipeline)
+    if dataset == 'train':
+        features_dataset = 'train'
+    elif dataset == 'test':
+        features_dataset = 'val'
+    return features[features_dataset].values
+
+
+def process_reference(
+        conf: Conf,
+        samples: str,
+        dataset: str,
+        mode: str,
+        ref_name: str
+) -> pd.DataFrame:
+    print(f'Processing {mode} model for {samples}, {dataset}')
+    ref = pd.read_csv(
+        EVALUATION_REFERENCE.format(
+            **{
+                **conf.__dict__,
+                **dict(
+                    samples=samples,
+                    dataset=dataset,
+                ),
+            },
+            mode=mode,
+        ),
+        index_col=0,
+    )
+    ref["ref"] = ref_name
+    print(f'Finished processing {mode} model for {samples}, {dataset}')
+    return ref
 
 
 def get_best_performer_across_jobs(
@@ -275,7 +332,7 @@ JOBS = tuple([i for i in range(2)])  # need to change this - NO HARDCODING - TOD
 dfs = []
 for samples in SPLITS:
     for dataset in [
-        # "train",  # TODO @GiacomoFabrini: re-enable once hyperparam grid is narrower
+        "train",  # TODO @GiacomoFabrini: re-enable once hyperparam grid is narrower
         "test"
     ]:
         print(f'Starting to concatenate training evaluations for {samples}, {dataset}')
@@ -357,57 +414,14 @@ for samples in SPLITS:
         training["dataset"] = dataset
         training["samples"] = samples
 
-        # # average
-        # avg = pd.read_csv(
-        #     EVALUATION_REFERENCE.format(
-        #         **{
-        #             **conf.__dict__,
-        #             **dict(
-        #                 samples=samples,
-        #                 dataset=dataset,
-        #             ),
-        #         },
-        #         mode="average",
-        #     ),
-        #     index_col=0,
-        # )
-        # avg["ref"] = "avg"
+        # average (not in use)
+        # avg = process_reference(conf, samples, dataset, "average", "avg")
 
-        # model average
-        print(f'Processing avg_model for {samples}, {dataset}')
-        avg_model = pd.read_csv(
-            EVALUATION_REFERENCE.format(
-                **{
-                    **conf.__dict__,
-                    **dict(
-                        samples=samples,
-                        dataset=dataset,
-                    ),
-                },
-                mode="avg_model",
-            ),
-            index_col=0,
-        )
-        avg_model["ref"] = "avg_model"
-        print(f'Finished processing avg_model for {samples}, {dataset}')
+        # model average (avg_model)
+        avg_model = process_reference(conf, samples, dataset, "avg_model", "avg_model")
 
         # per sample
-        print(f'Processing per_sample model for {samples}, {dataset}')
-        ps = pd.read_csv(
-            EVALUATION_REFERENCE.format(
-                **{
-                    **conf.__dict__,
-                    **dict(
-                        samples=samples,
-                        dataset=dataset,
-                    ),
-                },
-                mode="per_sample",
-            ),
-            index_col=0,
-        )
-        ps["ref"] = "sample"
-        print(f'Finished processing per_sample model for {samples}, {dataset}')
+        ps = process_reference(conf, samples, dataset, "per_sample", "sample")
 
         # Process regressors - linreg, lasso, elasticnet
         print(f'Processing regressors model for {samples}, {dataset}')
@@ -520,115 +534,191 @@ if RETURN_STAT_TESTS:
 # ########################################################################### #
 # ########################## Time-varying Response ########################## #
 # ########################################################################### #
-# Fetch measurement dataframe
+# Load measurement and observable dataframes
 df_meas, df_obs = get_measurements_and_obervables(conf)
+
 # TODO: overall structure is good, but I am wrongly fetching evaluation files - those contain residuals, whereas
 #  I need to fetch the actual simulation files to plot the time-varying response!!!
 # TODO: need to loop through SPLITS and get samples + the best configuration does not specify a single job!
 # We need to fetch all of them and plot mean ± std
 for dataset, context, split in itt.product(
         [
-            # "train",
+            "train",
             "test",
         ],
         CONTEXT_SET,
         SPLITS
 ):
+    # Load petab base files
+    conf.samples = split
+    petab_base_files = load_petab_base_files(conf, reweight=True)
     samples_dict = {
         "train": training_samples(Wildcards(conf.data, split)),
         "test": test_samples(Wildcards(conf.data, split)),
     }
-    # Subset measurement dataframe
-    df_meas_subset = df_meas[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples_dict[dataset])
+
+    # Get per-sample simulation
+    problem = CytofProblem(conf.model)
+    per_sample_sim_dfs = []
+    for sample in samples_dict[dataset]:
+        output = process_per_sample_pretrain(
+            sample,
+            problem,
+            conf,
+            pretrain_dir / conf.model / conf.data,
+            petab_base_files
+        )
+        if output is None:
+            # file not found
+            continue
+        _, simulation_df = output
+        per_sample_sim_dfs.append(simulation_df)
+    per_sample_sim_df = pd.concat(per_sample_sim_dfs)
+
+    # Get avg_model simulation
+    avg_model_sim_df = simulate_avg_model(
+        conf,
+        pretrain_dir / conf.model / conf.data,
+        petab_base_files,
+        dataset
+    )
+    # Process and subset measurement dataset
+    avg_model_sim_df, df_meas_subset = process_avg_model_simulation(
+        avg_model_sim_df,
+        df_meas,
+        dataset,
+        samples_dict
+    )
+
+    # Simulate best regressor
+    regressor_mode = best_regressors[dataset][context]
+    trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
+        model=conf.model,
+        data=conf.data,
+        samples=conf.samples,
+        mode=regressor_mode,
+        context=context,
+    )
+    features_train_file = REGR_FEATURES_TRAIN.format(
+        model=conf.model,
+        data=conf.data,
+        samples=conf.samples,
+        mode=regressor_mode,
+        context=context,
+    )
+    # load using joblib
+    trained_pipeline = load(trained_pipeline_file)
+    features_train = load(features_train_file)
+
+    # Load input and output data and fit regression pipeline to get simulation
+    input_data, _ = load_data(
+        contextualization=context,
+        samples=samples_dict[dataset],
+        features=features_train if dataset == "test" else None,
+        measurement_table=petab_base_files["measurement_table"],
+        observable_table=petab_base_files["observable_table"],
+    )
+    output_data, _ = load_data(
+        contextualization="cytof_dynamic",
+        samples=samples_dict[dataset],
+        features=None,
+        measurement_table=petab_base_files["measurement_table"],
+        observable_table=petab_base_files["observable_table"],
+    )
+    best_regressor_sim_df = pd.DataFrame(
+        trained_pipeline.predict(input_data),
+        index=output_data.index,
+        columns=output_data.columns
+    ).T.stack().reset_index().sort_values(
+        by=[
+            'preequilibrationConditionId',
+            'observableId',
+            'simulationConditionId',
+            'time'
+        ]
+    ).reset_index().drop(columns='index').rename(columns={0: "simulation"})
+    # TODO @GiacomoFabrini - both avg_model_sim_df and per_sample_sim_df have 698 rows, but
+    #  best_regressor_sim_df only has 608 - what are those 90 rows missing from the latter?
+    #  Is this related to the missing/inconsistent timepoints in some samples?
+
+    # BEST DMM
+    # Overall (across jobs and splits)
+    # Generate confs for all jobs
+    overall_best_confs = [
+        replace(get_dmm_conf(conf, best_hyperparam_dmm, dataset, context), job=job)
+        for job in JOBS
     ]
-
-    # Fetch per-sample pretraining
-    per_sample_df = pd.read_csv(
-        EVALUATION_REFERENCE.format(
-            **{
-                **conf.__dict__,
-                **dict(
-                    samples=split,
-                    dataset=dataset,
-                ),
-            },
-            mode="per_sample",
-        ),
-        index_col=0,
+    overall_best_dmm_sim_dfs = []
+    for job, overall_best_conf in zip(JOBS, overall_best_confs):
+        model, obj = load_model_and_obj(
+            overall_best_conf,
+            petab_base_files,
+            dataset,
+        )
+        input_features = load_and_transform_features(overall_best_conf, dataset)
+        overall_best_dmm_sim_dfs.append(simulate_dmm(
+            model=model,
+            input_features=input_features,
+            obj=obj,
+            petab_problem=model.petab_importer.petab_problem,
+        ).assign(job=job))
+    overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
+    del overall_best_dmm_sim_dfs
+    # Add identifier column (to keep replicate datapoints)
+    overall_best_dmm_sim_df["unique_id"] = list(range(int(len(overall_best_dmm_sim_df) / len(JOBS)))) * int(len(JOBS))
+    # Group by all necessary columns, compute mean for "simulation" column and drop unnecessary columns
+    overall_best_dmm_sim_df = overall_best_dmm_sim_df.groupby(
+        ["observableId", "preequilibrationConditionId",
+         "time", "noiseParameters", "simulationConditionId",
+         "measurementType", "observableParameters", "unique_id"]
+    ).mean().reset_index().drop(
+        columns=["job", "unique_id"]
     )
-    per_sample_df = process_sim_df(per_sample_df)
 
-    # Fetch best regressor
-    best_regressor_sim_df = regressor_dfs[best_regressors[dataset][context]].copy()
-    best_regressor_sim_df = process_sim_df(best_regressor_sim_df)
-
-    # Fetch the training evaluation files for the best performing DMM (across jobs and splits)
-    # training_efiles = [
-    #     EVALUATION_TRAINING.format(
-    #         **{
-    #             **convert_attributes_to_int(
-    #                 best_hyperparam_dmm[dataset][context],
-    #                 ["n_hidden", "opt_steps", "opt_mult", "job"]
-    #             ),
-    #             **dict(
-    #                 model=conf.model,
-    #                 data=conf.data,
-    #                 job=job,
-    #                 samples=samples
-    #             ),
-    #         },
-    #     ) for job in JOBS for samples in SPLITS
-    # ]
-    # best_dmm_sim_dfs = [
-    #     pd.read_csv(efile.replace(" ", ""), index_col=0) for efile in training_efiles
-    # ]
-    # best_dmm_overall_sim_df =
-
-    # Fetch the training evaluation file for the best performing DMM (single job and SPLIT)
-    absolute_best_dmm_sim_df = pd.read_csv(
-        EVALUATION_TRAINING.format(
-            **{
-                **convert_attributes_to_int(
-                    absolute_best_dmm[dataset][context],
-                    ["n_hidden", "opt_steps", "opt_mult", "job"]
-                ),
-                **dict(
-                    model=conf.model,
-                    data=conf.data,
-                ),
-            },
-        ),
-        index_col=0
+    # Single-shot (single split, single job)
+    absolute_best_conf = get_dmm_conf(conf, absolute_best_dmm, dataset, context)
+    absolute_best_dmm_model, obj = load_model_and_obj(
+        absolute_best_conf,
+        petab_base_files,
+        dataset
     )
-    absolute_best_dmm_sim_df = process_sim_df(absolute_best_dmm_sim_df)
+    absolute_best_dmm_sim_df = simulate_dmm(
+        model=absolute_best_dmm_model,
+        input_features=load_and_transform_features(absolute_best_conf, dataset),
+        obj=obj,
+        petab_problem=absolute_best_dmm_model.petab_importer.petab_problem,
+    )
 
     # Plot the time-varying response
     plot_cross_samples_multiple_simulations(
         measurement_df=df_meas_subset,
         simulation_dfs=[
-            per_sample_df,
+            per_sample_sim_df,
+            avg_model_sim_df,
             best_regressor_sim_df,
-            # best_dmm_overall_sim_df,
+            overall_best_dmm_sim_df,
             absolute_best_dmm_sim_df
         ],
-        labels=[
+        labels=[  # TODO @GiacomoFabrini need to find a way to use these to produce secondary legend (currently unused)
             "per_sample",
+            "avg_model",
             "best_regressor",
-            # "best_dmm_overall",
+            "best_dmm_overall",
             "best_singleshot_dmm"
         ],
         linetypes=[
+            (0, (1, 5)),  # similar to "loosely dotted" in matplotlib but with twice more frequent dots
             "dotted",
             "dashed",
-            # "solid",
+            "solid",
             "dashdot",
         ],  # TODO change this to something more appropriate
         linesizes=[
             1,
             1,
-            # 2,
-            2,
+            1,
+            1.25,  # slightly thicker lines for DMM models
+            1.25,
         ],  # TODO change this to something more appropriate
         figdir=outdir / dataset,
         prefix="__".join(

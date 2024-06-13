@@ -265,7 +265,10 @@ DROP_REG_POST_PRETRAIN = {
 }
 
 # Threshold to sparsify the model weights if dropping regularisation post pretraining (while keeping learnt sparsity)
-SPARSITY_THRESHOLD = 1e-3
+SPARSITY_THRESHOLD = {
+    # 1e-2,
+    1e-3,
+}
 
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False

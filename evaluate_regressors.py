@@ -252,9 +252,11 @@ def evaluate_standard_regression(
 
     # instantiate a replacement conf for regressors,
     # only setting to 0 those parameters that are not already 0 by default
+    # and ensuring to add context information
     regr_conf = Conf(
         model=conf.model,
         data=conf.data,
+        context=context,
         max_lrate=0,
         lrate_span=0,
         lrate_decay=0,

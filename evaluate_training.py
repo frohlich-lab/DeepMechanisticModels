@@ -1,13 +1,11 @@
 import fire
 import jax
-import jax.random as jr
 import joblib
 import os
 import pandas as pd
 
 from common import (
     Conf,
-    TRAINED_BEST_MODELS,
     EVALUATION_TRAINING,
     FEATURES_PIPELINE,
     Wildcards,
@@ -17,8 +15,8 @@ from common import (
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
-from dmm.training_helper_funcs import create_pypesto_problem
-from dmm.initialisation import get_features, pca_transform_features, setup_models
+from dmm.initialisation import get_features, pca_transform_features
+from evaluation_utils import load_model_and_obj
 from typing import Dict
 from util import load_petab_base_files
 
@@ -45,32 +43,8 @@ def evaluate_training(
     # Initialise list to store evaluations
     evaluations = []
 
-    # Initialise model skeleton and get CytofProblem
-    model, cytof_problem = setup_models(conf, petab_base_files, dataset)
-
-    # Create pypesto problem
-    pypesto_problem = create_pypesto_problem(model)
-    # Extract base objective
-    obj = pypesto_problem.objective.base_objective
-
-    # Define filepaths for training results and serialized model - only the latter is needed
-    # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
-    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
-
-    # Load training results - TODO @GiacomoFabrini - do we need these?
-    # reader = OptimizationResultHDF5Reader(infile)
-    # result = pypesto.Result(pypesto_problem)
-    # result.optimize_result = reader.read().optimize_result
-
-    # Load serialised best model
-    model.load(
-        trained_model_file,
-        cytof_problem,
-        petab_base_files['measurement_table'],
-        petab_base_files['observable_table'],
-        petab_base_files['condition_table'],
-        jr.PRNGKey(conf.job)
-    )
+    # Load model and objective
+    model, obj = load_model_and_obj(conf, petab_base_files, dataset)
 
     # TODO @GiacomoFabrini need to fix this inconsistency in naming!
     # Extract needed features from input dictionary

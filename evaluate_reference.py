@@ -3,7 +3,6 @@ import numpy as np
 import pandas as pd
 import petab
 
-from amici.petab_objective import rdatas_to_simulation_df
 from common import (
     Conf,
     EVALUATION_REFERENCE,
@@ -15,61 +14,13 @@ from common import (
 )
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
-from dmm.petab_subproblem import load_petab
 from dmm.plotting import plot_cross_samples, plot_single_sample
-from dmm.pretraining import (
-    generate_average_pretraining_problem,
-    generate_per_sample_pretraining_problems,
-)
-from evaluation_utils import get_measurements_and_obervables
+from evaluation_utils import (get_measurements_and_obervables,
+                              process_per_sample_pretrain,
+                              simulate_avg_model,
+                              process_avg_model_simulation)
 from typing import Dict
 from util import load_petab_base_files
-
-
-def process_per_sample_pretrain(
-        sample: str,
-        problem,
-        conf: Conf,
-        petab_base_files: Dict[str, pd.DataFrame]
-):
-    rfile = indir / f"{sample}.csv"
-    if not rfile.exists():
-        return None
-
-    petab_base_importer = load_petab(
-        problem,
-        conf.data,
-        **petab_base_files,
-    )
-
-    importer = generate_per_sample_pretraining_problems(
-        petab_base_importer,
-        problem,
-        conf.data,
-        sample,
-    )
-
-    problem_sample = importer.create_problem()
-    df = pd.read_csv(rfile, index_col=[0])
-    problem.apply_objective_settings(problem_sample.objective)
-
-    ress = []
-    fvals = []
-    for ipar in range(len(df)):
-        x = problem_sample.get_reduced_vector(
-            df.values[ipar, :], problem_sample.x_free_indices
-        )
-        res = problem_sample.objective(x, return_dict=True)
-        ress.append(res)
-        fvals.append(res["fval"])
-
-    # Convert the simulation to PEtab format.
-    simulation_df = rdatas_to_simulation_df(
-        ress[np.argmin(fvals)]["rdatas"],
-        model=problem_sample.objective.amici_model,
-        measurement_df=importer.petab_problem.measurement_df,
-    )
-    return importer, simulation_df
 
 
 conf = fire.Fire(Conf)
@@ -111,7 +62,7 @@ def evaluate_pretraining_per_sample(
 
     # dictionary of samples - standard behaviour for `evaluate_reference`
     for sample in samples[dataset]:
-        output = process_per_sample_pretrain(sample, problem, conf, petab_base_files)
+        output = process_per_sample_pretrain(sample, problem, conf, indir, petab_base_files)
         if output is None:
             # file not found
             continue
@@ -197,57 +148,13 @@ def evaluate_average_model(
 ) -> pd.DataFrame:
     df_meas, df_obs = get_measurements_and_obervables(conf)
 
-    problem = CytofProblem(conf.model)
-    rfile = indir / f"model_average_{conf.samples}.csv"
-
-    petab_base_importer = load_petab(
-        problem,
-        conf.data,
-        **petab_base_files,
+    # Simulate avg_model
+    avg_model = simulate_avg_model(
+        conf, indir, petab_base_files, dataset
     )
 
-    importer = generate_average_pretraining_problem(
-        petab_base_importer,
-        problem,
-        conf.data,
-        training_samples(Wildcards(conf.data, conf.samples))
-        if dataset == "train"
-        else test_samples(Wildcards(conf.data, conf.samples)),
-    )
-    problem_sample = importer.create_problem()
-    df = pd.read_csv(rfile, index_col=[0])
-    problem.apply_objective_settings(problem_sample.objective)
-
-    ress = []
-    fvals = []
-    for ipar in range(len(df)):
-        x = problem_sample.get_reduced_vector(
-            df.values[0, :], problem_sample.x_free_indices
-        )
-        res = problem_sample.objective(x, return_dict=True)
-        ress.append(res)
-        fvals.append(res["fval"])
-
-    # Convert the simulation to PEtab format.
-    avg_model = rdatas_to_simulation_df(
-        ress[np.argmin(fvals)]["rdatas"],
-        model=problem_sample.objective.amici_model,
-        measurement_df=importer.petab_problem.measurement_df,
-    )
-
-    avg_model[petab.SIMULATION_CONDITION_ID] = df_meas[
-        petab.SIMULATION_CONDITION_ID
-    ]
-    avg_model[petab.PREEQUILIBRATION_CONDITION_ID] = df_meas[
-        petab.PREEQUILIBRATION_CONDITION_ID
-    ]
-
-    df_meas = df_meas[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
-    ]
-    avg_model = avg_model[
-        avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
-    ]
+    # Prepare avg_model simulation for plotting and processing
+    avg_model, df_meas = process_avg_model_simulation(avg_model, df_meas, dataset, samples)
 
     plot_cross_samples(
         df_meas, avg_model, outdir / "simulation" / dataset, "avg_model"
