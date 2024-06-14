@@ -12,7 +12,7 @@ from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, debug_mode)
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .wandb_init_log import log_model_stats
-from .training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
+from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs, get_finite_grads,
                                    map_params_to_array, model_output_to_petab_input)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
@@ -141,8 +141,10 @@ def train(
                 patience=early_stopping_params.patience
             )
 
+    epochs = range(n_epoch + 1)
+    log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=50, min_dist=5)
     # Training loop
-    for epoch in range(n_epoch + 1):
+    for epoch in epochs:
         next_model, model, opt_state, loss_train, grads = make_step(
             model=model,
             filter_spec_per_param=filter_spec_per_param,
@@ -230,7 +232,7 @@ def train(
         grads_array = map_params_to_array(grads)
 
         # Log rmse values every 5 epochs + check early-stopping criteria
-        if epoch % 5 == 0:
+        if epoch in log_epochs:
             rmse_dict = dict()
             # evaluate rmse on train and test dataset only after a certain number (5) of epochs
             for dataset, pp, input_data in zip(

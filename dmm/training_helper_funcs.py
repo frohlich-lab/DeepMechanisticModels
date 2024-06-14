@@ -210,3 +210,25 @@ def model_output_to_petab_input(
         ]
     )
     return augmented_pred
+
+
+def remove_close_elements(arr: np.ndarray, min_dist: int) -> np.ndarray:
+    # Initialize with the first element
+    filtered_arr = [arr[0]]
+
+    # Iterate through the array starting from the second element
+    for elem in arr[1:]:
+        if elem - filtered_arr[-1] >= min_dist:
+            filtered_arr.append(elem)
+    return np.array(filtered_arr)
+
+
+def generate_log_epochs(n_epoch: int, num_samples: int, min_dist: int) -> np.ndarray:
+    """
+    Returns epochs regularly spaced in log10 space but no closer than min_dist
+    to prevent running into filestream rate limit in W&B.
+    """
+    log_epochs = np.unique(
+        np.logspace(0, np.log10(n_epoch), num=num_samples).astype(int)
+    )
+    return remove_close_elements(log_epochs, min_dist)
