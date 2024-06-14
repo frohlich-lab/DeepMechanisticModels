@@ -33,19 +33,25 @@ def init_wandb(
     else:
         group = f"{conf.context}_{conf.features}"
 
+    # Instantiate a new Conf object with layer sizes processed as lists (easier to read in W&B)
+    config_conf = conf
+    config_conf.encoder_layer_sizes = model.deep_encoder.layer_sizes
+    config_conf.inflater_layer_sizes = model.deep_inflater.layer_sizes
+
     wandb.init(
         project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}",  # v2 = Equinox port
         group=group,
         config={
-            **conf.__dict__,
+            **config_conf.__dict__,
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
-            "patience": early_stopping_params.patience
-            if conf.use_early_stopping else None,
-            "min_improvement": early_stopping_params.min_improvement
-            if conf.use_early_stopping else None,
+            "patience": early_stopping_params.patience if conf.use_early_stopping else None,
+            "min_improvement": early_stopping_params.min_improvement if conf.use_early_stopping else None,
             "scheduler": "linear" if conf.use_simple_linear_schedule else "custom",
+            # Add clearer info on depth of encoder and inflater modules (to use in parallel coordinates)
+            "encoder_depth": len(model.deep_encoder.layers),
+            "inflater_depth": len(model.deep_encoder.layers),
         },
-        name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
+        name=config_conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
             start_method="fork",
             git_commit=repo.head.object.hexsha,
