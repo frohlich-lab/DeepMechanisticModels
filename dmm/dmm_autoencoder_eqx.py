@@ -8,6 +8,7 @@ import pypesto.petab
 from common import ModuleParams, MODEL_FEATURE_PREFIX
 from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from dmm.deepcomponent_eqx import KinParamsCombiner
+from dmm.model_utils import generate_layer_sizes
 from jaxtyping import Array
 from pathlib import Path
 from dmm.petab_subproblem import load_petab
@@ -87,9 +88,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self,
             problem: Problem,
             dataset: str,
-            encoder_params: ModuleParams,
-            inflater_params: ModuleParams,
-            decoder_params: ModuleParams,
+            module_depth: int,
+            use_layer_bias: bool,
+            weight_init_fn: str,
+            bias_init_fn: str,
             key: Any,
             measurement_table: pd.DataFrame,
             observable_table: pd.DataFrame,
@@ -111,14 +113,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param dataset:
             name of dataset to use for model.
 
-        :param encoder_params:
-            dictionary containing parameters for encoder module.
+        :param module_depth:
+            number of hidden layers for encoder/inflater/decoder modules.
 
-        :param inflater_params:
-            dictionary containing parameters for inflater module.
+        :param use_layer_bias:
+            boolean flag regulating the use/lack of biases in module layers.
 
-        :param decoder_params:
-            dictionary containing parameters for decoder module.
+        :param weight_init_fn:
+            weight initialisation function to use for module layers.
+
+        :param bias_init_fn:
+            bias initialisation function to use for module layers.
 
         :param key:
             PRNG key.
@@ -213,25 +218,41 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         if not load_directly:
             # Update layer_sizes (hidden layers) to include input and output layers
-            updated_encoder_layer_sizes = ([self.n_input_features]
-                                           + encoder_params.layer_sizes
-                                           + [self.n_latent])
-            updated_inflater_layer_sizes = ([self.n_latent]
-                                            + inflater_params.layer_sizes
-                                            + [self.n_inflated_specific_kin_params])
+            encoder_layer_sizes = ([self.n_input_features]
+                                   + generate_layer_sizes(
+                                        latent_dim=self.n_latent,
+                                        depth=module_depth,
+                                        max_width=self.n_input_features,
+                                        reverse=True,
+                                    )
+                                   + [self.n_latent])
+            inflater_layer_sizes = ([self.n_latent]
+                                    + generate_layer_sizes(
+                                        latent_dim=self.n_latent,
+                                        depth=module_depth,
+                                        max_width=self.n_inflated_specific_kin_params,
+                                        reverse=False,
+                                    )
+                                    + [self.n_inflated_specific_kin_params])
 
-            # Get updated encoder, inflater and decoder parameter dictionaries
-            encoder_params = update_module_params_dict(
-                module_params=encoder_params,
-                new_layer_sizes=updated_encoder_layer_sizes,
+            # Define encoder, inflater and decoder parameters
+            encoder_params = ModuleParams(
+                layer_sizes=encoder_layer_sizes,
+                layer_biases=[use_layer_bias]*len(encoder_layer_sizes),
+                weight_init_fn=weight_init_fn,
+                bias_init_fn=bias_init_fn,
             )
-            inflater_params = update_module_params_dict(
-                module_params=inflater_params,
-                new_layer_sizes=updated_inflater_layer_sizes,
+            inflater_params = ModuleParams(
+                layer_sizes=inflater_layer_sizes,
+                layer_biases=[use_layer_bias]*len(inflater_layer_sizes),
+                weight_init_fn=weight_init_fn,
+                bias_init_fn=bias_init_fn,
             )
-            decoder_params = update_module_params_dict(
-                module_params=decoder_params,
-                new_layer_sizes=updated_encoder_layer_sizes[::-1],  # same as during initialisation
+            decoder_params = ModuleParams(
+                layer_sizes=encoder_layer_sizes[::-1],  # decoder layer sizes mirror encoder layer sizes
+                layer_biases=[use_layer_bias] * len(encoder_layer_sizes),
+                weight_init_fn=weight_init_fn,
+                bias_init_fn=bias_init_fn,
             )
 
         # Initialise TwoHeadedDeepAutoencoder

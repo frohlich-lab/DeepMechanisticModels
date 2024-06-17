@@ -19,30 +19,24 @@ def init_wandb(
     """
     repo = git.Repo(search_parent_directories=True)
 
-    # TODO @GiacomoFabrini - check that this works! If not, reinstantiate the process_model_layers call
-    if (len(model.deep_encoder.layers) == 1) and (len(model.deep_inflater.layers) == 1):
-        no_hidden_layers = True
-    else:
-        no_hidden_layers = False
-
     # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
-    activation_fn_tag = "None" if no_hidden_layers else conf.activation_fn_name
+    activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
 
     if pretrain:
         group = f"{conf.context}_{conf.features}_network_pretrain"  # distinguish from whole DMM training
     else:
         group = f"{conf.context}_{conf.features}"
 
-    # Instantiate a new Conf object with layer sizes processed as lists (easier to read in W&B)
-    config_conf = conf
-    config_conf.encoder_layer_sizes = model.deep_encoder.layer_sizes
-    config_conf.inflater_layer_sizes = model.deep_inflater.layer_sizes
+    if conf.additional_wandb_tags is not None:
+        additional_tags = conf.additional_wandb_tags
+    else:
+        additional_tags = []
 
     wandb.init(
         project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}",  # v2 = Equinox port
         group=group,
         config={
-            **config_conf.__dict__,
+            **conf.__dict__,
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
             "patience": early_stopping_params.patience if conf.use_early_stopping else None,
             "min_improvement": early_stopping_params.min_improvement if conf.use_early_stopping else None,
@@ -51,18 +45,19 @@ def init_wandb(
             "encoder_depth": len(model.deep_encoder.layers),
             "inflater_depth": len(model.deep_encoder.layers),
         },
-        name=config_conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
+        name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
             start_method="fork",
             git_commit=repo.head.object.hexsha,
             git_remote_url=repo.remotes.origin.url,
         ),
         tags=[
-            "shallow_model" if no_hidden_layers else "deep_model",
+            "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
-            "linear_benchmark" if (conf.linear_benchmark and no_hidden_layers) else "not_benchmark",
+            "linear_benchmark" if (conf.linear_benchmark and conf.depth == 0) else "not_benchmark",
             "network_pretraining" if pretrain else "DMM_training",
             "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
+            *additional_tags,
         ]
     )
 

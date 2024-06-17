@@ -62,7 +62,7 @@ def get_dmm_conf(
     dmm_conf = Conf(model=conf.model, data=conf.data)
     for key, value in dmm_params[dataset][context].items():
         if hasattr(dmm_conf, key) and key not in ["model", "data"]:
-            if key in ["n_hidden", "opt_steps", "opt_mult", "job"]:
+            if key in ["n_hidden", "depth", "opt_steps", "opt_mult", "job"]:
                 value = int(value)
             setattr(dmm_conf, key, value)
     return dmm_conf
@@ -342,7 +342,7 @@ for samples in SPLITS:
             for (
                 (ctxt, features), features_transform, pretrain, n_hidden,
                 reconstruct, activation_fn_name, optimiser,
-                (encoder_layer_sizes, inflater_layer_sizes, linear_benchmark),
+                (depth, linear_benchmark),
                 use_layer_bias, nn_init_fn, orth_reg_strategy,
                 alpha, beta, gamma, delta, epsilon, zeta,
                 max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
@@ -370,8 +370,7 @@ for samples in SPLITS:
                             samples=samples,
                             pretrain=pretrain,
                             n_hidden=n_hidden,
-                            encoder_layer_sizes=encoder_layer_sizes,
-                            inflater_layer_sizes=inflater_layer_sizes,
+                            depth=depth,
                             linear_benchmark=linear_benchmark,
                             use_layer_bias=use_layer_bias,
                             nn_init_fn=nn_init_fn,

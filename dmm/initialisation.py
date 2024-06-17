@@ -19,6 +19,8 @@ from common import (
 )
 from cytof.problem import CytofProblem
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from dmm.petab_subproblem import load_petab
+from dmm.model_utils import generate_layer_sizes
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -93,36 +95,6 @@ def pca_transform_features(
     return transformed_features
 
 
-def process_model_layers(conf: dict) -> dict:
-    """
-    Convert encoder_layer_sizes and inflater_layer_sizes from string/integer format
-    to a list of integers.
-
-    params:
-        conf: dictionary version of Conf.
-
-    returns:
-        module_layer_sizes: dictionary with keys 'encoder_layer_sizes' and 'inflater_layer_sizes'.
-    """
-    module_layer_sizes = {}
-    attributes = ['encoder_layer_sizes', 'inflater_layer_sizes']
-
-    for attr in attributes:
-        if isinstance(conf[attr], str):
-            # Handle special case of no hidden layers
-            if conf[attr] == "":
-                module_layer_sizes[attr] = []
-            else:
-                # Map string format "size1_._size2_._...._._sizeN" to list [size1, size2, ..., sizeN]
-                module_layer_sizes[attr] = list(map(int, conf[attr] .split('_._')))
-        elif isinstance(conf[attr], int):
-            # Handle case of single hidden layer -> convert int to list
-            module_layer_sizes[attr] = [conf[attr]]
-        else:
-            raise TypeError(f"Invalid type for {attr} - must be either str or int. Found {type(conf[attr])}!")
-    return module_layer_sizes
-
-
 def setup_models(
         conf: Conf,
         petab_base_files,
@@ -165,36 +137,17 @@ def setup_models(
             pipeline = None
         features = pca_transform_features(features, conf, pipeline)
 
-    # Process network architecture parameters
-    model_layers = process_model_layers(conf.__dict__)
-
-    # Define encoder, inflater and decoder parameters
-    encoder_params = ModuleParams(
-        layer_sizes=model_layers['encoder_layer_sizes'],
-        layer_biases=conf.use_layer_bias,
-        weight_init_fn=conf.nn_init_fn,
-        bias_init_fn=conf.nn_init_fn,
-    )
-    inflater_params = ModuleParams(
-        layer_sizes=model_layers['inflater_layer_sizes'],
-        layer_biases=conf.use_layer_bias,
-        weight_init_fn=conf.nn_init_fn,
-        bias_init_fn=conf.nn_init_fn,
-    )
-    decoder_params = ModuleParams(
-        layer_sizes=model_layers['encoder_layer_sizes'][::-1],  # decoder layer sizes mirror encoder layer sizes
-        layer_biases=conf.use_layer_bias,
-        weight_init_fn=conf.nn_init_fn,
-        bias_init_fn=conf.nn_init_fn,
-    )
+    if (features['train'].values.ndim != 2) or (features['val'].values.ndim != 2):
+        raise ValueError("features expected to be two-dimensional!")
 
     dmm_params = {
         'problem': problem,
         'dataset': conf.data,
         'n_latent': conf.n_hidden,
-        'encoder_params': encoder_params,
-        'inflater_params': inflater_params,
-        'decoder_params': decoder_params,
+        'module_depth': conf.depth,
+        'use_layer_bias': conf.use_layer_bias,
+        'weight_init_fn': conf.nn_init_fn,
+        'bias_init_fn': conf.nn_init_fn,
         'orth_reg_strategy': conf.orth_reg_strategy,
         'activation_fn_name': conf.activation_fn_name,
         'reconstruct': conf.reconstruct,

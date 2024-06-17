@@ -57,11 +57,7 @@ early_stopping_params = EarlyStoppingParams(
 # 1. No hidden layers, linear_benchmark enabled - PCA/least squares initialisation for encoder/inflater (old approach)
 # 2. No hidden layers, linear_benchmark disabled - pretraining
 # 3. Hidden layers, linear_benchmark enabled - linear benchmark ignored -> pretraining
-if (
-        (len(model_train.deep_encoder.layers) == 1)  # single layer encoder = no hidden layer
-        and (len(model_train.deep_inflater.layers) == 1)   # same for inflater
-        and conf.linear_benchmark
-):
+if (conf.depth == 0) and conf.linear_benchmark:
     input_features = {
         "train": input_features_train,
         "val": input_features_test

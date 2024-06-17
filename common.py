@@ -40,9 +40,8 @@ class Conf(dict):
     sample: str = None
     # Network structure
     n_hidden: int = 0
-    encoder_layer_sizes: Union[str, int] = None
-    inflater_layer_sizes: Union[str, int] = None
-    linear_benchmark: str = False
+    depth: int = 0
+    linear_benchmark: bool = False
     use_layer_bias: List[bool] = False
     nn_init_fn: str = "None"
     reconstruct: bool = False
@@ -76,6 +75,7 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
+    additional_wandb_tags: Optional[List[str]] = None
 
     def __str__(
             self,
@@ -97,7 +97,7 @@ class Conf(dict):
             "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
-            "drop_reg_after_pretrain", "sparsity_threshold",
+            "drop_reg_after_pretrain", "sparsity_threshold", "additional_wandb_tags"
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
@@ -122,6 +122,12 @@ class ModuleParams(dict):
     layer_biases: Optional[List[bool]] = None  # no learnable bias
     weight_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
     bias_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
+
+
+# moved from Snakefile
+class SafeDict(dict):
+    def __missing__(self, key):
+        return '{' + key + '}'
 
 
 # Get the DEBUG environment variable
@@ -173,22 +179,11 @@ FEATURES_PIPELINE = str(
 default_attributes = [
     k
     for k, v in vars(Conf).items()
-    if not k.startswith('__') and k not in ['model', 'data', 'sample', 'threads', 'n_starts']
+    if not k.startswith('__') and k not in [
+        'model', 'data', 'sample',
+        'threads', 'n_starts',
+        'additional_wandb_tags']
 ]
-
-# The automatically generated default attributes list should encompass the following
-# default_attributes = [
-#     "context", "features", "features_transform", "samples", "pretrain",  # TODO @GiacomoFabrini pretrain needed?
-#     "n_hidden",
-#     "encoder_layer_sizes", "inflater_layer_sizes", "linear_benchmark",
-#     "use_layer_bias", "nn_init_fn",
-#     "reconstruct", "activation_fn_name", "optimiser",
-#     "orth_reg_strategy",
-#     "l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "recon_loss", "symm_reg",
-#     "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
-#     "use_simple_linear_schedule", "use_early_stopping", "drop_reg_after_pretrain", "sparsity_threshold",
-#     "job",
-# ]
 
 defaults = {
     x: f"{{{x}}}"

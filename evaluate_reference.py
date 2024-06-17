@@ -45,9 +45,9 @@ samples = {
 ref_conf = Conf(
     model=conf.model,
     data=conf.data,
-    max_lrate=None,
-    lrate_span=None,
-    lrate_decay=None,
+    max_lrate=0,
+    lrate_span=0,
+    lrate_decay=0,
 )
 
 
