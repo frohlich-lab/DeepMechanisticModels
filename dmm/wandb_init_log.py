@@ -27,11 +27,6 @@ def init_wandb(
     else:
         group = f"{conf.context}_{conf.features}"
 
-    if conf.additional_wandb_tags is not None:
-        additional_tags = conf.additional_wandb_tags
-    else:
-        additional_tags = []
-
     wandb.init(
         project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}",  # v2 = Equinox port
         group=group,
@@ -57,7 +52,7 @@ def init_wandb(
             "linear_benchmark" if (conf.linear_benchmark and conf.depth == 0) else "not_benchmark",
             "network_pretraining" if pretrain else "DMM_training",
             "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
-            *additional_tags,
+            "linear_scans"  # TODO @GiacomoFabrini - remove after running linear scans!
         ]
     )
 

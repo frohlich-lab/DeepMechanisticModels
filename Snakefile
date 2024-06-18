@@ -535,7 +535,7 @@ rule evaluate_all_linear_scans:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        ) + ' --additional_wandb_tags="linear_hp_scans"'
+        )
 
 # # Regular train_and_evaluate
 # rule train_and_evaluate:

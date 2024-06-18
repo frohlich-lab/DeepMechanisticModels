@@ -75,7 +75,6 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
-    additional_wandb_tags: Optional[List[str]] = None
 
     def __str__(
             self,
@@ -97,7 +96,7 @@ class Conf(dict):
             "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
-            "drop_reg_after_pretrain", "sparsity_threshold", "additional_wandb_tags"
+            "drop_reg_after_pretrain", "sparsity_threshold",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
@@ -181,8 +180,7 @@ default_attributes = [
     for k, v in vars(Conf).items()
     if not k.startswith('__') and k not in [
         'model', 'data', 'sample',
-        'threads', 'n_starts',
-        'additional_wandb_tags']
+        'threads', 'n_starts']
 ]
 
 defaults = {
