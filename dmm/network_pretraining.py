@@ -1,6 +1,7 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import subprocess
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
@@ -268,7 +269,12 @@ def pretrain_network(
                     break
     print(f'best loss_val: {best_loss_val}')
     wandb.log({"final_epoch": epoch})
+    wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
+    command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-
+    try:
+        _ = subprocess.run(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Error syncing wandb directory: {e}")
     # TODO @GiacomoFabrini - might be good (but not essential) to serialise `best_model`
     return best_model

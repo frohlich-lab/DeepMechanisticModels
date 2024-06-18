@@ -78,7 +78,7 @@ NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network layouts for linear scans in modular fashion
 NETWORK_LAYOUT = {
-    'range': ((i, "False") for i in range(0, 6)),  # 0-5 hidden layers, no linear benchmark
+    'range': ((depth, "False") for depth in range(0, 6)),  # 0-5 hidden layers, no linear benchmark
     'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
 }
 
@@ -302,5 +302,5 @@ SPARSITY_THRESHOLD = {
 RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 100  # turn back to 1000 after debug
+N_EPOCHS = 1000
 PRETRAIN_N_EPOCHS = 2000
