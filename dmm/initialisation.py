@@ -137,8 +137,10 @@ def setup_models(
             pipeline = None
         features = pca_transform_features(features, conf, pipeline)
 
-    if (features['train'].values.ndim != 2) or (features['val'].values.ndim != 2):
-        raise ValueError("features expected to be two-dimensional!")
+    # Check features arrays are two-dimensional
+    for key in features.keys():
+        if features[key].values.ndim != 2:
+            raise ValueError("features expected to be two-dimensional!")
 
     dmm_params = {
         'problem': problem,

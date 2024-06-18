@@ -69,6 +69,10 @@ def update_module_params_dict(
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
+    module_depth: int = eqx.static_field()
+    use_layer_bias: bool = eqx.static_field()
+    weight_init_fn: str = eqx.static_field()
+    bias_init_fn: str = eqx.static_field()
     sample_name_list: List[str] = eqx.static_field()
     n_input_features: int = eqx.static_field()
     n_latent: int = eqx.static_field()
@@ -103,7 +107,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
-            load_directly: bool = False,
     ):
         """
 
@@ -161,19 +164,23 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             (encoder->decoder) on top of the first head (encoder->inflater).
             Default: single head (False).
 
-        :param load_directly:
-            boolean flag. If set to True, loads model directly without processing module parameters.
-
         """
 
         self.dataset_name = dataset
+
+        self.module_depth = module_depth
+        self.use_layer_bias = use_layer_bias
+        self.weight_init_fn = weight_init_fn
+        self.bias_init_fn = bias_init_fn
+        self.reconstruct = reconstruct
+        self.orth_reg_strategy = orth_reg_strategy
+        self.activation_fn_name = activation_fn_name
+
         self.sample_name_list = sample_name_list
         self.n_input_features = n_input_features
         self.n_latent = n_latent
+
         self.n_threads = n_threads
-        self.orth_reg_strategy = orth_reg_strategy
-        self.activation_fn_name = activation_fn_name
-        self.reconstruct = reconstruct
 
         # self.pathway_name = problem.pathway_name  # not used?!
 
@@ -216,50 +223,41 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 self.pypesto_subproblem.dim - self.n_inflated_specific_kin_params * n_samples
         )
 
-        if not load_directly:
-            # Update layer_sizes (hidden layers) to include input and output layers
-            encoder_layer_sizes = ([self.n_input_features]
-                                   + generate_layer_sizes(
-                                        latent_dim=self.n_latent,
-                                        depth=module_depth,
-                                        max_width=self.n_input_features,
-                                        reverse=True,
-                                    )
-                                   + [self.n_latent])
-            inflater_layer_sizes = ([self.n_latent]
-                                    + generate_layer_sizes(
-                                        latent_dim=self.n_latent,
-                                        depth=module_depth,
-                                        max_width=self.n_inflated_specific_kin_params,
-                                        reverse=False,
-                                    )
-                                    + [self.n_inflated_specific_kin_params])
+        # Generate layer_sizes for whole modules (input, hidden, output)
+        encoder_layer_sizes = ([self.n_input_features]
+                               + generate_layer_sizes(
+                                    latent_dim=self.n_latent,
+                                    depth=self.module_depth,
+                                    max_width=self.n_input_features,
+                                    reverse=True,
+                                )
+                               + [self.n_latent])
+        inflater_layer_sizes = ([self.n_latent]
+                                + generate_layer_sizes(
+                                    latent_dim=self.n_latent,
+                                    depth=self.module_depth,
+                                    max_width=self.n_inflated_specific_kin_params,
+                                    reverse=False,
+                                )
+                                + [self.n_inflated_specific_kin_params])
 
-            # Define encoder, inflater and decoder parameters
-            encoder_params = ModuleParams(
-                layer_sizes=encoder_layer_sizes,
-                layer_biases=[use_layer_bias]*len(encoder_layer_sizes),
-                weight_init_fn=weight_init_fn,
-                bias_init_fn=bias_init_fn,
+        # Define encoder, inflater and decoder parameters
+        params = {
+            f"{module}_params": ModuleParams(
+                layer_sizes=layer_sizes,
+                layer_biases=[self.use_layer_bias]*len(layer_sizes),
+                weight_init_fn=self.weight_init_fn,
+                bias_init_fn=self.bias_init_fn
             )
-            inflater_params = ModuleParams(
-                layer_sizes=inflater_layer_sizes,
-                layer_biases=[use_layer_bias]*len(inflater_layer_sizes),
-                weight_init_fn=weight_init_fn,
-                bias_init_fn=bias_init_fn,
+            for module, layer_sizes in zip(
+                ["encoder", "inflater", "decoder"],
+                [encoder_layer_sizes, inflater_layer_sizes, encoder_layer_sizes[::-1]]
             )
-            decoder_params = ModuleParams(
-                layer_sizes=encoder_layer_sizes[::-1],  # decoder layer sizes mirror encoder layer sizes
-                layer_biases=[use_layer_bias] * len(encoder_layer_sizes),
-                weight_init_fn=weight_init_fn,
-                bias_init_fn=bias_init_fn,
-            )
+        }
 
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
-            encoder_params=encoder_params,
-            inflater_params=inflater_params,
-            decoder_params=decoder_params,
+            **params,
             key=key,
             activation_fn_name=self.activation_fn_name,
             reconstruct=self.reconstruct,
@@ -420,9 +418,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         return {
             'dataset': self.dataset_name,
-            'encoder_params': self.encoder_params.__dict__,  # need to convert to dict for serialisation
-            'inflater_params': self.inflater_params.__dict__,
-            'decoder_params': self.decoder_params.__dict__,
+            'module_depth': self.module_depth,
+            'use_layer_bias': self.use_layer_bias,
+            'weight_init_fn': self.weight_init_fn,
+            'bias_init_fn': self.bias_init_fn,
             'sample_name_list': self.sample_name_list,
             'n_input_features': self.n_input_features,
             'n_latent': self.n_latent,
@@ -473,9 +472,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             # Load model hyperparameters
             hyperparam_str = f.readline().decode().strip()
             hyperparams = json.loads(hyperparam_str)
-            # Convert module parameters prior to model initialisation
-            for module_params in ['encoder_params', 'inflater_params', 'decoder_params']:
-                hyperparams[module_params] = ModuleParams(**hyperparams[module_params])
             # Make model skeleton
             model = cls(
                 **hyperparams,
@@ -484,7 +480,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 observable_table=observable_table,
                 condition_table=condition_table,
                 key=key,
-                load_directly=True,
             )
             # Apply serialised weights and biases to model skeleton
             model = eqx.tree_deserialise_leaves(f, model)
