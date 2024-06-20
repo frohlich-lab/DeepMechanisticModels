@@ -31,6 +31,18 @@ def process_simulation(
     idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     mdf = measurement_df[idx]
     sdf = simulation_df[idx]
+    # Reindex sdf to match mdf and check
+    sdf = sdf.reindex(mdf.index)
+    cols_to_check = [
+        petab.OBSERVABLE_ID,
+        petab.PREEQUILIBRATION_CONDITION_ID,
+        petab.TIME,
+        petab.SIMULATION_CONDITION_ID
+    ]
+    try:
+        assert mdf[cols_to_check].equals(sdf[cols_to_check])
+    except AssertionError:
+        print("measurement and simulation dataframes are not identically ordered!")
 
     res = mdf.copy()
     res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
@@ -152,7 +164,7 @@ def evaluate_simulations(
     model_type,
 ):
     # Simulate DMM model
-    simulation_df = simulate_dmm(model, input_features,obj, petab_problem)
+    simulation_df = simulate_dmm(model, input_features, obj, petab_problem)
 
     for sample in samples:
         process_simulation(
