@@ -13,7 +13,7 @@ from jaxtyping import Array
 from pathlib import Path
 from dmm.petab_subproblem import load_petab
 from dmm.problem import Problem
-from typing import Any, List, Union
+from typing import Any, Dict, List, Union
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -80,6 +80,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     orth_reg_strategy: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()
     reconstruct: bool = eqx.static_field()
+    model_key: Any = eqx.static_field()
 
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
@@ -182,6 +183,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         self.n_threads = n_threads
 
+        self.model_key = key
+
         # self.pathway_name = problem.pathway_name  # not used?!
 
         # Get petab_importer and pypesto_subproblem
@@ -258,7 +261,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
             **params,
-            key=key,
+            key=self.model_key,
             activation_fn_name=self.activation_fn_name,
             reconstruct=self.reconstruct,
         )
@@ -410,7 +413,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return scale * symmetry_reg
 
     # inspired from Fabian's NeuralCoarseGraining
-    def get_hyperparams(self) -> dict[str, Union[int, dict]]:
+    def get_hyperparams(self, samples_list_dict: dict = None) -> dict[str, Union[int, dict]]:
         """
         Get the hyperparameters of the model.
 
@@ -422,25 +425,27 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             'use_layer_bias': self.use_layer_bias,
             'weight_init_fn': self.weight_init_fn,
             'bias_init_fn': self.bias_init_fn,
-            'sample_name_list': self.sample_name_list,
+            'sample_name_list': self.sample_name_list if samples_list_dict is None else samples_list_dict,
             'n_input_features': self.n_input_features,
             'n_latent': self.n_latent,
             'n_threads': self.n_threads,
             'orth_reg_strategy': self.orth_reg_strategy,
             'activation_fn_name': self.activation_fn_name,
             'reconstruct': self.reconstruct,
+            'key': self.model_key.tolist()
         }
 
-    def save(self, filename: Path) -> None:
+    def save(self, filename: Path, samples_list_dict: dict = None) -> None:
         """
         Save the model to a file.
 
         :param filename: path of file
+        :param samples_list_dict: dictionary of samples list (train/test)
         """
         filename.parent.mkdir(exist_ok=True, parents=True)
         with Path.open(filename, 'wb') as f:
             # Save model hyperparameters
-            hyperparam_str = json.dumps(self.get_hyperparams())
+            hyperparam_str = json.dumps(self.get_hyperparams(samples_list_dict))
             f.write((hyperparam_str + '\n').encode())
             # Save model parameters (weights, biases)
             eqx.tree_serialise_leaves(f, self)
@@ -450,20 +455,15 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             cls,
             filename: Path,
             problem: Problem,  # not serialisable in json
-            measurement_table: pd.DataFrame,  # not serialisable in json
-            observable_table: pd.DataFrame,  # not serialisable in json
-            condition_table: pd.DataFrame,  # not serialisable in json
-            key: Any,
+            dataset: str,
+            petab_base_files: Dict[str, pd.DataFrame],
     ) -> 'DeepMechanisticModel':
         """
         Loads DMM model from a file.
 
         :param filename: path of file
         :param problem: CytofProblem instance
-        :param measurement_table: petab measurement table
-        :param observable_table: petab observable table
-        :param condition_table: petab condition table
-        :param key: PRNG key
+        :param dataset: dataset name (train/test)
         :return: Model instance
         """
         # Ensure filename is a Path object - TODO @GiacomoFabrini: is this necessary?
@@ -472,14 +472,19 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             # Load model hyperparameters
             hyperparam_str = f.readline().decode().strip()
             hyperparams = json.loads(hyperparam_str)
+            # Handle parameters that require conversion
+            # Key: convert back to ArrayImpl with expected dtype
+            # TODO @GiacomoFabrini: is this necessary? it also looks like it's not being reloaded to the original value
+            #  The key should only play a role in weight/bias init, but we are overwriting weight/bias here...
+            hyperparams['key'] = jnp.array(hyperparams['key'], dtype=jnp.uint32)
+            # Subset sample_name_list dictionary to corresponding dataset
+            if isinstance(hyperparams['sample_name_list'], dict) and dataset is not None:
+                hyperparams['sample_name_list'] = hyperparams['sample_name_list'][dataset]
             # Make model skeleton
             model = cls(
                 **hyperparams,
                 problem=problem,
-                measurement_table=measurement_table,
-                observable_table=observable_table,
-                condition_table=condition_table,
-                key=key,
+                **petab_base_files,
             )
             # Apply serialised weights and biases to model skeleton
             model = eqx.tree_deserialise_leaves(f, model)

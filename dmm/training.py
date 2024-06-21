@@ -1,3 +1,4 @@
+import copy
 import equinox as eqx
 import numpy as np
 import optax
@@ -9,12 +10,14 @@ import wandb
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
-from common import (EarlyStoppingParams, get_scheduler, optimisers,
-                    RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, debug_mode)
+from common import (Conf, EarlyStoppingParams, get_scheduler, optimisers,
+                    RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, debug_mode,
+                    TRAINED_MODEL_WEIGHT_PLOTS)
 from .dmm_autoencoder_eqx import DeepMechanisticModel
+from .training_helper_funcs import test_save_reload_model
 from .wandb_init_log import log_model_stats
 from .training_helper_funcs import (apply_filter_to_updates, get_finite_grads,
-                                   map_params_to_array, model_output_to_petab_input)
+                                   map_params_to_array, model_output_to_petab_input, plot_model_weights)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
@@ -103,6 +106,7 @@ def train(
         input_features_test,
         rfile: Path,
         model_file: Path,
+        samples_name_list_dict: dict,
         conf: Dict,
         n_epoch,
         x0,  # PEtab-compatible embedding of initial parameters
@@ -127,7 +131,7 @@ def train(
     opt_x = x.copy()
     opt_fval = np.inf
     opt_grads = np.NaN * np.ones_like(x)
-    best_model = model
+    best_model = copy.deepcopy(model)
     rmse_test_min = np.inf
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
@@ -243,7 +247,24 @@ def train(
 
             if rmse_dict["test"] < rmse_test_min:
                 rmse_test_min = rmse_dict["test"]
-                best_model = model
+                best_model = copy.deepcopy(model)
+                # TESTS TO ENSURE SAVING AND RELOADING WORKS FOR model_train and model_test
+                # test_save_reload_model(
+                #     best_model,
+                #     model_file,
+                #     samples_name_list_dict,
+                #     Conf(**conf),
+                #     "train",
+                #     input_features_train,
+                # )
+                # test_save_reload_model(
+                #     best_model,
+                #     model_file,
+                #     samples_name_list_dict,
+                #     Conf(**conf),
+                #     "test",
+                #     input_features_test,
+                # )
                 opt_x = x.copy()
                 opt_fval = fval
                 opt_grads = grads_array.copy()
@@ -293,6 +314,16 @@ def train(
     wandb.log({"final_epoch": epoch})
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
+    plot_model_weights(model, filename=TRAINED_MODEL_WEIGHT_PLOTS.format(**conf))
+    wandb.log({"trained_model_weights": wandb.Image(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf))})
+    # Save best model
+    model_file.parent.mkdir(exist_ok=True, parents=True)
+    best_model.save(
+        model_file,
+        samples_name_list_dict,
+    )
+    # Log serialised pretrained model
+    wandb.log_model(path=model_file, name="trained_dmm")
     wandb.finish()
     try:
         _ = subprocess.run(command, shell=True)
@@ -320,9 +351,6 @@ def train(
     rfile.parent.mkdir(exist_ok=True, parents=True)
     writer = OptimizationResultHDF5Writer(str(rfile))
     writer.write(result, overwrite=True)
-    # Save best model
-    model_file.parent.mkdir(exist_ok=True, parents=True)
-    best_model.save(model_file)
     return result
 
 

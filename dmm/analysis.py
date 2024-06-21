@@ -16,7 +16,7 @@ from dmm.plotting import plot_cross_samples
 from dmm.training_helper_funcs import model_output_to_petab_input
 from pathlib import Path
 from pypesto import OptimizeResult
-from pypesto.C import MODE_RES
+from pypesto.C import MODE_RES, RDATAS
 from pypesto.store import OptimizationResultHDF5Reader
 
 
@@ -119,32 +119,36 @@ def simulate_dmm(
         obj,
         petab_problem
 ) -> pd.DataFrame:
+
     res = obj(
         model_output_to_petab_input(model, input_features),
         mode=MODE_RES,
         return_dict=True
     )
 
-    if isinstance(obj, pypesto.objective.AggregatedObjective):
-        amici_model = obj._objectives[0].amici_model
-        amici_solver = obj._objectives[0].amici_solver
-    else:
-        amici_model = obj.amici_model
-        amici_solver = obj.amici_solver
+    amici_model = obj.amici_model
+    petab_problem = obj.amici_object_builder.petab_problem
 
-    for r in res["rdatas"]:
-        if r["status"] != amici.AMICI_SUCCESS:
-            print(f'AMICI failed for {r["id"]}')
-            x = jnp.ones((1,), dtype=jnp.float64)
-            print(f"JAX dtype: {x.dtype} ")
-            print(
-                f"AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, "
-                f"{amici_solver.getRelativeTolerance():.2e} rtol"
-            )
-            return
+    # if isinstance(obj, pypesto.objective.AggregatedObjective):
+    #     amici_model = obj._objectives[0].amici_model
+    #     amici_solver = obj._objectives[0].amici_solver
+    # else:
+    #     amici_model = obj.amici_model
+    #     amici_solver = obj.amici_solver
+
+    # for r in res["rdatas"]:
+    #     if r["status"] != amici.AMICI_SUCCESS:
+    #         print(f'AMICI failed for {r["id"]}')
+    #         x = jnp.ones((1,), dtype=jnp.float64)
+    #         print(f"JAX dtype: {x.dtype} ")
+    #         print(
+    #             f"AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, "
+    #             f"{amici_solver.getRelativeTolerance():.2e} rtol"
+    #         )
+    #         return
 
     simulation_df = rdatas_to_simulation_df(
-        res["rdatas"],
+        res[RDATAS],
         model=amici_model,
         measurement_df=petab_problem.measurement_df,
     )

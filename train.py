@@ -1,7 +1,7 @@
 import fire
 import jax.tree_util as jtu
 
-from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS
+from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
@@ -22,14 +22,15 @@ from util import load_petab_base_files
 conf = fire.Fire(Conf)
 
 # Remove blank spaces introduced by encoder/inflater_layer_sizes
-results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__).replace(" ", ""))
-model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__).replace(" ", ""))
+results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
+pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Set JAX configuration
 config.update("jax_enable_x64", True)
 
 # Get petab_base_files
-petab_base_files = load_petab_base_files(conf, reweight=True)
+petab_base_files = load_petab_base_files(conf=conf, reweight=True)
 # Setup models + load and (potentially) transform input features (e.g. PCA)
 (model_train, model_test), problem, features = setup_models(
     conf,
@@ -111,6 +112,7 @@ else:
         validation_targets=targets_pretrain_val,
         conf=conf.__dict__,
         # rfile=rfile,
+        pretrained_model_file=pretrained_model_file,
         n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
     )
@@ -141,6 +143,10 @@ x0 = map_params_to_array(model_train)
 
 # Initialise W&B run and train
 init_wandb(model_train, conf, early_stopping_params, pretrain=False)
+samples_name_list_dict = {
+    dataset: model.sample_name_list
+    for dataset, model in zip(["train", "test"], [model_train, model_test])
+}
 train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     filter_spec_per_param=filter_spec_per_param,
@@ -151,6 +157,7 @@ train(
     conf=conf.__dict__,
     rfile=results_file,
     model_file=model_file,
+    samples_name_list_dict=samples_name_list_dict,
     n_epoch=N_EPOCHS,
     x0=x0,
     early_stopping_params=early_stopping_params,

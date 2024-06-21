@@ -1,3 +1,4 @@
+import copy
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -11,6 +12,7 @@ from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
+from pathlib import Path
 from typing import Dict
 
 
@@ -89,6 +91,7 @@ def pretrain_network(
         validation_data: Float[Array, '...'],
         validation_targets: Float[Array, '...'],
         # rfile: Path,
+        pretrained_model_file: Path,
         conf: Dict,
         n_epoch,
         early_stopping_params: EarlyStoppingParams,
@@ -116,7 +119,7 @@ def pretrain_network(
             )
 
     # Keep track of best performing model on validation set (actually a part of the DMM training set)
-    best_model = model
+    best_model = copy.deepcopy(model)
     best_loss_val = jnp.inf
 
     @eqx.filter_jit
@@ -166,7 +169,7 @@ def pretrain_network(
         # Update best model and best loss estimate
         if loss_val < best_loss_val:
             best_loss_val = loss_val
-            best_model = model
+            best_model = copy.deepcopy(model)
 
         # Log loss_train and loss_val
         wandb.log(
@@ -269,6 +272,11 @@ def pretrain_network(
                     break
     print(f'best loss_val: {best_loss_val}')
     wandb.log({"final_epoch": epoch})
+    # # Save best pretrained model -- not in use for now
+    # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
+    # best_model.save(pretrained_model_file)
+    # # Log serialised pretrained model
+    # wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
@@ -276,5 +284,4 @@ def pretrain_network(
         _ = subprocess.run(command, shell=True)
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Error syncing wandb directory: {e}")
-    # TODO @GiacomoFabrini - might be good (but not essential) to serialise `best_model`
     return best_model

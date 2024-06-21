@@ -1,13 +1,18 @@
 import equinox as eqx
 import jax.numpy as jnp
+import matplotlib.pyplot as plt
 import numpy as np
 import pypesto
+import seaborn as sns
 
+from common import Conf
+from cytof.problem import CytofProblem
 from dmm.deepcomponent_eqx import DeepComponent
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree
+from pathlib import Path
 from pypesto.objective.jax import JaxObjective
 from typing import Union
 
@@ -232,3 +237,114 @@ def generate_log_epochs(n_epoch: int, num_samples: int, min_dist: int) -> np.nda
         np.logspace(0, np.log10(n_epoch), num=num_samples).astype(int)
     )
     return remove_close_elements(log_epochs, min_dist)
+
+
+def plot_model_weights(model: DeepMechanisticModel, filename: str = None):
+    num_columns = len([*model.deep_encoder.layers, *model.deep_inflater.layers]) + 2
+    single_module_height = (model.module_depth) * 2 + 1
+    num_rows = 2 * single_module_height + 3
+
+    fig = plt.figure()
+    fig.set_figheight(num_rows)
+    fig.set_figwidth(num_columns)
+
+    # Plot input - features
+    ax = plt.subplot2grid(
+        shape=(num_rows, num_columns),
+        loc=(int(num_rows / 2) - len(model.deep_encoder.layers) + 1, 0),
+        colspan=1,
+        rowspan=single_module_height
+    )
+    sns.heatmap(
+        np.zeros(shape=(model.deep_encoder.layers[0].weight.T.shape[0], 1)),
+        cbar=False, xticklabels=False, yticklabels=False, ax=ax
+    )
+    ax.set_title(f"in: {model.deep_encoder.layers[0].weight.T.shape[0]}")
+    for i, layer in enumerate(model.deep_encoder.layers[::-1]):
+        ax = plt.subplot2grid(
+            shape=(num_rows, num_columns),
+            loc=(int(num_rows / 2) - i, len(model.deep_encoder.layers) - i),
+            colspan=1,
+            rowspan=1 + 2 * i
+        )
+        sns.heatmap(layer.weight.T, cbar=False, xticklabels=False, yticklabels=False, ax=ax)
+        ax.set_title(f"e.{i}: {layer.weight.T.shape}")
+
+    # Plot output - kinetic parameters
+    ax = plt.subplot2grid(
+        shape=(num_rows, num_columns),
+        loc=(0, num_columns - 1),
+        colspan=1,
+        rowspan=single_module_height
+    )
+    sns.heatmap(
+        np.zeros(shape=(model.deep_inflater.layers[-1].weight.T.shape[0], 1)),
+        cbar=False, xticklabels=False, yticklabels=False, ax=ax
+    )
+    ax.set_title(f"out: {model.deep_inflater.layers[-1].weight.shape[0]}")
+
+    for i, layer in enumerate(model.deep_inflater.layers[::-1]):
+        ax = plt.subplot2grid(
+            shape=(num_rows, num_columns),
+            loc=(i, num_columns - 2 - i),
+            colspan=1,
+            rowspan=single_module_height - 2 * i
+        )
+        sns.heatmap(layer.weight.T, cbar=False, xticklabels=False, yticklabels=False, ax=ax)
+        ax.set_title(f"i.{len(model.deep_inflater.layers) - i}: {layer.weight.T.shape}")
+
+    if model.reconstruct:
+        # Plot input - features
+        ax = plt.subplot2grid(
+            shape=(num_rows, num_columns),
+            loc=(2 + int(num_rows / 2), num_columns - 1),
+            colspan=1,
+            rowspan=single_module_height
+        )
+        sns.heatmap(
+            np.zeros(shape=(model.deep_encoder.layers[0].weight.T.shape[0], 1)),
+            cbar=False, xticklabels=False, yticklabels=False, ax=ax
+        )
+        ax.set_title(r"$\rm \widehat{in}$:" + str(model.deep_encoder.layers[0].weight.T.shape[0]))
+
+        for i, layer in enumerate(model.deep_decoder.layers[::-1]):
+            ax = plt.subplot2grid(
+                shape=(num_rows, num_columns),
+                loc=(num_rows - single_module_height + i, num_columns - 2 - i),
+                colspan=1,
+                rowspan=single_module_height - 2 * i
+            )
+            sns.heatmap(layer.weight, cbar=False, xticklabels=False, yticklabels=False, ax=ax)
+            ax.set_title(f"d.{len(model.deep_decoder.layers) - i}: {layer.weight.T.shape}")
+
+    if filename is not None:
+        plt.savefig(filename, facecolor='w')
+    plt.show()
+
+
+def test_save_reload_model(
+        model: DeepMechanisticModel,
+        filename: Path,
+        samples_name_list_dict: dict,
+        conf: Conf,
+        dataset: str,
+        input_data: np.ndarray
+):
+    filename.parent.mkdir(exist_ok=True, parents=True)
+    # Save
+    model.save(filename, samples_name_list_dict)
+
+    # Get cytof problem
+    cytof_problem = CytofProblem(conf.model)
+    # Get petab_base_files
+    petab_base_files = load_petab_base_files(conf, reweight=True)
+    # Use class method to load an instance from file
+    re_model = DeepMechanisticModel.load(
+        filename=filename,
+        problem=cytof_problem,
+        dataset=dataset,
+        petab_base_files=petab_base_files,
+    )
+
+    assert (vmap(model)(input_data)[0] == vmap(re_model)(input_data)[0]).all()
+    assert (vmap(model)(input_data)[1] == vmap(re_model)(input_data)[1]).all()

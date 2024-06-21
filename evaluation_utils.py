@@ -14,6 +14,7 @@ from common import (
     training_samples,
 )
 from cytof.problem import CytofProblem
+from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from dmm.initialisation import setup_models
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
@@ -35,31 +36,23 @@ def get_measurements_and_obervables(conf: Conf):
 
 
 def load_model_and_obj(conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str):
-    # Initialise model skeleton and get CytofProblem
-    model, cytof_problem = setup_models(conf, petab_base_files, dataset)
+    # Get cytof problem
+    cytof_problem = CytofProblem(conf.model)
 
-    # Create pypesto problem
+    # Create pypesto problem to extract objective
     pypesto_problem = create_pypesto_problem(model)
-    # Extract base objective
     obj = pypesto_problem.objective.base_objective
 
     # Define filepaths for training results and serialized model - only the latter is needed
     # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
-    trained_model_file = TRAINED_BEST_MODELS.format(**conf.__dict__)
-
-    # Load training results - TODO @GiacomoFabrini - do we need these?
-    # reader = OptimizationResultHDF5Reader(infile)
-    # result = pypesto.Result(pypesto_problem)
-    # result.optimize_result = reader.read().optimize_result
+    trained_model_file = TRAINED_BEST_MODELS.format_map(conf.__dict__)
 
     # Load serialised best model
-    model.load(
-        trained_model_file,
-        cytof_problem,
-        petab_base_files['measurement_table'],
-        petab_base_files['observable_table'],
-        petab_base_files['condition_table'],
-        jr.PRNGKey(conf.job)
+    model = DeepMechanisticModel.load(
+        filename=trained_model_file,
+        problem=cytof_problem,
+        dataset=dataset,
+        petab_base_files=petab_base_files,
     )
     return model, obj
 

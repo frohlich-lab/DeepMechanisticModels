@@ -15,7 +15,7 @@ from common import (
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
-from dmm.initialisation import get_features, pca_transform_features
+from dmm.initialisation import get_features, pca_transform_features, subset_features
 from evaluation_utils import load_model_and_obj
 from typing import Dict
 from util import load_petab_base_files
@@ -52,7 +52,10 @@ def evaluate_training(
         features_dataset = 'train'
     elif dataset == 'test':
         features_dataset = 'val'
-    input_features = features[features_dataset].values
+    input_features = subset_features(
+            features=features[features_dataset],
+            model=model,
+    )
 
     evaluate_simulations(
         model=model,
@@ -60,7 +63,7 @@ def evaluate_training(
         obj=obj,
         conf=conf,
         samples=samples[dataset],
-        petab_problem=model.petab_importer.petab_problem,
+        petab_problem=obj.amici_object_builder.petab_problem,
         dataset=dataset,
         outdir=outdir / "simulation",
         evaluations=evaluations,
@@ -87,7 +90,7 @@ if conf.features_transform == "pca":
 
 # TODO @GiacomoFabrini: check here "val" vs "test"
 for dataset in [
-        "train",
+        # "train",
         "test"
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train

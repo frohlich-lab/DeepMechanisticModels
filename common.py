@@ -194,8 +194,16 @@ TRAINING_OUTFILE_RESULTS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
 )
 
+PRETRAINED_BEST_MODELS = str(
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_nn_pretraining_best_model.eqx")
+)
+
 TRAINED_BEST_MODELS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + "_best_model.eqx")
+)
+
+TRAINED_MODEL_WEIGHT_PLOTS = str(
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_weight_plot.png")
 )
 
 COLLECTED_TRAINING_RESULTS = str(
