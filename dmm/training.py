@@ -314,8 +314,10 @@ def train(
     wandb.log({"final_epoch": epoch})
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
-    plot_model_weights(model, filename=Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))
-    wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
+    # Plot model weights - proxy for model architecture -- disabled for now
+    # TODO @GiacomoFabrini - fix this!!!
+    # plot_model_weights(model, filename=Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))
+    # wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
     # Save best model
     model_file.parent.mkdir(exist_ok=True, parents=True)
     best_model.save(
