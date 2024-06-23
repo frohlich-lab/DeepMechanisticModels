@@ -90,7 +90,7 @@ if conf.features_transform == "pca":
 
 # TODO @GiacomoFabrini: check here "val" vs "test"
 for dataset in [
-        # "train",
+        "train",
         "test"
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
