@@ -39,10 +39,6 @@ def load_model_and_obj(conf: Conf, petab_base_files: Dict[str, pd.DataFrame], da
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
-    # Create pypesto problem to extract objective
-    pypesto_problem = create_pypesto_problem(model)
-    obj = pypesto_problem.objective.base_objective
-
     # Define filepaths for training results and serialized model - only the latter is needed
     # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
     trained_model_file = TRAINED_BEST_MODELS.format_map(conf.__dict__)
@@ -54,6 +50,11 @@ def load_model_and_obj(conf: Conf, petab_base_files: Dict[str, pd.DataFrame], da
         dataset=dataset,
         petab_base_files=petab_base_files,
     )
+
+    # Create pypesto problem from loaded model to extract objective
+    pypesto_problem = create_pypesto_problem(model)
+    obj = pypesto_problem.objective.base_objective
+    
     return model, obj
 
 
