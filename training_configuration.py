@@ -78,7 +78,14 @@ NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network layouts for linear scans in modular fashion
 NETWORK_LAYOUT = {
-    'range': ((depth, "False") for depth in range(0, 6)),  # 0-5 hidden layers, no linear benchmark
+    'range': (
+        (0, "False"),
+        (1, "False"),
+        (2, "False"), 
+        (3, "False"),
+        (4, "False"),
+        (5, "False"),
+    ),  # 0-5 hidden layers, no linear benchmark
     'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
 }
 
