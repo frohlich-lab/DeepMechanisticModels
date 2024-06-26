@@ -36,9 +36,6 @@ def init_wandb(
             "patience": early_stopping_params.patience if conf.use_early_stopping else None,
             "min_improvement": early_stopping_params.min_improvement if conf.use_early_stopping else None,
             "scheduler": "linear" if conf.use_simple_linear_schedule else "custom",
-            # Add clearer info on depth of encoder and inflater modules (to use in parallel coordinates)
-            "encoder_depth": len(model.deep_encoder.layers),
-            "inflater_depth": len(model.deep_encoder.layers),
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
