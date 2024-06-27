@@ -23,7 +23,6 @@ def process_simulation(
     simulation_df,
     conf,
     sample,
-    model_type,
 ):
     idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     mdf = measurement_df[idx]
@@ -64,7 +63,6 @@ def process_simulation(
             {
                 "res": r[petab.MEASUREMENT],
                 "sample": sample,
-                "type": model_type,
                 "observable": r[petab.OBSERVABLE_ID],
                 "condition": condition,
                 "time": r[petab.TIME],
@@ -161,7 +159,6 @@ def evaluate_simulations(
     dataset,
     outdir,
     evaluations,
-    model_type,
 ):
     # Simulate DMM model
     simulation_df = simulate_dmm(model, input_features, obj, petab_problem)
@@ -173,7 +170,6 @@ def evaluate_simulations(
             simulation_df=simulation_df,
             conf=conf,
             sample=sample,
-            model_type=model_type,
         )
 
     plot_cross_samples(
@@ -186,7 +182,6 @@ def evaluate_simulations(
                 conf.samples,
                 conf.context,
                 conf.features,
-                model_type,
                 conf.__str__(),
             ]
         )

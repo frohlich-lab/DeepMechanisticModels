@@ -73,7 +73,6 @@ def evaluate_pretraining_per_sample(
             simulation_df=simulation_df,
             conf=ref_conf,
             sample=sample,
-            model_type="per_sample",
         )
 
         plot_single_sample(
@@ -135,7 +134,6 @@ def evaluate_average(
             simulation_df=df_sim,
             conf=ref_conf,
             sample=sample,
-            model_type="avg",
         )
     return pd.DataFrame(evaluations)
 
@@ -169,7 +167,6 @@ def evaluate_average_model(
             simulation_df=avg_model,
             conf=ref_conf,
             sample=sample,
-            model_type="avg_model",
         )
     return pd.DataFrame(evaluations)
 

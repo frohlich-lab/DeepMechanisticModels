@@ -67,7 +67,6 @@ def evaluate_training(
         dataset=dataset,
         outdir=outdir / "simulation",
         evaluations=evaluations,
-        model_type="full",  # TODO @GiacomoFabrini what does this mean?
     )
 
     return pd.DataFrame(evaluations)

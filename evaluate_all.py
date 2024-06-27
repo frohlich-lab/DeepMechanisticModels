@@ -458,7 +458,6 @@ for samples in SPLITS:
             ]:
                 avg_ps_df = rdf.copy()
                 avg_ps_df["context"] = context
-                # avg_ps_df["type"] = method
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -466,7 +465,6 @@ for samples in SPLITS:
         # regression baselines already have context
         for _, rdf in regressor_dfs.items():
             avg_ps_df = rdf.copy()
-            # avg_ps_df["type"] = method
             avg_ps_dfs.append(avg_ps_df)
             # Once appended, this can be deleted
             del avg_ps_df

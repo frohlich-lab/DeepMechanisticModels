@@ -269,7 +269,6 @@ def evaluate_standard_regression(
             simulation_df=reg_pred,
             conf=regr_conf,
             sample=sample,
-            model_type=mode,
         )
 
     return pd.DataFrame(evaluations)
