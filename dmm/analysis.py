@@ -127,7 +127,6 @@ def simulate_dmm(
     )
 
     amici_model = obj.amici_model
-    petab_problem = obj.amici_object_builder.petab_problem
 
     # if isinstance(obj, pypesto.objective.AggregatedObjective):
     #     amici_model = obj._objectives[0].amici_model
