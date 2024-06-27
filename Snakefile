@@ -485,7 +485,7 @@ rule evaluate_regressors:
 #         'python3 {input.script} ' + ' '.join(
 #             f'--{arg}={{wildcards.{arg}}}'
 #             for arg in ('model', 'data')
-#         )
+#         ) + ' --n_starts={N_STARTS}'
 
 rule evaluate_all_linear_scans:
     input:
@@ -535,7 +535,7 @@ rule evaluate_all_linear_scans:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        )
+        ) + ' --n_starts={N_STARTS}'
 
 # # Regular train_and_evaluate
 # rule train_and_evaluate:

@@ -328,11 +328,11 @@ outdir = fig_dir / conf.model / conf.data
 
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 
-JOBS = tuple([i for i in range(2)])  # need to change this - NO HARDCODING - TODO change back to 10
+JOBS = tuple([i for i in range(conf.n_starts)])
 dfs = []
 for samples in SPLITS:
     for dataset in [
-        "train",  # TODO @GiacomoFabrini: re-enable once hyperparam grid is narrower
+        "train",
         "test"
     ]:
         print(f'Starting to concatenate training evaluations for {samples}, {dataset}')
