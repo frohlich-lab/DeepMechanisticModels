@@ -5,10 +5,10 @@ import numpy as np
 import pypesto
 import seaborn as sns
 
-from common import Conf
 from cytof.problem import CytofProblem
-from dmm.deepcomponent_eqx import DeepComponent
-from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from .config_options import Conf
+from .deepcomponent_eqx import DeepComponent
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree

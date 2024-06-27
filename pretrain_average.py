@@ -9,7 +9,6 @@ from pypesto.optimize import FidesOptimizer
 from pypesto.visualize import parameters, waterfall
 
 from common import (
-    Conf,
     PER_SAMPLE_OUTFILE_PARS,
     PER_SAMPLE_OUTFILE_RESULTS,
     Wildcards,
@@ -18,6 +17,7 @@ from common import (
     training_samples,
 )
 from cytof.problem import CytofProblem
+from dmm.config_options import Conf
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import (
     generate_average_pretraining_problem,

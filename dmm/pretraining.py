@@ -4,8 +4,8 @@ import pandas as pd
 import petab
 import pypesto
 
-from common import MODEL_FEATURE_PREFIX
-from dmm.problem import Problem
+from . import MODEL_FEATURE_PREFIX
+from .problem import Problem
 from pathlib import Path
 from petab.models.pysb_model import PySBModel
 from pypesto.optimize import OptimizeOptions, minimize

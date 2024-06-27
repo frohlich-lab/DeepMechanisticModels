@@ -3,8 +3,8 @@ import pandas as pd
 import petab
 import pysb
 
-from common import MODEL_FEATURE_PREFIX
-from dmm.problem import Problem
+from . import MODEL_FEATURE_PREFIX
+from .problem import Problem
 from petab.models.pysb_model import PySBModel
 from pypesto.petab import PetabImporter
 from typing import List, Sequence

@@ -3,9 +3,10 @@ import git
 import numpy as np
 import wandb
 
-from common import Conf, EarlyStoppingParams, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS
-from dmm.custom_layers_eqx import CustomInitLinear
-from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from common import EarlyStoppingParams, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS  # TODO - fix script imports
+from .config_options import Conf
+from .custom_layers_eqx import CustomInitLinear
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 
 
 def init_wandb(

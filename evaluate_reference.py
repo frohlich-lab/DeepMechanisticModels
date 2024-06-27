@@ -4,7 +4,6 @@ import pandas as pd
 import petab
 
 from common import (
-    Conf,
     EVALUATION_REFERENCE,
     Wildcards,
     fig_dir,
@@ -14,6 +13,7 @@ from common import (
 )
 from cytof.problem import CytofProblem
 from dmm.analysis import process_simulation
+from dmm.config_options import Conf
 from dmm.plotting import plot_cross_samples, plot_single_sample
 from evaluation_utils import (get_measurements_and_obervables,
                               process_per_sample_pretrain,

@@ -10,17 +10,14 @@ import pypesto
 import scipy.linalg as la
 
 from common import (
-    Conf,
-    ModuleParams,
     FEATURES_OUTFILE,
     FEATURES_PIPELINE,
     MODEL_FEATURE_PREFIX,
     PER_SAMPLE_OUTFILE_PARS
-)
+)   # TODO - fix script imports
 from cytof.problem import CytofProblem
-from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
-from dmm.petab_subproblem import load_petab
-from dmm.model_utils import generate_layer_sizes
+from .config_options import Conf
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline

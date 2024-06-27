@@ -5,14 +5,15 @@ import json
 import pandas as pd
 import pypesto.petab
 
-from common import ModuleParams, MODEL_FEATURE_PREFIX
-from dmm.janus_autoencoder_eqx import TwoHeadedDeepAutoencoder
-from dmm.deepcomponent_eqx import KinParamsCombiner
-from dmm.model_utils import generate_layer_sizes
+from . import MODEL_FEATURE_PREFIX
+from .config_options import ModuleParams
+from .deepcomponent_eqx import KinParamsCombiner
+from .model_utils import generate_layer_sizes
+from .petab_subproblem import load_petab
+from .problem import Problem
+from .two_headed_deep_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from jaxtyping import Array
 from pathlib import Path
-from dmm.petab_subproblem import load_petab
-from dmm.problem import Problem
 from typing import Any, Dict, List, Union
 
 

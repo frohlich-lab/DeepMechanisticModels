@@ -7,7 +7,6 @@ import pandas as pd
 import wandb
 
 from common import (
-    Conf,
     CONTEXT_SET,
     default_attributes,
     evaluations_dir,
@@ -26,6 +25,7 @@ from common import (
 from cytof.problem import CytofProblem
 from dataclasses import replace
 from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
+from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import get_features, pca_transform_features
 from dmm.plotting import plot_cross_samples_multiple_simulations

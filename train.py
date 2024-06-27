@@ -1,7 +1,8 @@
 import fire
 import jax.tree_util as jtu
 
-from common import Conf, EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS
+from common import EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS
+from dmm.config_options import Conf
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,

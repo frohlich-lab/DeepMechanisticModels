@@ -5,7 +5,6 @@ import pypesto
 import scipy.linalg as la
 
 from common import (
-    Conf,
     CONDITIONS_FILE,
     # FEATURES_OUTFILE,
     MEASUREMENTS_FILE,
@@ -16,6 +15,7 @@ from common import (
 )
 from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
+from dmm.config_options import Conf
 from typing import (
     Dict,
     # Tuple,

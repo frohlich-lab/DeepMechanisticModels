@@ -1,11 +1,8 @@
-from training_configuration import NN_STRUCTURE_MULTIPLIER
-
-
 def generate_layer_sizes(
         latent_dim: int,
         depth: int,
         max_width: int,
-        multiplier: int = NN_STRUCTURE_MULTIPLIER,
+        multiplier: int = 2,  # same default value as conf.nn_structure_multiplier
         reverse: bool = False,
 ):
     layer_sizes = []

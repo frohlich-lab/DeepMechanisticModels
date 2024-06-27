@@ -4,7 +4,8 @@ import os
 import pypesto.visualize
 import re
 
-from common import Conf, COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from dmm.config_options import Conf
 from dmm.initialisation import setup_models
 from dmm.training_helper_funcs import create_pypesto_problem
 from pathlib import Path

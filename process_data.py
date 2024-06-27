@@ -5,12 +5,12 @@ import pysb
 import re
 
 from common import (
-    Conf,
     CONDITIONS_FILE,
     data_dir,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
 )
+from dmm.config_options import Conf
 from dmm.generate_data import generate_synthetic_data
 
 

@@ -1,7 +1,7 @@
 import equinox as eqx
 import jax.numpy as jnp
 
-from dmm.custom_layers_eqx import (
+from .custom_layers_eqx import (
     CustomInitLinear,
     init_fn
 )
@@ -118,14 +118,8 @@ class DeepComponent(eqx.Module):
         # Define layer-wise architecture
         # Always specify either both weight_init_fn and bias_init_fn
         # or both as "eqx_default" -- mixed combinations will result in ValueError
-        for layer_num, (
-                (fan_in, fan_out),
-                (key, bias)
-        ) in enumerate(
-                zip(
-                    zip(layer_sizes[:-1], layer_sizes[1:]),
-                    zip(layer_keys, biases)
-                )
+        for layer_num, (fan_in, fan_out, key, bias) in enumerate(
+                zip(layer_sizes[:-1], layer_sizes[1:], layer_keys, biases)
         ):
             self.layers.append(
                 generate_layer(

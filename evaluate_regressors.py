@@ -6,7 +6,6 @@ import pandas as pd
 import petab
 
 from common import (
-    Conf,
     EVALUATION_REGRESSOR,
     REGR_TRAINED_PIPELINE,
     REGR_FEATURES_TRAIN,
@@ -18,6 +17,7 @@ from common import (
     CONTEXT_SET
 )
 from dmm.analysis import process_simulation
+from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables

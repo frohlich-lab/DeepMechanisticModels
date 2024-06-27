@@ -1,7 +1,7 @@
 import fire
 
-from common import Conf
 from cytof.problem import CytofProblem
+from dmm.config_options import Conf
 from dmm.petab_subproblem import load_petab
 from util import load_petab_base_files
 

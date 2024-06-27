@@ -10,9 +10,10 @@ import wandb
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
-from common import (Conf, EarlyStoppingParams, get_scheduler, optimisers,
+from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     RECON_LOSS, SYMM_LOSS, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, debug_mode,
-                    TRAINED_MODEL_WEIGHT_PLOTS)
+                    TRAINED_MODEL_WEIGHT_PLOTS)  # TODO - fix script imports
+from .config_options import Conf
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .training_helper_funcs import test_save_reload_model
 from .wandb_init_log import log_model_stats

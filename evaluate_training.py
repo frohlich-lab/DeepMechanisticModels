@@ -5,7 +5,6 @@ import os
 import pandas as pd
 
 from common import (
-    Conf,
     EVALUATION_TRAINING,
     FEATURES_PIPELINE,
     Wildcards,
@@ -15,6 +14,7 @@ from common import (
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
+from dmm.config_options import Conf
 from dmm.initialisation import get_features, pca_transform_features, subset_features
 from evaluation_utils import load_model_and_obj
 from typing import Dict

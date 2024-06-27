@@ -1,5 +1,3 @@
-import amici
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -7,13 +5,12 @@ import re
 
 import pandas as pd
 import petab
-import pypesto.objective
 import seaborn as sns
 
 from amici.petab_objective import rdatas_to_simulation_df
-from common import default_attributes
-from dmm.plotting import plot_cross_samples
-from dmm.training_helper_funcs import model_output_to_petab_input
+from .config_options import default_attributes
+from .plotting import plot_cross_samples
+from .training_helper_funcs import model_output_to_petab_input
 from pathlib import Path
 from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS

@@ -1,5 +1,3 @@
-from typing import List, Optional
-
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
@@ -12,7 +10,7 @@ from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
-#from optax import power_iteration
+from typing import List, Optional
 
 
 config.update("jax_enable_x64", True)

@@ -5,7 +5,6 @@ import petab
 
 from amici.petab_objective import rdatas_to_simulation_df
 from common import (
-    Conf,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
     TRAINED_BEST_MODELS,
@@ -14,8 +13,8 @@ from common import (
     training_samples,
 )
 from cytof.problem import CytofProblem
+from dmm.config_options import Conf
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
-from dmm.initialisation import setup_models
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
