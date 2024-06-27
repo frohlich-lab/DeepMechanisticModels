@@ -8,6 +8,7 @@ def generate_layer_sizes(
     layer_sizes = []
 
     # Determine layer sizes via successive multiplications of bottleneck size
+    # The resulting network architecture applies to a decoder/inflater module
     size = multiplier * latent_dim
     while len(layer_sizes) < depth and size <= max_width:
         layer_sizes.append(size)
@@ -17,6 +18,7 @@ def generate_layer_sizes(
     while len(layer_sizes) < depth:
         layer_sizes.append(max_width)
 
+    # Reverse layer size order for an encoder module
     if reverse:
         layer_sizes.reverse()
 

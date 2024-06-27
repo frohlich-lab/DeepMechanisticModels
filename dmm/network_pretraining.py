@@ -27,7 +27,7 @@ def loss_and_grads_pretrain(
     # recombine the two parts of the model
     model = eqx.combine(diff_model, static_model)
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = jax.vmap(model)(input_data)[0]
+    pred = jax.vmap(model)(input_data)["inflated"]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
     loss_value = (
@@ -58,7 +58,7 @@ def loss_pretrain(
         targets: Float[Array, '...'],
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = jax.vmap(model)(input_data)[0]
+    pred = jax.vmap(model)(input_data)["inflated"]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
     loss_value = (

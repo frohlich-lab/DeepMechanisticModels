@@ -206,7 +206,7 @@ def model_output_to_petab_input(
         input_data,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = vmap(model)(input_data)[0]
+    pred = vmap(model)(input_data)["inflated"]
     # Concatenate learnable global kinetic parameters with pred
     augmented_pred = jnp.concatenate(
         [
@@ -217,15 +217,12 @@ def model_output_to_petab_input(
     return augmented_pred
 
 
-def remove_close_elements(arr: np.ndarray, min_dist: int) -> np.ndarray:
-    # Initialize with the first element
-    filtered_arr = [arr[0]]
-
-    # Iterate through the array starting from the second element
-    for elem in arr[1:]:
-        if elem - filtered_arr[-1] >= min_dist:
-            filtered_arr.append(elem)
-    return np.array(filtered_arr)
+def enforce_minimum_spacing(arr: np.ndarray, min_dist: int) -> np.ndarray:
+    """
+    Filters an input array, arr, and keeps the original items that are at least min_dist apart.
+    """
+    prev = - np.inf  # ensure first element is always kept
+    return np.array([prev := x for x in arr if x - prev >= min_dist])
 
 
 def generate_log_epochs(n_epoch: int, num_samples: int, min_dist: int) -> np.ndarray:
@@ -236,7 +233,7 @@ def generate_log_epochs(n_epoch: int, num_samples: int, min_dist: int) -> np.nda
     log_epochs = np.unique(
         np.logspace(0, np.log10(n_epoch), num=num_samples).astype(int)
     )
-    return remove_close_elements(log_epochs, min_dist)
+    return enforce_minimum_spacing(log_epochs, min_dist)
 
 
 def plot_model_weights(model: DeepMechanisticModel, filename: str = None):

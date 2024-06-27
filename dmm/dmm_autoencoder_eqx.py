@@ -228,22 +228,22 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         )
 
         # Generate layer_sizes for whole modules (input, hidden, output)
-        encoder_layer_sizes = ([self.n_input_features]
-                               + generate_layer_sizes(
-                                    latent_dim=self.n_latent,
-                                    depth=self.module_depth,
-                                    max_width=self.n_input_features,
-                                    reverse=True,
-                                )
-                               + [self.n_latent])
-        inflater_layer_sizes = ([self.n_latent]
-                                + generate_layer_sizes(
-                                    latent_dim=self.n_latent,
-                                    depth=self.module_depth,
-                                    max_width=self.n_inflated_specific_kin_params,
-                                    reverse=False,
-                                )
-                                + [self.n_inflated_specific_kin_params])
+        encoder_layer_sizes = [
+            self.n_input_features, *generate_layer_sizes(
+                latent_dim=self.n_latent,
+                depth=self.module_depth,
+                max_width=self.n_input_features,
+                reverse=True,
+            ), self.n_latent
+        ]
+        inflater_layer_sizes = [
+            self.n_latent, *generate_layer_sizes(
+                latent_dim=self.n_latent,
+                depth=self.module_depth,
+                max_width=self.n_inflated_specific_kin_params,
+                reverse=False,
+            ), self.n_inflated_specific_kin_params
+        ]
 
         # Define encoder, inflater and decoder parameters
         params = {
@@ -278,7 +278,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         )
 
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
-        return self(input_data)[0]  # array containing all kinetic parameters (global first, cell-line-specific second)
+        return self(input_data)["inflated"]  # inflated kinetic parameters (global first, cell-line-specific second)
 
     def l1_encode_reg(
             self,
@@ -386,7 +386,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         Reconstruction loss of the autoencoder (in case `self.reconstruct` == True).
         Simple Mean Squared Error (without the sqrt for now!)
         """
-        reconstructed_x = jax.vmap(self)(x)[1]  # decoded
+        reconstructed_x = jax.vmap(self)(x)["decoded"]
         # TODO @GiacomoFabrini: consider moving all MSEs to RMSEs?!
         #  Are they on the same scale/order of magnitude as
         #  L1 terms if we leave them squared?!
@@ -454,7 +454,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     @classmethod
     def load(
             cls,
-            filename: Path,
+            filename: Union[Path, str],
             problem: Problem,  # not serialisable in json
             dataset: str,
             petab_base_files: Dict[str, pd.DataFrame],
@@ -465,9 +465,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param filename: path of file
         :param problem: CytofProblem instance
         :param dataset: dataset name (train/test)
+        :param petab_base_files: petab base files (measurement, observable, condition tables)
         :return: Model instance
         """
-        # Ensure filename is a Path object - TODO @GiacomoFabrini: is this necessary?
+        # Ensure filename is a Path object
         filename = Path(filename)
         with Path.open(filename, 'rb') as f:
             # Load model hyperparameters

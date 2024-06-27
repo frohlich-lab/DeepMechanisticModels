@@ -1,4 +1,3 @@
-# import dataclasses
 import numpy as np
 import pandas as pd
 import pypesto
@@ -6,7 +5,6 @@ import scipy.linalg as la
 
 from common import (
     CONDITIONS_FILE,
-    # FEATURES_OUTFILE,
     MEASUREMENTS_FILE,
     MEASUREMENTS_FILE_RW,
     MODEL_FEATURE_PREFIX,
@@ -16,30 +14,7 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
-from typing import (
-    Dict,
-    # Tuple,
-    # Union
-)
-
-# Moved Conf definition to common.py (makes more sense?)
-# @dataclasses.dataclass
-# class Conf(dict):
-#     model: str
-#     data: str
-#     context: str = None
-#     features: str = None
-#     samples: str = None
-#     sample: str = None
-#     n_hidden: int = None
-#     orth_reg_strategy: str = None  # values: "L1" / "L2"
-#     l1reg_inflate: float = 0.0
-#     oreg_inflate: float = 0.0
-#     l1reg_encode: float = 0.0
-#     oreg_encode: float = 0.0
-#     job: int = None
-#     threads: int = 1
-#     n_starts: int = None
+from typing import Dict
 
 
 def load_petab_base_files(
