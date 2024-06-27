@@ -137,7 +137,10 @@ def setup_models(
     # Check features arrays are two-dimensional
     for key in features.keys():
         if features[key].values.ndim != 2:
-            raise ValueError("features expected to be two-dimensional!")
+            raise ValueError(
+                f"features for `{key}` were expected to be two-dimensional, "
+                f"but were {features[key].values.ndim}-dimensional!"
+            )
 
     dmm_params = {
         'problem': problem,
