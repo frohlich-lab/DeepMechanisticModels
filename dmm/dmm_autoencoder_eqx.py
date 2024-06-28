@@ -71,6 +71,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
     module_depth: int = eqx.static_field()
+    module_structure_multiplier: int = eqx.static_field()
     use_layer_bias: bool = eqx.static_field()
     weight_init_fn: str = eqx.static_field()
     bias_init_fn: str = eqx.static_field()
@@ -95,6 +96,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             problem: Problem,
             dataset: str,
             module_depth: int,
+            module_structure_multiplier: int,
             use_layer_bias: bool,
             weight_init_fn: str,
             bias_init_fn: str,
@@ -120,6 +122,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         :param module_depth:
             number of hidden layers for encoder/inflater/decoder modules.
+
+        :param module_structure_multiplier:
+            multiplier for the width of subsequent hidden layers in encoder (reversed order)/inflater/decoder modules.
 
         :param use_layer_bias:
             boolean flag regulating the use/lack of biases in module layers.
@@ -171,6 +176,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.dataset_name = dataset
 
         self.module_depth = module_depth
+        self.module_structure_multiplier = module_structure_multiplier
         self.use_layer_bias = use_layer_bias
         self.weight_init_fn = weight_init_fn
         self.bias_init_fn = bias_init_fn
@@ -233,6 +239,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
                 max_width=self.n_input_features,
+                multiplier=self.module_structure_multiplier,
                 reverse=True,
             ), self.n_latent
         ]
@@ -241,6 +248,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
                 max_width=self.n_inflated_specific_kin_params,
+                multiplier=self.module_structure_multiplier,
                 reverse=False,
             ), self.n_inflated_specific_kin_params
         ]
@@ -414,6 +422,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return scale * symmetry_reg
 
     # inspired from Fabian's NeuralCoarseGraining
+    # see: https://github.com/frohlich-lab/NeuralCoarseGraining/blob/main/ncg/static.py
     def get_hyperparams(self, samples_list_dict: dict = None) -> dict[str, Union[int, dict]]:
         """
         Get the hyperparameters of the model.
@@ -423,6 +432,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return {
             'dataset': self.dataset_name,
             'module_depth': self.module_depth,
+            'module_structure_multiplier': self.module_structure_multiplier,
             'use_layer_bias': self.use_layer_bias,
             'weight_init_fn': self.weight_init_fn,
             'bias_init_fn': self.bias_init_fn,

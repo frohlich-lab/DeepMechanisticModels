@@ -147,6 +147,7 @@ def setup_models(
         'dataset': conf.data,
         'n_latent': conf.n_hidden,
         'module_depth': conf.depth,
+        'module_structure_multiplier': conf.nn_structure_multiplier,
         'use_layer_bias': conf.use_layer_bias,
         'weight_init_fn': conf.nn_init_fn,
         'bias_init_fn': conf.nn_init_fn,
