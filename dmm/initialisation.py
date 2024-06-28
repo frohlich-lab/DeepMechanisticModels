@@ -423,6 +423,25 @@ def init_global_kin_params_combiner(
         model: DeepMechanisticModel,
         nn_pretrain: bool,
 ):
+    """
+    Setup KinParamsCombiner module (model.kin_params_combiner).
+    A) If pretraining the neural network component (nn_pretrain==True), its parameters are left at their initialised
+    value (zeros) and a filter_spec is created to freeze this module.
+    B) If training the whole DMM (nn_pretrain==False), the parameters of KinParamsCombiner are initialised with the
+    median of non-cell-line specific parameters and no filter_spec is returned (learnable parameters).
+
+    :param conf:
+        configuration object (Conf).
+    :param model: ]
+        DeepMechanisticModel instance.
+    :param nn_pretrain:
+        boolean flag that tracks training stages (True during pretraining of the neural network component,
+        False during whole DMM training).
+
+    :returns:
+        if nn_pretrain: model and filter_spec freezing model.kin_params_combiner
+        if ~nn_pretrain: updated model with initialised model.kin_params_combiner
+    """
     if not nn_pretrain:
         par_medians, _ = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=False)
         # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
