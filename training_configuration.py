@@ -288,7 +288,7 @@ USE_EARLY_STOP = {
 }
 
 # PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
-PATIENCE = 9  # should be about 50 epochs (19 would correspond to about 100 epochs)
+PATIENCE = 9  # should be about 50 epochs in linear scale (unsure about log-scale!)
 
 # MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0
