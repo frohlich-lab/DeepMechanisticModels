@@ -141,11 +141,27 @@ def simulate_dmm(
     #         )
     #         return
 
-    simulation_df = rdatas_to_simulation_df(
-        res[RDATAS],
-        model=amici_model,
-        measurement_df=petab_problem.measurement_df,
-    )
+    try:
+        simulation_df = rdatas_to_simulation_df(
+            res[RDATAS],
+            model=amici_model,
+            measurement_df=petab_problem.measurement_df,
+        )
+    except Exception as e:
+        print(f"Error occurred: {e}")
+        # If there are NaNs in the simulation results (e.g. inf fval and zero grads during training),
+        # simply return a dataframe with np.inf SIMULATION values
+        if np.isnan(res["res"]).sum() > 0:
+            # Create a DataFrame identical to petab_problem.measurement_df
+            simulation_df = petab_problem.measurement_df.copy()
+            # Rename the MEASUREMENT column to SIMULATION
+            simulation_df.rename(columns={petab.MEASUREMENT: petab.SIMULATION}, inplace=True)
+            # Set simulation values to np.inf to indicate that the simulation failed
+            simulation_df[petab.SIMULATION] = np.inf
+        else:
+            # different error when trying to process simulation - raise and interrupt
+            raise
+
     return simulation_df
 
 
