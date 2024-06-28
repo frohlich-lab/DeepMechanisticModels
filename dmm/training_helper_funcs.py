@@ -343,5 +343,5 @@ def test_save_reload_model(
         petab_base_files=petab_base_files,
     )
 
-    assert (vmap(model)(input_data)[0] == vmap(re_model)(input_data)[0]).all()
-    assert (vmap(model)(input_data)[1] == vmap(re_model)(input_data)[1]).all()
+    assert (vmap(model)(input_data)["inflated"] == vmap(re_model)(input_data)["inflated"]).all()
+    assert (vmap(model)(input_data)["decoded"] == vmap(re_model)(input_data)["decoded"]).all()
