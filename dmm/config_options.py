@@ -15,7 +15,7 @@ class Conf(dict):
     sample: str = None
     # Network structure
     n_hidden: int = 0
-    nn_structure_multiplier: int = 2
+    nn_structure_multiplier: int = 0
     depth: int = 0
     linear_benchmark: bool = False
     use_layer_bias: List[bool] = False
