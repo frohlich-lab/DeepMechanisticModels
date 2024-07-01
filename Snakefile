@@ -9,11 +9,11 @@ from common import (
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
     CONTEXT_SET, SafeDict
 )
-from generate_hyperparameter_scans import generate_hyperparam_scans
+# from generate_hyperparameter_scans import generate_hyperparam_scans
 from pathlib import Path
 from training_configuration import (
     PATHWAYS, DATASETS, CONTEXTS_FEATURES, SPLITS, PRETRAIN,
-    LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
+    LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
@@ -240,7 +240,7 @@ rule estimate_parameters:
                 'model', 'data',
                 'samples', 'pretrain',
                 'context', 'features', 'features_transform', 'n_hidden',
-                'depth', 'linear_benchmark',
+                'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
@@ -332,7 +332,7 @@ rule evaluate_training:
                 'model', 'data',
                 'samples', 'pretrain',
                 'context', 'features', 'features_transform', 'n_hidden',
-                'depth', 'linear_benchmark',
+                'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
@@ -399,104 +399,52 @@ rule evaluate_regressors:
         for arg in ('model','data','samples')
         ) + ' --n_starts={N_STARTS}'
 
-# rule evaluate_all:
-#     input:
-#         script='evaluate_all.py',
-#         training=[
-#             y
-#             for x in rules.evaluate_training.output.csv
-#             for context, features in CONTEXTS_FEATURES
-#             for depth, linear_benchmark in NETWORK_LAYOUT
-#             for y in expand(
-#                 x.format_map(
-#                     SafeDict(
-#                         context=context,
-#                         features=features,
-#                         depth=depth,
-#                         linear_benchmark=linear_benchmark
-#                     )
-#                 ),
-#                 model='{model}',data='{data}',
-#                 features_transform=FEATURES_TRANSFORM,
-#                 samples=SPLITS,
-#                 pretrain=PRETRAIN,
-#                 n_hidden=LATENT_DIMS,
-#                 use_layer_bias=USE_BIAS,
-#                 nn_init_fn=NN_INIT_FN,
-#                 reconstruct=RECONSTRUCT,
-#                 activation_fn_name=ACTIVATION_FNS,
-#                 optimiser=OPTIMISERS,
-#                 orth_reg_strategy=ORTH_REG_STRATEGIES,
-#                 l1reg_inflate=ALPHAS,
-#                 oreg_inflate=BETAS,
-#                 l1reg_encode=GAMMAS,
-#                 oreg_encode=DELTAS,
-#                 recon_loss=EPSILONS,
-#                 symm_reg=ZETAS,
-#                 max_lrate=MAX_LEARNING_RATES,
-#                 lrate_span=LEARNING_RATE_SPANS,
-#                 lrate_decay=LEARNING_RATE_DECAYS,
-#                 warmup_fct=WARMUP_FCTS,
-#                 opt_steps=OPT_STEPS,
-#                 opt_mult=OPT_MULT,
-#                 use_simple_linear_schedule=LINEAR_SCHEDULE,
-#                 use_early_stopping=USE_EARLY_STOP,  # patience and min_improvement imported in `train.py`
-#                 job=STARTS,
-#                 drop_reg_after_pretrain=DROP_REG_POST_PRETRAIN,
-#                 sparsity_threshold=SPARSITY_THRESHOLD,
-#             )
-#         ],
-#         reference=expand(
-#             rules.evaluate_references.output.csv,
-#             model='{model}',data='{data}',samples=SPLITS,
-#         )+expand(
-#             rules.evaluate_regressors.output.csv,
-#             model='{model}',data='{data}',samples=SPLITS,
-#         )
-#     output:
-#         plot=[
-#             EVALUATE_ALL.format_map(SafeDict(group=group))
-#             for group in (
-#                 'n_hidden',
-#                 'reconstruct', 'activation_fn_name',
-#                 'orth_reg_strategy',
-#                 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
-#                 'heatmaps_n_hidden_pairwise',
-#                 'volcano_plot_stat_test',
-#             )
-#         ],
-#         csv=[
-#             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
-#             for filename in (
-#                 'evaluate_all',
-#                 'stat_tests_all',
-#             )
-#         ]
-#     wildcard_constraints:
-#         model='\w+',
-#         data=r'[\w\.]+',
-#         samples='[0-9]+_[0-9]+',
-#     resources:
-#         mem="16GB",
-#         runtime="90m",
-#         nodes=1,
-#         threads=1,
-#     shell:
-#         'python3 {input.script} ' + ' '.join(
-#             f'--{arg}={{wildcards.{arg}}}'
-#             for arg in ('model', 'data')
-#         ) + ' --n_starts={N_STARTS}'
-
-rule evaluate_all_linear_scans:
+rule evaluate_all:
     input:
         script='evaluate_all.py',
         training=[
             y
             for x in rules.evaluate_training.output.csv
-            for hyperparam_configuration in generate_hyperparam_scans(n_starts=N_STARTS)
+            for context, features in CONTEXTS_FEATURES
+            for depth, linear_benchmark in NETWORK_LAYOUT
             for y in expand(
-                x.format_map(SafeDict(**hyperparam_configuration)),
-                model='{model}', data='{data}'
+                x.format_map(
+                    SafeDict(
+                        context=context,
+                        features=features,
+                        depth=depth,
+                        linear_benchmark=linear_benchmark
+                    )
+                ),
+                model='{model}',data='{data}',
+                features_transform=FEATURES_TRANSFORM,
+                samples=SPLITS,
+                pretrain=PRETRAIN,
+                n_hidden=LATENT_DIMS,
+                nn_structure_multiplier=NN_STRUCTURE_MULTIPLIER,
+                use_layer_bias=USE_BIAS,
+                nn_init_fn=NN_INIT_FN,
+                reconstruct=RECONSTRUCT,
+                activation_fn_name=ACTIVATION_FNS,
+                optimiser=OPTIMISERS,
+                orth_reg_strategy=ORTH_REG_STRATEGIES,
+                l1reg_inflate=ALPHAS,
+                oreg_inflate=BETAS,
+                l1reg_encode=GAMMAS,
+                oreg_encode=DELTAS,
+                recon_loss=EPSILONS,
+                symm_reg=ZETAS,
+                max_lrate=MAX_LEARNING_RATES,
+                lrate_span=LEARNING_RATE_SPANS,
+                lrate_decay=LEARNING_RATE_DECAYS,
+                warmup_fct=WARMUP_FCTS,
+                opt_steps=OPT_STEPS,
+                opt_mult=OPT_MULT,
+                use_simple_linear_schedule=LINEAR_SCHEDULE,
+                use_early_stopping=USE_EARLY_STOP,  # patience and min_improvement imported in `train.py`
+                drop_reg_after_pretrain=DROP_REG_POST_PRETRAIN,
+                sparsity_threshold=SPARSITY_THRESHOLD,
+                job=STARTS,
             )
         ],
         reference=expand(
@@ -514,12 +462,15 @@ rule evaluate_all_linear_scans:
                 'reconstruct', 'activation_fn_name',
                 'orth_reg_strategy',
                 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
+                'heatmaps_n_hidden_pairwise',
+                'volcano_plot_stat_test',
             )
         ],
         csv=[
             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
             for filename in (
                 'evaluate_all',
+                'stat_tests_all',
             )
         ]
     wildcard_constraints:
@@ -537,20 +488,70 @@ rule evaluate_all_linear_scans:
             for arg in ('model', 'data')
         ) + ' --n_starts={N_STARTS}'
 
-# # Regular train_and_evaluate
-# rule train_and_evaluate:
+# rule evaluate_all_linear_scans:
 #     input:
-#          evaluation=expand(
-#              rules.evaluate_all.output.plot,
-#              model=PATHWAYS, data=DATASETS, samples=SPLITS
-#          ),
+#         script='evaluate_all.py',
+#         training=[
+#             y
+#             for x in rules.evaluate_training.output.csv
+#             for hyperparam_configuration in generate_hyperparam_scans(n_starts=N_STARTS)
+#             for y in expand(
+#                 x.format_map(SafeDict(**hyperparam_configuration)),
+#                 model='{model}', data='{data}'
+#             )
+#         ],
+#         reference=expand(
+#             rules.evaluate_references.output.csv,
+#             model='{model}',data='{data}',samples=SPLITS,
+#         )+expand(
+#             rules.evaluate_regressors.output.csv,
+#             model='{model}',data='{data}',samples=SPLITS,
+#         )
+#     output:
+#         plot=[
+#             EVALUATE_ALL.format_map(SafeDict(group=group))
+#             for group in (
+#                 'n_hidden',
+#                 'reconstruct', 'activation_fn_name',
+#                 'orth_reg_strategy',
+#                 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
+#             )
+#         ],
+#         csv=[
+#             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
+#             for filename in (
+#                 'evaluate_all',
+#             )
+#         ]
+#     wildcard_constraints:
+#         model='\w+',
+#         data=r'[\w\.]+',
+#         samples='[0-9]+_[0-9]+',
+#     resources:
+#         mem="16GB",
+#         runtime="90m",
+#         nodes=1,
+#         threads=1,
+#     shell:
+#         'python3 {input.script} ' + ' '.join(
+#             f'--{arg}={{wildcards.{arg}}}'
+#             for arg in ('model', 'data')
+#         ) + ' --n_starts={N_STARTS}'
 
-# train_and_evaluate used for Linear Hyperparameter Scans
-rule train_and_evaluate_linear_scans:
+# Regular train_and_evaluate
+rule train_and_evaluate:
     input:
          evaluation=expand(
-             rules.evaluate_all_linear_scans.output.plot,
+             rules.evaluate_all.output.plot,
              model=PATHWAYS, data=DATASETS, samples=SPLITS
          ),
+
+# # train_and_evaluate used for Linear Hyperparameter Scans
+# rule train_and_evaluate_linear_scans:
+#     input:
+#          evaluation=expand(
+#              rules.evaluate_all_linear_scans.output.plot,
+#              model=PATHWAYS, data=DATASETS, samples=SPLITS
+#          ),
 
 ruleorder: pretrain_average_model > pretrain_per_sample

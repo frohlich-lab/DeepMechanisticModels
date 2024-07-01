@@ -53,17 +53,17 @@ PRETRAIN = {
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
 # From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
 # appears to be better? -- stat tests show the same.
-# LATENT_DIMS = (
-#     2,
-#     # 3,
-#     # 4,
-#     # 6,
-#     # 8,
-#     # 10,
-#     # 12
-# )
+LATENT_DIMS = (
+    # 2,
+    # 3,
+    # 4,
+    # 6,
+    8,
+    10,
+    14  # inflater does not inflate, rather simply processes same shape input
+)
 # Define linear scan for LATENT_DIMS
-LATENT_DIMS = {'range': (1, 2, 3, 4, 6, 8, 10), 'central_value': 2}
+# LATENT_DIMS = {'range': (1, 2, 3, 4, 6, 8, 10), 'central_value': 2}
 
 # Network Layout/Architecture
 # NETWORK_LAYOUT = {
@@ -77,22 +77,27 @@ LATENT_DIMS = {'range': (1, 2, 3, 4, 6, 8, 10), 'central_value': 2}
 NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network layouts for linear scans in modular fashion
-NETWORK_LAYOUT = {
-    'range': (
-        (0, "False"),
-        (1, "False"),
-        (2, "False"),
-        (3, "False"),
-        (4, "False"),
-        (5, "False"),
-    ),  # 0-5 hidden layers, no linear benchmark
-    'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
-}
+# NETWORK_LAYOUT = {
+#     'range': (
+#         (0, "False"),
+#         (1, "False"),
+#         (2, "False"),
+#         (3, "False"),
+#         (4, "False"),
+#         (5, "False"),
+#     ),  # 0-5 hidden layers, no linear benchmark
+#     'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
+# }
+
+NETWORK_LAYOUT = (
+    (2, "False"),
+    # (3, "False"),
+)
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
 # hyperparameter
 USE_BIAS = (
-    # "True",
+    "True",
     "False",
 )
 
@@ -120,9 +125,9 @@ RECONSTRUCT = (
 # Activation Functions: activation_fn_name
 ACTIVATION_FNS = (
     "tanh",
-    "relu",
+    # "relu",
     # "leaky_relu",
-    # "swish",
+    "swish",
 )
 
 # optimiser to use
@@ -136,141 +141,150 @@ OPTIMISERS = {
 # ORTHOGONAL REGULARISATION STRATEGIES: L1 vs L2
 ORTH_REG_STRATEGIES = (
     # "L1",
-    "L2",  # restricting to L2 only post stat tests
+    "L2",
 )
 
 
 # Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE = (0, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10)
-LINEAR_SCAN_CENTRAL = 1e5
+# LINEAR_SCAN_RANGE = (0, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10)
+# LINEAR_SCAN_CENTRAL = 1e5
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 # From W&B, it seems that rmse_val.min is positively correlated with `l1reg` params
 # i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
-# ALPHAS = (
-#     # 0,  # tested
-#     # 1e1,
-#     # 5e1,
-#     # 1e2, # tested
-#     # 1e3,
-#     # 1e4, # tested
-#     1e6,  # reenable
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
-ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+ALPHAS = (
+    # 0,  # tested
+    # 1e1,
+    # 5e1,
+    # 1e2, # tested
+    1e3,
+    # 1e4, # tested
+    1e5,  # reenable
+    # 1e6,
+    # 1e8,
+    # 1e10,  # increasing values
+)
+# ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
 # the lower the rmse_val.min
-# BETAS = (
-#     # 0,  # tested
-#     1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
-#     # 1e4, # tested
-#     # 1e6, # tested
-#     # 1e7,
-#     # 1e8,
-# )
-BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+BETAS = (
+    # 0,  # tested
+    1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
+    # 1e4, # tested
+    # 1e5,
+    # 1e6, # tested
+    1e7,
+    # 1e8,
+)
+# BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
-# GAMMAS = (
-#     # 0,  # tested
-#     # 1e1,
-#     # 5e1,
-#     # 1e2,  # tested
-#     # 1e3,
-#     # 1e4,  # tested
-#     1e6,  # tested
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
-GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+GAMMAS = (
+    # 0,  # tested
+    # 1e1,
+    # 5e1,
+    # 1e2,  # tested
+    1e3,
+    # 1e4,  # tested
+    # 1e5,
+    # 1e6,  # tested
+    # 1e8,
+    # 1e10,  # increasing values
+)
+# GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
-# DELTAS = (
-#     # 0,  # tested
-#     # 1e2, # tested
-#     # 1e4, # tested
-#     1e6,  # tested
-#     # 1e7,
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
-DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+DELTAS = (
+    # 0,  # tested
+    # 1e2, # tested
+    # 1e4, # tested
+    # 1e6,  # tested
+    1e7,
+    # 1e8,
+    # 1e10,  # increasing values
+)
+# DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
-# EPSILONS = (
-#     1.0,
-# )
-EPSILONS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+EPSILONS = (
+    # 0,
+    # 1.0,
+    1e5,
+    1e7,
+)
+# EPSILONS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
-# ZETAS = (
-#     1.0,
-# )
-ZETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+ZETAS = (
+    # 0,
+    # 1.0,
+    1e5,
+    # 1e8,
+)
+# ZETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
-# MAX_LEARNING_RATES = {
-#     # 1e-1,
-#     # 1e-2,
-#     1e-3,
-# }
+MAX_LEARNING_RATES = {
+    1e-1,
+    1e-2,
+    # 1e-3,
+}
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (1e-4, 1e-3, 1e-2, 1e-1, 1e0), 'central_value': 1e-3}
+# MAX_LEARNING_RATES = {'range': (1e-4, 1e-3, 1e-2, 1e-1, 1e0), 'central_value': 1e-3}
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
-# LEARNING_RATE_SPANS = {
-#     # 1e0,
-#     1e1,  # ratio of 10
-#     # 1e2,  # ratio of 100
-#     # 1e3,
-# }
+LEARNING_RATE_SPANS = {
+    1e0,
+    # 1e1,  # ratio of 10
+    # 1e2,  # ratio of 100
+    # 1e3,
+}
 # Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2, 1e3, 1e4, 1e5), 'central_value': 1e1}
+# LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2, 1e3, 1e4, 1e5), 'central_value': 1e1}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
-# LEARNING_RATE_DECAYS = {
-#     # 0.9**0, # no decay
-#     0.9**1,
-#     # 0.9**2,
-#     # 0.9**3,
-# }
+LEARNING_RATE_DECAYS = {
+    0.9**0, # no decay
+    # 0.9**1,
+    # 0.9**2,
+    # 0.9**3,
+}
 # Linear scan range for lrate_decay
-LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2, 0.9**3, 0.9**4), 'central_value': 0.9**1}
+# LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2, 0.9**3, 0.9**4), 'central_value': 0.9**1}
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
-# WARMUP_FCTS = {
-#     # 0.4,
-#     0.2,
-#     # 0.1,
-#     # 0.05,
-#     # 1e-2,
-#     # 1e-3,
-# }
+WARMUP_FCTS = {
+    # 0.4,
+    # 0.2,
+    0.1,
+    # 0.05,
+    # 1e-2,
+    # 1e-3,
+}
 # Linear scan range for warmup_fct
-WARMUP_FCTS = {'range': (0.4, 0.2, 0.1, 0.05, 0.01), 'central_value': 0.1}
+# WARMUP_FCTS = {'range': (0.4, 0.2, 0.1, 0.05, 0.01), 'central_value': 0.1}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
-# OPT_STEPS = {
-#     # 1,
-#     # 2,
-#     10,
-# }
+OPT_STEPS = {
+    # 1,
+    # 2,
+    10,
+}
 # Linear scan range for opt_steps
-OPT_STEPS = {'range': (1, 2, 5, 10), 'central_value': 2}
+# OPT_STEPS = {'range': (1, 2, 5, 10), 'central_value': 2}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
-# OPT_MULT = {
-#     # 1,
-#     2,
-#     # 3,
-# }
+OPT_MULT = {
+    # 1,
+    2,
+    # 3,
+}
 # Linear scan range for opt_mult
-OPT_MULT = {'range': (1, 2, 3, 5), 'central_value': 2}
+# OPT_MULT = {'range': (1, 2, 3, 5), 'central_value': 2}
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
 # with the given max learning rate, warm-up and decay
@@ -296,7 +310,7 @@ MIN_IMPROVEMENT = 0
 # Drop regularisation after pretraining
 DROP_REG_POST_PRETRAIN = {
     "True",
-    # "False",
+    "False",
 }
 
 # Threshold to sparsify the model weights if dropping regularisation post pretraining (while keeping learnt sparsity)
