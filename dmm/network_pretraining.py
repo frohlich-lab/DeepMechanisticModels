@@ -7,7 +7,7 @@ import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .wandb_init_log import log_model_stats
-from .training_helper_funcs import get_finite_grads
+from .training_helper_funcs import get_finite_grads, generate_log_epochs
 from common import (EarlyStoppingParams, get_scheduler, optimisers,
                     L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)  # TODO - fix script imports
 from flax.training.early_stopping import EarlyStopping
@@ -146,6 +146,8 @@ def pretrain_network(
         next_model = eqx.apply_updates(model, updates)
         return next_model, model, opt_state, loss_value, grads
 
+    # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
+    log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
     # Training loop
     for epoch in range(n_epoch + 1):
         # Make training step - model is not updated to get current metrics
@@ -240,7 +242,7 @@ def pretrain_network(
         model = next_model
 
         # Log param values and grads every 5 epochs + check early-stopping criteria
-        if epoch % 5 == 0:
+        if epoch in log_epochs:
             wandb.log(
                 {
                   **log_model_stats(model, grads, pretrain=True)

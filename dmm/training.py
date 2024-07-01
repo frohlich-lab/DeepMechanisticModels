@@ -148,7 +148,7 @@ def train(
             )
 
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
-    log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)
+    log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
     # Training loop
     for epoch in range(n_epoch + 1):
         next_model, model, opt_state, loss_train, grads = make_step(
