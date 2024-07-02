@@ -33,7 +33,7 @@ trace_path = Path(__file__).parents[1] / "traces"
 TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
 
 
-@eqx.filter_value_and_grad
+@eqx.filter_value_and_grad(has_aux=True)
 def loss_fn(
         model: DeepMechanisticModel,
         conf: Dict,
@@ -69,7 +69,7 @@ def loss_fn(
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
 
-    return loss_value
+    return loss_value, fval
 
 
 @eqx.filter_jit
@@ -82,7 +82,7 @@ def make_step(
         problem_train: pypesto.Problem,
         conf: Dict,
 ):
-    loss_value, grads = loss_fn(
+    (loss_value, fval), grads = loss_fn(
         model,
         conf,
         input_data,
@@ -95,7 +95,7 @@ def make_step(
     filtered_updates = apply_filter_to_updates(updates, filter_spec_per_param)
     # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
     next_model = eqx.apply_updates(model, filtered_updates)
-    return next_model, model, opt_state, loss_value, grads
+    return next_model, model, opt_state, loss_value, fval, grads
 
 
 def train(
@@ -151,7 +151,7 @@ def train(
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
     # Training loop
     for epoch in range(n_epoch + 1):
-        next_model, model, opt_state, loss_train, grads = make_step(
+        next_model, model, opt_state, loss_train, fval, grads = make_step(
             model=model,
             filter_spec_per_param=filter_spec_per_param,
             opt=opt,
@@ -159,11 +159,6 @@ def train(
             input_data=input_features_train,
             problem_train=problem_train,
             conf=conf,
-        )
-
-        # Get current fval for logging purposes
-        fval = problem_train.objective(
-            model_output_to_petab_input(model, input_features_train)
         )
 
         # Log fval and loss_train at this epoch
