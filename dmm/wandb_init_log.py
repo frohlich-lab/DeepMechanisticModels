@@ -1,9 +1,10 @@
 import equinox as eqx
 import git
+import jax.numpy as jnp
 import numpy as np
 import wandb
 
-from common import EarlyStoppingParams, L1EREG, OEREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS  # TODO - fix script imports
+from common import EarlyStoppingParams, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS  # TODO - fix script imports
 from .config_options import Conf
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
@@ -203,3 +204,87 @@ def log_model_stats(
         stats = {**layer_stats, **kin_params_stats}
 
     return stats
+
+
+def log_extra_loss_terms(
+        model: DeepMechanisticModel,
+        conf: dict,
+        input_data: jnp.ndarray,
+        epoch: int,
+        nn_pretrain: bool
+):
+    """
+    Function to log extra loss terms (not fval nor loss itself) to W&B: regularisation terms, reconstruction loss.
+
+    :param model:
+        DeepMechanisticModel instance.
+    :param conf:
+        configuration dictionary.
+    :param input_data:
+        data to compute reconstruction loss on.
+    :param epoch:
+        training iteration/epoch.
+    :param nn_pretrain:
+        flag discriminating between neural network pretraining (nn_pretrain=True) and
+        full DMM training (nn_pretrain=False).
+
+    :return:
+        n/a (simply logs to W&B)
+    """
+    # Set up regularisation logging
+    reg_funs = [
+        # Encoder
+        model.l1_encode_reg,
+        model.orth_encode_reg,
+        # Inflater
+        model.l1_inflate_reg,
+        model.orth_inflate_reg,
+    ]
+    log_labels = [
+        # Encoder
+        L1EREG, OEREG,
+        # Inflater
+        L1IREG, OIREG
+    ]
+    hp_names = [
+        # Encoder
+        L1EREG, OEREG,
+        # Inflater
+        L1IREG, OIREG
+    ]
+
+    if model.reconstruct:
+        # include decoder regularisation terms
+        reg_funs.extend([model.l1_decode_reg, model.orth_decode_reg])
+        log_labels.extend([L1DREG, ODREG])
+        hp_names.extend([L1EREG, OEREG])  # scales of decoder reg match encoder!
+        # log additional loss terms (reconstruction and symmetry loss)
+        wandb.log(
+            {
+                # for reconstruction loss: log validation loss
+                RECON_LOSS: model.reconstruction_loss(
+                    x=input_data,
+                    scale=conf[RECON_LOSS],
+                ),
+                SYMM_LOSS: model.symmetry_loss(scale=conf[SYMM_LOSS])
+            },
+            step=epoch,
+        )
+    # If pretraining, log regularisation
+    # If training full DMM and keeping regularisation, log regularisation
+    # If training full DMM and dropping regularisation, do not log regularisation
+    if (not nn_pretrain) and (not conf["drop_reg_after_pretrain"]):
+        # Log input-independent regularisation terms (same across training and validation)
+        for (
+                reg_fun,
+                log_label,
+                hp_name
+        ) in zip(
+            reg_funs,
+            log_labels,
+            hp_names,
+        ):
+            if conf[hp_name] > 0:
+                # Simply compute the value of the function
+                value_reg = reg_fun(scale=conf[hp_name])
+                wandb.log({log_label: value_reg}, step=epoch)

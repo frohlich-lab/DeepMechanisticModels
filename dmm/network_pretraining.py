@@ -6,10 +6,9 @@ import subprocess
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
-from .wandb_init_log import log_model_stats
+from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import get_finite_grads, generate_log_epochs
-from common import (EarlyStoppingParams, get_scheduler, optimisers,
-                    L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS, debug_mode)  # TODO - fix script imports
+from common import EarlyStoppingParams, get_scheduler, optimisers, debug_mode  # TODO - fix script imports
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
 from pathlib import Path
@@ -182,61 +181,13 @@ def pretrain_network(
             step=epoch
         )
 
-        # Set up regularisation logging
-        reg_funs = [
-            # Encoder
-            model.l1_encode_reg,
-            model.orth_encode_reg,
-            # Inflater
-            model.l1_inflate_reg,
-            model.orth_inflate_reg,
-        ]
-        log_labels = [
-            # Encoder
-            L1EREG, OEREG,
-            # Inflater
-            L1IREG, OIREG
-        ]
-        hp_names = [
-            # Encoder
-            L1EREG, OEREG,
-            # Inflater
-            L1IREG, OIREG
-        ]
-
-        if model.reconstruct:
-            # include decoder regularisation terms
-            reg_funs.extend([model.l1_decode_reg, model.orth_decode_reg])
-            log_labels.extend([L1DREG, ODREG])
-            hp_names.extend([L1EREG, OEREG])  # scales of decoder reg match encoder!
-            # log additional loss terms (reconstruction and symmetry loss)
-            wandb.log(
-                {
-                    # for reconstruction loss: log validation loss
-                    RECON_LOSS: model.reconstruction_loss(
-                        x=validation_data,
-                        scale=conf[RECON_LOSS],
-                    ),
-                    SYMM_LOSS: model.symmetry_loss(scale=conf[SYMM_LOSS])
-                },
-                step=epoch,
-            )
-        # Log input-independent regularisation terms (same across training and validation)
-        for (
-                reg_fun,
-                log_label,
-                hp_name
-        ) in zip(
-                reg_funs,
-                log_labels,
-                hp_names,
-        ):
-            # this is where the scale parameter of the various regularisation
-            # methods get changed via the hyperparameters in training_configuration.py
-            if conf[hp_name] > 0:
-                # Simply compute the value of the function
-                value_reg = reg_fun(scale=conf[hp_name])
-                wandb.log({log_label: value_reg}, step=epoch)
+        log_extra_loss_terms(
+            model=model,
+            conf=conf,
+            input_data=validation_data,  # use validation_data for RECON_LOSS
+            epoch=epoch,
+            nn_pretrain=True,  # network pretraining stage
+        )
 
         # Overwrite `model` with updated `next_model`
         model = next_model
