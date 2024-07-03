@@ -1,5 +1,8 @@
 import dataclasses
-from typing import Dict, List, Optional, Union
+import numpy as np
+
+from optax import Schedule, sgdr_schedule
+from typing import Dict, List, Optional
 
 
 @dataclasses.dataclass(repr=True, init=True)
@@ -92,6 +95,13 @@ class ModuleParams(dict):
     bias_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
 
 
+@dataclasses.dataclass
+class EarlyStoppingParams(dict):
+    use_early_stopping: bool = True
+    patience: int = 9
+    min_improvement: float = 0
+
+
 default_attributes = [
     k
     for k, v in vars(Conf).items()
@@ -99,3 +109,63 @@ default_attributes = [
         'model', 'data', 'sample',
         'threads', 'n_starts']
 ]
+
+# define abbreviations/labels for logging of loss terms
+L1EREG = "l1reg_encode"
+OEREG = "oreg_encode"
+L1DREG = "l1reg_decode"  # uses the same scale as l1reg_encode
+ODREG = "oreg_decode"  # uses the same scale as oreg_encode
+L1IREG = "l1reg_inflate"
+OIREG = "oreg_inflate"
+RECON_LOSS = "recon_loss"
+SYMM_LOSS = "symm_reg"
+
+
+def get_scheduler(
+        conf: Dict,
+        n_epoch: int,
+) -> Schedule:
+    """Get the learning rate scheduler.
+
+    Parameters
+    ----------
+    conf : configuration object
+    n_epoch : int - total number of training epochs
+
+    Returns
+    ----------
+    optax.sgdr_schedule
+        The learning rate scheduler.
+    """
+    if conf["use_simple_linear_schedule"]:
+        # Define custom steps to use the same machinery as below - schedule config should
+        # be entirely within conf object
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
+                'peak_value': conf["max_lrate"],  # after warm-up
+                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
+                'decay_steps': n_epoch,  # entire n_epoch
+                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
+            }  # single linear schedule
+        ]
+    else:
+        epochs_per_schedule = np.array([
+            conf["opt_steps"] * (conf["opt_mult"] ** i)
+            for i in range(int(n_epoch // conf["opt_steps"]))
+            if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
+        ])
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                'warmup_steps': int(
+                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
+                    * conf["warmup_fct"]
+                ),
+                'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
+                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
+            }
+            for i_schedule in range(len(epochs_per_schedule))
+        ]
+    return sgdr_schedule(schedules)

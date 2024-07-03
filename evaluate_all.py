@@ -37,6 +37,7 @@ from evaluation_utils import (get_measurements_and_obervables,
                               process_avg_model_simulation,
                               process_per_sample_pretrain)
 from joblib import load
+from pathlib import Path
 from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
@@ -46,7 +47,7 @@ from training_configuration import (
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
     LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS, SPARSITY_THRESHOLD
 )
-from typing import List
+from typing import List, Union
 from util import load_petab_base_files
 
 
@@ -70,20 +71,25 @@ def get_dmm_conf(
 
 def load_and_transform_features(
         conf: Conf,
+        features_filepath: Union[Path, str],
+        pipeline_filepath: Union[Path, str],
         dataset: str
 ) -> np.ndarray:
     features = get_features(
-        conf=conf,
+        features_filepath=features_filepath,
         datasets=['train', 'val']
     )
     if conf.features_transform == "pca":
         # Load pre-trained pipeline if it exists
-        pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
-        if os.path.exists(pipeline_file):
-            pipeline = load(FEATURES_PIPELINE.format_map(conf.__dict__))
+        if os.path.exists(pipeline_filepath):
+            pipeline = load(pipeline_filepath)
         else:
             pipeline = None
-        features = pca_transform_features(features, conf, pipeline)
+        features = pca_transform_features(
+            features=features,
+            pipeline_filepath=pipeline_filepath,
+            pipeline=pipeline,
+        )
     if dataset == 'train':
         features_dataset = 'train'
     elif dataset == 'test':

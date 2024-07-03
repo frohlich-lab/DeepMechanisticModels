@@ -10,8 +10,8 @@ import wandb
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
 # from amici.petab_objective import rdatas_to_simulation_df
-from common import EarlyStoppingParams, get_scheduler, optimisers, debug_mode, TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix script imports
-from .config_options import Conf
+from common import TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix script imports
+from .config_options import Conf, EarlyStoppingParams, get_scheduler
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .training_helper_funcs import test_save_reload_model
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
@@ -20,6 +20,7 @@ from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
+from optax import GradientTransformation
 from pathlib import Path
 from pypesto import Result
 from pypesto.C import MODE_RES, RDATAS
@@ -107,9 +108,11 @@ def train(
         model_file: Path,
         samples_name_list_dict: dict,
         conf: Dict,
+        optimiser: GradientTransformation,
         n_epoch,
         x0,  # PEtab-compatible embedding of initial parameters
         early_stopping_params: EarlyStoppingParams,
+        debug_mode: bool = False,
 ) -> pypesto.Result:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -118,7 +121,7 @@ def train(
 
     # Get schedule and initialise optimiser
     schedule = get_scheduler(conf, n_epoch)
-    opt = optimisers[conf["optimiser"]](schedule)
+    opt = optimiser(schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
     # Initialise default values for early_stopper and epoch

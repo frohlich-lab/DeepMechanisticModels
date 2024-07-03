@@ -6,6 +6,8 @@ import pandas as pd
 
 from common import (
     EVALUATION_TRAINING,
+    EVALUATION_PLOT_FILE,
+    FEATURES_OUTFILE,
     FEATURES_PIPELINE,
     Wildcards,
     fig_dir,
@@ -17,6 +19,7 @@ from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
 from dmm.initialisation import get_features, pca_transform_features, subset_features
 from evaluation_utils import load_model_and_obj
+from pathlib import Path
 from typing import Dict
 from util import load_petab_base_files
 
@@ -67,6 +70,7 @@ def evaluate_training(
         dataset=dataset,
         outdir=outdir / "simulation",
         evaluations=evaluations,
+        plot_file_prefix=EVALUATION_PLOT_FILE.format(dataset=dataset, **conf.__dict__),
     )
 
     return pd.DataFrame(evaluations)
@@ -76,15 +80,24 @@ def evaluate_training(
 petab_base_files = load_petab_base_files(conf, reweight=True)
 
 # Load and transform features
-features = get_features(conf, datasets=['train', 'val'])
+features_filepath = FEATURES_OUTFILE.format(
+    **{**conf.__dict__, **dict(dataset='{dataset}')}
+)
+feature_transform_pipeline_filepath = Path(
+    FEATURES_PIPELINE.format_map(conf.__dict__)
+)
+features = get_features(features_filepath=features_filepath, datasets=['train', 'val'])
 if conf.features_transform == "pca":
     # Load pre-trained pipeline if it exists
-    pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
-    if os.path.exists(pipeline_file):
-        pipeline = joblib.load(FEATURES_PIPELINE.format_map(conf.__dict__))
+    if os.path.exists(feature_transform_pipeline_filepath):
+        pipeline = joblib.load(feature_transform_pipeline_filepath)
     else:
         pipeline = None
-    features = pca_transform_features(features, conf, pipeline)
+    features = pca_transform_features(
+        features=features,
+        pipeline_filepath=feature_transform_pipeline_filepath,
+        pipeline=pipeline,
+    )
 
 
 # TODO @GiacomoFabrini: check here "val" vs "test"

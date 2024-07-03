@@ -1,38 +1,20 @@
-import dataclasses
 import numpy as np
 import os
 
 from collections import namedtuple
 from cytof import get_samples
 from dmm.config_options import default_attributes
-from optax import adam, adamw, Schedule, sgdr_schedule
+from optax import adam, adamw
 from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
-from typing import Dict, List
+from typing import List
 
-
-# define abbreviations/labels for logging of loss terms
-L1EREG = "l1reg_encode"
-OEREG = "oreg_encode"
-L1DREG = "l1reg_decode"  # uses the same scale as l1reg_encode
-ODREG = "oreg_decode"  # uses the same scale as oreg_encode
-L1IREG = "l1reg_inflate"
-OIREG = "oreg_inflate"
-RECON_LOSS = "recon_loss"
-SYMM_LOSS = "symm_reg"
 
 # Optimisers to choose from
 optimisers = {
     "adam": adam,
     "adamw": adamw,
 }
-
-
-@dataclasses.dataclass
-class EarlyStoppingParams(dict):
-    use_early_stopping: bool = True
-    patience: int = 9
-    min_improvement: float = 0
 
 
 # moved from Snakefile
@@ -165,6 +147,8 @@ EVALUATION_TRAINING = str(
     / "{dataset}"
     / (tpl_evaluation_file + ".csv")
 )
+
+EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
 
@@ -228,53 +212,3 @@ def select_values(data, num_selected: int):
     selected_values = [data_list[i] for i in indices]
 
     return selected_values
-
-
-def get_scheduler(
-        conf: Dict,
-        n_epoch: int,
-) -> Schedule:
-    """Get the learning rate scheduler.
-
-    Parameters
-    ----------
-    conf : configuration object
-    n_epoch : int - total number of training epochs
-
-    Returns
-    ----------
-    optax.sgdr_schedule
-        The learning rate scheduler.
-    """
-    if conf["use_simple_linear_schedule"]:
-        # Define custom steps to use the same machinery as below - schedule config should
-        # be entirely within conf object
-        schedules = [
-            {
-                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
-                'peak_value': conf["max_lrate"],  # after warm-up
-                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
-                'decay_steps': n_epoch,  # entire n_epoch
-                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
-            }  # single linear schedule
-        ]
-    else:
-        epochs_per_schedule = np.array([
-            conf["opt_steps"] * (conf["opt_mult"] ** i)
-            for i in range(int(n_epoch // conf["opt_steps"]))
-            if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
-        ])
-        schedules = [
-            {
-                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
-                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
-                'warmup_steps': int(
-                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
-                    * conf["warmup_fct"]
-                ),
-                'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
-                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
-            }
-            for i_schedule in range(len(epochs_per_schedule))
-        ]
-    return sgdr_schedule(schedules)

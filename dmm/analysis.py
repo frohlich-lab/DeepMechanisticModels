@@ -175,6 +175,7 @@ def evaluate_simulations(
     dataset,
     outdir,
     evaluations,
+    plot_file_prefix: str,
 ):
     # Simulate DMM model
     simulation_df = simulate_dmm(model, input_features, obj, petab_problem)
@@ -191,16 +192,8 @@ def evaluate_simulations(
     plot_cross_samples(
         petab_problem.measurement_df,
         simulation_df,
-        outdir / dataset,
-        "__".join(
-            [
-                dataset,
-                conf.samples,
-                conf.context,
-                conf.features,
-                conf.__str__(),
-            ]
-        )
+        figdir=outdir / dataset,
+        prefix=plot_file_prefix,
     )
 
 

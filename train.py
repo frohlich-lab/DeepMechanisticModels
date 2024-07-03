@@ -1,8 +1,9 @@
 import fire
 import jax.tree_util as jtu
 
-from common import EarlyStoppingParams, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS
-from dmm.config_options import Conf
+from common import (FEATURES_OUTFILE, FEATURES_PIPELINE, TRAINING_OUTFILE_RESULTS,
+                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, optimisers)
+from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
@@ -23,10 +24,16 @@ from util import load_petab_base_files
 conf = fire.Fire(Conf)
 
 # Remove blank spaces introduced by encoder/inflater_layer_sizes
+per_sample_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
+    **{**conf.__dict__, **dict(sample="{sample}")}
+)
 results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
-
+features_filepath = FEATURES_OUTFILE.format(
+    **{**conf.__dict__, **dict(dataset='{dataset}')}
+)
+feature_transform_pipeline_filepath = Path(FEATURES_PIPELINE.format(**conf.__dict__))
 # Set JAX configuration
 config.update("jax_enable_x64", True)
 
@@ -34,8 +41,10 @@ config.update("jax_enable_x64", True)
 petab_base_files = load_petab_base_files(conf=conf, reweight=True)
 # Setup models + load and (potentially) transform input features (e.g. PCA)
 (model_train, model_test), problem, features = setup_models(
-    conf,
-    petab_base_files,
+    conf=conf,
+    features_filepath=features_filepath,
+    pipeline_filepath=feature_transform_pipeline_filepath,
+    petab_base_files=petab_base_files,
     dataset="train+test",
     return_features=True,
 )
@@ -48,6 +57,9 @@ input_features_train, input_features_test = (
     )
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
+
+# Get optimiser
+optimiser = optimisers[conf.optimiser]
 
 # TODO @GiacomoFabrini - differentiate schedule and early-stop between network pretraining and whole DMM training?
 early_stopping_params = EarlyStoppingParams(
@@ -70,13 +82,15 @@ if (conf.depth == 0) and conf.linear_benchmark:
     #  model_test.pypesto_subproblem
     model_train, model_test = (
         init_global_kin_params_combiner(
-            conf=conf,
             model=linear_nn_init(
                 conf=conf,
                 model=model,
+                per_sample_parameter_file=per_sample_parameter_file,
                 features=input_features,
                 dataset=dataset,
             ),
+            per_sample_parameter_file=per_sample_parameter_file,
+            random_seed=conf.job,
             nn_pretrain=False,
         )
         for model, dataset in zip((model_train, model_test), ["train", "val"])
@@ -86,7 +100,11 @@ if (conf.depth == 0) and conf.linear_benchmark:
     filter_spec_per_param = jtu.tree_map(lambda _: True, model_train)
 else:
     # Get training targets as parameter deviations (second component, while first contains medians)
-    _, par_deviation_train = get_kin_params_median_deviation(conf, model_train)
+    _, par_deviation_train = get_kin_params_median_deviation(
+        model=model_train,
+        parameter_filepath=per_sample_parameter_file,
+        random_seed=conf.job,
+    )
     targets_train = get_targets(model_train, par_deviation_train)
     # Split training data and targets into pretrain train and val data and targets not to leak true validation
     data_pretrain_train, data_pretrain_val, targets_pretrain_train, targets_pretrain_val = train_test_split(
@@ -97,8 +115,9 @@ else:
     )
     # Define filter_spec_per_param to freeze the KinParamsCombiner in the model
     model_train, filter_spec = init_global_kin_params_combiner(
-        conf,
         model_train,
+        per_sample_parameter_file=per_sample_parameter_file,
+        random_seed=conf.job,
         nn_pretrain=True,
     )
     # Initialise W&B run
@@ -112,15 +131,18 @@ else:
         validation_data=data_pretrain_val,
         validation_targets=targets_pretrain_val,
         conf=conf.__dict__,
+        optimiser=optimiser,
         # rfile=rfile,
         pretrained_model_file=pretrained_model_file,
         n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
+        debug_mode=debug_mode,
     )
     # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
-        conf,
-        pretrained_model,
+        model=pretrained_model,
+        per_sample_parameter_file=per_sample_parameter_file,
+        random_seed=conf.job,
         nn_pretrain=False,
     )
     # For pretrained models: it might be desirable to keep the learnt sparsity pattern, but drop regularisation.
@@ -156,10 +178,12 @@ train(
     input_features_train=input_features_train,
     input_features_test=input_features_test,
     conf=conf.__dict__,
+    optimiser=optimiser,
     rfile=results_file,
     model_file=model_file,
     samples_name_list_dict=samples_name_list_dict,
     n_epoch=N_EPOCHS,
     x0=x0,
     early_stopping_params=early_stopping_params,
+    debug_mode=debug_mode,
 )

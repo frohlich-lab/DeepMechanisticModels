@@ -4,7 +4,7 @@ import os
 import pypesto.visualize
 import re
 
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, FEATURES_OUTFILE, FEATURES_PIPELINE
 from dmm.config_options import Conf
 from dmm.initialisation import setup_models
 from dmm.training_helper_funcs import create_pypesto_problem
@@ -14,11 +14,22 @@ from pypesto.store import (
     OptimizationResultHDF5Writer,
 )
 from pypesto.visualize import waterfall
+from util import load_petab_base_files
 
 
 conf = fire.Fire(Conf)
 
-model, problem = setup_models(conf, "train")
+features_filepath = FEATURES_OUTFILE.format(
+    **{**conf.__dict__, **dict(dataset='{dataset}')}
+)
+feature_transform_pipeline_filepath = Path(FEATURES_PIPELINE.format(**conf.__dict__))
+model, problem = setup_models(
+    conf=conf,
+    features_filepath=features_filepath,
+    pipeline_filepath=feature_transform_pipeline_filepath,
+    petab_base_files=load_petab_base_files(conf, reweight=True),
+    dataset="train",
+)
 pypesto_problem = create_pypesto_problem(model)
 
 outfile = COLLECTED_TRAINING_RESULTS.format(**conf.__dict__)

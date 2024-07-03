@@ -6,11 +6,12 @@ import subprocess
 import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
+from .config_options import EarlyStoppingParams, get_scheduler
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import get_finite_grads, generate_log_epochs
-from common import EarlyStoppingParams, get_scheduler, optimisers, debug_mode  # TODO - fix script imports
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
+from optax import GradientTransformation
 from pathlib import Path
 from typing import Dict
 
@@ -92,8 +93,10 @@ def pretrain_network(
         # rfile: Path,
         pretrained_model_file: Path,
         conf: Dict,
+        optimiser: GradientTransformation,
         n_epoch,
         early_stopping_params: EarlyStoppingParams,
+        debug_mode: bool = False,
 ) -> DeepMechanisticModel:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -102,7 +105,7 @@ def pretrain_network(
 
     # Get schedule and initialise optimiser
     schedule = get_scheduler(conf, n_epoch)
-    opt = optimisers[conf["optimiser"]](schedule)
+    opt = optimiser(schedule)
     opt_state = opt.init(eqx.filter(model, eqx.is_array))
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
@@ -233,8 +236,8 @@ def pretrain_network(
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-    try:
-        _ = subprocess.run(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error syncing wandb directory: {e}")
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
     return best_model

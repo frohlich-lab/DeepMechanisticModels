@@ -9,15 +9,11 @@ import pandas as pd
 import pypesto
 import scipy.linalg as la
 
-from common import (
-    FEATURES_OUTFILE,
-    FEATURES_PIPELINE,
-    MODEL_FEATURE_PREFIX,
-    PER_SAMPLE_OUTFILE_PARS
-)   # TODO - fix script imports
+from . import MODEL_FEATURE_PREFIX
 from cytof.problem import CytofProblem
 from .config_options import Conf
 from .dmm_autoencoder_eqx import DeepMechanisticModel
+from pathlib import Path
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
@@ -34,16 +30,14 @@ def make_dmm(*, dmm_params, features, key):
 
 
 def get_features(
-        conf: Conf,
+        features_filepath: str,
         datasets: List[str]
 ) -> Dict[str, pd.DataFrame]:
     features = {
         dataset: pd.read_csv(
-                    FEATURES_OUTFILE.format_map(
-                        dict(**conf.__dict__, dataset=dataset)
-                    ),
-                    index_col=0
-                )
+            features_filepath.format(dataset=dataset),
+            index_col=0
+        )
         for dataset in datasets
     }
     return features
@@ -51,13 +45,13 @@ def get_features(
 
 def pca_transform_features(
         features: Dict[str, pd.DataFrame],
-        conf: Conf,
+        pipeline_filepath: Union[str, Path],
         pipeline=None
 ) -> Dict[str, pd.DataFrame]:
     """
     :param features: dictionary of feature pd.DataFrames
-    :param conf: configuration object
-    :param pipeline: trained pipeline (optional)
+    :param pipeline_filepath: filepath where to save the trained pipeline
+    :param pipeline: trained pipeline object (optional)
 
     :return: dictionary of transformed features pd.DataFrames
     """
@@ -78,7 +72,7 @@ def pca_transform_features(
             raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
 
         # Serialise the scaling+PCA pipeline
-        joblib.dump(pipeline, FEATURES_PIPELINE.format_map(conf.__dict__))
+        joblib.dump(pipeline, Path(pipeline_filepath))
 
     # Transform features and return them ensuring same pd.DataFrame format as pristine input
     transformed_features = {
@@ -94,7 +88,9 @@ def pca_transform_features(
 
 def setup_models(
         conf: Conf,
-        petab_base_files,
+        features_filepath: str,
+        pipeline_filepath: Union[str, Path],
+        petab_base_files: Dict[str, pd.DataFrame],
         dataset: str = "train",
         return_features: bool = False,
 ) -> Union[
@@ -123,16 +119,15 @@ def setup_models(
         "train+test": ["train", "val"],
     }
     # loads features corresponding to requested dataset settings
-    features = get_features(conf, datasets=settings[dataset])
+    features = get_features(features_filepath=features_filepath, datasets=settings[dataset])
 
     if conf.features_transform == "pca":
         # Check whether pipeline has already been trained. If so, load it. If not, train it.
-        pipeline_file = FEATURES_PIPELINE.format_map(conf.__dict__)
-        if os.path.exists(pipeline_file):
-            pipeline = joblib.load(FEATURES_PIPELINE.format_map(conf.__dict__))
+        if os.path.exists(pipeline_filepath):
+            pipeline = joblib.load(pipeline_filepath)
         else:
             pipeline = None
-        features = pca_transform_features(features, conf, pipeline)
+        features = pca_transform_features(features, pipeline_filepath, pipeline)
 
     # Check features arrays are two-dimensional
     for key in features.keys():
@@ -182,17 +177,16 @@ def setup_models(
 
 
 def get_kin_params_median_deviation(
-        conf: Conf,
         model: DeepMechanisticModel,
+        parameter_filepath: str,
+        random_seed: int,
         return_full_combo: bool = False,
 ):
     pretrained_samples = {}
 
     for sample in model.sample_name_list:
         df = pd.read_csv(
-            PER_SAMPLE_OUTFILE_PARS.format(
-                **{**conf.__dict__, **dict(sample=sample)}
-            ),
+            parameter_filepath.format(sample=sample),
             index_col=[0],
         )
         pretrained_samples[sample] = df[
@@ -212,7 +206,7 @@ def get_kin_params_median_deviation(
     # However, as cell-lines are not-paired,
     # we can combine different multistart parameter sets
     # across cell-lines.
-    np.random.seed(conf.job)
+    np.random.seed(random_seed)
     # key = jr.PRNGKey(conf.job)
     # poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
 
@@ -312,6 +306,7 @@ def subset_features(
 def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
+        per_sample_parameter_file: str,
         features: Dict[str, np.ndarray],
         dataset: str,
 ):
@@ -373,7 +368,11 @@ def linear_nn_init(
 
     # Compute target for least square initialisation of inflater weights:
     # kinetic parameter deviation around the median
-    _, par_deviations = get_kin_params_median_deviation(conf=conf, model=model)
+    _, par_deviations = get_kin_params_median_deviation(
+        model=model,
+        parameter_filepath=per_sample_parameter_file,
+        random_seed=conf.job,
+    )
 
     inputs = [
         "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
@@ -420,8 +419,9 @@ def linear_nn_init(
 
 
 def init_global_kin_params_combiner(
-        conf: Conf,
         model: DeepMechanisticModel,
+        per_sample_parameter_file: str,
+        random_seed: int,
         nn_pretrain: bool,
 ):
     """
@@ -444,7 +444,12 @@ def init_global_kin_params_combiner(
         if ~nn_pretrain: updated model with initialised model.kin_params_combiner
     """
     if not nn_pretrain:
-        par_medians, _ = get_kin_params_median_deviation(conf=conf, model=model, return_full_combo=False)
+        par_medians, _ = get_kin_params_median_deviation(
+            model=model,
+            parameter_filepath=per_sample_parameter_file,
+            random_seed=random_seed,
+            return_full_combo=False
+        )
         # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
         new_global_kin_params = jnp.array(par_medians.values)
         # Check shape match prior to initialisation

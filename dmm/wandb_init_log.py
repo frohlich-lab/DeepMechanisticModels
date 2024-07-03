@@ -4,8 +4,8 @@ import jax.numpy as jnp
 import numpy as np
 import wandb
 
-from common import EarlyStoppingParams, L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS  # TODO - fix script imports
-from .config_options import Conf
+from .config_options import (Conf, EarlyStoppingParams,
+                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS)
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 
