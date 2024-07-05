@@ -9,11 +9,10 @@ import wandb
 
 # CHECK WHETHER WE NEED TO ROLL BACK to amici.petab_objective
 from amici.petab.simulations import rdatas_to_simulation_df
-# from amici.petab_objective import rdatas_to_simulation_df
-from common import TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix script imports
+# from common import TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix imports from common (not in use)
 from .config_options import Conf, EarlyStoppingParams, get_scheduler
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from .training_helper_funcs import test_save_reload_model
+# from .training_helper_funcs import test_save_reload_model
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs, get_finite_grads,
                                    map_params_to_array, model_output_to_petab_input, plot_model_weights)
@@ -127,6 +126,7 @@ def train(
     # Initialise default values for early_stopper and epoch
     early_stopper = None
     epoch = 0
+    patience_counter_invalid_rmse = 0
 
     # TODO @GiacomoFabrini Do we still need these? Or can we change them in some way?
     x = x0.copy()
@@ -198,6 +198,21 @@ def train(
             ):
                 rmse_dict[dataset] = rmse(pp, model, input_data)
 
+            # Handle NaN or Inf RMSEs arising from simulation errors
+            if (np.isnan(rmse_dict["train"]) or np.isinf(rmse_dict["train"])
+                    or np.isnan(rmse_dict["test"]) or np.isinf(rmse_dict["test"])):
+                patience_counter_invalid_rmse += 1
+                if patience_counter_invalid_rmse >= 3:  # fixed budget of patience
+                    print(f"Too many invalid RMSE values, breaking at epoch {epoch}")
+                    wandb.log(
+                        {
+                            "integration_error": epoch,
+                        }
+                    )
+                    break
+            else:
+                patience_counter_invalid_rmse = 0  # reset counter to 0
+
             if rmse_dict["test"] < rmse_test_min:
                 rmse_test_min = rmse_dict["test"]
                 best_model = copy.deepcopy(model)
@@ -254,7 +269,7 @@ def train(
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
                     break
 
-        if np.any(np.isnan(x)):
+        if np.any(np.isnan(x)) or np.any(np.isinf(x)):
             # keep track of integration errors
             wandb.log(
                 {
