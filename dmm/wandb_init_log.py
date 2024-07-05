@@ -55,15 +55,26 @@ def init_wandb(
         ]
     )
 
-    # Define W&B metrics in modular fashion
-    metrics = {
-        "rmse_train": "min",
-        "rmse_val": "min",
-        "patience_counter": None,
-        "integration_error": None,
-        "fval": "min",
-        "loss": "min",
-    }
+    # Define W&B metrics
+    if pretrain:  # neural network pretraining stage (no ODE simulations)
+        metrics = {
+            "loss_train": "min",
+            "loss_val": "min",
+            "patience_counter": None,
+        }
+    else:  # full DMM training stage
+        metrics = {
+            "rmse_train": "min",
+            "rmse_val": "min",
+            "loss": "min",
+            "fval": "min",
+            "patience_counter": None,
+            "integration_error": None,
+        }
+        if model.reconstruct:
+            metrics[RECON_LOSS] = "min"
+            metrics[SYMM_LOSS] = "min"
+
     # If in pretraining, keep regularisation terms
     # Same if in full model training with drop_reg_after_pretrain=False
     if pretrain or not conf.drop_reg_after_pretrain:
@@ -72,9 +83,13 @@ def init_wandb(
             OEREG: "min",
             L1IREG: "min",
             OIREG: "min",
-            RECON_LOSS: "min",
-            SYMM_LOSS: "min",
         }
+        # Add decoder regularisation terms if the model has a decoder head
+        if model.reconstruct:
+            reg_metrics[L1DREG] = "min"
+            reg_metrics[ODREG] = "min"
+
+        # Get final metrics
         metrics = {**metrics, **reg_metrics}
 
     for metric in metrics.keys():
