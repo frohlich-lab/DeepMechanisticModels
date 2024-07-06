@@ -5,8 +5,6 @@ import numpy as np
 import pypesto
 import seaborn as sns
 
-from cytof.problem import CytofProblem
-from .config_options import Conf
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
@@ -203,7 +201,23 @@ def create_pypesto_problem(
 @eqx.filter_jit
 def model_output_to_petab_input(
         model: DeepMechanisticModel,
-        input_data,
+        input_data: np.ndarray,
+):
+    # Get model output (inflated cell-line-specific parameter deviations)
+    pred = vmap(model)(input_data)["inflated"]
+    # Concatenate learnable global kinetic parameters with pred
+    augmented_pred = jnp.concatenate(
+        [
+            model.kin_params_combiner.learned_global_kin_params,
+            pred.flatten()
+        ]
+    )
+    return augmented_pred
+
+
+def model_output_to_petab_input_nojit(
+        model: DeepMechanisticModel,
+        input_data: np.ndarray,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
     pred = vmap(model)(input_data)["inflated"]
@@ -321,23 +335,20 @@ def plot_model_weights(model: DeepMechanisticModel, filename: str = None):
 
 def test_save_reload_model(
         model: DeepMechanisticModel,
-        filename: Path,
+        model_filename: Path,
         samples_name_list_dict: dict,
-        conf: Conf,
+        cytof_problem,  # avoids importing from CytofProblem
+        petab_base_files,  # avoids importing from util
         dataset: str,
         input_data: np.ndarray
 ):
-    filename.parent.mkdir(exist_ok=True, parents=True)
+    model_filename.parent.mkdir(exist_ok=True, parents=True)
     # Save
-    model.save(filename, samples_name_list_dict)
+    model.save(model_filename, samples_name_list_dict)
 
-    # Get cytof problem
-    cytof_problem = CytofProblem(conf.model)
-    # Get petab_base_files
-    petab_base_files = load_petab_base_files(conf, reweight=True)
     # Use class method to load an instance from file
     re_model = DeepMechanisticModel.load(
-        filename=filename,
+        filename=model_filename,
         problem=cytof_problem,
         dataset=dataset,
         petab_base_files=petab_base_files,

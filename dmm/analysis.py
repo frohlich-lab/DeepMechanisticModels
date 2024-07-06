@@ -10,7 +10,7 @@ import seaborn as sns
 from amici.petab_objective import rdatas_to_simulation_df
 from .config_options import default_attributes
 from .plotting import plot_cross_samples
-from .training_helper_funcs import model_output_to_petab_input
+from .training_helper_funcs import model_output_to_petab_input, model_output_to_petab_input_nojit
 from pathlib import Path
 from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS
@@ -112,11 +112,17 @@ def simulate_dmm(
         model,
         input_features,
         obj,
-        petab_problem
+        petab_problem,
+        jit_fn: bool = True
 ) -> pd.DataFrame:
+    # Generally use the jitted model_output_to_petab_input function
+    if jit_fn:
+        fn = model_output_to_petab_input
+    else:
+        fn = model_output_to_petab_input_nojit
 
     res = obj(
-        model_output_to_petab_input(model, input_features),
+        fn(model, input_features),
         mode=MODE_RES,
         return_dict=True
     )

@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import subprocess
 import wandb
 
 from common import (
@@ -13,6 +14,7 @@ from common import (
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
+    FEATURES_OUTFILE,
     FEATURES_PIPELINE,
     fig_dir,
     pretrain_dir,
@@ -29,7 +31,7 @@ from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import get_features, pca_transform_features
 from dmm.plotting import plot_cross_samples_multiple_simulations
-from evaluation_plotting import (n_hidden_pairwise_heatmap,
+from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance)
 from evaluation_utils import (get_measurements_and_obervables,
                               load_model_and_obj,
@@ -41,7 +43,7 @@ from pathlib import Path
 from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
-    LATENT_DIMS, NETWORK_LAYOUT, USE_BIAS, NN_INIT_FN,
+    LATENT_DIMS, NETWORK_LAYOUT, NN_STRUCTURE_MULTIPLIER, USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN,
     RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
@@ -63,7 +65,11 @@ def get_dmm_conf(
     dmm_conf = Conf(model=conf.model, data=conf.data)
     for key, value in dmm_params[dataset][context].items():
         if hasattr(dmm_conf, key) and key not in ["model", "data"]:
-            if key in ["n_hidden", "depth", "opt_steps", "opt_mult", "job"]:
+            if key in [
+                "n_hidden", "depth", "nn_structure_multiplier",
+                "opt_steps", "opt_mult",
+                "job"
+            ]:
                 value = int(value)
             setattr(dmm_conf, key, value)
     return dmm_conf
@@ -71,29 +77,36 @@ def get_dmm_conf(
 
 def load_and_transform_features(
         conf: Conf,
-        features_filepath: Union[Path, str],
-        pipeline_filepath: Union[Path, str],
         dataset: str
 ) -> np.ndarray:
+    # Compute features filepath given conf and dataset
+    features_filepath = FEATURES_OUTFILE.format(
+        **{**conf.__dict__, **dict(dataset='{dataset}')}
+    )
+    # Compute filepath for feature transformation pipeline
+    feature_transform_pipeline_filepath = Path(
+        FEATURES_PIPELINE.format_map(conf.__dict__)
+    )
     features = get_features(
         features_filepath=features_filepath,
         datasets=['train', 'val']
     )
     if conf.features_transform == "pca":
         # Load pre-trained pipeline if it exists
-        if os.path.exists(pipeline_filepath):
-            pipeline = load(pipeline_filepath)
+        if os.path.exists(feature_transform_pipeline_filepath):
+            pipeline = load(feature_transform_pipeline_filepath)
         else:
             pipeline = None
         features = pca_transform_features(
             features=features,
-            pipeline_filepath=pipeline_filepath,
+            pipeline_filepath=feature_transform_pipeline_filepath,
             pipeline=pipeline,
         )
     if dataset == 'train':
         features_dataset = 'train'
     elif dataset == 'test':
         features_dataset = 'val'
+    # TODO @GiacomoFabrini - will need to change this when we resolve 'val' vs 'test' ambiguity
     return features[features_dataset].values
 
 
@@ -127,7 +140,8 @@ def get_best_performer_across_jobs(
         dataframe: pd.DataFrame,
         group_attributes: List,
         hyperparam_attributes: List,
-        mode: bool,
+        mode: str,
+        num_best: int,
         target_attribute='rmse',
 ):
     """
@@ -147,17 +161,24 @@ def get_best_performer_across_jobs(
             ' '.join(col).strip()
             for col in temp_df.columns.values
         ]
-        min_rmse_indices = temp_df.groupby(
-            by=group_attributes
-        )[target_attribute + ' mean'].idxmin()
-        result = temp_df.loc[min_rmse_indices]
+        # Check passed num_best is acceptable (at least 1, integer)
+        if num_best < 1:
+            raise ValueError(f"num_best must be >=1, {num_best} was found instead.")
+        elif not isinstance(num_best, int):
+            raise TypeError(f"num_best must be of type int, {type(num_best)} was found instead.")
+
+        # sort (default: ascending order - from lowest rmse mean to highest -- keep num_best (>=1)
+        result = temp_df.sort_values(by=[target_attribute + ' mean']).groupby(group_attributes).head(num_best)
         result_dict = {
             dataset: {
-                context: result[(result.dataset == dataset) & (result.context == context)].iloc[0].to_dict()
+                context: result[(result.dataset == dataset) & (result.context == context)].iloc[:num_best].to_dict(
+                    orient='records')
                 for context in result[result.dataset == dataset].context.unique()
             }
             for dataset in result.dataset.unique()
         }
+        # TODO need to ensure that this is returning the same configurations across train/test, not the best
+        #  in each, even though we can simply subset to the best in `val` and simulate across both train and test
         return result_dict
     elif mode == 'regressor':
         min_rmse = dataframe.reset_index().groupby(
@@ -198,7 +219,7 @@ def get_absolute_best_performer(
     return result_dict
 
 
-def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
+def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
     # Define aggregation groups for DMM
     gbs_dmm = ["dataset", "ref"] + default_attributes
 
@@ -262,18 +283,34 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
         stat_test_res_df = statistical_significance_test(data_stat_tests)
 
     # Get best performing hyperparameter set across jobs for each dataset/context/ref combination
-    best_hyperparam_dmm = get_best_performer_across_jobs(
+    top_n_hyperparam_dmm = get_best_performer_across_jobs(
         dataframe=data[data.ref == 'DMM'],
         group_attributes=['dataset', 'context', 'features', 'pretrain'],
-        hyperparam_attributes=[x for x in default_attributes if x not in ['context', 'features', 'pretrain']],
+        hyperparam_attributes=[x for x in default_attributes if x not in [
+            'context', 'features', 'pretrain',  # in group_attributes
+            'samples', 'job'  # need to average across samples and job
+        ]],
         mode='DMM',
+        num_best=num_best,  # select the best `num_best` per context (e.g. 10 best configurations per context)
         target_attribute='rmse',
     )
+    # Keep top 1 on validation set for plotting across samples vs references and regressors
+    # Assign the best validation configuration to both train and test -- ensures consistency in plots
+    # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
+    #  is overwritten with 'test' RMSE
+    best_hyperparam_dmm = {
+        dataset: {
+            context: top_n_hyperparam_dmm["test"][context][0]
+            for context in top_n_hyperparam_dmm[dataset].keys()
+        }
+        for dataset in top_n_hyperparam_dmm.keys()
+    }
     best_regressors = get_best_performer_across_jobs(
         dataframe=data[data.ref.isin(REGRESSION_MODES)],
         group_attributes=['dataset', 'context'],
         hyperparam_attributes=[],
         mode='regressor',
+        num_best=1,  # does not have an effect anyway, but we are selecting the top 1
         target_attribute='rmse',
     )
     # Get absolute best performing hyperparameter set (single job) for each dataset/context/ref combination
@@ -282,6 +319,16 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
         group_attributes=['dataset', 'context', 'ref'],
         target_attribute='rmse',
     )
+    # Ensure consistency in plot - only keep the best absolute in validation and plot it across both train and val
+    # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
+    #  is overwritten with 'test' RMSE
+    absolute_best_dmm = {
+        dataset: {
+            context: absolute_best_dmm["test"][context]
+            for context in absolute_best_dmm[dataset].keys()
+        }
+        for dataset in absolute_best_dmm.keys()
+    }
 
     # Log via W&B
     wandb.init(
@@ -319,13 +366,20 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool):
         evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
         wandb.log_artifact(evaluation_artifact)
 
-    # Close W&B session
+    # Close W&B session and upload artifacts
+    wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
+    command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
+    # TODO restore once done fixing script
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
 
     if return_stat_tests:
-        return data, stat_test_res_df, best_hyperparam_dmm, best_regressors, absolute_best_dmm
+        return data, stat_test_res_df, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm
     else:
-        return data, best_hyperparam_dmm, best_regressors, absolute_best_dmm
+        return data, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm
 
 
 conf = fire.Fire(Conf)
@@ -349,7 +403,7 @@ for samples in SPLITS:
                 (ctxt, features), features_transform, pretrain, n_hidden,
                 reconstruct, activation_fn_name, optimiser,
                 (depth, linear_benchmark),
-                use_layer_bias, nn_init_fn, orth_reg_strategy,
+                use_layer_bias, last_layer_activation, nn_init_fn, orth_reg_strategy,
                 alpha, beta, gamma, delta, epsilon, zeta,
                 max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
                 use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain, sparsity_threshold,
@@ -358,7 +412,7 @@ for samples in SPLITS:
                 CONTEXTS_FEATURES, FEATURES_TRANSFORM, PRETRAIN, LATENT_DIMS,
                 RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
                 NETWORK_LAYOUT,
-                USE_BIAS, NN_INIT_FN, ORTH_REG_STRATEGIES,
+                USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, ORTH_REG_STRATEGIES,
                 ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
                 MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
                 LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
@@ -378,7 +432,9 @@ for samples in SPLITS:
                             n_hidden=n_hidden,
                             depth=depth,
                             linear_benchmark=linear_benchmark,
+                            nn_structure_multiplier=NN_STRUCTURE_MULTIPLIER,
                             use_layer_bias=use_layer_bias,
+                            last_layer_activation=last_layer_activation,
                             nn_init_fn=nn_init_fn,
                             reconstruct=reconstruct,
                             activation_fn_name=activation_fn_name,
@@ -477,6 +533,7 @@ for samples in SPLITS:
         print(f"Finished processing reference models for {samples}, {dataset}")
 
         # dfd = pd.concat([training, pretraining])
+        # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
         # Deleting DataFrames once concatenated into dfd
         del training, avg_ps_dfs, rdf
@@ -493,11 +550,33 @@ del dfs
 
 # Aggregate data into DataFrames for plotting, save the results as CSVs and log them
 # as W&B artifacts
-aggregated_results = aggregate_and_log(df, RETURN_STAT_TESTS)
+num_best = 10
+aggregated_results = aggregate_and_log(df=df, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best)
 if RETURN_STAT_TESTS:
-    data, stat_test_res_df, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
+    data, stat_test_res_df, top_n_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
 else:
-    data, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
+    data, top_n_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
+
+
+# ########################################################################### #
+# ################### Save information on top N best DMM #################### #
+# ########################################################################### #
+
+# Step 1: Extract data and flatten the structure
+flat_top_n_dmm = []
+for dataset, contexts in top_n_dmm.items():
+    for context, context_list in contexts.items():
+        for context_dict in context_list:
+            flat_top_n_dmm.append({**{'dataset': dataset, 'context': context}, **context_dict})
+
+# Step 2: Create a DataFrame
+best_n_dmm_df = pd.DataFrame(flat_top_n_dmm)
+best_n_dmm_df.to_csv(
+    evaluations_dir
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm.csv"
+)
 
 # ########################################################################### #
 # ############################ Performance Plots ############################ #
@@ -508,10 +587,10 @@ else:
 #     conf=conf
 # )
 #
-# performance_barplot(
-#     dataframe=data,
-#     conf=conf
-# )
+performance_barplot(
+    dataframe=data,
+    conf=conf
+)
 
 # ########################################################################## #
 # ######################### Statistical Test Plots ######################### #
@@ -646,25 +725,35 @@ for dataset, context, split in itt.product(
 
     # BEST DMM
     # Overall (across jobs and splits)
-    # Generate confs for all jobs
+    # Generate confs for all jobs -- include info on split
     overall_best_confs = [
-        replace(get_dmm_conf(conf, best_hyperparam_dmm, dataset, context), job=job)
+        replace(get_dmm_conf(conf, best_hyperparam_dmm, dataset, context), job=job, samples=split)
         for job in JOBS
     ]
+    # Compute features once (same across all jobs) - depend on SPLIT
+    input_features = load_and_transform_features(overall_best_confs[0], dataset)
     overall_best_dmm_sim_dfs = []
     for job, overall_best_conf in zip(JOBS, overall_best_confs):
-        model, obj = load_model_and_obj(
-            overall_best_conf,
-            petab_base_files,
-            dataset,
+        # it's possible that we don't have the model file for specific jobs in case of simulation errors
+        # in that case, simply skip the specific job
+        try:
+            model, obj = load_model_and_obj(
+                overall_best_conf,
+                petab_base_files,
+                dataset,
+            )
+        except FileNotFoundError:
+            continue
+        # Simulate and append to growing pd.DataFrame list
+        overall_best_dmm_sim_dfs.append(
+            simulate_dmm(
+                model=model,
+                input_features=input_features,
+                obj=obj,
+                petab_problem=model.petab_importer.petab_problem,
+                jit_fn=False,
+            ).assign(job=job)
         )
-        input_features = load_and_transform_features(overall_best_conf, dataset)
-        overall_best_dmm_sim_dfs.append(simulate_dmm(
-            model=model,
-            input_features=input_features,
-            obj=obj,
-            petab_problem=model.petab_importer.petab_problem,
-        ).assign(job=job))
     overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
     del overall_best_dmm_sim_dfs
     # Add identifier column (to keep replicate datapoints)
