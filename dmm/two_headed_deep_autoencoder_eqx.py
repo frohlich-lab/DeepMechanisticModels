@@ -81,6 +81,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             biases=self.encoder_params.layer_biases,
             key=key_encoder,
             activation_fn_name=activation_fn_name,
+            last_layer_activation=self.encoder_params.last_layer_activation,
             weight_init_fn=self.encoder_params.weight_init_fn,
             bias_init_fn=self.encoder_params.bias_init_fn,
         )
@@ -92,6 +93,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             biases=self.inflater_params.layer_biases,
             key=key_inflater,
             activation_fn_name=activation_fn_name,
+            last_layer_activation=self.inflater_params.last_layer_activation,
             weight_init_fn=self.inflater_params.weight_init_fn,
             bias_init_fn=self.inflater_params.bias_init_fn,
         )
@@ -104,6 +106,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 biases=self.decoder_params.layer_biases,
                 key=key_decoder,
                 activation_fn_name=activation_fn_name,
+                last_layer_activation=self.decoder_params.last_layer_activation,
                 weight_init_fn=self.decoder_params.weight_init_fn,
                 bias_init_fn=self.decoder_params.bias_init_fn,
             )
