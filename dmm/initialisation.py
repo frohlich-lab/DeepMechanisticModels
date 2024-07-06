@@ -144,6 +144,7 @@ def setup_models(
         'module_depth': conf.depth,
         'module_structure_multiplier': conf.nn_structure_multiplier,
         'use_layer_bias': conf.use_layer_bias,
+        'last_layer_activation': conf.last_layer_activation,
         'weight_init_fn': conf.nn_init_fn,
         'bias_init_fn': conf.nn_init_fn,
         'orth_reg_strategy': conf.orth_reg_strategy,

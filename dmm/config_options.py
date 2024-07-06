@@ -22,6 +22,7 @@ class Conf(dict):
     depth: int = 0
     linear_benchmark: bool = False
     use_layer_bias: List[bool] = False
+    last_layer_activation: bool = False
     nn_init_fn: str = "None"
     reconstruct: bool = False
     # Training
@@ -93,6 +94,7 @@ class ModuleParams(dict):
     layer_biases: Optional[List[bool]] = None  # no learnable bias
     weight_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
     bias_init_fn: str = "eqx_default"  # eqx.nn.Linear layers
+    last_layer_activation: bool = "False"  # no activation function in last layer of each module
 
 
 @dataclasses.dataclass

@@ -83,6 +83,9 @@ class DeepComponent(eqx.Module):
     :param activation_fn_name:
         name of the activation function (selected from act_fn_by_name dictionary).
 
+    :param last_layer_activation:
+        boolean flag regulating whether to use a non-linear activation function in the last layer.
+
     :param weight_init_fn (Optional):
         weight initialisation function: either "eqx_default" to select eqx.nn.Linear layers or
         one from jax.nn.initializers to build CustomInitLayer. If latter, needs to be a key
@@ -97,6 +100,7 @@ class DeepComponent(eqx.Module):
     component_name: str = eqx.static_field()
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     activation: Callable
+    last_layer_activation: bool = eqx.static_field()
 
     def __init__(
         self,
@@ -105,6 +109,7 @@ class DeepComponent(eqx.Module):
         biases,
         key,
         activation_fn_name="relu",
+        last_layer_activation: bool = "False",
         weight_init_fn="eqx_default",  # use eqx.nn.Linear layers by default
         bias_init_fn="eqx_default",
     ):
@@ -137,6 +142,7 @@ class DeepComponent(eqx.Module):
             self.activation = act_fn_by_name[activation_fn_name]
         else:
             raise ValueError(f"Unknown activation function: {activation_fn_name}")
+        self.last_layer_activation = last_layer_activation
 
     def __call__(self, x):
         a = x
@@ -145,7 +151,7 @@ class DeepComponent(eqx.Module):
             for layer in self.layers[:-1]:
                 a = self.activation(layer(a))
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
-        return self.layers[-1](a)
+        return self.layers[-1](a) if not self.last_layer_activation else self.activation(self.layers[-1](a))
 
 
 class KinParamsCombiner(eqx.Module):

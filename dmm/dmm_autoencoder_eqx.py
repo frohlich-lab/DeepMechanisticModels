@@ -73,6 +73,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     module_depth: int = eqx.static_field()
     module_structure_multiplier: int = eqx.static_field()
     use_layer_bias: bool = eqx.static_field()
+    last_layer_activation: bool = eqx.static_field()
     weight_init_fn: str = eqx.static_field()
     bias_init_fn: str = eqx.static_field()
     sample_name_list: List[str] = eqx.static_field()
@@ -98,6 +99,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             module_depth: int,
             module_structure_multiplier: int,
             use_layer_bias: bool,
+            last_layer_activation: bool,
             weight_init_fn: str,
             bias_init_fn: str,
             key: Any,
@@ -128,6 +130,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         :param use_layer_bias:
             boolean flag regulating the use/lack of biases in module layers.
+
+        :param last_layer_activation:
+            boolean flag regulating the use of a non-linear activation function in the last layer.
 
         :param weight_init_fn:
             weight initialisation function to use for module layers.
@@ -178,6 +183,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.module_depth = module_depth
         self.module_structure_multiplier = module_structure_multiplier
         self.use_layer_bias = use_layer_bias
+        self.last_layer_activation = last_layer_activation
         self.weight_init_fn = weight_init_fn
         self.bias_init_fn = bias_init_fn
         self.reconstruct = reconstruct
@@ -259,7 +265,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 layer_sizes=layer_sizes,
                 layer_biases=[self.use_layer_bias]*len(layer_sizes),
                 weight_init_fn=self.weight_init_fn,
-                bias_init_fn=self.bias_init_fn
+                bias_init_fn=self.bias_init_fn,
+                last_layer_activation=self.last_layer_activation,
+                # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
@@ -434,6 +442,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             'module_depth': self.module_depth,
             'module_structure_multiplier': self.module_structure_multiplier,
             'use_layer_bias': self.use_layer_bias,
+            'last_layer_activation': self.last_layer_activation,
             'weight_init_fn': self.weight_init_fn,
             'bias_init_fn': self.bias_init_fn,
             'sample_name_list': self.sample_name_list if samples_list_dict is None else samples_list_dict,
@@ -486,8 +495,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             hyperparams = json.loads(hyperparam_str)
             # Handle parameters that require conversion
             # Key: convert back to ArrayImpl with expected dtype
-            # TODO @GiacomoFabrini: is this necessary? it also looks like it's not being reloaded to the original value
-            #  The key should only play a role in weight/bias init, but we are overwriting weight/bias here...
+            # TODO @GiacomoFabrini: is this necessary?
             hyperparams['key'] = jnp.array(hyperparams['key'], dtype=jnp.uint32)
             # Subset sample_name_list dictionary to corresponding dataset
             if isinstance(hyperparams['sample_name_list'], dict) and dataset is not None:
