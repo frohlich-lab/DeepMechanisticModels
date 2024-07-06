@@ -38,10 +38,10 @@ FEATURES_TRANSFORM = {
 # Cross-validation splits
 SPLITS = {
     "0_5",
-    # '1_5',
-    # '2_5',
-    # '3_5',
-    # '4_5'
+    '1_5',
+    '2_5',
+    '3_5',
+    '4_5'
 }
 
 PRETRAIN = {
@@ -97,6 +97,12 @@ NETWORK_LAYOUT = (
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
 # hyperparameter
 USE_BIAS = (
+    "True",
+    "False",
+)
+
+# last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
+LAST_LAYER_ACTIVATION = (
     "True",
     "False",
 )
@@ -248,7 +254,7 @@ LEARNING_RATE_SPANS = {
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 LEARNING_RATE_DECAYS = {
-    0.9**0, # no decay
+    0.9**0,  # no decay
     # 0.9**1,
     # 0.9**2,
     # 0.9**3,
@@ -298,7 +304,7 @@ LINEAR_SCHEDULE = {
 # USE_EARLY_STOP: use_early_stopping, enables early-stopping via flax.training.early_stopping
 USE_EARLY_STOP = {
     True,
-    # False,
+    False,
 }
 
 # PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
