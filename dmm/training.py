@@ -245,6 +245,12 @@ def train(
                 },
                 step=epoch
             )
+            # Progress/debugging statements
+            if debug_mode:
+                print(
+                    f" | epoch {epoch} | "
+                    f" | rmse_val {rmse_dict['test']} | "
+                )
 
             if conf["use_early_stopping"]:
                 # Update early stopper
@@ -252,10 +258,8 @@ def train(
                 # Debugging statements
                 if debug_mode:
                     print(
-                        f"epoch {epoch} | "
-                        f"rmse_val {rmse_dict['test']} | "
-                        f"has improved? {early_stopper.has_improved} | "
-                        f"patience count {early_stopper.patience_count}"
+                        f" | has improved? {early_stopper.has_improved} | "
+                        f" | patience count {early_stopper.patience_count}"
                     )
                 # Log current patience count
                 wandb.log(

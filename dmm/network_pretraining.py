@@ -204,17 +204,21 @@ def pretrain_network(
                 step=epoch,
             )
 
+            # Debugging statements
+            if debug_mode:
+                print(
+                    f" | epoch {epoch} | "
+                    f" | loss_val {loss_val} | "
+                )
+
             if conf["use_early_stopping"]:
                 # Update early stopper
                 early_stopper = early_stopper.update(loss_val)
                 # Debugging statements
-                if debug_mode:
-                    print(
-                        f"epoch {epoch} | "
-                        f"loss_val {loss_val} | "
-                        f"has improved? {early_stopper.has_improved} | "
-                        f"patience count {early_stopper.patience_count}"
-                    )
+                print(
+                    f" | has improved? {early_stopper.has_improved} | "
+                    f" | patience count {early_stopper.patience_count}"
+                )
                 # Log current patience count
                 wandb.log(
                     {
