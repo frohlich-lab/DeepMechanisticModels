@@ -121,7 +121,7 @@ rule pretrain_average_model:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     resources:
         mem="1GB",
         runtime="6h",
@@ -146,7 +146,7 @@ rule reweight_data:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     resources:
         mem="1GB",
         runtime="1h",
@@ -172,7 +172,7 @@ rule select_features:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     resources:
         mem="1GB",
         runtime="10h",
@@ -202,7 +202,7 @@ rule estimate_parameters:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
         pretrain='True|False',
         context='\w+',
         n_hidden='[0-9]+',
@@ -238,8 +238,7 @@ rule estimate_parameters:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in (
-                'model', 'data',
-                'samples', 'pretrain',
+                'model', 'data', 'samples', 'pretrain',
                 'context', 'features', 'features_transform', 'n_hidden',
                 'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
@@ -295,7 +294,7 @@ rule evaluate_training:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
         pretrain='True|False',
         context='\w+',
         n_hidden='[0-9]+',
@@ -358,7 +357,7 @@ rule evaluate_references:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     retries: 1
     resources:
         mem="8GB",
@@ -387,7 +386,7 @@ rule evaluate_regressors:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     retries: 1
     resources:
         mem="8GB",
@@ -478,7 +477,7 @@ rule evaluate_regressors:
 #     wildcard_constraints:
 #         model='\w+',
 #         data=r'[\w\.]+',
-#         samples='[0-9]+_[0-9]+',
+#         samples='[0-9]+of[0-9]+',
 #     resources:
 #         mem="16GB",
 #         runtime="90m",
@@ -528,7 +527,7 @@ rule evaluate_regressors:
 #     wildcard_constraints:
 #         model='\w+',
 #         data=r'[\w\.]+',
-#         samples='[0-9]+_[0-9]+',
+#         samples='[0-9]+of[0-9]+',
 #     resources:
 #         mem="16GB",
 #         runtime="90m",
@@ -578,7 +577,7 @@ rule evaluate_all_refined:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+_[0-9]+',
+        samples='[0-9]+of[0-9]+',
     resources:
         mem="16GB",
         runtime="90m",
