@@ -155,7 +155,7 @@ EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf
 
 def training_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
-    split, n_splits = wildcards.samples.split("/")
+    split, n_splits = wildcards.samples.split("of")
     splits = np.array_split(np.asarray(samples), int(n_splits))
     return list(
         np.concatenate([s for i, s in enumerate(splits) if i != int(split)])
@@ -164,7 +164,7 @@ def training_samples(wildcards) -> List[str]:
 
 def test_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
-    split, n_splits = wildcards.samples.split("/")
+    split, n_splits = wildcards.samples.split("of")
     splits = np.array_split(np.asarray(samples), int(n_splits))
     return list(splits[int(split)])
 

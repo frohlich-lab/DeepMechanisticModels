@@ -37,11 +37,11 @@ FEATURES_TRANSFORM = {
 
 # Cross-validation splits
 SPLITS = {
-    "0/5",
-    "1/5",
-    "2/5",
-    "3/5",
-    "4/5"
+    "0of5",
+    "1of5",
+    "2of5",
+    "3of5",
+    "4of5"
 }
 
 PRETRAIN = {
