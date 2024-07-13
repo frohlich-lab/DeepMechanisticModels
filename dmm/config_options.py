@@ -55,6 +55,8 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
+    run_mode_tag: str = None
+    date_tag: str = None
 
     def __str__(
             self,
@@ -76,7 +78,7 @@ class Conf(dict):
             "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
-            "drop_reg_after_pretrain", "sparsity_threshold",
+            "drop_reg_after_pretrain", "sparsity_threshold", "run_mode_tag", "date_tag",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
@@ -109,7 +111,7 @@ default_attributes = [
     for k, v in vars(Conf).items()
     if not k.startswith('__') and k not in [
         'model', 'data', 'sample',
-        'threads', 'n_starts']
+        'threads', 'n_starts', 'run_mode_tag', 'date_tag']
 ]
 
 # define abbreviations/labels for logging of loss terms
