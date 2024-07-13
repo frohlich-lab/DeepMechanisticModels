@@ -182,7 +182,7 @@ def get_kin_params_median_deviation(
         parameter_filepath: str,
         avg_model_parameter_file: str,
         random_seed: int,
-        median_params_method: str = "avg_model",
+        median_params_method: str = "per_sample",
         return_full_combo: bool = False,
 ):
     pretrained_samples = {}
