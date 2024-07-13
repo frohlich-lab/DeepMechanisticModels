@@ -309,7 +309,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             l1reg_encode_loss += scale * jnp.mean(
                 jnp.abs(w)
             )
-        return l1reg_encode_loss
+        return l1reg_encode_loss/len(self.deep_encoder.layers)  # mean across all layers
 
     def orth_encode_reg(
             self,
@@ -326,7 +326,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             oreg_encode_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.eye(m.shape[0])) ** reg_exponent
             )
-        return oreg_encode_loss
+        return oreg_encode_loss/len(self.deep_encoder.layers)  # mean across all layers
 
     def l1_decode_reg(
             self,
@@ -341,7 +341,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             l1reg_decode_loss += scale * jnp.mean(
                 jnp.abs(w)
             )
-        return l1reg_decode_loss
+        return l1reg_decode_loss/len(self.deep_decoder.layers)  # mean across all layers
 
     def orth_decode_reg(
             self,
@@ -358,7 +358,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             oreg_decode_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
             )
-        return oreg_decode_loss
+        return oreg_decode_loss/len(self.deep_decoder.layers)  # mean across all layers
 
     def l1_inflate_reg(
             self,
@@ -373,7 +373,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             l1reg_inflate_loss += scale * jnp.mean(
                 jnp.abs(w)
             )
-        return l1reg_inflate_loss
+        return l1reg_inflate_loss/len(self.deep_inflater.layers)  # mean across layers
 
     def orth_inflate_reg(
             self,
@@ -391,7 +391,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             oreg_inflate_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
             )
-        return oreg_inflate_loss
+        return oreg_inflate_loss/len(self.deep_inflater.layers)  # mean across all layers
 
     def reconstruction_loss(
             self,
@@ -403,9 +403,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         Simple Mean Squared Error (without the sqrt for now!)
         """
         reconstructed_x = jax.vmap(self)(x)["decoded"]
-        # TODO @GiacomoFabrini: consider moving all MSEs to RMSEs?!
-        #  Are they on the same scale/order of magnitude as
-        #  L1 terms if we leave them squared?!
+        # fval contains MSE (not RMSE) - using MSE in reconstruction loss
+        # TODO @GiacomoFabrini: fval and reconstruction loss use MSEs - need to move to RMSEs?!
+        #  Are they on the same scale/order of magnitude as L1 terms if we leave them squared?!
         return scale * mse(predictions=reconstructed_x, targets=x)
 
     def symmetry_loss(
@@ -424,10 +424,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         ):
             # Compute the weight difference for each pair of corresponding layers
             diff = encoder_layer.weight - decoder_layer.weight.T
-            # Then compute sum of squares differences
-            symmetry_reg += jnp.sum(jnp.square(diff))
-        symmetry_reg /= num_layers  # turns into mean square error
-        return scale * symmetry_reg
+            # Then compute mean squares differences per layer
+            symmetry_reg += jnp.mean(jnp.square(diff))
+        return scale * symmetry_reg/num_layers  # mean across layers - should be on the same order of magnitude as MSE
 
     # inspired from Fabian's NeuralCoarseGraining
     # see: https://github.com/frohlich-lab/NeuralCoarseGraining/blob/main/ncg/static.py
