@@ -239,10 +239,10 @@ def pretrain_network(
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
+    try:
+        _ = subprocess.run(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Error syncing wandb directory: {e}")
 
     # Check: is best_model actually the best?
     loss_val = loss_pretrain(
