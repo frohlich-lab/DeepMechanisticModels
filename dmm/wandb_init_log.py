@@ -51,7 +51,8 @@ def init_wandb(
             "linear_benchmark" if (conf.linear_benchmark and conf.depth == 0) else "not_benchmark",
             "network_pretraining" if pretrain else "DMM_training",
             "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
-            "linear_scans"  # TODO @GiacomoFabrini - remove after running linear scans!
+            conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
+            conf.date_tag  # label experiment with date of experiment start
         ]
     )
 
@@ -60,7 +61,6 @@ def init_wandb(
         metrics = {
             "loss_train": "min",
             "loss_val": "min",
-            "patience_counter": None,
         }
     else:  # full DMM training stage
         metrics = {
@@ -68,26 +68,27 @@ def init_wandb(
             "rmse_val": "min",
             "loss": "min",
             "fval": "min",
-            "patience_counter": None,
             "integration_error": None,
         }
-        if model.reconstruct:
-            metrics[RECON_LOSS] = "min"
-            metrics[SYMM_LOSS] = "min"
+    # common metrics - orthogonal regularisation + patience_counter
+    metrics[OEREG] = "min"
+    metrics[OIREG] = "min"
+    metrics["patience_counter"] = None
+    # optional metrics depending on the presence of decoder head
+    if model.reconstruct:
+        metrics[RECON_LOSS] = "min"
+        metrics[SYMM_LOSS] = "min"
+        metrics[ODREG] = "min"
 
-    # If in pretraining, keep regularisation terms
-    # Same if in full model training with drop_reg_after_pretrain=False
-    if pretrain or not conf.drop_reg_after_pretrain:
+    # If in pretraining or if not dropping regularisation, add L1 regularisation terms
+    if pretrain or (not conf.drop_reg_after_pretrain):
         reg_metrics = {
             L1EREG: "min",
-            OEREG: "min",
             L1IREG: "min",
-            OIREG: "min",
         }
         # Add decoder regularisation terms if the model has a decoder head
         if model.reconstruct:
             reg_metrics[L1DREG] = "min"
-            reg_metrics[ODREG] = "min"
 
         # Get final metrics
         metrics = {**metrics, **reg_metrics}
@@ -246,34 +247,25 @@ def log_extra_loss_terms(
     :return:
         n/a (simply logs to W&B)
     """
-    # Set up regularisation logging
-    reg_funs = [
-        # Encoder
-        model.l1_encode_reg,
-        model.orth_encode_reg,
-        # Inflater
-        model.l1_inflate_reg,
-        model.orth_inflate_reg,
-    ]
-    log_labels = [
-        # Encoder
-        L1EREG, OEREG,
-        # Inflater
-        L1IREG, OIREG
-    ]
-    hp_names = [
-        # Encoder
-        L1EREG, OEREG,
-        # Inflater
-        L1IREG, OIREG
-    ]
-
+    # Define regularisation functions and labels which hold regardless of pretraining/regularisation drop
+    reg_funs = [model.orth_encode_reg, model.orth_inflate_reg]
+    log_labels = [OEREG, OIREG]
+    hp_names = [OEREG, OIREG]
+    # Add extra regularisation terms active during pretraining or during training if not dropped
+    if nn_pretrain or (not conf["drop_reg_after_pretrain"]):
+        reg_funs.extend([model.l1_encode_reg, model.l1_inflate_reg])
+        log_labels.extend([L1EREG, L1IREG])
+        hp_names.extend([L1EREG, L1IREG])
+    # Add extra terms if the DMM has a decoder head
     if model.reconstruct:
-        # include decoder regularisation terms
-        reg_funs.extend([model.l1_decode_reg, model.orth_decode_reg])
-        log_labels.extend([L1DREG, ODREG])
-        hp_names.extend([L1EREG, OEREG])  # scales of decoder reg match encoder!
-        # log additional loss terms (reconstruction and symmetry loss)
+        reg_funs.append(model.orth_decode_reg)
+        log_labels.append(ODREG)
+        hp_names.append(OEREG)  # scales of decoder reg match encoder!
+        if nn_pretrain or (not conf["drop_reg_after_pretrain"]):
+            reg_funs.append(model.l1_decode_reg)
+            log_labels.append(L1DREG)
+            hp_names.append(L1EREG)
+        # and log additional decoder-related loss terms (reconstruction and symmetry loss)
         wandb.log(
             {
                 # for reconstruction loss: log validation loss
@@ -285,21 +277,10 @@ def log_extra_loss_terms(
             },
             step=epoch,
         )
-    # If pretraining, log regularisation
-    # If training full DMM and keeping regularisation, log regularisation
-    # If training full DMM and dropping regularisation, do not log regularisation
-    if (not nn_pretrain) and (not conf["drop_reg_after_pretrain"]):
-        # Log input-independent regularisation terms (same across training and validation)
-        for (
-                reg_fun,
-                log_label,
-                hp_name
-        ) in zip(
-            reg_funs,
-            log_labels,
-            hp_names,
-        ):
-            if conf[hp_name] > 0:
-                # Simply compute the value of the function
-                value_reg = reg_fun(scale=conf[hp_name])
-                wandb.log({log_label: value_reg}, step=epoch)
+
+    # Log metrics defined above
+    for (reg_fun, log_label, hp_name) in zip(reg_funs, log_labels, hp_names):
+        if conf[hp_name] > 0:
+            # Simply compute the value of the function
+            value_reg = reg_fun(scale=conf[hp_name])
+            wandb.log({log_label: value_reg}, step=epoch)
