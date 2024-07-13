@@ -180,7 +180,9 @@ def setup_models(
 def get_kin_params_median_deviation(
         model: DeepMechanisticModel,
         parameter_filepath: str,
+        avg_model_parameter_file: str,
         random_seed: int,
+        median_params_method: str = "avg_model",
         return_full_combo: bool = False,
 ):
     pretrained_samples = {}
@@ -197,6 +199,20 @@ def get_kin_params_median_deviation(
                 if not col.startswith(MODEL_FEATURE_PREFIX)
             ]
         ]
+
+    # Fetch avg_model params (for all multi-starts)
+    avg_model_params = pd.read_csv(
+        avg_model_parameter_file,
+        index_col=[0],
+    )
+    # Subset to columns not starting with MODEL_FEATURE_PREFIX
+    avg_model_params = avg_model_params[
+        [
+            col
+            for col in avg_model_params.columns
+            if not col.startswith(MODEL_FEATURE_PREFIX)
+        ]
+    ]
     # Set random seed for poisson sampling
     # this means all 0 jobs have the same matrix
     # of kinetic parameters vs cell-lines.
@@ -247,12 +263,23 @@ def get_kin_params_median_deviation(
     if return_full_combo:
         return par_combo
     else:
-        # Compute the median across samples
-        par_medians = par_combo.median(skipna=True)
-        # Subtract the median from the parameters:
-        # par_combo now represents variation around the median
-        par_deviations = par_combo - par_medians
-        return par_medians, par_deviations
+        if median_params_method == "per_sample":
+            # Compute the median across samples
+            par_medians = par_combo.median(skipna=True)
+            # Subtract the median from the parameters:
+            # par_combo now represents variation around the median
+            par_deviations = par_combo - par_medians
+            return par_medians, par_deviations
+        elif median_params_method == "avg_model":
+            # Poisson sample one among the multi-starts avg_model parameters and use as medians
+            avg_param_combo = avg_model_params[
+                avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
+                ].iloc[0]
+            # Compute per_sample param deviations w.r.t. avg_model params
+            par_deviations = par_combo - avg_param_combo
+            return avg_param_combo, par_deviations
+        else:
+            raise ValueError(f"Unknown method for computing median parameters: {median_params_method}")
 
 
 # def load_and_subset_input_features(
@@ -308,6 +335,7 @@ def linear_nn_init(
         conf: Conf,
         model: DeepMechanisticModel,
         per_sample_parameter_file: str,
+        avg_model_parameter_file: str,
         features: Dict[str, np.ndarray],
         dataset: str,
 ):
@@ -372,7 +400,9 @@ def linear_nn_init(
     _, par_deviations = get_kin_params_median_deviation(
         model=model,
         parameter_filepath=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        return_full_combo=False,
     )
 
     inputs = [
@@ -422,6 +452,7 @@ def linear_nn_init(
 def init_global_kin_params_combiner(
         model: DeepMechanisticModel,
         per_sample_parameter_file: str,
+        avg_model_parameter_file: str,
         random_seed: int,
         nn_pretrain: bool,
 ):
@@ -448,8 +479,9 @@ def init_global_kin_params_combiner(
         par_medians, _ = get_kin_params_median_deviation(
             model=model,
             parameter_filepath=per_sample_parameter_file,
+            avg_model_parameter_file=avg_model_parameter_file,
             random_seed=random_seed,
-            return_full_combo=False
+            return_full_combo=False,
         )
         # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
         new_global_kin_params = jnp.array(par_medians.values)
