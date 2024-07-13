@@ -1,8 +1,9 @@
 import fire
 import jax.tree_util as jtu
 
-from common import (FEATURES_OUTFILE, FEATURES_PIPELINE, TRAINING_OUTFILE_RESULTS,
+from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
                     TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, optimisers)
+from cytof.problem import CytofProblem
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
@@ -12,7 +13,7 @@ from dmm.initialisation import (linear_nn_init,
                                 get_targets)
 from dmm.network_pretraining import pretrain_network
 from dmm.training import train
-from dmm.training_helper_funcs import create_pypesto_problem, map_params_to_array, sparsify_model
+from dmm.training_helper_funcs import check_best_model, create_pypesto_problem, map_params_to_array, sparsify_model
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
@@ -23,11 +24,13 @@ from util import load_petab_base_files
 
 conf = fire.Fire(Conf)
 
-# Remove blank spaces introduced by encoder/inflater_layer_sizes
 per_sample_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
     **{**conf.__dict__, **dict(sample="{sample}")}
 )
-results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
+avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
+    **{**conf.__dict__, **dict(sample=f"model_average_{conf.samples}")}
+)
+# results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 features_filepath = FEATURES_OUTFILE.format(
@@ -86,10 +89,12 @@ if (conf.depth == 0) and conf.linear_benchmark:
                 conf=conf,
                 model=model,
                 per_sample_parameter_file=per_sample_parameter_file,
+                avg_model_parameter_file=avg_model_parameter_file,
                 features=input_features,
                 dataset=dataset,
             ),
             per_sample_parameter_file=per_sample_parameter_file,
+            avg_model_parameter_file=avg_model_parameter_file,
             random_seed=conf.job,
             nn_pretrain=False,
         )
@@ -103,7 +108,9 @@ else:
     _, par_deviation_train = get_kin_params_median_deviation(
         model=model_train,
         parameter_filepath=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        return_full_combo=False
     )
     targets_train = get_targets(model_train, par_deviation_train)
     # Split training data and targets into pretrain train and val data and targets not to leak true validation
@@ -117,6 +124,7 @@ else:
     model_train, filter_spec = init_global_kin_params_combiner(
         model_train,
         per_sample_parameter_file=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
         nn_pretrain=True,
     )
@@ -142,6 +150,7 @@ else:
     model_train = init_global_kin_params_combiner(
         model=pretrained_model,
         per_sample_parameter_file=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
         nn_pretrain=False,
     )
@@ -170,7 +179,7 @@ samples_name_list_dict = {
     dataset: model.sample_name_list
     for dataset, model in zip(["train", "test"], [model_train, model_test])
 }
-train(
+best_model, rmse_test_min = train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     filter_spec_per_param=filter_spec_per_param,
     problem_train=pypesto_problem_train,
@@ -179,11 +188,21 @@ train(
     input_features_test=input_features_test,
     conf=conf.__dict__,
     optimiser=optimiser,
-    rfile=results_file,
+    # rfile=results_file,
     model_file=model_file,
     samples_name_list_dict=samples_name_list_dict,
     n_epoch=N_EPOCHS,
     x0=x0,
     early_stopping_params=early_stopping_params,
     debug_mode=debug_mode,
+)
+
+# Check whether the saved best_model indeed produces the best recorded RMSE on validation
+check_best_model(
+    best_model_filename=model_file,
+    cytof_problem=CytofProblem(conf.model),
+    petab_base_files=petab_base_files,
+    input_data=input_features_test,
+    pp=pypesto_problem_test,
+    best_rmse_val=rmse_test_min,
 )
