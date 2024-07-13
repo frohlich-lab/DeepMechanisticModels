@@ -1,4 +1,3 @@
-import copy
 import equinox as eqx
 import jax
 import jax.numpy as jnp
@@ -121,7 +120,7 @@ def pretrain_network(
             )
 
     # Keep track of best performing model on validation set (actually a part of the DMM training set)
-    best_model = copy.deepcopy(model)
+    best_model = model
     best_loss_val = jnp.inf
 
     @eqx.filter_jit
@@ -173,7 +172,7 @@ def pretrain_network(
         # Update best model and best loss estimate
         if loss_val < best_loss_val:
             best_loss_val = loss_val
-            best_model = copy.deepcopy(model)
+            best_model = model
 
         # Log loss_train and loss_val
         wandb.log(
@@ -240,8 +239,19 @@ def pretrain_network(
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-    try:
-        _ = subprocess.run(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error syncing wandb directory: {e}")
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
+
+    # Check: is best_model actually the best?
+    loss_val = loss_pretrain(
+        model=best_model,
+        conf=conf,
+        input_data=validation_data,
+        targets=validation_targets,
+    )
+
+    assert loss_val == best_loss_val
+
     return best_model

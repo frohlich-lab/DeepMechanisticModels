@@ -2,15 +2,18 @@ import equinox as eqx
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import petab
 import pypesto
 import seaborn as sns
 
+from amici.petab.simulations import rdatas_to_simulation_df
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree
 from pathlib import Path
+from pypesto.C import MODE_RES, RDATAS
 from pypesto.objective.jax import JaxObjective
 from typing import Union
 
@@ -333,6 +336,35 @@ def plot_model_weights(model: DeepMechanisticModel, filename: str = None):
     plt.show()
 
 
+def rmse(
+        pp,
+        model: DeepMechanisticModel,
+        input_data
+):
+    try:
+        x = model_output_to_petab_input(model, input_data)
+        obj = pp.objective.base_objective
+        amici_model = obj.amici_model
+        petab_problem = obj.amici_object_builder.petab_problem
+        res = obj(x, mode=MODE_RES, return_dict=True)
+        simulation_df = rdatas_to_simulation_df(
+            res[RDATAS],
+            model=amici_model,
+            measurement_df=petab_problem.measurement_df,
+        )
+        return np.sqrt(
+            np.mean(
+                np.square(
+                    simulation_df[petab.SIMULATION]
+                    - petab_problem.measurement_df[petab.MEASUREMENT]
+                )
+            )
+        )
+    except Exception as e:
+        print(e)
+        return np.NaN
+
+
 def test_save_reload_model(
         model: DeepMechanisticModel,
         model_filename: Path,
@@ -354,5 +386,31 @@ def test_save_reload_model(
         petab_base_files=petab_base_files,
     )
 
+    # TODO add checks on RMSE -- need to import problem_train, problem_test and compute RMSE on both
+    # return RMSE on validation and assert it's the same as the best one // could write another function for this
     assert (vmap(model)(input_data)["inflated"] == vmap(re_model)(input_data)["inflated"]).all()
     assert (vmap(model)(input_data)["decoded"] == vmap(re_model)(input_data)["decoded"]).all()
+
+
+def check_best_model(
+        best_model_filename: Path,
+        cytof_problem,  # avoids importing from CytofProblem
+        petab_base_files,  # avoids importing from util
+        input_data: np.ndarray,
+        pp: pypesto.Problem,
+        best_rmse_val: float,
+):
+    # Use class method to load an instance from file
+    re_model = DeepMechanisticModel.load(
+        filename=best_model_filename,
+        problem=cytof_problem,
+        dataset="test",
+        petab_base_files=petab_base_files,
+    )
+    # Compute RMSE with reloaded model
+    re_model_rmse_val = rmse(pp, re_model, input_data)
+
+    print(f"Reloaded model RMSE val: {re_model_rmse_val}, original RMSE val: {best_rmse_val}")
+
+    assert re_model_rmse_val == best_rmse_val
+
