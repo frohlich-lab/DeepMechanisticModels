@@ -38,16 +38,12 @@ from evaluation_utils import (get_measurements_and_obervables,
                               simulate_avg_model,
                               process_avg_model_simulation,
                               process_per_sample_pretrain)
+from generate_run_configs import generate_run_configs
 from joblib import load
 from pathlib import Path
 from stat_test import statistical_significance_test
 from training_configuration import (
-    CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
-    LATENT_DIMS, NETWORK_LAYOUT, NN_STRUCTURE_MULTIPLIER, USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN,
-    RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
-    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
-    LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, RETURN_STAT_TESTS, SPARSITY_THRESHOLD
+    CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS
 )
 from typing import List, Union
 from util import load_petab_base_files
@@ -227,7 +223,7 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
         [
             dict(
                 zip(gbs_dmm, group),
-                rmse=np.sqrt(np.square(group_df["res"]).mean()),  # mean RMSE across all jobs (not best result)
+                rmse=np.sqrt(np.square(group_df["res"]).mean()),  # RMSE
             )
             for group, group_df in df.groupby(gbs_dmm)
         ]
@@ -389,6 +385,16 @@ outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 
 JOBS = tuple([i for i in range(conf.n_starts)])
+# Compute run configurations and arrange by CV split
+hyperparam_configs = generate_run_configs(
+    n_starts=conf.n_starts,
+    hp_run_mode=HP_RUN_MODE,
+    refine_hps=REFINE_HPS,
+)
+hyperparam_configs = {
+    samples: [hyperparam_config for hyperparam_config in hyperparam_configs if hyperparam_config['samples'] == samples]
+    for samples in SPLITS
+}
 dfs = []
 for samples in SPLITS:
     for dataset in [
@@ -399,66 +405,16 @@ for samples in SPLITS:
         # training
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
-            for (
-                (ctxt, features), features_transform, pretrain, n_hidden,
-                reconstruct, activation_fn_name, optimiser,
-                (depth, linear_benchmark),
-                use_layer_bias, last_layer_activation, nn_init_fn, orth_reg_strategy,
-                alpha, beta, gamma, delta, epsilon, zeta,
-                max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
-                use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain, sparsity_threshold,
-                job,
-            ) in itt.product(
-                CONTEXTS_FEATURES, FEATURES_TRANSFORM, PRETRAIN, LATENT_DIMS,
-                RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-                NETWORK_LAYOUT,
-                USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, ORTH_REG_STRATEGIES,
-                ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
-                MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
-                LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
-                JOBS,
-            )
+            for hyperparam_configuration in hyperparam_configs[samples]
             if os.path.exists(
-                efile := EVALUATION_TRAINING.format(
-                    **{
-                        **conf.__dict__,
-                        **dict(
-                            dataset=dataset,
-                            context=ctxt,
-                            features=features,
-                            features_transform=features_transform,
-                            samples=samples,
-                            pretrain=pretrain,
-                            n_hidden=n_hidden,
-                            depth=depth,
-                            linear_benchmark=linear_benchmark,
-                            nn_structure_multiplier=NN_STRUCTURE_MULTIPLIER,
-                            use_layer_bias=use_layer_bias,
-                            last_layer_activation=last_layer_activation,
-                            nn_init_fn=nn_init_fn,
-                            reconstruct=reconstruct,
-                            activation_fn_name=activation_fn_name,
-                            optimiser=optimiser,
-                            orth_reg_strategy=orth_reg_strategy,
-                            l1reg_inflate=alpha,
-                            oreg_inflate=beta,
-                            l1reg_encode=gamma,
-                            oreg_encode=delta,
-                            recon_loss=epsilon,
-                            symm_reg=zeta,
-                            max_lrate=max_lrate,
-                            lrate_span=lrate_span,
-                            lrate_decay=lrate_decay,
-                            warmup_fct=warmup_fct,
-                            opt_steps=opt_steps,
-                            opt_mult=opt_mult,
-                            use_simple_linear_schedule=use_simple_linear_schedule,
-                            use_early_stopping=use_early_stopping,
-                            drop_reg_after_pretrain=drop_reg_after_pretrain,
-                            sparsity_threshold=sparsity_threshold,
-                            job=job,
-                        ),
-                    },
+                efile := EVALUATION_TRAINING.format_map(
+                    {
+                        **hyperparam_configuration,
+                        'model': conf.model,
+                        'data': conf.data,
+                        'dataset': dataset,
+                        'samples': samples
+                    }
                 )
             )
         )
@@ -473,7 +429,6 @@ for samples in SPLITS:
         # Add necessary attributes to training DataFrame
         training["ref"] = "DMM"  # previously "meth"
         training["dataset"] = dataset
-        training["samples"] = samples
 
         # average (not in use)
         # avg = process_reference(conf, samples, dataset, "average", "avg")
@@ -503,7 +458,7 @@ for samples in SPLITS:
                     index_col=0,
                 )
                 for ctxt, features in CONTEXTS_FEATURES
-            ).assign(ref=mode)
+            ).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
         }
         print(f'Finished processing regressors for {samples}, {dataset}')
@@ -519,7 +474,7 @@ for samples in SPLITS:
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
-                avg_ps_df["context"] = context
+                avg_ps_df = avg_ps_df.assign(context=context, samples=samples, dataset=dataset)
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -537,8 +492,6 @@ for samples in SPLITS:
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
         # Deleting DataFrames once concatenated into dfd
         del training, avg_ps_dfs, rdf
-        dfd["dataset"] = dataset
-        dfd["samples"] = samples
         dfs.append(dfd)
         # Deleting dfd once appended to dfs
         del dfd
@@ -575,7 +528,7 @@ best_n_dmm_df.to_csv(
     evaluations_dir
     / f"{conf.model}"
     / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm.csv"
+    / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_{HP_RUN_MODE}.csv"
 )
 
 # ########################################################################### #
@@ -768,18 +721,18 @@ for dataset, context, split in itt.product(
     )
 
     # Single-shot (single split, single job)
-    absolute_best_conf = get_dmm_conf(conf, absolute_best_dmm, dataset, context)
-    absolute_best_dmm_model, obj = load_model_and_obj(
-        absolute_best_conf,
-        petab_base_files,
-        dataset
-    )
-    absolute_best_dmm_sim_df = simulate_dmm(
-        model=absolute_best_dmm_model,
-        input_features=load_and_transform_features(absolute_best_conf, dataset),
-        obj=obj,
-        petab_problem=absolute_best_dmm_model.petab_importer.petab_problem,
-    )
+    # absolute_best_conf = get_dmm_conf(conf, absolute_best_dmm, dataset, context)
+    # absolute_best_dmm_model, obj = load_model_and_obj(
+    #     absolute_best_conf,
+    #     petab_base_files,
+    #     dataset
+    # )
+    # absolute_best_dmm_sim_df = simulate_dmm(
+    #     model=absolute_best_dmm_model,
+    #     input_features=load_and_transform_features(absolute_best_conf, dataset),
+    #     obj=obj,
+    #     petab_problem=absolute_best_dmm_model.petab_importer.petab_problem,
+    # )
 
     # Plot the time-varying response
     plot_cross_samples_multiple_simulations(
@@ -789,28 +742,28 @@ for dataset, context, split in itt.product(
             avg_model_sim_df,
             best_regressor_sim_df,
             overall_best_dmm_sim_df,
-            absolute_best_dmm_sim_df
+            # absolute_best_dmm_sim_df
         ],
         labels=[  # TODO @GiacomoFabrini need to find a way to use these to produce secondary legend (currently unused)
             "per_sample",
             "avg_model",
             "best_regressor",
             "best_dmm_overall",
-            "best_singleshot_dmm"
+            # "best_singleshot_dmm"
         ],
         linetypes=[
             (0, (1, 5)),  # similar to "loosely dotted" in matplotlib but with twice more frequent dots
             "dotted",
             "dashed",
             "solid",
-            "dashdot",
+            # "dashdot",
         ],  # TODO change this to something more appropriate
         linesizes=[
             1,
             1,
             1,
             1.25,  # slightly thicker lines for DMM models
-            1.25,
+            # 1.25,
         ],  # TODO change this to something more appropriate
         figdir=outdir / dataset,
         prefix="__".join(
