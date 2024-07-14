@@ -30,7 +30,7 @@ def init_wandb(
         group = f"{conf.context}_{conf.features}"
 
     wandb.init(
-        project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}.{conf.run_mode_tag}.{conf.date_tag}",
+        project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
