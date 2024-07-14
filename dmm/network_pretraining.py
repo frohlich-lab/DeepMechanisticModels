@@ -206,13 +206,14 @@ def pretrain_network(
             # Debugging statements
             if debug_mode:
                 print(
-                    f" | epoch {epoch} | "
-                    f" | loss_val {loss_val} | "
+                    f" | epoch {epoch}  "
+                    f" | loss_train {loss_train}  "
+                    f" | loss_val {loss_val}  "
                 )
 
             if conf["use_early_stopping"]:
                 # Update early stopper
-                early_stopper = early_stopper.update(loss_val)
+                early_stopper = early_stopper.update(loss_val)  # TODO: include toggle for early-stopping on train/val
                 # Debugging statements
                 print(
                     f" | has improved? {early_stopper.has_improved} | "
