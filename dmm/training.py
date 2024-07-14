@@ -124,7 +124,10 @@ def train(
     # TODO @GiacomoFabrini Do we still need these? Or can we change them in some way?
     x = x0.copy()
     best_model = model
-    rmse_test_min = np.inf
+    # rmse_test_min = np.inf
+    # Now that we have a pretrained model as best_model initial guess,
+    # we can use it to get a baseline rmse_test_min (which could still be np.inf in the worst case)
+    rmse_test_min = rmse(problem_test, best_model, input_features_test)
 
     # Check Early-stopping parameters have been set correctly and instantiate early stopper
     if conf["use_early_stopping"]:
@@ -235,8 +238,9 @@ def train(
             # Progress/debugging statements
             if debug_mode:
                 print(
-                    f" | epoch {epoch} |"
-                    f" rmse_val {rmse_dict['test']} | "
+                    f" | epoch {epoch} "
+                    f" | rmse_train {rmse_dict['train']} "
+                    f" | rmse_val {rmse_dict['test']} | "
                 )
 
             if conf["use_early_stopping"]:
