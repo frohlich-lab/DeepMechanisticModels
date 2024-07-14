@@ -55,7 +55,7 @@ samples = {
 
 def build_pipeline(
         steps_list: List[str],
-        input_data: np.ndarray,
+        # input_data: np.ndarray,  # not needed if using PCA(n_components=0.95)
 ) -> Pipeline:
     """
     builds a sklearn.pipeline.Pipeline consisting of:
@@ -66,8 +66,8 @@ def build_pipeline(
     :param steps_list:
         list of additional Pipeline steps
 
-    :param input_data:
-        input_data used to fit PCA step in Pipeline
+    # :param input_data:
+    #     input_data used to fit PCA step in Pipeline
     """
 
     # standard steps: scaling, imputation via KNN
@@ -88,14 +88,15 @@ def build_pipeline(
     if (steps_list is not None) and (len(steps_list) > 0):
         for step in steps_list:
             if step == "pca":
-                inputs = Pipeline(steps).fit_transform(input_data)
-                var_expl = (
-                    PCA(n_components=input_data.shape[0])
-                    .fit(inputs)
-                    .explained_variance_ratio_
-                )
-                n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
-                steps.append(("pca", PCA(n_components=n_pca)))
+                # inputs = Pipeline(steps).fit_transform(input_data)
+                # var_expl = (
+                #     PCA(n_components=input_data.shape[0])
+                #     .fit(inputs)
+                #     .explained_variance_ratio_
+                # )
+                # n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
+                # steps.append(("pca", PCA(n_components=n_pca)))
+                steps.append(('pca', PCA(n_components=0.95)))  # simpler approach, should be equivalent given the docs
             elif step in regressor_steps.keys():
                 steps.append((step, regressor_steps[step]))
             else:
@@ -146,8 +147,8 @@ def train_pipeline(
     )
     # Build pipeline and return trained_pipeline, features_train
     pipeline = build_pipeline(
-                steps_list=pipeline_steps,
-                input_data=input_data
+        steps_list=pipeline_steps,
+        # input_data=input_data
     )
 
     return pipeline.fit(input_data, output_data), features_train

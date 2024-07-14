@@ -15,6 +15,7 @@ from .config_options import Conf
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from pathlib import Path
 from sklearn.decomposition import PCA
+from sklearn.impute import KNNImputer
 from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
 from typing import Dict, List, Tuple, Union
@@ -59,6 +60,7 @@ def pca_transform_features(
         # Construct the pipeline
         pipeline = Pipeline([
             ('scaler', StandardScaler()),
+            ("imputer", KNNImputer()),  # add to match regressor setup
             ('pca', PCA(n_components=0.95))
         ])
         # Fit the pipeline on the training data
