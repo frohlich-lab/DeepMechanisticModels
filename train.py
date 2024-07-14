@@ -112,14 +112,26 @@ else:
         random_seed=conf.job,
         return_full_combo=False
     )
-    targets_train = get_targets(model_train, par_deviation_train)
-    # Split training data and targets into pretrain train and val data and targets not to leak true validation
-    data_pretrain_train, data_pretrain_val, targets_pretrain_train, targets_pretrain_val = train_test_split(
-        input_features_train,
-        targets_train,
-        test_size=0.2,
-        random_state=42
+    # Get test targets
+    _, par_deviation_test = get_kin_params_median_deviation(
+        model=model_test,
+        parameter_filepath=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
+        random_seed=conf.job,
+        return_full_combo=False
     )
+    targets_train, targets_test = (
+        get_targets(model, par_deviations)
+        for model, par_deviations in zip([model_train, model_test], [par_deviation_train, par_deviation_test])
+    )
+    # Split training data and targets into pretrain train and val data and targets not to leak true validation
+    # Disabled after GM - using all train for pretraining
+    # data_pretrain_train, data_pretrain_val, targets_pretrain_train, targets_pretrain_val = train_test_split(
+    #     input_features_train,
+    #     targets_train,
+    #     test_size=0.2,
+    #     random_state=42
+    # )
     # Define filter_spec_per_param to freeze the KinParamsCombiner in the model
     model_train, filter_spec = init_global_kin_params_combiner(
         model_train,
@@ -134,10 +146,10 @@ else:
     pretrained_model = pretrain_network(
         model=model_train,
         filter_spec=filter_spec,
-        training_data=data_pretrain_train,  # (batch_size, input_size)
-        training_targets=targets_pretrain_train,  # (batch_size, output_size)
-        validation_data=data_pretrain_val,
-        validation_targets=targets_pretrain_val,
+        training_data=input_features_train,  # (batch_size, input_size)
+        training_targets=targets_train,  # (batch_size, output_size)
+        validation_data=input_features_test,
+        validation_targets=targets_test,
         conf=conf.__dict__,
         optimiser=optimiser,
         # rfile=rfile,
