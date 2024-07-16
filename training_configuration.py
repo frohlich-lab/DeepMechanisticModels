@@ -130,8 +130,9 @@ ACTIVATION_FNS = (
 
 # optimiser to use
 OPTIMISERS = {
-    "adam",
+    # "adam",
     # "adamw",
+    "adamw_schedule_free",
 }
 
 
@@ -283,6 +284,21 @@ OPT_STEPS = {'range': (1, 2, 5, 10, 100), 'central_value': 10}
 # }
 # Linear scan range for opt_mult
 OPT_MULT = {'range': (1, 2, 5, 10), 'central_value': 2}
+
+# Weight-decay for AdamW / schedule-free AdamW
+# WEIGHT_DECAY = {
+#     1e-4, # default in AdamW - optax implementation
+# }
+WEIGHT_DECAY = {'range': (1e-1, 1e-2, 1e-3, 1e-4, 1e-5), 'central_value': 1e-4}
+
+# Momentum for AdamW / schedule-free AdamW
+# MOMENTUM = {
+#     0.9,
+#     0.98,  # in Schedule-Free Learning paper they test 0.9 and 0.98
+#     # 0.99,
+# }
+MOMENTUM = {'range': (0.9, 0.98), 'central_value': 0.9}
+
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
 # with the given max learning rate, warm-up and decay
