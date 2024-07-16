@@ -349,7 +349,12 @@ def enforce_minimum_spacing(arr: np.ndarray, min_dist: int) -> np.ndarray:
     return np.array([prev := x for x in arr if x - prev >= min_dist])
 
 
-def get_eval_model(conf: Dict, model: DeepMechanisticModel, opt_state: PyTree) -> DeepMechanisticModel:
+def get_eval_model(
+        conf: Dict,
+        model: DeepMechanisticModel,
+        opt_state: PyTree,
+        filter_spec: Optional[PyTree]
+) -> DeepMechanisticModel:
     """
     Returns the evaluation model for schedule-free learning, the model itself otherwise.
     For schedule-free learning, optimiser tracks sequence of iterates `y`, on which gradients are evaluated.
@@ -368,7 +373,10 @@ def get_eval_model(conf: Dict, model: DeepMechanisticModel, opt_state: PyTree) -
     """
     # For schedule-free learning, we need to get the evaluation parameters
     if conf["optimiser"] == "adamw_schedule_free":
-        diff_model, static_model = eqx.partition(model, eqx.is_array)
+        if filter_spec is not None:
+            diff_model, static_model = eqx.partition(model, filter_spec)
+        else:
+            diff_model, static_model = eqx.partition(model, eqx.is_array)
         flat_params, unflatten_params = jfu.ravel_pytree(diff_model)
         eval_params = schedule_free_eval_params(opt_state, flat_params)
         eval_diff_model = unflatten_params(eval_params)

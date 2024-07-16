@@ -189,7 +189,7 @@ def train(
         model = next_model
 
         # Get evaluation model (move from y to x params in Schedule-free)
-        eval_model = get_eval_model(conf=conf, model=model, opt_state=opt_state)
+        eval_model = get_eval_model(conf=conf, model=model, opt_state=opt_state, filter_spec=None)
 
         # Update x - same param array that we had before
         x = map_params_to_array(model)
