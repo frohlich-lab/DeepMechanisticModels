@@ -61,9 +61,6 @@ input_features_train, input_features_test = (
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
 
-# Get optimiser
-optimiser = optimisers[conf.optimiser]
-
 # TODO @GiacomoFabrini - differentiate schedule and early-stop between network pretraining and whole DMM training?
 early_stopping_params = EarlyStoppingParams(
     patience=PATIENCE,  # (n_epoch-1) where we tolerate `rmse_val` not improving by at least min_improvement
@@ -151,7 +148,6 @@ else:
         validation_data=input_features_test,
         validation_targets=targets_test,
         conf=conf.__dict__,
-        optimiser=optimiser,
         # rfile=rfile,
         pretrained_model_file=pretrained_model_file,
         n_epoch=PRETRAIN_N_EPOCHS,
@@ -199,7 +195,6 @@ best_model, rmse_test_min = train(
     input_features_train=input_features_train,
     input_features_test=input_features_test,
     conf=conf.__dict__,
-    optimiser=optimiser,
     # rfile=results_file,
     model_file=model_file,
     samples_name_list_dict=samples_name_list_dict,
