@@ -1,7 +1,5 @@
 import dataclasses
-import numpy as np
 
-from optax import Schedule, sgdr_schedule
 from typing import Dict, List, Optional
 
 
@@ -42,8 +40,10 @@ class Conf(dict):
     lrate_decay: Optional[float] = 0.98  # if < 1, the learning rate decays between schedules.
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
     warmup_fct: Optional[float] = 0.0  # fraction of schedule epochs to be used for warmup
-    opt_steps: int = 0  # Number of steps in the first schedule
-    opt_mult: int = 0  # Multiplier for the number of steps in each schedule
+    opt_steps: Optional[int] = 0  # Number of steps in the first schedule
+    opt_mult: Optional[int] = 0  # Multiplier for the number of steps in each schedule
+    momentum: Optional[float] = 0.9  # momentum for AdamW or schedule-free AdamW (b1 in implementation, beta in paper)
+    weight_decay: Optional[float] = 1e-4  # controls weight decay for AdamW or schedule-free AdamW
     use_simple_linear_schedule: bool = False
     # Early-stopping
     use_early_stopping: bool = False
@@ -77,6 +77,7 @@ class Conf(dict):
             "model", "data", "sample", "samples", "context", "features",
             "pretrain", "use_layer_bias", "linear_benchmark",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
+            "weight_decay", "momentum",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
             "drop_reg_after_pretrain", "sparsity_threshold", "run_mode_tag", "date_tag",
         ]
@@ -123,53 +124,3 @@ L1IREG = "l1reg_inflate"
 OIREG = "oreg_inflate"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"
-
-
-def get_scheduler(
-        conf: Dict,
-        n_epoch: int,
-) -> Schedule:
-    """Get the learning rate scheduler.
-
-    Parameters
-    ----------
-    conf : configuration object
-    n_epoch : int - total number of training epochs
-
-    Returns
-    ----------
-    optax.sgdr_schedule
-        The learning rate scheduler.
-    """
-    if conf["use_simple_linear_schedule"]:
-        # Define custom steps to use the same machinery as below - schedule config should
-        # be entirely within conf object
-        schedules = [
-            {
-                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
-                'peak_value': conf["max_lrate"],  # after warm-up
-                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
-                'decay_steps': n_epoch,  # entire n_epoch
-                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
-            }  # single linear schedule
-        ]
-    else:
-        epochs_per_schedule = np.array([
-            conf["opt_steps"] * (conf["opt_mult"] ** i)
-            for i in range(int(n_epoch // conf["opt_steps"]))
-            if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
-        ])
-        schedules = [
-            {
-                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
-                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
-                'warmup_steps': int(
-                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
-                    * conf["warmup_fct"]
-                ),
-                'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
-                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
-            }
-            for i_schedule in range(len(epochs_per_schedule))
-        ]
-    return sgdr_schedule(schedules)

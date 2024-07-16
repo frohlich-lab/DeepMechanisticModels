@@ -1,5 +1,6 @@
 import equinox as eqx
 import jax.numpy as jnp
+import jax.flatten_util as jfu
 import matplotlib.pyplot as plt
 import numpy as np
 import petab
@@ -12,10 +13,116 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree
+from optax import adam, adamw, GradientTransformationExtraArgs, Schedule, sgdr_schedule
+from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.objective.jax import JaxObjective
-from typing import Union
+from typing import Dict, Optional, Tuple, Union
+
+
+def get_scheduler(
+        conf: Dict,
+        n_epoch: int,
+) -> Schedule:
+    """Get the learning rate scheduler.
+
+    Parameters
+    ----------
+    conf : configuration object
+    n_epoch : int - total number of training epochs
+
+    Returns
+    ----------
+    optax.sgdr_schedule
+        The learning rate scheduler.
+    """
+    if conf["use_simple_linear_schedule"]:
+        # Define custom steps to use the same machinery as below - schedule config should
+        # be entirely within conf object
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
+                'peak_value': conf["max_lrate"],  # after warm-up
+                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
+                'decay_steps': n_epoch,  # entire n_epoch
+                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
+            }  # single linear schedule
+        ]
+    else:
+        epochs_per_schedule = np.array([
+            conf["opt_steps"] * (conf["opt_mult"] ** i)
+            for i in range(int(n_epoch // conf["opt_steps"]))
+            if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
+        ])
+        schedules = [
+            {
+                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                'warmup_steps': int(
+                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
+                    * conf["warmup_fct"]
+                ),
+                'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
+                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
+            }
+            for i_schedule in range(len(epochs_per_schedule))
+        ]
+    return sgdr_schedule(schedules)
+
+
+def get_optimiser_and_opt_state(
+        conf: Dict,
+        n_epoch: int,
+        model: DeepMechanisticModel,
+        filter_spec: Optional[PyTree] = None
+) -> Tuple[GradientTransformationExtraArgs, PyTree]:
+    """
+    Returns the optimiser and optimiser state for training the model.
+    :param conf:
+        configuration object (dmm.config_options -> Conf) converted to dictionary.
+    :param n_epoch:
+        number of training epochs.
+    :param model:
+        DeepMechanisticModel instance.
+    :param filter_spec:
+        Optional filter specification for the model parameters.
+
+    :return:
+        Tuple containing the optimiser and optimiser state.
+    """
+    # Get dynamic model parameters
+    if filter_spec is not None:
+        diff_model, _ = eqx.partition(model, filter_spec)
+    else:
+        diff_model, _ = eqx.partition(model, eqx.is_array)
+    # Initialise optimiser and optimiser state
+    if conf["optimiser"] == 'adamw_schedule_free':
+        opt = schedule_free_adamw(
+            learning_rate=conf["max_lrate"],
+            warmup_steps=int(n_epoch * conf["warmup_fct"]),
+            b1=conf["momentum"],
+            weight_decay=conf["weight_decay"],
+        )
+        flat_params, _ = jfu.ravel_pytree(diff_model)
+        opt_state = opt.init(flat_params)
+        return opt, opt_state
+    elif conf["optimiser"] == 'adam':
+        optimiser = adam
+        extra_args = None
+    elif conf["optimiser"] == 'adamw':
+        optimiser = adamw
+        extra_args = {"weight_decay": conf["weight_decay"]}
+    else:
+        raise ValueError(f"Unknown optimiser: {conf['optimiser']}")
+    # If not schedule-free, get schedule and initialise optimiser and optimiser state accordingly
+    schedule = get_scheduler(conf, n_epoch)
+    if extra_args is not None:
+        opt = optimiser(schedule, **extra_args)
+    else:
+        opt = optimiser(schedule)
+    opt_state = opt.init(diff_model)
+    return opt, opt_state
 
 
 def get_finite_grads(grads):
@@ -242,6 +349,36 @@ def enforce_minimum_spacing(arr: np.ndarray, min_dist: int) -> np.ndarray:
     return np.array([prev := x for x in arr if x - prev >= min_dist])
 
 
+def get_eval_model(conf: Dict, model: DeepMechanisticModel, opt_state: PyTree) -> DeepMechanisticModel:
+    """
+    Returns the evaluation model for schedule-free learning, the model itself otherwise.
+    For schedule-free learning, optimiser tracks sequence of iterates `y`, on which gradients are evaluated.
+    Optimiser state keeps track of sequence of iterates `z`. Weights needed to evaluate the model, `x`, need to
+    be computed on the fly and stored in the model for accurate evaluation.
+
+    :param conf:
+        configuration object (dmm.config_options -> Conf) converted to dictionary.
+    :param model:
+        DeepMechanisticModel instance.
+    :param opt_state:
+        optimiser state.
+
+    :return:
+        Evaluation model for schedule-free learning, the model itself otherwise.
+    """
+    # For schedule-free learning, we need to get the evaluation parameters
+    if conf["optimiser"] == "adamw_schedule_free":
+        diff_model, static_model = eqx.partition(model, eqx.is_array)
+        flat_params, unflatten_params = jfu.ravel_pytree(diff_model)
+        eval_params = schedule_free_eval_params(opt_state, flat_params)
+        eval_diff_model = unflatten_params(eval_params)
+        eval_model = eqx.combine(eval_diff_model, static_model)
+    else:
+        # if not using schedule-free, we can just use the previous step model (not next_model)
+        eval_model = model
+    return eval_model
+
+
 def generate_log_epochs(n_epoch: int, num_samples: int, min_dist: int) -> np.ndarray:
     """
     Returns epochs regularly spaced in log10 space but no closer than min_dist
@@ -412,5 +549,9 @@ def check_best_model(
 
     print(f"Reloaded model RMSE val: {re_model_rmse_val}, original RMSE val: {best_rmse_val}")
 
-    assert re_model_rmse_val == best_rmse_val
+    # Cannot assert equality on NaN or inf values
+    if (not np.isfinite(best_rmse_val)) and (not np.isfinite(re_model_rmse_val)):
+        pass
+    else:
+        assert re_model_rmse_val == best_rmse_val
 
