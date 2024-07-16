@@ -9,10 +9,48 @@ from training_configuration import (
     # Regularisation
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     # Learning rate scheduling
-    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
-    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
+    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
+    WEIGHT_DECAY, MOMENTUM,
+    LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
     HP_RUN_MODE, REFINE_HPS
 )
+
+
+def make_configs_unique(run_configs: list[dict]) -> list[dict]:
+    return [
+        dict(t) for t in set(
+            tuple(d.items()) for d in run_configs
+        )
+    ]
+
+
+def prune_config(run_config: dict):
+    prune = False
+    hps_to_prune = []
+
+    # Learning-rate scheduling
+    if run_config["optimiser"] == "adamw_schedule_free":
+        # remove schedule hyperparams when using schedule-free
+        # 0 is not an otherwise valid value (used for regressors and pretraining baselines)
+        hps_to_prune.extend(["lrate_span", "lrate_decay", "opt_steps", "opt_mult"])
+        run_config["use_simple_linear_schedule"] = False  # also remove linear schedule
+        prune = True
+    elif run_config["use_simple_linear_schedule"]:  # only with adam or adamw
+        hps_to_prune.extend(["opt_steps", "opt_mult", "momentum"])  # use default momentum value
+        if run_config["optimiser"] == "adam":
+            hps_to_prune.append("weight_decay") # no weight decay for regular Adam, but keep it for AdamW
+        prune = True
+
+    # Network structure - linear benchmark
+    if run_config["linear_benchmark"] == 'True':
+        # remove network layout hyperparams when using linear benchmark
+        hps_to_prune.extend(["nn_structure_multiplier", "depth"])
+        run_config["last_layer_activation"] = False  # also remove non-linearities
+        prune = True
+
+    if prune:
+        for hp in hps_to_prune:
+            run_config[hp] = 0
 
 
 def generate_linear_scan(STARTS: list[str]):
@@ -32,6 +70,8 @@ def generate_linear_scan(STARTS: list[str]):
         "warmup_fct": WARMUP_FCTS,
         "opt_steps": OPT_STEPS,
         "opt_mult": OPT_MULT,
+        "weight_decay": WEIGHT_DECAY,
+        "momentum": MOMENTUM,
     }
 
     # Check that all hyperparameter options are dicts (central value, range)
@@ -88,13 +128,10 @@ def generate_linear_scan(STARTS: list[str]):
         linear_scan_config["depth"] = linear_scan_config["network_layout"][0]
         linear_scan_config["linear_benchmark"] = linear_scan_config["network_layout"][1]
         linear_scan_config.pop("network_layout")
+        prune_config(linear_scan_config)
 
     # Ensure configs are unique
-    unique_linear_scan_configs = [
-        dict(t) for t in set(
-            tuple(d.items()) for d in linear_scan_configs
-        )
-    ]
+    unique_linear_scan_configs = make_configs_unique(linear_scan_configs)
 
     return unique_linear_scan_configs
 
@@ -115,6 +152,8 @@ def generate_grid_search(STARTS: list[str]):
         "warmup_fct": WARMUP_FCTS,
         "opt_steps": OPT_STEPS,
         "opt_mult": OPT_MULT,
+        "weight_decay": WEIGHT_DECAY,
+        "momentum": MOMENTUM,
     }
 
     # Check hyperparameter options are not set up for linear scans by mistake
@@ -150,6 +189,8 @@ def generate_grid_search(STARTS: list[str]):
             "warmup_fct": warmup_fct,
             "opt_steps": opt_steps,
             "opt_mult": opt_mult,
+            "weight_decay": weight_decay,
+            "momentum": momentum,
             "use_simple_linear_schedule": use_simple_linear_schedule,
             "use_early_stopping": use_early_stopping,
             "drop_reg_after_pretrain": drop_reg_after_pretrain,
@@ -161,6 +202,7 @@ def generate_grid_search(STARTS: list[str]):
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode, recon_loss, symm_reg,
             max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
+            weight_decay, momentum,
             use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain,
             sparsity_threshold, job
         ) in itt.product(
@@ -168,6 +210,7 @@ def generate_grid_search(STARTS: list[str]):
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
             MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
+            WEIGHT_DECAY, MOMENTUM,
             LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN,
             SPARSITY_THRESHOLD, STARTS
         )
@@ -177,8 +220,12 @@ def generate_grid_search(STARTS: list[str]):
         grid_search_config["depth"] = grid_search_config["network_layout"][0]
         grid_search_config["linear_benchmark"] = grid_search_config["network_layout"][1]
         grid_search_config.pop("network_layout")
+        prune_config(grid_search_config)
 
-    return grid_search_configs
+    # Ensure configs are unique -- removes combinations of scheduling hyperparams when using schedule-free
+    unique_grid_search_configs = unique_linear_scan_configs = make_configs_unique(grid_search_configs)
+
+    return unique_grid_search_configs
 
 
 def generate_refined_tuning_configs(STARTS: list[str], filepath: str, hps_to_tune: dict):
