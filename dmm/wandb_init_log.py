@@ -29,6 +29,9 @@ def init_wandb(
     else:
         group = f"{conf.context}_{conf.features}"
 
+    # Add requirement for wandb core - new, faster back-end
+    wandb.require("core")
+
     wandb.init(
         project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
