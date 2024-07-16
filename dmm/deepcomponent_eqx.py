@@ -99,7 +99,8 @@ class DeepComponent(eqx.Module):
 
     component_name: str = eqx.static_field()
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
-    activation: Callable
+    # activation: Callable
+    activation_fn_name: str = eqx.static_field()  # makes it compatible with flattening utilities for schedule-free
     last_layer_activation: bool = eqx.static_field()
 
     def __init__(
@@ -139,19 +140,20 @@ class DeepComponent(eqx.Module):
 
         # activation function
         if activation_fn_name in act_fn_by_name.keys():
-            self.activation = act_fn_by_name[activation_fn_name]
+            self.activation_fn_name = activation_fn_name
         else:
             raise ValueError(f"Unknown activation function: {activation_fn_name}")
         self.last_layer_activation = last_layer_activation
 
     def __call__(self, x):
         a = x
+        activation = act_fn_by_name[self.activation_fn_name]
         # if more than one layer, applies non-linear activations to all layers but the last
         if len(self.layers) > 1:
             for layer in self.layers[:-1]:
-                a = self.activation(layer(a))
+                a = activation(layer(a))
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
-        return self.layers[-1](a) if not self.last_layer_activation else self.activation(self.layers[-1](a))
+        return self.layers[-1](a) if not self.last_layer_activation else activation(self.layers[-1](a))
 
 
 class KinParamsCombiner(eqx.Module):
