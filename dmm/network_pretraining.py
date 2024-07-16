@@ -60,8 +60,9 @@ def loss_pretrain(
     pred = jax.vmap(model)(input_data)["inflated"]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
+    mse_value = mse(pred.flatten(), targets.flatten())
     loss_value = (
-            mse(pred.flatten(), targets.flatten())
+            mse_value
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -77,7 +78,7 @@ def loss_pretrain(
                 + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
-    return loss_value
+    return loss_value, mse_value
 
 
 # Need to split training into train and train_val (model cannot see the validation we will use for
@@ -172,10 +173,10 @@ def pretrain_network(
         )
 
         # Get evaluation model (move from y to x params in Schedule-free)
-        eval_model = get_eval_model(conf=conf, model=model, opt_state=opt_state)
+        eval_model = get_eval_model(conf=conf, model=model, opt_state=opt_state, filter_spec=filter_spec)
 
         # Evaluate validation loss term
-        loss_val = loss_pretrain(
+        loss_val, mse_val = loss_pretrain(
             model=eval_model,
             conf=conf,
             input_data=validation_data,
@@ -192,6 +193,7 @@ def pretrain_network(
             {
                 "loss_train": loss_train,
                 "loss_val": loss_val,
+                "mse_val": mse_val,
             },
             step=epoch
         )
@@ -222,6 +224,7 @@ def pretrain_network(
                     f" | epoch {epoch}  "
                     f" | loss_train {loss_train}  "
                     f" | loss_val {loss_val}  "
+                    f" | mse_val {mse_val}  "
                 )
 
             if conf["use_early_stopping"]:
@@ -259,7 +262,7 @@ def pretrain_network(
     #     raise ValueError(f"Error syncing wandb directory: {e}")
 
     # Check: is best_model actually the best?
-    loss_val = loss_pretrain(
+    loss_val, _ = loss_pretrain(
         model=best_model,
         conf=conf,
         input_data=validation_data,

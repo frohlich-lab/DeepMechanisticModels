@@ -64,6 +64,7 @@ def init_wandb(
         metrics = {
             "loss_train": "min",
             "loss_val": "min",
+            "mse_val": "min",
         }
     else:  # full DMM training stage
         metrics = {
