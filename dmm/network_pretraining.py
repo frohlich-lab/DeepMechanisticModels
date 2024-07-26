@@ -10,7 +10,6 @@ from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import generate_log_epochs, get_eval_model, get_finite_grads, get_optimiser_and_opt_state
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
-from optax.contrib import schedule_free_eval_params
 from pathlib import Path
 from typing import Dict
 
@@ -81,8 +80,6 @@ def loss_pretrain(
     return loss_value, mse_value
 
 
-# Need to split training into train and train_val (model cannot see the validation we will use for
-# entire DMM training!)
 def pretrain_network(
         model: DeepMechanisticModel,
         filter_spec: PyTree,
