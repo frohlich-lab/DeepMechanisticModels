@@ -71,7 +71,8 @@ def init_wandb(
             "rmse_train": "min",
             "rmse_val": "min",
             "loss": "min",
-            "fval": "min",
+            "fval_train": "min",
+            "fval_val": "min",
             "integration_error": None,
         }
     # common metrics - orthogonal regularisation + patience_counter

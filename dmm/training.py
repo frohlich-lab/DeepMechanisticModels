@@ -16,7 +16,6 @@ from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
-from optax.contrib import schedule_free_eval_params
 from pathlib import Path
 from typing import Any, Dict, Union
 
@@ -171,7 +170,7 @@ def train(
         # Log fval and loss_train at this epoch
         wandb.log(
             {
-                "fval": fval,
+                # "fval": fval,  # only logging on log-spaced epochs with eval_model due to schedule-free
                 "loss": loss_train,
             },
             step=epoch
@@ -243,10 +242,23 @@ def train(
                 #     input_features_test,
                 # )
 
+            # Compute fval on train/val datasets
+            fval_train, fval_val = (
+                problem.objective(
+                    model_output_to_petab_input(eval_model, input_data)
+                )
+                for problem, input_data in zip(
+                    [problem_train, problem_test], [input_features_train, input_features_test]
+                )
+            )
+
+            # Log rmses, fvals and model stats
             wandb.log(
                 {
                     "rmse_train": rmse_dict["train"],
                     "rmse_val": rmse_dict["test"],
+                    "fval_train": fval_train,
+                    "fval_val": fval_val,
                     **log_model_stats(eval_model, grads, pretrain=False)
                 },
                 step=epoch
