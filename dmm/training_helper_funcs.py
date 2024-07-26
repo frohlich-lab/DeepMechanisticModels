@@ -562,4 +562,3 @@ def check_best_model(
         pass
     else:
         assert re_model_rmse_val == best_rmse_val
-
