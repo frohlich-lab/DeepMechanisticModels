@@ -96,7 +96,7 @@ USE_BIAS = (
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
 LAST_LAYER_ACTIVATION = (
     "True",
-    "False",
+    # "False",
 )
 
 # For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
@@ -114,8 +114,8 @@ NN_INIT_FN = (
 
 # RECONSTRUCT: whether to add a second head to the autoencoder or not
 RECONSTRUCT = (
-    "True",
-    # "False",
+    True,
+    False,
 )
 
 
@@ -145,8 +145,8 @@ ORTH_REG_STRATEGIES = (
 
 
 # Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE = (0, 1e0, 1e1, 1e2, 1e3, 1e4, 1e5, 1e6, 1e7, 1e8, 1e9, 1e10)
-LINEAR_SCAN_CENTRAL = 1e5
+LINEAR_SCAN_RANGE = (0, 1e3, 1e6, 1e9, 1e12, 1e15)
+LINEAR_SCAN_CENTRAL = 1e6  # previously 1e5 - close enough
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 # From W&B, it seems that rmse_val.min is positively correlated with `l1reg` params
@@ -177,7 +177,8 @@ ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e3}  # tuned to hp value
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e7}  # tuned to hp value of all top 1 per context
+BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e6}  # tuned to hp value of all top 1 per context -
+# previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
 # GAMMAS = (
@@ -192,7 +193,7 @@ BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e7}  # tuned to hp value 
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e3} # tuned to hp value of all top 1 per context
+GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e3}  # tuned to hp value of all top 1 per context
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 # DELTAS = (
@@ -204,7 +205,8 @@ GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e3} # tuned to hp value 
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e7}  # from refined runs (while top10 would suggest 1e2)
+DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 1e6}  # from refined runs (while top10 would suggest 1e2)
+# previously centered at 1e7, but now excluded from scanned values
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -233,7 +235,7 @@ ZETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     # 1e-3,
 # }
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (1e-3, 1e-2, 1e-1, 1e0), 'central_value': 1e-2}
+MAX_LEARNING_RATES = {'range': (1e-4, 1e-3, 1e-2, 1e-1), 'central_value': 1e-2}
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
 # LEARNING_RATE_SPANS = {
