@@ -291,7 +291,7 @@ OPT_MULT = {'range': (1, 2, 5, 10), 'central_value': 2}
 # WEIGHT_DECAY = {
 #     1e-4, # default in AdamW - optax implementation
 # }
-WEIGHT_DECAY = {'range': (1e-1, 1e-2, 1e-3, 1e-4, 1e-5), 'central_value': 1e-4}
+WEIGHT_DECAY = {'range': (1e-1, 1e-2, 1e-3, 1e-4), 'central_value': 1e-4}
 
 # Momentum for AdamW / schedule-free AdamW
 # MOMENTUM = {
