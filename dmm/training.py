@@ -80,7 +80,7 @@ def make_step(
         problem_train,
     )
     grads = get_finite_grads(grads)
-    if conf["optimiser"] == "adamw_schedule_free":
+    if conf["optimiser"] == "adamw_sf":
         # Need to flatten parameters and gradients for schedule-free optimisation
         diff_model, static_model = eqx.partition(model, eqx.is_array)
         flat_params, unflatten_params = jax.flatten_util.ravel_pytree(diff_model)

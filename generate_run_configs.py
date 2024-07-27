@@ -29,7 +29,7 @@ def prune_config(run_config: dict):
     hps_to_prune = []
 
     # Learning-rate scheduling
-    if run_config["optimiser"] == "adamw_schedule_free":
+    if run_config["optimiser"] == "adamw_sf":
         # remove schedule hyperparams when using schedule-free
         # 0 is not an otherwise valid value (used for regressors and pretraining baselines)
         hps_to_prune.extend(["lrate_span", "lrate_decay", "opt_steps", "opt_mult"])

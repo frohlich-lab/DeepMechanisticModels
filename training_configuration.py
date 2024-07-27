@@ -132,7 +132,7 @@ ACTIVATION_FNS = (
 OPTIMISERS = {
     # "adam",
     # "adamw",
-    "adamw_schedule_free",
+    "adamw_sf",
 }
 
 

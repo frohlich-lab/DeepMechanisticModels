@@ -140,7 +140,7 @@ def pretrain_network(
         )
         # ensure gradients are finite
         grads = get_finite_grads(grads)
-        if conf["optimiser"] == "adamw_schedule_free":
+        if conf["optimiser"] == "adamw_sf":
             # Need to flatten parameters and gradients for schedule-free optimisation
             flat_params, unflatten_params = jax.flatten_util.ravel_pytree(diff_model)
             flat_grads, _ = jax.flatten_util.ravel_pytree(grads)

@@ -97,7 +97,7 @@ def get_optimiser_and_opt_state(
     else:
         diff_model, _ = eqx.partition(model, eqx.is_array)
     # Initialise optimiser and optimiser state
-    if conf["optimiser"] == 'adamw_schedule_free':
+    if conf["optimiser"] == 'adamw_sf':  # sf = schedule-free
         opt = schedule_free_adamw(
             learning_rate=conf["max_lrate"],
             warmup_steps=int(n_epoch * conf["warmup_fct"]),
@@ -372,7 +372,7 @@ def get_eval_model(
         Evaluation model for schedule-free learning, the model itself otherwise.
     """
     # For schedule-free learning, we need to get the evaluation parameters
-    if conf["optimiser"] == "adamw_schedule_free":
+    if conf["optimiser"] == "adamw_sf":
         if filter_spec is not None:
             diff_model, static_model = eqx.partition(model, filter_spec)
         else:
