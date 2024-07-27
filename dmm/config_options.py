@@ -75,7 +75,7 @@ class Conf(dict):
         # Filter out unwanted fields from the final string representation
         unwanted_fields = [
             "model", "data", "sample", "samples", "context", "features",
-            "pretrain", "use_layer_bias", "linear_benchmark",
+            "pretrain", "use_layer_bias", "linear_benchmark", "nn_init_fn",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "weight_decay", "momentum",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
@@ -107,12 +107,19 @@ class EarlyStoppingParams(dict):
     min_improvement: float = 0
 
 
+unwanted_attributes = [
+    'model', 'data', 'sample',
+    'threads', 'n_starts',
+    'run_mode_tag', 'date_tag',
+    "pretrain", "linear_benchmark", "nn_init_fn", "sparsity_threshold"
+    # had to remove attributes due to filename being too long
+    # these three latter params have not been varied in recent experiments (True, False, eqx_default, 1e-3)
+]
+
 default_attributes = [
     k
     for k, v in vars(Conf).items()
-    if not k.startswith('__') and k not in [
-        'model', 'data', 'sample',
-        'threads', 'n_starts', 'run_mode_tag', 'date_tag']
+    if not k.startswith('__') and k not in unwanted_attributes
 ]
 
 # define abbreviations/labels for logging of loss terms
