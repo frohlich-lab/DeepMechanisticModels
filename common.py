@@ -73,11 +73,11 @@ TRAINING_OUTFILE_RESULTS = str(
 )
 
 PRETRAINED_BEST_MODELS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_nn_pretraining_best_model.eqx")
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_nn_pre_bm.eqx")
 )
 
 TRAINED_BEST_MODELS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_best_model.eqx")
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_bm.eqx")
 )
 
 TRAINED_MODEL_WEIGHT_PLOTS = str(

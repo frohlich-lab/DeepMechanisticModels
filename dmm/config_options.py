@@ -111,9 +111,6 @@ unwanted_attributes = [
     'model', 'data', 'sample',
     'threads', 'n_starts',
     'run_mode_tag', 'date_tag',
-    "pretrain", "linear_benchmark", "nn_init_fn", "sparsity_threshold"
-    # had to remove attributes due to filename being too long
-    # these three latter params have not been varied in recent experiments (True, False, eqx_default, 1e-3)
 ]
 
 default_attributes = [
