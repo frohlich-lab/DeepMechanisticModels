@@ -4,17 +4,9 @@ import os
 from collections import namedtuple
 from cytof import get_samples
 from dmm.config_options import default_attributes
-from optax import adam, adamw
 from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
 from typing import List
-
-
-# Optimisers to choose from
-optimisers = {
-    "adam": adam,
-    "adamw": adamw,
-}
 
 
 # moved from Snakefile
