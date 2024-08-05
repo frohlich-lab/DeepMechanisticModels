@@ -223,7 +223,7 @@ def generate_grid_search(STARTS: list[str]):
         prune_config(grid_search_config)
 
     # Ensure configs are unique -- removes combinations of scheduling hyperparams when using schedule-free
-    unique_grid_search_configs = unique_linear_scan_configs = make_configs_unique(grid_search_configs)
+    unique_grid_search_configs = make_configs_unique(grid_search_configs)
 
     return unique_grid_search_configs
 
