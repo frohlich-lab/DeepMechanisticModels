@@ -70,6 +70,7 @@ def contextualize_measurements(
             petab.SIMULATION_CONDITION_ID,
             petab.TIME,
         )
+        # For cytof_dynamic_full, keep all observables
         if contextualization == "cytof_dynamic":
             # For cytof_dynamic, subset observables to those within the model (ERK, MEK)
             input_measurements = input_measurements[
@@ -77,15 +78,15 @@ def contextualize_measurements(
                     list(observable_table.index)
                 )
             ]
-            # For cytof_dynamic_full, keep all observables
-    elif contextualization == "cytof_init":
-        # For cytof_init, subset to timepoint 0
-        input_measurements = input_measurements[
-            input_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                lambda x: x.endswith("__EGF")
-            )
-        ]
-        pivot_columns = [petab.OBSERVABLE_ID]
+        elif contextualization == "cytof_init":
+            # For cytof_init, subset to EGF stimulation only
+            input_measurements = input_measurements[
+                input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                    lambda x: x.endswith("__EGF")
+                )
+            ]
+            # and only keep observable ID as pivot columns (rather than observable, condition, time)
+            pivot_columns = [petab.OBSERVABLE_ID]
     else:
         pivot_columns = [petab.OBSERVABLE_ID]
 
