@@ -96,7 +96,7 @@ def build_pipeline(
                 # )
                 # n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
                 # steps.append(("pca", PCA(n_components=n_pca)))
-                steps.append(('pca', PCA(n_components=0.95)))  # simpler approach, should be equivalent given the docs
+                steps.append(('pca', PCA(n_components=0.95, whiten=True)))  # added whitening
             elif step in regressor_steps.keys():
                 steps.append((step, regressor_steps[step]))
             else:

@@ -61,7 +61,7 @@ def pca_transform_features(
         pipeline = Pipeline([
             ('scaler', StandardScaler()),
             ("imputer", KNNImputer()),  # add to match regressor setup
-            ('pca', PCA(n_components=0.95))
+            ('pca', PCA(n_components=0.95, whiten=True))  # added whitening
         ])
         # Fit the pipeline on the training data
         try:
@@ -226,8 +226,6 @@ def get_kin_params_median_deviation(
     # we can combine different multistart parameter sets
     # across cell-lines.
     np.random.seed(random_seed)
-    # key = jr.PRNGKey(conf.job)
-    # poisson_sampling_keys = jr.split(key, num=len(pretrained_samples.values()))
 
     # Multi-starts of per-sample training are sorted
     # by loss function (ascending order, lower is better,
@@ -239,17 +237,6 @@ def get_kin_params_median_deviation(
     # but slightly larger than 0, enabling some spread.
     # Lower index values will be more easily sampled,
     # leading to higher chance of sampling lower loss multi-starts.
-    # TODO @GiacomoFabrini - discuss with Fabian - cannot get this to work - kept old version for now
-    # par_combo = pd.concat(
-    #     [
-    #         pretraining.iloc[
-    #             pretraining.index
-    #             == jnp.min(jnp.array([jr.poisson(key=sampling_key, lam=2, shape=(1,))[0], len(pretraining) - 1]))
-    #             ]
-    #         for pretraining, sampling_key in zip(pretrained_samples.values(), poisson_sampling_keys)
-    #     ]
-    # )
-
     par_combo = pd.concat(
         [
             pretraining[
