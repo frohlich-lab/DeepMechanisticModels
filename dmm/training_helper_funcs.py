@@ -6,6 +6,7 @@ import numpy as np
 import petab
 import pypesto
 import seaborn as sns
+import wandb
 
 from amici.petab.simulations import rdatas_to_simulation_df
 from pypesto.objective.base import ResultDict
@@ -97,6 +98,8 @@ def get_optimiser_and_opt_state(
         DeepMechanisticModel instance.
     :param filter_spec:
         Optional filter specification for the model parameters.
+    :param pretraining:
+        boolean flag which discriminates between network pretraining and full DMM training.
 
     :return:
         Tuple containing the optimiser and optimiser state.
