@@ -45,8 +45,6 @@ Parameter('INPUT_iMEK_MEK__S222_p_obs_kd', 0.0)
 Parameter('iEGFR_0', 0.0)
 Parameter('iEGFR_EGFR__Y1173_p_obs_kd', 0.0)
 Parameter('INPUT_iEGFR_EGFR__Y1173_p_obs_kd', 0.0)
-Parameter('iPI3K_0', 0.0)
-Parameter('iPKC_0', 0.0)
 
 Expression('MEK_init', INPUT_MEK_eq*MEK_eq)
 Expression('MEK_dephosphorylation_S222_base_rate', INPUT_MEK_dephosphorylation_S222_base_kcat*MEK_dephosphorylation_S222_base_kcat)

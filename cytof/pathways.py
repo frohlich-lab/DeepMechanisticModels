@@ -188,5 +188,5 @@ def add_s6(model):
 def add_inhibitors(model):
     add_inhibitor(model, "iMEK", ["MEK__S222_p_obs"])
     add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs"])
-    add_inhibitor(model, "iPI3K", ["PIK3CA"])
-    add_inhibitor(model, "iPKC", ["PKC"])
+    # add_inhibitor(model, "iPI3K", ["PIK3CA"])
+    # add_inhibitor(model, "iPKC", ["PKC"])
