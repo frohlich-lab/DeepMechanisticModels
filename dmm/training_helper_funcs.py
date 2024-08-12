@@ -82,7 +82,8 @@ def get_optimiser_and_opt_state(
         conf: Dict,
         n_epoch: int,
         model: DeepMechanisticModel,
-        filter_spec: Optional[PyTree] = None
+        filter_spec: Optional[PyTree] = None,
+        pretraining: bool = False,
 ) -> Tuple[GradientTransformationExtraArgs, PyTree]:
     """
     Returns the optimiser and optimiser state for training the model.
@@ -123,7 +124,14 @@ def get_optimiser_and_opt_state(
     else:
         raise ValueError(f"Unknown optimiser: {conf['optimiser']}")
     # If not schedule-free, get schedule and initialise optimiser and optimiser state accordingly
-    schedule = get_scheduler(conf, n_epoch)
+    schedule = get_scheduler(conf, n_epoch, pretraining)
+
+    # Log learning rate schedule chart to wandb
+    plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
+    plt.ylabel("Learning Rate")
+    plt.xlabel("Epoch")
+    wandb.log({"Learning Rate Schedule": plt})
+
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
     else:
