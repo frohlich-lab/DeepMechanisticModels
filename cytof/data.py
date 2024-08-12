@@ -286,7 +286,7 @@ def build_condition_table(
     # ignore "full" for now
     condition_table = condition_table.loc[
         condition_table[petab.CONDITION_ID].apply(
-            lambda x: "full" not in x.split("__")
+            lambda x: "full" not in x and 'iPI3K' not in x and 'iPKC' not in x
         ),
         :,
     ]
