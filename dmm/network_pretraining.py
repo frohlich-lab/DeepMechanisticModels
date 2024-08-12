@@ -8,7 +8,7 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .config_options import EarlyStoppingParams
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import (generate_log_epochs, get_eval_model, get_finite_grads,
-                                    get_optimiser_and_opt_state, plot_pretraining_result)
+                                    get_optimiser_and_opt_state, plot_and_log_pretraining_result)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
 from pathlib import Path
@@ -263,15 +263,15 @@ def pretrain_network(
     # # Save best pretrained model -- not in use for now
     # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
     # best_model.save(pretrained_model_file)
-    # Plot model predictions - for best_models across train and val
+    # Plot model predictions - for best_models across train and val -> log to W&B
     for dataset in ["train", "val"]:
-        plot_pretraining_result(
-            best_models[dataset],
-            training_data,
-            training_targets,
-            validation_data,
-            validation_targets,
-            plot_name=dataset,
+        plot_and_log_pretraining_result(
+            model=best_models[dataset],
+            training_data=training_data,
+            training_targets=training_targets,
+            validation_data=validation_data,
+            validation_targets=validation_targets,
+            dataset=dataset,
         )
     # Log serialised pretrained model
     wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")

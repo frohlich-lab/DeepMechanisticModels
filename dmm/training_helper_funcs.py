@@ -577,3 +577,33 @@ def check_best_model(
         pass
     else:
         assert re_model_rmse_val == best_rmse_val
+
+
+def plot_and_log_pretraining_result(
+        model: DeepMechanisticModel,
+        training_data: jnp.ndarray,
+        training_targets: jnp.ndarray,
+        validation_data: jnp.ndarray,
+        validation_targets: jnp.ndarray,
+        dataset: str,
+):
+    training_pred = vmap(model)(training_data)["inflated"]
+    validation_pred = vmap(model)(validation_data)["inflated"]
+    training_error = jnp.abs(training_pred - training_targets)
+    validation_error = jnp.abs(validation_pred - validation_targets)
+
+    import matplotlib.colors as mcolors
+    norm = mcolors.Normalize(-10, 10)
+    plt.subplots(2, 4, figsize=(20, 10))
+    for ind, (array, cbar, label) in enumerate(zip(
+            [training_data, training_targets, training_pred, training_error,
+             validation_data, validation_targets, validation_pred, validation_error],
+            [False, False, False, False, False, False, False, True],
+            ['training data', 'training targets', 'training predictions', 'training error',
+             'validation data', 'validation targets', 'validation predictions', 'validation error']
+    )):
+        plt.subplot(2, 4, ind+1)
+        sns.heatmap(array, norm=norm, cbar=cbar, cmap='coolwarm')
+        plt.title(label)
+    # Log as chart to W&B
+    wandb.log({f"pretraining_results_{dataset}": plt})
