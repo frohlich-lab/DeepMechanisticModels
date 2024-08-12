@@ -8,6 +8,8 @@ import pypesto
 import seaborn as sns
 
 from amici.petab.simulations import rdatas_to_simulation_df
+from pypesto.objective.base import ResultDict
+
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
@@ -16,7 +18,7 @@ from jaxtyping import Array, PyTree
 from optax import adam, adamw, GradientTransformationExtraArgs, Schedule, sgdr_schedule
 from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
-from pypesto.C import MODE_RES, RDATAS
+from pypesto.C import MODE_RES, RDATAS, ModeType
 from pypesto.objective.jax import JaxObjective
 from typing import Dict, Optional, Tuple, Union
 
@@ -287,7 +289,76 @@ def apply_filter_to_updates(updates, filter_spec):
     return masked_updates
 
 
-def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
+class Chi2Objective(pypesto.objective.Objective):
+
+    base_objective: pypesto.objective.AmiciObjective
+
+    def __init__(self, base_objective):
+        self.base_objective = base_objective
+
+    def fun(self, x: np.ndarray, **kwargs) -> np.ndarray:
+        return self.call_unprocessed(x, (0,), pypesto.C.MODE_FUN, **kwargs)[pypesto.C.FVAL]
+
+    def grad(self, x: np.ndarray, **kwargs) -> np.ndarray:
+        return self.call_unprocessed(x, (1,), pypesto.C.MODE_FUN, **kwargs)[pypesto.C.GRAD]
+
+    @property
+    def x_names(self) -> list[str]:
+        return self.base_objective.x_names
+
+    @property
+    def pre_post_processor(self):
+        return self.base_objective.pre_post_processor
+
+    @pre_post_processor.setter
+    def pre_post_processor(self, pre_post_processor):
+        self.base_objective.pre_post_processor = pre_post_processor
+
+    @property
+    def amici_model(self):
+        return self.base_objective.amici_model
+
+    @property
+    def history(self):
+        return self.base_objective.history
+
+    @property
+    def amici_object_builder(self):
+        return self.base_objective.amici_object_builder
+
+    @property
+    def res(self):
+        return self.base_objective.res
+
+    @property
+    def sres(self):
+        return self.base_objective.sres
+
+    def call_unprocessed(
+        self,
+        x: np.ndarray,
+        sensi_orders: tuple[int, ...],
+        mode: ModeType,
+        **kwargs,
+    ) -> ResultDict:
+        assert mode in [pypesto.C.MODE_FUN], "Only residual mode is supported"
+        # TODO: @FabianFrohlich: add some additional safeguards
+        res = self.base_objective(x, sensi_orders, mode, return_dict=True, **kwargs)
+        ndata = sum(sum(np.logical_not(np.isnan(r[pypesto.C.RES]))) for r in res[RDATAS])
+
+        ret = dict()
+        if 0 in sensi_orders:
+            mse = sum(
+                r[pypesto.C.RES].dot(r[pypesto.C.RES]) for r in res[RDATAS]
+            ) / ndata
+            ret[pypesto.C.FVAL] = mse
+        if 1 in sensi_orders:
+            smse = res[pypesto.C.GRAD] / ndata
+            ret[pypesto.C.GRAD] = smse
+        return ret
+
+
+def generate_pypesto_objective(dmm: DeepMechanisticModel) -> JaxObjective:
     """
     Creates a pypesto objective function (this is the loss function) that
     needs to be minimized to train the respective autoencoder
@@ -297,7 +368,7 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
     # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
-        objective=ae.pypesto_subproblem.objective,  # same base objective previously passed to JaxObjective
+        objective=Chi2Objective(dmm.pypesto_subproblem.objective),  # renamed from ae (autoencoder) to dmm
     )
 
 
