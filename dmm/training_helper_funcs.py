@@ -64,7 +64,8 @@ def get_scheduler(
         ])
         schedules = [
             {
-                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'init_value': max_lrate / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'peak_value': max_lrate * conf["lrate_decay"] ** i_schedule,
                 'warmup_steps': int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
