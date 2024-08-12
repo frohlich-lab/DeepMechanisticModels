@@ -577,7 +577,9 @@ def rmse(
 ):
     try:
         x = model_output_to_petab_input(model, input_data)
-        obj = pp.objective.base_objective
+        # TODO @GiacomoFabrini - can this can be unified in general framework that can work with both
+        #  fval and Chi2Objective?
+        obj = pp.objective.base_objective.base_objective
         amici_model = obj.amici_model
         petab_problem = obj.amici_object_builder.petab_problem
         res = obj(x, mode=MODE_RES, return_dict=True)
