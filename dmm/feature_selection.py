@@ -120,7 +120,12 @@ def load_data(
                 ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
             ] + [
                 ((marker, pert, time), (marker, pert, 17.0))
-                for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC")
+                for pert in (
+                    "iMEK",
+                    # "iPI3K",
+                    "iEGFR",
+                    # "iPKC"
+                )
                 for time in (14.0, 15.0, 16.0)
             ]
             for source, target in pairs:
@@ -130,7 +135,13 @@ def load_data(
                 input_data.loc[mask, target] = input_data.loc[mask, source]
         #  regression imputation
         for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):  # all currently considered observables - might need to access, not hardcode
-            for pert in ("EGF", "iMEK", "iPI3K", "iEGFR", "iPKC"):  # all currently considered conditions - might need to access, not hardcode
+            for pert in (
+                    "EGF",
+                    "iMEK",
+                    # "iPI3K",
+                    "iEGFR",
+                    # "iPKC"
+            ):  # all currently considered conditions - might need to access, not hardcode
                 for missing_time, [time_before, time_after] in zip([7.0, 13.0, 40.0],
                                                                    [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]):
 
