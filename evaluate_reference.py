@@ -75,6 +75,8 @@ def evaluate_pretraining_per_sample(
             sample=sample,
         )
 
+        print(f"plotting {sample} for per_sample pretraining")
+
         plot_single_sample(
             importer.petab_problem.measurement_df,
             simulation_df,
