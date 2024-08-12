@@ -1,12 +1,11 @@
-from pysb import Observable
+from pysb import Observable, Parameter
 
 from dmm.mechanistic_model import (
     add_activation,
-    add_degradation,
-    add_gf_bolus,
     add_inhibitor,
     add_monomer_synth_deg,
     generate_pathway,
+    retarded_transient_function
 )
 
 active_rtks = [
@@ -19,6 +18,10 @@ active_akt = ["AKT1__T308_p", "AKT2__T309_p", "AKT3__T305_p"]
 
 
 def add_egfr(model):
+
+    retarded_transient_function(model, "EGFR__Y1173_p", Parameter('EGF_0'))
+
+    """
     rtkfs = ["EGF"]
 
     # EGFR
@@ -39,6 +42,8 @@ def add_egfr(model):
         add_baseline_activation="first",
     )
     add_degradation(model, active_rtks)
+    """
+
 
 
 def add_mapk(model):

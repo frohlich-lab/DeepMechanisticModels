@@ -33,6 +33,9 @@ BOUNDS = ParameterBounds(
     koff=(-3, 2, "log10"),  # [1/[t]]
     kd=(-3, 3, "log10"),  # [[c]]
     kw=(-4, 3, "log10"),  # [1/[c]]
+    tau=(-2, 2, 'log10'),  # [t]
+    amp=(-3, 3, 'log10'),  # [c]
+    p0=(-3, 3, 'log10'),  # [c]
 )
 
 

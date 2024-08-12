@@ -23,7 +23,7 @@ def generate_parameter_table(
     params = [
         par.name
         for par in model.parameters
-        if par.name not in condition_table.columns
+        if par.name not in condition_table.columns and par.name != "__k_t"
     ]
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:

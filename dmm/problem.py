@@ -20,6 +20,9 @@ class ParameterBounds:
     koff: Tuple[float, float, str]
     kd: Tuple[float, float, str]
     kw: Tuple[float, float, str]
+    tau: Tuple[float, float, str]
+    amp: Tuple[float, float, str]
+    p0: Tuple[float, float, str]
 
     def __getitem__(self, item):
         return getattr(self, item)

@@ -13,6 +13,7 @@ from pysb import (
     Parameter,
     Rule,
 )
+from pysb.macros import synthesize
 
 
 def generate_pathway(
@@ -58,6 +59,37 @@ def generate_pathway(
                 activators,
                 deactivators,
             )
+
+
+def retarded_transient_function(model: Model, output_label, input_par):
+    if 't' not in model.observables.keys():
+        time = Monomer('__t')
+        k_time = Parameter('__k_t', 1)
+        t = Observable('_t', time())
+        synthesize(time(), k_time)
+
+    p0 = Parameter(f"{output_label}_p0")
+    p0_mod = get_autoencoder_modulator(p0)
+
+    f_p0 = p0 * p0_mod
+
+    a_sus = Parameter(f"{output_label}_sus_amp")
+    a_sus_mod = get_autoencoder_modulator(a_sus)
+    tau_sus = Parameter(f"{output_label}_sus_tau")
+    tau_sus_mod = get_autoencoder_modulator(tau_sus)
+
+    f_sus = a_sus * a_sus_mod * sp.exp(-t / (tau_sus * tau_sus_mod))
+
+    a_trans = Parameter(f"{output_label}_trans_amp")
+    a_trans_mod = get_autoencoder_modulator(a_trans)
+    tau1_trans = Parameter(f"{output_label}_trans1_tau")
+    tau1_trans_mod = get_autoencoder_modulator(tau1_trans)
+    tau2_trans = Parameter(f"{output_label}_trans2_tau")
+    tau2_trans_mod = get_autoencoder_modulator(tau2_trans)
+
+    f_trans = a_trans * a_trans_mod * (1 - sp.exp(-t / (tau1_trans * tau1_trans_mod))) * sp.exp(-t / (tau2_trans * tau2_trans_mod))
+
+    Expression(output_label, (f_p0 + f_sus + f_trans)*input_par)
 
 
 def add_monomer_synth_deg(
@@ -136,7 +168,8 @@ def add_monomer_synth_deg(
 
     if with_synth:
         kdeg = Parameter(f"{m_name}_degradation_kdeg")
-        deg_rate = Expression(f"{m_name}_degradation_rate", kdeg)
+        kdeg_mod = get_autoencoder_modulator(kdeg)
+        deg_rate = Expression(f"{m_name}_degradation_rate", kdeg * kdeg_mod)
         syn_rate = Expression(f"{m_name}_synthesis_rate", t0 * deg_rate)
         Rule(f"synthesis_{m_name}", None >> syn_prod, syn_rate)
         Rule(f"degradation_{m_name}", m() >> None, deg_rate)
@@ -197,6 +230,9 @@ def add_or_get_modulator_obs(model: Model, modulator: str):
         `{monomer_name}__{site}_{site_condition}`
     """
     mod_name = f"{modulator}_obs"
+    if modulator in model.expressions.keys():
+        return model.expressions[modulator]
+
     if mod_name in model.observables.keys():
         modulator_obs = model.observables[f"{modulator}_obs"]
     else:
@@ -351,8 +387,9 @@ def add_degradation(model: Model, targets):
     for target in targets:
         mono_name, site_conditions = site_states_from_string(target)
         kr = Parameter(f"degradation_{target}_kr")
+        kr_mod = get_autoencoder_modulator(kr)
         deg_rate = model.expressions[f"{mono_name}_degradation_rate"]
-        rate = Expression(f"degradation_{target}_rate", kr * deg_rate)
+        rate = Expression(f"degradation_{target}_rate", kr * kr_mod * deg_rate)
         Rule(
             f"degradation_{target}",
             model.monomers[mono_name](**site_conditions) >> None,
@@ -395,7 +432,9 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
     free_target = {}
     for target in targets:
         if target in model.observables.keys():
-            target_obs = model.observables[target]
+            target_sym = model.observables[target]
+        elif target_expr := target.replace('_obs', '') in model.expressions.keys():
+            target_sym = model.expressions[target_expr]
         else:
             continue
         kd = Parameter(f"{name}_{target}_kd", 0.0)
@@ -411,7 +450,7 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
 
         free_target[target] = Expression(
             f"free_{target}",
-            target_obs / (1 + inh / (kd * kmod)),
+            target_sym / (1 + inh / (kd * kmod)),
             _export=False,
         )
 
@@ -421,17 +460,17 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
     for expr in model.expressions:
         if expr.name.startswith("inh_"):
             continue
-        target, observable = next(
+        target, obs_or_expr = next(
             (
                 (s.name, s)
                 for s in expr.expr.free_symbols
-                if isinstance(s, Observable) and s.name in targets
+                if isinstance(s, (Observable, Expression)) and s.name in targets
             ),
             (None, None),
         )
         if target is None:
             continue
-        expr.expr = expr.expr.subs(observable, free_target[target])
+        expr.expr = expr.expr.subs(obs_or_expr, free_target[target])
 
     model.expressions = pysb.ComponentSet(
         list(free_target.values()) + list(model.expressions)
