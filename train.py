@@ -153,6 +153,7 @@ else:
         n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
         debug_mode=debug_mode,
+        return_best="train",
     )
     # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
