@@ -35,6 +35,7 @@ class Conf(dict):
     recon_loss: float = 0.0
     symm_reg: float = 0.0
     # Learning schedule hyperparameters
+    lrate_pretraining_ratio: Optional[float] = 10.0  # default: pretraining uses a 10x lower learning rate
     max_lrate: Optional[float] = 0.01  # maximum learning rate (max in first schedule or in all without decay)
     lrate_span: Optional[float] = 1e0  # ratio between max and min learning rates in a given schedule
     lrate_decay: Optional[float] = 0.98  # if < 1, the learning rate decays between schedules.

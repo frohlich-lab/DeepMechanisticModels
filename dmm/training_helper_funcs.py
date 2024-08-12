@@ -24,6 +24,7 @@ from typing import Dict, Optional, Tuple, Union
 def get_scheduler(
         conf: Dict,
         n_epoch: int,
+        pretraining: bool = False,
 ) -> Schedule:
     """Get the learning rate scheduler.
 
@@ -31,22 +32,28 @@ def get_scheduler(
     ----------
     conf : configuration object
     n_epoch : int - total number of training epochs
+    pretraining : bool - discriminates between network pretraining and full DMM training stages
 
     Returns
     ----------
     optax.sgdr_schedule
         The learning rate scheduler.
     """
+    if pretraining:
+        max_lrate = conf["max_lrate"]/conf["lrate_pretraining_ratio"]
+    else:
+        max_lrate = conf["max_lrate"]
+
     if conf["use_simple_linear_schedule"]:
         # Define custom steps to use the same machinery as below - schedule config should
         # be entirely within conf object
         schedules = [
             {
-                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
-                'peak_value': conf["max_lrate"],  # after warm-up
+                'init_value': max_lrate / conf["lrate_span"],  # before warm-up
+                'peak_value': max_lrate,  # after warm-up
                 'warmup_steps': int(n_epoch * conf["warmup_fct"]),
-                'decay_steps': n_epoch,  # entire n_epoch
-                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
+                'decay_steps': n_epoch - int(n_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
+                'end_value': max_lrate * conf["lrate_decay"]**n_epoch,  # after decay
             }  # single linear schedule
         ]
     else:
@@ -58,13 +65,12 @@ def get_scheduler(
         schedules = [
             {
                 'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
-                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
                 'warmup_steps': int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
                 ),
                 'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
-                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
+                'end_value': max_lrate/ conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
             }
             for i_schedule in range(len(epochs_per_schedule))
         ]
