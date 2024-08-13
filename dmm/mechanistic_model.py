@@ -15,6 +15,8 @@ from pysb import (
 )
 from pysb.macros import synthesize
 
+from . import MODEL_FEATURE_PREFIX
+
 
 def add_parameter(name: str):
     """Adds a parameter to the model
@@ -28,7 +30,7 @@ def add_parameter(name: str):
     :param value:
         value of the parameter
     """
-    kavg = Parameter(f"AVG_{name}", 1.0)
+    kavg = Parameter(f"MED_{name}", 1.0)
     kmod = get_autoencoder_modulator(kavg)
     return Expression(name, kavg * kmod)
 
@@ -384,7 +386,7 @@ def get_autoencoder_modulator(par: Parameter):
     """Generate a new expression that allows modulation of a rate according to
     input parameter. Applies a sigmoid transformation.
     """
-    return Parameter(par.name.replace("AVG_", "INPUT_"), 1.0)
+    return Parameter(par.name.replace("MED_", MODEL_FEATURE_PREFIX), 1.0)
 
 
 def add_observables(model: Model):

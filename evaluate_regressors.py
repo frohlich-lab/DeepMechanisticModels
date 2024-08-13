@@ -200,10 +200,10 @@ def evaluate_standard_regression(
         .reset_index()
         .sort_values(
             by=[
-                "preequilibrationConditionId",
-                "observableId",
-                "simulationConditionId",
-                "time",
+                petab.PREEQUILIBRATION_CONDITION_ID,
+                petab.OBSERVABLE_ID,
+                petab.SIMULATION_CONDITION_ID,
+                petab.TIME,
             ]
         )
         .reset_index()
@@ -218,10 +218,10 @@ def evaluate_standard_regression(
         .reset_index()
         .sort_values(
             by=[
-                "preequilibrationConditionId",
-                "observableId",
-                "simulationConditionId",
-                "time",
+                petab.PREEQUILIBRATION_CONDITION_ID,
+                petab.OBSERVABLE_ID,
+                petab.SIMULATION_CONDITION_ID,
+                petab.TIME,
             ]
         )
         .reset_index()
@@ -236,10 +236,10 @@ def evaluate_standard_regression(
     df_meas = (
         df_meas.groupby(
             [
-                "observableId",
-                "preequilibrationConditionId",
-                "time",
-                "simulationConditionId",
+                petab.OBSERVABLE_ID,
+                petab.PREEQUILIBRATION_CONDITION_ID,
+                petab.TIME,
+                petab.SIMULATION_CONDITION_ID,
             ]
         )
         .agg({"measurement": "mean", "noiseParameters": "mean"})
@@ -248,10 +248,10 @@ def evaluate_standard_regression(
     # Sort to make comparable with output_train
     df_meas = df_meas.sort_values(
         by=[
-            "observableId",
-            "preequilibrationConditionId",
-            "simulationConditionId",
-            "time",
+            petab.OBSERVABLE_ID,
+            petab.PREEQUILIBRATION_CONDITION_ID,
+            petab.SIMULATION_CONDITION_ID,
+            petab.TIME,
         ]
     )
 
@@ -274,12 +274,12 @@ def evaluate_standard_regression(
     # reorder columns as in output_train
     df_meas = df_meas[
         [
-            "observableId",
-            "simulationConditionId",
-            "time",
-            "preequilibrationConditionId",
-            "measurement",
-            "noiseParameters",
+            petab.OBSERVABLE_ID,
+            petab.SIMULATION_CONDITION_ID,
+            petab.TIME,
+            petab.PREEQUILIBRATION_CONDITION_ID,
+            petab.MEASUREMENT,
+            petab.NOISE_PARAMETERS,
         ]
     ]
 

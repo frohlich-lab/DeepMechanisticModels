@@ -442,6 +442,9 @@ rule evaluate_all:
         reference=expand(
             rules.evaluate_references.output.csv,
             model='{model}',data='{data}',samples=SPLITS,
+        ) + expand(
+            rules.evaluate_regressors.output.csv,
+            model='{model}',data='{data}',samples=SPLITS,
         )
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         plot=[

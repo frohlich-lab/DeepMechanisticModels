@@ -116,7 +116,7 @@ def load_data(
 
     if contextualization == "cytof_dynamic":
         #  nn imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):
             pairs = [
                 ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
                 ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
@@ -134,6 +134,7 @@ def load_data(
         for marker in (
             "pERK_Y204_obs",
             "pMEK_S222_obs",
+            "pERBB2_Y1248_obs",
         ):  # all currently considered observables - might need to access, not hardcode
             for pert in (
                 "EGF",
