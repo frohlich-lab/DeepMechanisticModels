@@ -9,9 +9,12 @@ from training_configuration import (
     # Regularisation
     ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
     # Learning rate scheduling
+    LRATE_PRETRAINING_RATIO,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
     WEIGHT_DECAY, MOMENTUM,
-    LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
+    LINEAR_SCHEDULE,
+    # OTHER OPTIONS
+    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
     HP_RUN_MODE, REFINE_HPS
 )
 
@@ -38,7 +41,7 @@ def prune_config(run_config: dict):
     elif run_config["use_simple_linear_schedule"]:  # only with adam or adamw
         hps_to_prune.extend(["opt_steps", "opt_mult", "momentum"])  # use default momentum value
         if run_config["optimiser"] == "adam":
-            hps_to_prune.append("weight_decay") # no weight decay for regular Adam, but keep it for AdamW
+            hps_to_prune.append("weight_decay")  # no weight decay for regular Adam, but keep it for AdamW
         prune = True
 
     # Network structure - linear benchmark
@@ -46,6 +49,12 @@ def prune_config(run_config: dict):
         # remove network layout hyperparams when using linear benchmark
         hps_to_prune.extend(["nn_structure_multiplier", "depth"])
         run_config["last_layer_activation"] = False  # also remove non-linearities
+        prune = True
+
+    # Reconstruction/decoder head
+    if not run_config["reconstruct"]:
+        # force reconstruction loss and symmetry loss/regularisation params to zero if no decoder head
+        hps_to_prune.extend(["recon_loss", "symm_reg"])
         prune = True
 
     if prune:
@@ -102,6 +111,7 @@ def generate_linear_scan(STARTS: list[str]):
             "activation_fn_name": activation_fn_name,
             "optimiser": optimiser,
             "orth_reg_strategy": orth_reg_strategy,
+            "lrate_pretraining_ratio": lrate_pretraining_ratio,
             "use_simple_linear_schedule": use_simple_linear_schedule,
             "use_early_stopping": use_early_stopping,
             "drop_reg_after_pretrain": drop_reg_after_pretrain,
@@ -113,13 +123,13 @@ def generate_linear_scan(STARTS: list[str]):
         for (
             (context, features), features_transform, split, pretrain,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
-            orth_reg_strategy, use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain,
-            sparsity_threshold, job
+            orth_reg_strategy, lrate_pretraining_ratio, use_simple_linear_schedule, use_early_stopping,
+            drop_reg_after_pretrain, sparsity_threshold, job
         ) in itt.product(
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-            ORTH_REG_STRATEGIES, LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN,
-            SPARSITY_THRESHOLD, STARTS
+            ORTH_REG_STRATEGIES, LRATE_PRETRAINING_RATIO, LINEAR_SCHEDULE, USE_EARLY_STOP,
+            DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD, STARTS
         )
     ]
 
@@ -183,6 +193,7 @@ def generate_grid_search(STARTS: list[str]):
             "oreg_encode": oreg_encode,
             "recon_loss": recon_loss,
             "symm_reg": symm_reg,
+            "lrate_pretraining_ratio": lrate_pretraining_ratio,
             "max_lrate": max_lrate,
             "lrate_span": lrate_span,
             "lrate_decay": lrate_decay,
@@ -201,7 +212,8 @@ def generate_grid_search(STARTS: list[str]):
             (context, features), features_transform, split, pretrain, n_hidden, network_layout,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode, recon_loss, symm_reg,
-            max_lrate, lrate_span, lrate_decay, warmup_fct, opt_steps, opt_mult,
+            lrate_pretraining_ratio, max_lrate, lrate_span, lrate_decay, warmup_fct,
+            opt_steps, opt_mult,
             weight_decay, momentum,
             use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain,
             sparsity_threshold, job
@@ -209,7 +221,8 @@ def generate_grid_search(STARTS: list[str]):
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
-            MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
+            LRATE_PRETRAINING_RATIO, MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
+            OPT_STEPS, OPT_MULT,
             WEIGHT_DECAY, MOMENTUM,
             LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN,
             SPARSITY_THRESHOLD, STARTS

@@ -6,8 +6,11 @@ import numpy as np
 import petab
 import pypesto
 import seaborn as sns
+import wandb
 
 from amici.petab.simulations import rdatas_to_simulation_df
+from pypesto.objective.base import ResultDict
+
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
@@ -16,7 +19,7 @@ from jaxtyping import Array, PyTree
 from optax import adam, adamw, GradientTransformationExtraArgs, Schedule, sgdr_schedule
 from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
-from pypesto.C import MODE_RES, RDATAS
+from pypesto.C import MODE_RES, RDATAS, ModeType
 from pypesto.objective.jax import JaxObjective
 from typing import Dict, Optional, Tuple, Union
 
@@ -24,6 +27,7 @@ from typing import Dict, Optional, Tuple, Union
 def get_scheduler(
         conf: Dict,
         n_epoch: int,
+        pretraining: bool = False,
 ) -> Schedule:
     """Get the learning rate scheduler.
 
@@ -31,22 +35,28 @@ def get_scheduler(
     ----------
     conf : configuration object
     n_epoch : int - total number of training epochs
+    pretraining : bool - discriminates between network pretraining and full DMM training stages
 
     Returns
     ----------
     optax.sgdr_schedule
         The learning rate scheduler.
     """
+    if pretraining:
+        max_lrate = conf["max_lrate"]/conf["lrate_pretraining_ratio"]
+    else:
+        max_lrate = conf["max_lrate"]
+
     if conf["use_simple_linear_schedule"]:
         # Define custom steps to use the same machinery as below - schedule config should
         # be entirely within conf object
         schedules = [
             {
-                'init_value': conf["max_lrate"] / conf["lrate_span"],  # before warm-up
-                'peak_value': conf["max_lrate"],  # after warm-up
+                'init_value': max_lrate / conf["lrate_span"],  # before warm-up
+                'peak_value': max_lrate,  # after warm-up
                 'warmup_steps': int(n_epoch * conf["warmup_fct"]),
-                'decay_steps': n_epoch,  # entire n_epoch
-                'end_value': conf["max_lrate"] * conf["lrate_decay"]**n_epoch,  # after decay
+                'decay_steps': n_epoch - int(n_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
+                'end_value': max_lrate * conf["lrate_decay"]**n_epoch,  # after decay
             }  # single linear schedule
         ]
     else:
@@ -57,14 +67,14 @@ def get_scheduler(
         ])
         schedules = [
             {
-                'init_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
-                'peak_value': conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                'init_value': max_lrate / conf["lrate_span"] * conf["lrate_decay"] ** i_schedule,
+                'peak_value': max_lrate * conf["lrate_decay"] ** i_schedule,
                 'warmup_steps': int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
                 ),
                 'decay_steps': int(conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)),
-                'end_value': conf["max_lrate"] / conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
+                'end_value': max_lrate/ conf["lrate_span"] * conf["lrate_decay"] ** (i_schedule + 1),
             }
             for i_schedule in range(len(epochs_per_schedule))
         ]
@@ -75,7 +85,8 @@ def get_optimiser_and_opt_state(
         conf: Dict,
         n_epoch: int,
         model: DeepMechanisticModel,
-        filter_spec: Optional[PyTree] = None
+        filter_spec: Optional[PyTree] = None,
+        pretraining: bool = False,
 ) -> Tuple[GradientTransformationExtraArgs, PyTree]:
     """
     Returns the optimiser and optimiser state for training the model.
@@ -87,6 +98,8 @@ def get_optimiser_and_opt_state(
         DeepMechanisticModel instance.
     :param filter_spec:
         Optional filter specification for the model parameters.
+    :param pretraining:
+        boolean flag which discriminates between network pretraining and full DMM training.
 
     :return:
         Tuple containing the optimiser and optimiser state.
@@ -116,7 +129,14 @@ def get_optimiser_and_opt_state(
     else:
         raise ValueError(f"Unknown optimiser: {conf['optimiser']}")
     # If not schedule-free, get schedule and initialise optimiser and optimiser state accordingly
-    schedule = get_scheduler(conf, n_epoch)
+    schedule = get_scheduler(conf, n_epoch, pretraining)
+
+    # Log learning rate schedule chart to wandb
+    plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
+    plt.ylabel("Learning Rate")
+    plt.xlabel("Epoch")
+    wandb.log({"Learning Rate Schedule": plt})
+
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
     else:
@@ -272,7 +292,76 @@ def apply_filter_to_updates(updates, filter_spec):
     return masked_updates
 
 
-def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
+class Chi2Objective(pypesto.objective.Objective):
+
+    base_objective: pypesto.objective.AmiciObjective
+
+    def __init__(self, base_objective):
+        self.base_objective = base_objective
+
+    def fun(self, x: np.ndarray, **kwargs) -> np.ndarray:
+        return self.call_unprocessed(x, (0,), pypesto.C.MODE_FUN, **kwargs)[pypesto.C.FVAL]
+
+    def grad(self, x: np.ndarray, **kwargs) -> np.ndarray:
+        return self.call_unprocessed(x, (1,), pypesto.C.MODE_FUN, **kwargs)[pypesto.C.GRAD]
+
+    @property
+    def x_names(self) -> list[str]:
+        return self.base_objective.x_names
+
+    @property
+    def pre_post_processor(self):
+        return self.base_objective.pre_post_processor
+
+    @pre_post_processor.setter
+    def pre_post_processor(self, pre_post_processor):
+        self.base_objective.pre_post_processor = pre_post_processor
+
+    @property
+    def amici_model(self):
+        return self.base_objective.amici_model
+
+    @property
+    def history(self):
+        return self.base_objective.history
+
+    @property
+    def amici_object_builder(self):
+        return self.base_objective.amici_object_builder
+
+    @property
+    def res(self):
+        return self.base_objective.res
+
+    @property
+    def sres(self):
+        return self.base_objective.sres
+
+    def call_unprocessed(
+        self,
+        x: np.ndarray,
+        sensi_orders: tuple[int, ...],
+        mode: ModeType,
+        **kwargs,
+    ) -> ResultDict:
+        assert mode in [pypesto.C.MODE_FUN], "Only residual mode is supported"
+        # TODO: @FabianFrohlich: add some additional safeguards
+        res = self.base_objective(x, sensi_orders, mode, return_dict=True, **kwargs)
+        ndata = sum(sum(np.logical_not(np.isnan(r[pypesto.C.RES]))) for r in res[RDATAS])
+
+        ret = dict()
+        if 0 in sensi_orders:
+            mse = sum(
+                r[pypesto.C.RES].dot(r[pypesto.C.RES]) for r in res[RDATAS]
+            ) / ndata
+            ret[pypesto.C.FVAL] = mse
+        if 1 in sensi_orders:
+            smse = res[pypesto.C.GRAD] / ndata
+            ret[pypesto.C.GRAD] = smse
+        return ret
+
+
+def generate_pypesto_objective(dmm: DeepMechanisticModel) -> JaxObjective:
     """
     Creates a pypesto objective function (this is the loss function) that
     needs to be minimized to train the respective autoencoder
@@ -282,7 +371,7 @@ def generate_pypesto_objective(ae: DeepMechanisticModel) -> JaxObjective:
     """
     # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
-        objective=ae.pypesto_subproblem.objective,  # same base objective previously passed to JaxObjective
+        objective=Chi2Objective(dmm.pypesto_subproblem.objective),  # renamed from ae (autoencoder) to dmm
     )
 
 
@@ -488,7 +577,9 @@ def rmse(
 ):
     try:
         x = model_output_to_petab_input(model, input_data)
-        obj = pp.objective.base_objective
+        # TODO @GiacomoFabrini - can this can be unified in general framework that can work with both
+        #  fval and Chi2Objective?
+        obj = pp.objective.base_objective.base_objective
         amici_model = obj.amici_model
         petab_problem = obj.amici_object_builder.petab_problem
         res = obj(x, mode=MODE_RES, return_dict=True)
@@ -562,3 +653,33 @@ def check_best_model(
         pass
     else:
         assert re_model_rmse_val == best_rmse_val
+
+
+def plot_and_log_pretraining_result(
+        model: DeepMechanisticModel,
+        training_data: jnp.ndarray,
+        training_targets: jnp.ndarray,
+        validation_data: jnp.ndarray,
+        validation_targets: jnp.ndarray,
+        dataset: str,
+):
+    training_pred = vmap(model)(training_data)["inflated"]
+    validation_pred = vmap(model)(validation_data)["inflated"]
+    training_error = jnp.abs(training_pred - training_targets)
+    validation_error = jnp.abs(validation_pred - validation_targets)
+
+    import matplotlib.colors as mcolors
+    norm = mcolors.Normalize(-10, 10)
+    plt.subplots(2, 4, figsize=(20, 10))
+    for ind, (array, cbar, label) in enumerate(zip(
+            [training_data, training_targets, training_pred, training_error,
+             validation_data, validation_targets, validation_pred, validation_error],
+            [False, False, False, False, False, False, False, True],
+            ['training data', 'training targets', 'training predictions', 'training error',
+             'validation data', 'validation targets', 'validation predictions', 'validation error']
+    )):
+        plt.subplot(2, 4, ind+1)
+        sns.heatmap(array, norm=norm, cbar=cbar, cmap='coolwarm')
+        plt.title(label)
+    # Log as chart to W&B
+    wandb.log({f"pretraining_results_{dataset}": plt})

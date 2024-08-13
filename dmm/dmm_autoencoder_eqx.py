@@ -244,7 +244,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.n_input_features, *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
-                max_width=self.n_input_features,
+                max_width=self.n_input_features,  # TODO check whether we need to double (*2) this
                 multiplier=self.module_structure_multiplier,
                 reverse=True,
             ), self.n_latent
@@ -253,7 +253,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.n_latent, *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
-                max_width=self.n_inflated_specific_kin_params,
+                max_width=self.n_inflated_specific_kin_params,  # TODO check whether we need to double (*2) this
                 multiplier=self.module_structure_multiplier,
                 reverse=False,
             ), self.n_inflated_specific_kin_params

@@ -33,7 +33,10 @@ def init_wandb(
     wandb.require("core")
 
     wandb.init(
-        project=f"DeepMechanisticModels.v2.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v2: Equinox
+        # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
+        # v4: Equinox, basics - LinearScans
+        project=f"DeepMechanisticModels.v4.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
@@ -63,6 +66,7 @@ def init_wandb(
     if pretrain:  # neural network pretraining stage (no ODE simulations)
         metrics = {
             "loss_train": "min",
+            "mse_train": "min",
             "loss_val": "min",
             "mse_val": "min",
         }

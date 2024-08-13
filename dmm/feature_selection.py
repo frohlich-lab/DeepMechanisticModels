@@ -122,7 +122,12 @@ def load_data(
                 ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
             ] + [
                 ((marker, pert, time), (marker, pert, 17.0))
-                for pert in ("iMEK", "iPI3K", "iEGFR", "iPKC")
+                for pert in (
+                    "iMEK",
+                    # "iPI3K",
+                    "iEGFR",
+                    # "iPKC"
+                )
                 for time in (14.0, 15.0, 16.0)
             ]
             for source, target in pairs:
@@ -139,16 +144,16 @@ def load_data(
             for pert in (
                 "EGF",
                 "iMEK",
-                "iPI3K",
+                # "iPI3K",
                 "iEGFR",
-                "iPKC",
+                # "iPKC",
             ):  # all currently considered conditions - might need to access, not hardcode
                 for missing_time, [time_before, time_after] in zip(
                     [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
                 ):
                     if (marker, pert, missing_time) not in input_data.columns:
                         continue
-
+                  
                     mask = input_data.loc[
                         :, (marker, pert, missing_time)
                     ].isna()

@@ -23,6 +23,7 @@ act_fn_by_name = {
     "elu": nn.elu,
     "gelu": nn.gelu,
     "swish": nn.swish,
+    "softplus": nn.softplus,
 }
 
 

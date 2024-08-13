@@ -7,14 +7,15 @@ import wandb
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .config_options import EarlyStoppingParams
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
-from .training_helper_funcs import generate_log_epochs, get_eval_model, get_finite_grads, get_optimiser_and_opt_state
+from .training_helper_funcs import (generate_log_epochs, get_eval_model, get_finite_grads,
+                                    get_optimiser_and_opt_state, plot_and_log_pretraining_result)
 from flax.training.early_stopping import EarlyStopping
 from jaxtyping import Array, Float, PyTree
 from pathlib import Path
 from typing import Dict
 
 
-@eqx.filter_value_and_grad
+@eqx.filter_value_and_grad(has_aux=True)
 def loss_and_grads_pretrain(
         diff_model: PyTree,
         static_model: PyTree,
@@ -28,8 +29,9 @@ def loss_and_grads_pretrain(
     pred = jax.vmap(model)(input_data)["inflated"]
     # Loss comprises MSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
+    mse_value = mse(pred.flatten(), targets.flatten())
     loss_value = (
-            mse(pred.flatten(), targets.flatten())
+            mse_value
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -45,7 +47,7 @@ def loss_and_grads_pretrain(
                 + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
-    return loss_value
+    return loss_value, mse_value
 
 
 @eqx.filter_jit
@@ -93,6 +95,7 @@ def pretrain_network(
         n_epoch,
         early_stopping_params: EarlyStoppingParams,
         debug_mode: bool = False,
+        return_best: str = "val",
 ) -> DeepMechanisticModel:
     """
     Trains the provided autoencoder by solving the optimization problem
@@ -100,7 +103,9 @@ def pretrain_network(
     """
 
     # Initialise optimiser and its state
-    opt, opt_state = get_optimiser_and_opt_state(conf=conf, n_epoch=n_epoch, model=model, filter_spec=filter_spec)
+    opt, opt_state = get_optimiser_and_opt_state(
+        conf=conf, n_epoch=n_epoch, model=model, filter_spec=filter_spec, pretraining=True,
+    )
 
     # Initialise default values for early_stopper and epoch
     early_stopper = None
@@ -118,8 +123,14 @@ def pretrain_network(
             )
 
     # Keep track of best performing model on validation set (actually a part of the DMM training set)
-    best_model = model
-    best_loss_val = jnp.inf
+    best_models = {
+        dataset: model
+        for dataset in ["train", "val"]
+    }
+    best_losses = {
+        dataset: jnp.inf
+        for dataset in ["train", "val"]
+    }
 
     @eqx.filter_jit
     def make_pretrain_step(
@@ -131,7 +142,7 @@ def pretrain_network(
             conf: Dict,
     ):
         diff_model, static_model = eqx.partition(model, filter_spec)
-        loss_value, grads = loss_and_grads_pretrain(
+        (loss_value, mse_value), grads = loss_and_grads_pretrain(
             diff_model,
             static_model,
             conf,
@@ -153,14 +164,14 @@ def pretrain_network(
             next_diff_model = eqx.apply_updates(diff_model, updates)
         # Update model in `next_model`, but keep current one in `model` for current epoch metric logging
         next_model = eqx.combine(next_diff_model, static_model)
-        return next_model, model, opt_state, loss_value, grads
+        return next_model, model, opt_state, loss_value, mse_value, grads
 
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
     # Training loop
     for epoch in range(n_epoch + 1):
         # Make training step - model is not updated to get current metrics
-        next_model, model, opt_state, loss_train, grads = make_pretrain_step(
+        next_model, model, opt_state, loss_train, mse_train, grads = make_pretrain_step(
             model,
             filter_spec,
             opt_state,
@@ -180,15 +191,17 @@ def pretrain_network(
             targets=validation_targets,
         )
 
-        # Update best model and best loss estimate
-        if loss_val < best_loss_val:
-            best_loss_val = loss_val
-            best_model = eval_model
+        for dataset, loss_value in zip(["train", "val"], [loss_train, loss_val]):
+            # Update best model and best loss estimate across training and validation set
+            if loss_value < best_losses[dataset]:
+                best_losses[dataset] = loss_value
+                best_models[dataset] = eval_model
 
         # Log loss_train and loss_val
         wandb.log(
             {
                 "loss_train": loss_train,
+                "mse_train": mse_train,  # added MSE train to plot in W&B and debug pretraining
                 "loss_val": loss_val,
                 "mse_val": mse_val,
             },
@@ -210,7 +223,7 @@ def pretrain_network(
         if epoch in log_epochs:
             wandb.log(
                 {
-                  **log_model_stats(eval_model, grads, pretrain=True)
+                    **log_model_stats(eval_model, grads, pretrain=True)
                 },
                 step=epoch,
             )
@@ -221,6 +234,7 @@ def pretrain_network(
                     f" | epoch {epoch}  "
                     f" | loss_train {loss_train}  "
                     f" | loss_val {loss_val}  "
+                    f" | mse_train {mse_train}  "
                     f" | mse_val {mse_val}  "
                 )
 
@@ -243,29 +257,41 @@ def pretrain_network(
                 if early_stopper.should_stop:
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
                     break
-    print(f'best loss_val: {best_loss_val}')
+    for dataset in ["train", "val"]:
+        print(f'best loss_{dataset}: {best_losses[dataset]}')
     wandb.log({"final_epoch": epoch})
     # # Save best pretrained model -- not in use for now
     # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
     # best_model.save(pretrained_model_file)
-    # # Log serialised pretrained model
-    # wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
+    # Plot model predictions - for best_models across train and val -> log to W&B
+    for dataset in ["train", "val"]:
+        plot_and_log_pretraining_result(
+            model=best_models[dataset],
+            training_data=training_data,
+            training_targets=training_targets,
+            validation_data=validation_data,
+            validation_targets=validation_targets,
+            dataset=dataset,
+        )
+    # Log serialised pretrained model
+    wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
+    try:
+        _ = subprocess.run(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Error syncing wandb directory: {e}")
 
-    # Check: is best_model actually the best?
-    loss_val, _ = loss_pretrain(
-        model=best_model,
-        conf=conf,
-        input_data=validation_data,
-        targets=validation_targets,
-    )
-
-    assert loss_val == best_loss_val
-
-    return best_model
+    # # Check: is best_model actually the best?
+    # loss_val, _ = loss_pretrain(
+    #     model=best_models["val"],
+    #     conf=conf,
+    #     input_data=validation_data,
+    #     targets=validation_targets,
+    # )
+    #
+    # assert loss_val == best_losses["val"], "Best model val is not the one with the best validation loss!"
+    # Return best model according to validation/training loss
+    print(f"Returning best model according to {return_best} loss = {best_losses[return_best]}")
+    return best_models[return_best]

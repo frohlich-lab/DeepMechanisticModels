@@ -153,6 +153,7 @@ else:
         n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
         debug_mode=debug_mode,
+        return_best="train",
     )
     # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
@@ -177,10 +178,6 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
-# Get PEtab-compatible embedding of model parameters (i.e. global kin params concatenated with cell-line specific
-# parameters, flattened for all training set samples/cell-lines).
-x0 = map_params_to_array(model_train)
-
 # Initialise W&B run and train
 init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 samples_name_list_dict = {
@@ -199,7 +196,6 @@ best_model, rmse_test_min = train(
     model_file=model_file,
     samples_name_list_dict=samples_name_list_dict,
     n_epoch=N_EPOCHS,
-    x0=x0,
     early_stopping_params=early_stopping_params,
     debug_mode=debug_mode,
 )

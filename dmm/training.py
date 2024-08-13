@@ -116,7 +116,6 @@ def train(
         samples_name_list_dict: dict,
         conf: Dict,
         n_epoch,
-        x0,  # PEtab-compatible embedding of initial parameters
         early_stopping_params: EarlyStoppingParams,
         debug_mode: bool = False,
 ) -> tuple[Union[DeepMechanisticModel, Any], Union[float, Any]]:
@@ -133,8 +132,6 @@ def train(
     epoch = 0
     patience_counter_invalid_rmse = 0
 
-    # TODO @GiacomoFabrini Do we still need these? Or can we change them in some way?
-    x = x0.copy()
     best_model = model
     # rmse_test_min = np.inf
     # Now that we have a pretrained model as best_model initial guess,
