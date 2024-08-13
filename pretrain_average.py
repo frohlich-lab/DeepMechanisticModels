@@ -1,6 +1,7 @@
+"""Per sample pretraining.
 """
-Per sample pretraining.
-"""
+from pathlib import Path
+
 import fides
 import fire
 import matplotlib.pyplot as plt
@@ -24,7 +25,6 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
-from pathlib import Path
 from util import load_petab_base_files
 
 np.random.seed(0)
@@ -63,7 +63,7 @@ optimizer = FidesOptimizer(
 )
 result = pretrain(
     pypesto_problem,
-    10,
+    20,
     optimizer,
 )
 

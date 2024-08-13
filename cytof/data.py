@@ -286,7 +286,9 @@ def build_condition_table(
     # ignore "full" for now
     condition_table = condition_table.loc[
         condition_table[petab.CONDITION_ID].apply(
-            lambda x: "full" not in x and 'iPI3K' not in x and 'iPKC' not in x
+            lambda x: ("full" not in x)
+            and ("iPI3K" not in x or "iPI3K_0" in model.parameters.keys())
+            and ("iPKC" not in x or "iPKC_0" in model.parameters.keys())
         ),
         :,
     ]
@@ -297,7 +299,6 @@ def build_condition_table(
             for c in condition_table[petab.CONDITION_ID]
             if len(c.split("__")) > 1
             for p in c.split("__")[1:]
-            if p != "full"
         ]
     )
     for pert in perturbations:
@@ -317,6 +318,9 @@ def build_condition_table(
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
+    for eq_par in model.parameters.keys():
+        if eq_par.endswith("_eq"):
+            condition_table[eq_par] = 1.0
     return condition_table
 
 

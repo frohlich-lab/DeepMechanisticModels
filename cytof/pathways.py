@@ -5,7 +5,7 @@ from dmm.mechanistic_model import (
     add_inhibitor,
     add_monomer_synth_deg,
     generate_pathway,
-    retarded_transient_function
+    retarded_transient_function,
 )
 
 active_rtks = [
@@ -18,60 +18,26 @@ active_akt = ["AKT1__T308_p", "AKT2__T309_p", "AKT3__T305_p"]
 
 
 def add_egfr(model):
-
-    retarded_transient_function(model, "EGFR__Y1173_p", Parameter('EGF_0'))
-
-    """
-    rtkfs = ["EGF"]
-
-    # EGFR
-    for rtkf_name in rtkfs:
-        add_gf_bolus(rtkf_name)
+    retarded_transient_function(model, "EGFR__Y1173_p", Parameter("EGF_0"))
 
     erbb_cascade = [
-        ("EGFR", {"Y1173": ["EGF"]}),
-        # ('ERBB2', {'Y1248': ['EGFR__Y1173_p']}),
+        # ("EGFR", {"Y1173": ["EGF"]}),
+        ("ERBB2", {"Y1248": ["EGFR__Y1173_p"]}),
     ]
     generate_pathway(
         model,
         erbb_cascade,
-        species_with_synth=[
-            "EGFR",
-            #'ERBB2'
-        ],
         add_baseline_activation="first",
     )
-    add_degradation(model, active_rtks)
-    """
-
 
 
 def add_mapk(model):
-    # mapk_cascade = [
-    #     ('MAP2K1', {'S218_S222': (active_rtks, active_erk)}),
-    #     ('MAP2K2', {'S222_S226': (active_rtks, active_erk)}),
-    #     ('MAPK1', {'T185_Y187': ['MAP2K1__S218_p__S222_p',
-    #                              'MAP2K2__S222_p__S226_p']}),
-    #     ('MAPK3', {'T202_Y204': ['MAP2K1__S218_p__S222_p',
-    #                              'MAP2K2__S222_p__S226_p']}),
-    #     ('RPS6KA1', {'S380': active_erk})  # p90RSK
-    # ]
     mapk_cascade = [
         ("MEK", {"S222": (active_rtks, active_erk)}),
-        ("ERK", {"Y204": ["MEK__S222_p"]}),
+        ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),
         # ('RPS6KA1', {'S380': active_erk})  # p90RSK
     ]
     generate_pathway(model, mapk_cascade, add_baseline_activation="first")
-
-    # Observable('pERK_T202_Y204',
-    #            model.monomers['MAPK1'](T185='p', Y187='p') +
-    #            model.monomers['MAPK3'](T202='p', Y204='p'))
-    #
-    # Observable('pMEK_S221',
-    #            model.monomers['MAP2K1'](S222='p') +
-    #            model.monomers['MAP2K2'](S226='p'))
-    # Observable('pERK_T202_Y204',
-    #            model.monomers['ERK'](Y204='p'))
 
 
 def add_mtore_akt(model):
@@ -188,5 +154,5 @@ def add_s6(model):
 def add_inhibitors(model):
     add_inhibitor(model, "iMEK", ["MEK__S222_p_obs"])
     add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs"])
-    # add_inhibitor(model, "iPI3K", ["PIK3CA"])
-    # add_inhibitor(model, "iPKC", ["PKC"])
+    add_inhibitor(model, "iPI3K", ["PIK3CA"])
+    add_inhibitor(model, "iPKC", ["PKC"])

@@ -1,14 +1,15 @@
+import re
+
 import fire
 import pandas as pd
 import petab
 import pysb
-import re
 
 from common import (
     CONDITIONS_FILE,
-    data_dir,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
+    data_dir,
 )
 from dmm.config_options import Conf
 from dmm.generate_data import generate_synthetic_data
@@ -17,8 +18,7 @@ from dmm.generate_data import generate_synthetic_data
 def observable_id_to_model_expr(
     obs_id: str, dataset: str, model: pysb.Model
 ) -> str:
-    """
-    Maps site definitions from data to model observables
+    """Maps site definitions from data to model observables
 
     :param obs_id:
         identifier of the phosphosite in the data table
@@ -32,7 +32,6 @@ def observable_id_to_model_expr(
     :return:
         the name of the corresponding observable in the model
     """
-
     if dataset == "dream_cytof":
         obs_id = obs_id.replace("-", "_").upper()
         palias = {
@@ -168,6 +167,10 @@ if __name__ == "__main__":
     measurement_table[petab.OBSERVABLE_PARAMETERS] = measurement_table.apply(
         obs_pars, axis=1
     )
+
+    measurement_table = measurement_table[
+        measurement_table[petab.MEASUREMENT].notna()
+    ]
 
     measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.__dict__)
     measurement_table.to_csv(measurement_file, sep="\t")

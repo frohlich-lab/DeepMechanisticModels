@@ -1,39 +1,38 @@
-import fire
 import itertools as itt
-import numpy as np
 import os
+from typing import Dict, List
+
+import fire
 import pandas as pd
 import petab
+from joblib import dump, load
+from sklearn.decomposition import PCA
+from sklearn.impute import KNNImputer
+from sklearn.linear_model import (
+    LinearRegression,
+    MultiTaskElasticNetCV,
+    MultiTaskLassoCV,
+)
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from common import (
+    CONTEXT_SET,
     EVALUATION_REGRESSOR,
-    REGR_TRAINED_PIPELINE,
     REGR_FEATURES_TRAIN,
+    REGR_TRAINED_PIPELINE,
     Wildcards,
     fig_dir,
     pretrain_dir,
     test_samples,
     training_samples,
-    CONTEXT_SET
 )
 from dmm.analysis import process_simulation
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
-from joblib import dump, load
-from sklearn.decomposition import PCA
-from sklearn.impute import KNNImputer
-from sklearn.linear_model import (
-    LinearRegression,
-    MultiTaskLassoCV,
-    MultiTaskElasticNetCV
-)
-from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
-from typing import Dict, List
 from util import load_petab_base_files
-
 
 conf = fire.Fire(Conf)
 
@@ -54,11 +53,10 @@ samples = {
 
 
 def build_pipeline(
-        steps_list: List[str],
-        # input_data: np.ndarray,  # not needed if using PCA(n_components=0.95)
+    steps_list: List[str],
+    # input_data: np.ndarray,  # not needed if using PCA(n_components=0.95)
 ) -> Pipeline:
-    """
-    builds a sklearn.pipeline.Pipeline consisting of:
+    """Builds a sklearn.pipeline.Pipeline consisting of:
     - StandardScaler(),
     - KNNImputer(),
     - additional steps in steps_list
@@ -69,7 +67,6 @@ def build_pipeline(
     # :param input_data:
     #     input_data used to fit PCA step in Pipeline
     """
-
     # standard steps: scaling, imputation via KNN
     steps = [
         ("scaler", StandardScaler()),
@@ -96,7 +93,9 @@ def build_pipeline(
                 # )
                 # n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
                 # steps.append(("pca", PCA(n_components=n_pca)))
-                steps.append(('pca', PCA(n_components=0.95, whiten=True)))  # added whitening
+                steps.append(
+                    ("pca", PCA(n_components=0.95, whiten=True))
+                )  # added whitening
             elif step in regressor_steps.keys():
                 steps.append((step, regressor_steps[step]))
             else:
@@ -111,13 +110,12 @@ def build_pipeline(
 
 
 def train_pipeline(
-        pipeline_steps: List[str],
-        petab_base_files: Dict[str, pd.DataFrame],
-        context: str,
-        samples_train,
+    pipeline_steps: List[str],
+    petab_base_files: Dict[str, pd.DataFrame],
+    context: str,
+    samples_train,
 ):
-    """
-    trains a sklearn.pipeline.Pipeline built via build_pipeline()
+    """Trains a sklearn.pipeline.Pipeline built via build_pipeline()
 
     :param pipeline_steps:
         list of Pipeline steps to be passed to build_pipeline()
@@ -131,7 +129,6 @@ def train_pipeline(
     :param samples_train:
         data to train the regressor Pipeline on
     """
-
     # Load input and output data
     input_data, features_train = load_data(
         contextualization=context,
@@ -155,21 +152,22 @@ def train_pipeline(
 
 
 def evaluate_standard_regression(
-        dataset: str,
-        conf: Conf,
-        samples,
-        context: str,
-        mode: str,  # 'linreg', 'lasso', 'elasticnet'
-        trained_pipeline: Pipeline,
-        features_train,
-        petab_base_files: Dict[str, pd.DataFrame],
+    dataset: str,
+    conf: Conf,
+    samples,
+    context: str,
+    mode: str,  # 'linreg', 'lasso', 'elasticnet'
+    trained_pipeline: Pipeline,
+    features_train,
+    petab_base_files: Dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
-
     # Check the regressors have been trained
     if trained_pipeline is None:
         raise ValueError("No trained_pipeline provided for this regressor!")
     elif (dataset == "test") and (features_train is None):
-        raise ValueError(f"No features_train provided for {dataset} evaluation!")
+        raise ValueError(
+            f"No features_train provided for {dataset} evaluation!"
+        )
 
     # Subset to "train"/"test"
     samples_eval = samples[dataset]
@@ -192,45 +190,81 @@ def evaluate_standard_regression(
     # Convert into pandas dataframe with same index and column headers as output_test
     # Then process to use with plot_cross_samples() and process_simulation()
     # Finally drop index and rename column from 0 to 'simulation' to use in process_simulation()
-    reg_pred = pd.DataFrame(
-        trained_pipeline.predict(input_data),
-        index=output_data.index,
-        columns=output_data.columns
-    ).T.stack().reset_index().sort_values(
-        by=[
-            'preequilibrationConditionId',
-            'observableId',
-            'simulationConditionId',
-            'time'
-        ]
-    ).reset_index().drop(columns='index').rename(columns={0: "simulation"})
+    reg_pred = (
+        pd.DataFrame(
+            trained_pipeline.predict(input_data),
+            index=output_data.index,
+            columns=output_data.columns,
+        )
+        .T.stack()
+        .reset_index()
+        .sort_values(
+            by=[
+                "preequilibrationConditionId",
+                "observableId",
+                "simulationConditionId",
+                "time",
+            ]
+        )
+        .reset_index()
+        .drop(columns="index")
+        .rename(columns={0: "simulation"})
+    )
 
     # output_data
     # Column needs renaming from 0 to "measurement" for use in process_simulation()
-    output_data = output_data.T.stack().reset_index().sort_values(
-        by=[
-            'preequilibrationConditionId',
-            'observableId',
-            'simulationConditionId',
-            'time'
-        ]
-    ).reset_index().drop(columns='index').rename(columns={0: "measurement"})
+    output_data = (
+        output_data.T.stack()
+        .reset_index()
+        .sort_values(
+            by=[
+                "preequilibrationConditionId",
+                "observableId",
+                "simulationConditionId",
+                "time",
+            ]
+        )
+        .reset_index()
+        .drop(columns="index")
+        .rename(columns={0: "measurement"})
+    )
 
     # Produce plots to analyse performance
     # import original output data as in avg/avg_model
     df_meas, df_obs = get_measurements_and_obervables(conf)
     # Groupby to average replicates as done for regression output
-    df_meas = df_meas.groupby(
-        ['observableId', 'preequilibrationConditionId', 'time', 'simulationConditionId']).agg(
-        {'measurement': 'mean', 'noiseParameters': 'mean'}).reset_index()
+    df_meas = (
+        df_meas.groupby(
+            [
+                "observableId",
+                "preequilibrationConditionId",
+                "time",
+                "simulationConditionId",
+            ]
+        )
+        .agg({"measurement": "mean", "noiseParameters": "mean"})
+        .reset_index()
+    )
     # Sort to make comparable with output_train
     df_meas = df_meas.sort_values(
-        by=['observableId', 'preequilibrationConditionId', 'simulationConditionId', 'time'])
+        by=[
+            "observableId",
+            "preequilibrationConditionId",
+            "simulationConditionId",
+            "time",
+        ]
+    )
 
     # Subset to cell lines that are in output_data (i.e. output_train/output_test)
-    df_meas = df_meas[
-        df_meas.preequilibrationConditionId.isin(output_data.preequilibrationConditionId)
-    ].reset_index().drop(columns='index')
+    df_meas = (
+        df_meas[
+            df_meas.preequilibrationConditionId.isin(
+                output_data.preequilibrationConditionId
+            )
+        ]
+        .reset_index()
+        .drop(columns="index")
+    )
 
     # process simulation condition id
     df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
@@ -238,9 +272,16 @@ def evaluate_standard_regression(
     ].apply(lambda x: x.split("__")[1])
 
     # reorder columns as in output_train
-    df_meas = df_meas[['observableId', 'simulationConditionId',
-                       'time', 'preequilibrationConditionId',
-                       'measurement', 'noiseParameters']]
+    df_meas = df_meas[
+        [
+            "observableId",
+            "simulationConditionId",
+            "time",
+            "preequilibrationConditionId",
+            "measurement",
+            "noiseParameters",
+        ]
+    ]
 
     # Plot -- reg_pred is either reg_pred_train or reg_pred_test
     plot_name = mode + "_" + context
@@ -284,11 +325,11 @@ for dataset, context, mode in itt.product(
     ["train", "test"], CONTEXT_SET, ["linreg", "lasso", "elasticnet"]
 ):
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
-            model=conf.model,
-            data=conf.data,
-            samples=conf.samples,
-            mode=mode,
-            context=context,
+        model=conf.model,
+        data=conf.data,
+        samples=conf.samples,
+        mode=mode,
+        context=context,
     )
 
     features_train_file = REGR_FEATURES_TRAIN.format(
@@ -300,12 +341,16 @@ for dataset, context, mode in itt.product(
     )
 
     # if both pipeline and features exist, load them and proceed
-    if os.path.exists(trained_pipeline_file) and os.path.exists(features_train_file):
+    if os.path.exists(trained_pipeline_file) and os.path.exists(
+        features_train_file
+    ):
         trained_pipeline = load(trained_pipeline_file)
         features_train = load(features_train_file)
     # else build and train the pipeline and extract the features
     else:
-        print(f"Building pipeline and training estimator for {mode} on {context}...")
+        print(
+            f"Building pipeline and training estimator for {mode} on {context}..."
+        )
         trained_pipeline, features_train = train_pipeline(
             pipeline_steps=["pca", mode],
             petab_base_files=petab_base_files,

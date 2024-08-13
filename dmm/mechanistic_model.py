@@ -16,14 +16,30 @@ from pysb import (
 from pysb.macros import synthesize
 
 
+def add_parameter(name: str):
+    """Adds a parameter to the model
+
+    :param model:
+        model to which the parameter will be added
+
+    :param name:
+        name of the parameter
+
+    :param value:
+        value of the parameter
+    """
+    kavg = Parameter(f"AVG_{name}", 1.0)
+    kmod = get_autoencoder_modulator(kavg)
+    return Expression(name, kavg * kmod)
+
+
 def generate_pathway(
     model: Model,
     proteins: Iterable[Tuple[str, Dict[str, Iterable[str]]]],
     species_with_synth=None,
     add_baseline_activation="none",
 ):
-    """
-    Adds synthesis and phospho-signal transduction rules to the model
+    """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
 
     :param model:
@@ -62,34 +78,22 @@ def generate_pathway(
 
 
 def retarded_transient_function(model: Model, output_label, input_par):
-    if 't' not in model.observables.keys():
-        time = Monomer('__t')
-        k_time = Parameter('__k_t', 1)
-        t = Observable('_t', time())
-        synthesize(time(), k_time)
+    if "t" not in model.observables.keys():
+        time = Monomer("__t")
+        t = Observable("_t", time())
+        # this is somewhat hacky, but this avoids inefficient steady state
+        # computation & offsetting of time variable during presimulation
+        synthesize(time(), input_par)
 
-    p0 = Parameter(f"{output_label}_p0")
-    p0_mod = get_autoencoder_modulator(p0)
+    a_sus = add_parameter(f"{output_label}_sus_amp")
+    tau_sus = add_parameter(f"{output_label}_sus_tau")
+    f_sus = a_sus * (1 - sp.exp(-t / tau_sus))
 
-    f_p0 = p0 * p0_mod
+    tau1_trans = add_parameter(f"{output_label}_trans1_tau")
+    tau2_trans = add_parameter(f"{output_label}_trans2_tau")
+    f_trans = (1.0 - sp.exp(-t / tau1_trans)) * sp.exp(-t / tau2_trans)
 
-    a_sus = Parameter(f"{output_label}_sus_amp")
-    a_sus_mod = get_autoencoder_modulator(a_sus)
-    tau_sus = Parameter(f"{output_label}_sus_tau")
-    tau_sus_mod = get_autoencoder_modulator(tau_sus)
-
-    f_sus = a_sus * a_sus_mod * sp.exp(-t / (tau_sus * tau_sus_mod))
-
-    a_trans = Parameter(f"{output_label}_trans_amp")
-    a_trans_mod = get_autoencoder_modulator(a_trans)
-    tau1_trans = Parameter(f"{output_label}_trans1_tau")
-    tau1_trans_mod = get_autoencoder_modulator(tau1_trans)
-    tau2_trans = Parameter(f"{output_label}_trans2_tau")
-    tau2_trans_mod = get_autoencoder_modulator(tau2_trans)
-
-    f_trans = a_trans * a_trans_mod * (1 - sp.exp(-t / (tau1_trans * tau1_trans_mod))) * sp.exp(-t / (tau2_trans * tau2_trans_mod))
-
-    Expression(output_label, (f_p0 + f_sus + f_trans)*input_par)
+    Expression(output_label, f_sus + f_trans)
 
 
 def add_monomer_synth_deg(
@@ -101,8 +105,7 @@ def add_monomer_synth_deg(
     with_basal_activation: Optional[bool] = False,
     with_synth=False,
 ):
-    """
-    Adds the respective monomer plus synthesis rules and basal
+    """Adds the respective monomer plus synthesis rules and basal
     activation/deactivation rules for all activateable sites
 
     :param m_name:
@@ -117,7 +120,6 @@ def add_monomer_synth_deg(
     :param asites:
         other activity encoding sites
     """
-
     if psites is None:
         psites = []
     else:
@@ -132,7 +134,7 @@ def add_monomer_synth_deg(
     if asite_states is None:
         asite_states = ["inactive", "active"]
 
-    sites = psites + nsites + asites + ["inh"]
+    sites = psites + nsites + asites
     sites = sorted(sites)
 
     m = Monomer(
@@ -150,8 +152,7 @@ def add_monomer_synth_deg(
     )
 
     t = Parameter(f"{m_name}_eq", 100.0)
-    t_mod = get_autoencoder_modulator(t)
-    t0 = Expression(f"{m_name}_init", t * t_mod)
+    t0 = Expression(f"{m_name}_init", t)
 
     syn_prod = m(
         **{
@@ -159,17 +160,14 @@ def add_monomer_synth_deg(
             if site in psites
             else "gdp"
             if site in nsites
-            else None
-            if site == "inh"
             else asite_states[0]
             for site in sites
         }
     )
 
     if with_synth:
-        kdeg = Parameter(f"{m_name}_degradation_kdeg")
-        kdeg_mod = get_autoencoder_modulator(kdeg)
-        deg_rate = Expression(f"{m_name}_degradation_rate", kdeg * kdeg_mod)
+        kdeg = add_parameter(f"{m_name}_degradation_kdeg")
+        deg_rate = Expression(f"{m_name}_degradation_rate", kdeg)
         syn_rate = Expression(f"{m_name}_synthesis_rate", t0 * deg_rate)
         Rule(f"synthesis_{m_name}", None >> syn_prod, syn_rate)
         Rule(f"degradation_{m_name}", m() >> None, deg_rate)
@@ -196,20 +194,15 @@ def add_monomer_synth_deg(
                 else:
                     rp = m(**{site: state}) >> m(**{site: states[0]})
 
-                kbase = Parameter(f"{m_name}_{label[0]}_{site}_base_kcat")
                 rates = [
-                    Expression(
-                        f"{m_name}_{label[0]}_{site}_base_rate",
-                        kbase * get_autoencoder_modulator(kbase),
-                    )
+                    add_parameter(f"{m_name}_{label[0]}_{site}_base_kcat"),
                 ]
                 if with_basal_activation:
-                    kr = Parameter(f"{m_name}_{label[1]}_{site}_base_kr")
-                    kmod = get_autoencoder_modulator(kr)
+                    kr = add_parameter(f"{m_name}_{label[1]}_{site}_base_kr")
                     rates += [
                         Expression(
                             f"{m_name}_{label[1]}_{site}_base_rate",
-                            kmod * kr * rates[0],
+                            kr * rates[0],
                         )
                     ]
 
@@ -219,8 +212,7 @@ def add_monomer_synth_deg(
 
 
 def add_or_get_modulator_obs(model: Model, modulator: str):
-    """
-    Adds an observable to the model that tracks the specified modulator
+    """Adds an observable to the model that tracks the specified modulator
 
     :param model:
         model to which the observable will be added
@@ -237,9 +229,6 @@ def add_or_get_modulator_obs(model: Model, modulator: str):
         modulator_obs = model.observables[f"{modulator}_obs"]
     else:
         mono_name, site_conditions = site_states_from_string(modulator)
-
-        # uninhibited
-        site_conditions["inh"] = None
 
         modulator_obs = Observable(
             mod_name, model.components[mono_name](**site_conditions)
@@ -275,8 +264,7 @@ def add_activation(
     deactivators: Optional[Iterable[str]] = None,
     site_states: Optional[Iterable[str]] = None,
 ):
-    """
-    Adds activation/deactivation rules to a specific site
+    """Adds activation/deactivation rules to a specific site
 
     :param model:
         model to which the rules will be added
@@ -300,7 +288,6 @@ def add_activation(
         according to modulator format in :py:func:`add_or_get_modulator_obs`
 
     """
-
     if activators is None:
         activators = []
 
@@ -347,32 +334,29 @@ def add_activation(
     fstate = {s: valid_states[0] for s in sites}
     rstate = {s: valid_states[1] for s in sites}
 
-    kr = Parameter(f"{m_name}_{forward}_{site}_kr", 1.0)
-    kmod = get_autoencoder_modulator(kr)
+    kr = add_parameter(f"{m_name}_{forward}_{site}_kr")
     if len(site.split("_")) > 1:
         koff = 0.0
         for s in site.split("_"):
-            koff += model.expressions[f"{m_name}_{reverse}_{s}_base_rate"]
+            koff += model.expressions[f"{m_name}_{reverse}_{s}_base_kcat"]
         koff /= len(site.split("_"))
     else:
-        koff = model.expressions[f"{m_name}_{reverse}_{site}_base_rate"]
-    rate_expr = kmod * kr * koff
+        koff = model.expressions[f"{m_name}_{reverse}_{site}_base_kcat"]
+    rate_expr = kr * koff
 
     num = 0.0
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         if len(activators) > 1:
-            weight = Parameter(f"{m_name}_{forward}_{site}_{activator}_kw")
-            kmod = get_autoencoder_modulator(weight)
-            factor *= weight * kmod
+            weight = add_parameter(f"{m_name}_{forward}_{site}_{activator}_kw")
+            factor *= weight
 
         num += factor
 
     denum = 1.0
     for deactivator in deactivators:
-        weight = Parameter(f"{m_name}_deactivation_{site}_{deactivator}_kw")
-        kmod = get_autoencoder_modulator(weight)
-        denum += add_or_get_modulator_obs(model, deactivator) * weight * kmod
+        weight = add_parameter(f"{m_name}_{reverse}_{site}_{deactivator}_kw")
+        denum += add_or_get_modulator_obs(model, deactivator) * weight
 
     rate = rate_expr * num / denum
 
@@ -386,10 +370,9 @@ def add_activation(
 def add_degradation(model: Model, targets):
     for target in targets:
         mono_name, site_conditions = site_states_from_string(target)
-        kr = Parameter(f"degradation_{target}_kr")
-        kr_mod = get_autoencoder_modulator(kr)
+        kr = add_parameter(f"degradation_{target}_kr")
         deg_rate = model.expressions[f"{mono_name}_degradation_rate"]
-        rate = Expression(f"degradation_{target}_rate", kr * kr_mod * deg_rate)
+        rate = Expression(f"degradation_{target}_rate", kr * deg_rate)
         Rule(
             f"degradation_{target}",
             model.monomers[mono_name](**site_conditions) >> None,
@@ -398,16 +381,14 @@ def add_degradation(model: Model, targets):
 
 
 def get_autoencoder_modulator(par: Parameter):
-    """
-    Generate a new expression that allows modulation of a rate according to
+    """Generate a new expression that allows modulation of a rate according to
     input parameter. Applies a sigmoid transformation.
     """
-    return Parameter(f"INPUT_{par.name}", 0.0)
+    return Parameter(par.name.replace("AVG_", "INPUT_"), 1.0)
 
 
 def add_observables(model: Model):
-    """
-    Adds a observable that tracks the normalized absolute abundance of all
+    """Adds a observable that tracks the normalized absolute abundance of all
     phosphorylated site combinations for all monomers
     """
     for monomer in model.monomers:
@@ -427,18 +408,23 @@ def add_observables(model: Model):
 
 
 def add_inhibitor(model: Model, name: str, targets: List[str]):
-    inh = Parameter(f"{name}_0", 0.0)
+    inh = None
 
-    free_target = {}
+    free_targets = {}
     for target in targets:
         if target in model.observables.keys():
             target_sym = model.observables[target]
-        elif target_expr := target.replace('_obs', '') in model.expressions.keys():
+        elif (
+            target_expr := target.replace("_obs", "")
+        ) in model.expressions.keys():
             target_sym = model.expressions[target_expr]
+            target = target_expr
         else:
             continue
-        kd = Parameter(f"{name}_{target}_kd", 0.0)
-        kmod = get_autoencoder_modulator(kd)
+        kd = add_parameter(f"{name}_{target}_kd")
+
+        if inh is None:
+            inh = Parameter(f"{name}_0", 0.0)
 
         # [A]*[I] = kD*[A:I]
         # [A]_0 = [A] + [A:I]
@@ -448,38 +434,50 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
         # [A] = [A]_0/(1 + [I]/kD)
         # free A: [A] = [A]_0 / (1 + kD*[I])
 
-        free_target[target] = Expression(
+        free_targets[target] = Expression(
             f"free_{target}",
-            target_sym / (1 + inh / (kd * kmod)),
+            target_sym / (1.0 + inh / kd),
             _export=False,
         )
 
-    if not free_target:
+        if target.endswith("_obs"):
+            # just instert in the beginning, nothing to worry about
+            model.expressions = pysb.ComponentSet(
+                [kd, free_targets[target]] + list(model.expressions)
+            )
+        else:
+            # we need to insert the new expression before all dependent
+            # expression, but after the target expression
+            expr_index = list(model.expressions.keys()).index(target)
+            model.expressions = pysb.ComponentSet(
+                list(model.expressions)[: expr_index + 1]
+                + [kd, free_targets[target]]
+                + list(model.expressions)[expr_index + 1 :]
+            )
+
+    if not free_targets:
         return
 
     for expr in model.expressions:
-        if expr.name.startswith("inh_"):
+        if expr.name.startswith("free_"):
             continue
         target, obs_or_expr = next(
             (
                 (s.name, s)
                 for s in expr.expr.free_symbols
-                if isinstance(s, (Observable, Expression)) and s.name in targets
+                for name in (s.name, s.name + "_obs")
+                if isinstance(s, (Observable, Expression)) and name in targets
             ),
             (None, None),
         )
         if target is None:
             continue
-        expr.expr = expr.expr.subs(obs_or_expr, free_target[target])
-
-    model.expressions = pysb.ComponentSet(
-        list(free_target.values()) + list(model.expressions)
-    )
+        expr.expr = expr.expr.subs(obs_or_expr, free_targets[target])
 
 
 def add_gf_bolus(name: str):
-    bolus = Monomer(f"{name}", sites=["inh"])
-    Initial(bolus(inh=None), Parameter(f"{name}_0", 0.0), fixed=True)
+    bolus = Monomer(f"{name}")
+    Initial(bolus(), Parameter(f"{name}_0", 0.0), fixed=True)
 
 
 def cleanup_unused(model):
