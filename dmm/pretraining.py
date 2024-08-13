@@ -1,27 +1,29 @@
+from pathlib import Path
+from typing import Callable, List, Optional
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petab
 import pypesto
+from petab.models.pysb_model import PySBModel
+from pypesto.optimize import OptimizeOptions, minimize
+from pypesto.petab import (
+    PetabImporter,  # general PetabImporter compared to old PetabImporterPysb
+)
+from pypesto.startpoint import UniformStartpoints
+from pypesto.store import OptimizationResultHDF5Writer
+from pypesto.visualize import parameters, waterfall
+from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
 from .problem import Problem
-from pathlib import Path
-from petab.models.pysb_model import PySBModel
-from pypesto.optimize import OptimizeOptions, minimize
-from pypesto.petab import PetabImporter  # general PetabImporter compared to old PetabImporterPysb
-from pypesto.startpoint import UniformStartpoints
-from pypesto.store import OptimizationResultHDF5Writer
-from pypesto.visualize import waterfall
-from pysb import Model
-from typing import Callable, List, Optional
 
 
 def generate_per_sample_pretraining_problems(
     importer: PetabImporter, problem: Problem, dataset: str, sample: str
 ) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
-    """
-    Creates a pypesto problem that can be used to train the
+    """Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
     """
     # construct problem based on petab for pypesto subproblem
@@ -100,8 +102,7 @@ def generate_per_sample_reg_pretraining_problem(
     sample: str,
     alpha: float = 0.0,
 ) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
-    """
-    Creates a pypesto problem that can be used to train the
+    """Creates a pypesto problem that can be used to train the
     mechanistic model individually on every sample
     """
     # construct problem based on petab for pypesto subproblem
@@ -203,9 +204,7 @@ def generate_average_pretraining_problem(
     dataset: str,
     samples: List[str],
 ) -> PetabImporter:  # general PetabImporter compared to old PetabImporterPysb
-    """
-    Creates a pypesto problem that can be used to train the mechanistic model on the average of all samples
-    """
+    """Creates a pypesto problem that can be used to train the mechanistic model on the average of all samples"""
     # construct problem based on petab for pypesto subproblem
     pp = importer.petab_problem
     pp.parameter_df[petab.ESTIMATE] = [
@@ -244,7 +243,7 @@ def generate_average_pretraining_problem(
         columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)],
         inplace=True,
     )
-    cdf.index.name=petab.CONDITION_ID
+    cdf.index.name = petab.CONDITION_ID
     spars = (
         set(
             e
@@ -295,6 +294,7 @@ def generate_average_pretraining_problem(
         ),
     )
 
+
 # NOT IN USE (uses old model).
 # def generate_cross_sample_pretraining_problem(
 #     model: DeepMechanisticModel, problem: Problem
@@ -331,11 +331,10 @@ def pretrain(
     nstarts: int,
     optimizer,
     startpoint_method: Optional[Callable] = None,
-    hfile = None,
-    engine = None,
+    hfile=None,
+    engine=None,
 ) -> pypesto.Result:
-    """
-    Pretrain the provided problem via optimization.
+    """Pretrain the provided problem via optimization.
     :param problem:
         problem that defines the pretraining optimization problem
     :param startpoint_method:
@@ -366,8 +365,7 @@ def store_and_plot_pretraining(
     pfile: Path,
     plot_waterfall: bool = True,
 ):
-    """
-    Store optimiziation results in HDF5 as well as csv for later reuse. Also
+    """Store optimiziation results in HDF5 as well as csv for later reuse. Also
     saves some visualization for debugging purposes.
     """
     # store full results as hdf5
@@ -388,3 +386,6 @@ def store_and_plot_pretraining(
         waterfall(result, scale_y="log10", offset_y=0.0)
         plt.tight_layout()
         plt.savefig(outdir / f"{run_name}_waterfall.pdf")
+        parameters(result)
+        plt.tight_layout()
+        plt.savefig(outdir / f"{run_name}_parameters.pdf")

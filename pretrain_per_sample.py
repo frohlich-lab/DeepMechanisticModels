@@ -1,11 +1,13 @@
+"""Per sample pretraining.
 """
-Per sample pretraining.
-"""
+
+from pathlib import Path
 
 import fides
 import fire
 import numpy as np
 import pypesto
+from pypesto.optimize import FidesOptimizer
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
@@ -21,8 +23,6 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
-from pathlib import Path
-from pypesto.optimize import FidesOptimizer
 from util import load_petab_base_files
 
 np.random.seed(0)
@@ -50,7 +50,7 @@ problem.apply_objective_settings(pypesto_problem.objective)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 0.0,
+        fides.Options.FATOL: 1e-6,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
         fides.Options.MAXITER: 100,
@@ -61,7 +61,7 @@ result = pretrain(
     startpoint_method=pypesto.startpoint.UniformStartpoints(
         check_fval=True, check_grad=True
     ),
-    nstarts=10, # multistarts for pretraining (hard-coded)
+    nstarts=20,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))

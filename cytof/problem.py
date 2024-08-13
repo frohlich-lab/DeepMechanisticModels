@@ -26,16 +26,16 @@ BOUNDS = ParameterBounds(
     kdeg=(-6, -1, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
     kcat=(-4, 4, "log10"),  # [1/([t]*[c])]
-    kr=(-3, 3, "log10"),  # [-]
+    kr=(-4, 4, "log10"),  # [-]
     scale=(0, 3, "log10"),  # [1/[c]]
     offset=(-2, 2, "log10"),  # [[c]]
     weight=(-0.5, 0.5, "lin"),  # [-]
     koff=(-3, 2, "log10"),  # [1/[t]]
     kd=(-3, 3, "log10"),  # [[c]]
-    kw=(-4, 3, "log10"),  # [1/[c]]
-    tau=(-2, 2, 'log10'),  # [t]
-    amp=(-3, 3, 'log10'),  # [c]
-    p0=(-3, 3, 'log10'),  # [c]
+    kw=(-4, 4, "log10"),  # [1/[c]]
+    tau=(-4, 2, "log10"),  # [t]
+    amp=(-4, 0, "log10"),  # [c]
+    p0=(-4, 0, "log10"),  # [c]
 )
 
 
@@ -113,7 +113,7 @@ class CytofProblem(Problem):
         return model
 
     def apply_solver_settings(self, solver):
-        solver.setMaxSteps(int(1e5))
+        solver.setMaxSteps(int(2e4))
         solver.setAbsoluteTolerance(1e-12)
         solver.setRelativeTolerance(1e-12)
         solver.setAbsoluteToleranceSteadyState(1e-8)
@@ -157,6 +157,7 @@ class CytofProblem(Problem):
         amiobjective.guess_steadystate = False
         amiobjective.n_threads = n_threads
         self.apply_solver_settings(amiobjective.amici_solver)
+
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
             if self.pathway_name.startswith("EGFR"):

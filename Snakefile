@@ -446,7 +446,7 @@ rule evaluate_all:
         reference=expand(
             rules.evaluate_references.output.csv,
             model='{model}',data='{data}',samples=SPLITS,
-        )+expand(
+        ) + expand(
             rules.evaluate_regressors.output.csv,
             model='{model}',data='{data}',samples=SPLITS,
         )

@@ -13,4 +13,4 @@ def plot_and_save_fig(filename: str, figdir: Optional[Path] = None):
         plt.savefig(figdir / filename)
 
 
-MODEL_FEATURE_PREFIX = "INPUT_"
+MODEL_FEATURE_PREFIX = "DEV_"

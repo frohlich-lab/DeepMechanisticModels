@@ -1,7 +1,6 @@
 import numpy as np
 import pandas as pd
 import petab
-
 from sklearn.cross_decomposition import CCA, PLSRegression
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.feature_selection import (
@@ -25,7 +24,6 @@ def contextualize_measurements(
     observable_table: pd.DataFrame,
     contextualization: str,
 ) -> pd.DataFrame:
-
     # Check requested contextualization is available
     if contextualization not in (
         "transcriptomics",
@@ -82,7 +80,7 @@ def contextualize_measurements(
             # For cytof_init, subset to EGF stimulation only
             input_measurements = input_measurements[
                 input_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                    lambda x: x.endswith("__EGF")
+                    lambda x: x.endswith("EGF")
                 )
             ]
             # and only keep observable ID as pivot columns (rather than observable, condition, time)
@@ -103,7 +101,11 @@ def contextualize_measurements(
 
 
 def load_data(
-    contextualization, samples, features, measurement_table, observable_table,
+    contextualization,
+    samples,
+    features,
+    measurement_table,
+    observable_table,
 ):
     input_data = contextualize_measurements(
         measurement_table, observable_table, contextualization
@@ -114,7 +116,7 @@ def load_data(
 
     if contextualization == "cytof_dynamic":
         #  nn imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):
+        for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):
             pairs = [
                 ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
                 ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
@@ -134,21 +136,34 @@ def load_data(
                 mask = input_data.loc[:, target].isna()
                 input_data.loc[mask, target] = input_data.loc[mask, source]
         #  regression imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs"):  # all currently considered observables - might need to access, not hardcode
+        for marker in (
+            "pERK_Y204_obs",
+            "pMEK_S222_obs",
+            "pERBB2_Y1248_obs",
+        ):  # all currently considered observables - might need to access, not hardcode
             for pert in (
-                    "EGF",
-                    "iMEK",
-                    # "iPI3K",
-                    "iEGFR",
-                    # "iPKC"
+                "EGF",
+                "iMEK",
+                # "iPI3K",
+                "iEGFR",
+                # "iPKC",
             ):  # all currently considered conditions - might need to access, not hardcode
-                for missing_time, [time_before, time_after] in zip([7.0, 13.0, 40.0],
-                                                                   [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]):
-
-                    mask = input_data.loc[:, (marker, pert, missing_time)].isna()
+                for missing_time, [time_before, time_after] in zip(
+                    [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
+                ):
+                    if (marker, pert, missing_time) not in input_data.columns:
+                        continue
+                  
+                    mask = input_data.loc[
+                        :, (marker, pert, missing_time)
+                    ].isna()
                     input_data.loc[mask, (marker, pert, missing_time)] = (
-                            input_data.loc[mask, (marker, pert, time_before)] * (missing_time - time_before) / (time_after - time_before)
-                            + input_data.loc[mask, (marker, pert, time_after)] * (time_after - missing_time) / (time_after - time_before)
+                        input_data.loc[mask, (marker, pert, time_before)]
+                        * (missing_time - time_before)
+                        / (time_after - time_before)
+                        + input_data.loc[mask, (marker, pert, time_after)]
+                        * (time_after - missing_time)
+                        / (time_after - time_before)
                     )
 
     if features:
