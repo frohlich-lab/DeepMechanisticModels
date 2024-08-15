@@ -586,7 +586,7 @@ for dataset, context, split in itt.product(
 ):
     # Load petab base files
     conf.samples = split
-    petab_base_files = load_petab_base_files(conf, reweight=True)
+    petab_base_files = load_petab_base_files(conf)
     samples_dict = {
         "train": training_samples(Wildcards(conf.data, split)),
         "test": test_samples(Wildcards(conf.data, split)),

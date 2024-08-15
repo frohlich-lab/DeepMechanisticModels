@@ -77,7 +77,7 @@ def evaluate_training(
 
 
 # Load petab_base_files (once only)
-petab_base_files = load_petab_base_files(conf, reweight=True)
+petab_base_files = load_petab_base_files(conf)
 
 # Load and transform features
 features_filepath = FEATURES_OUTFILE.format(

@@ -41,7 +41,7 @@ feature_transform_pipeline_filepath = Path(FEATURES_PIPELINE.format(**conf.__dic
 config.update("jax_enable_x64", True)
 
 # Get petab_base_files
-petab_base_files = load_petab_base_files(conf=conf, reweight=True)
+petab_base_files = load_petab_base_files(conf=conf)
 # Setup models + load and (potentially) transform input features (e.g. PCA)
 (model_train, model_test), problem, features = setup_models(
     conf=conf,

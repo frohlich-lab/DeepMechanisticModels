@@ -20,7 +20,7 @@ class RegressionConf(dict):
 
 conf = fire.Fire(RegressionConf)
 
-petab_base_files = load_petab_base_files(conf, reweight=True)
+petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
 samples_train = training_samples(Wildcards(conf.data, conf.samples))

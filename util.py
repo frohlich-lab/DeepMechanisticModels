@@ -49,7 +49,7 @@ def load_petab_base_files(
 # ]:
 #     problem = CytofProblem(conf.model)
 #
-#     petab_base_files = load_petab_base_files(conf, reweight=True)
+#     petab_base_files = load_petab_base_files(conf)  # this used reweight=True, but we dropped reweighing
 #
 #     features_train = pd.read_csv(
 #         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),

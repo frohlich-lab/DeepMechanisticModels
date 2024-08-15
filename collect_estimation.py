@@ -27,7 +27,7 @@ model, problem = setup_models(
     conf=conf,
     features_filepath=features_filepath,
     pipeline_filepath=feature_transform_pipeline_filepath,
-    petab_base_files=load_petab_base_files(conf, reweight=True),
+    petab_base_files=load_petab_base_files(conf),
     dataset="train",
 )
 pypesto_problem = create_pypesto_problem(model)
