@@ -67,6 +67,5 @@ for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
     )
     Path(outfile).parent.mkdir(exist_ok=True, parents=True)
     print(f"preprocessing {dataset} data to {outfile}")
-    p_inputs = preprocessor.transform(inputs.values)
-    df_inputs = pd.DataFrame(p_inputs, index=inputs.index, columns=features)
+    df_inputs = pd.DataFrame(inputs[features].values, index=inputs.index, columns=features)
     df_inputs.to_csv(outfile)
