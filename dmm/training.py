@@ -176,7 +176,7 @@ def train(
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
 
     # Training loop
-    for epoch in range(n_epoch + 1):
+    for epoch in range(1, n_epoch + 1):  # natural counting
         next_model, model, opt_state, loss_train, fval, grads = make_step(
             model=model,
             filter_spec_per_param=filter_spec_per_param,
@@ -244,27 +244,6 @@ def train(
                 best_models=best_models,
                 max_models=ensemble_members,
             )
-
-            # if rmse_dict["test"] < rmse_test_min:
-            #     rmse_test_min = rmse_dict["test"]
-            #     best_model = eval_model
-            #     # TESTS TO ENSURE SAVING AND RELOADING WORKS FOR model_train and model_test
-            #     # test_save_reload_model(
-            #     #     best_model,
-            #     #     model_file,
-            #     #     samples_name_list_dict,
-            #     #     Conf(**conf),
-            #     #     "train",
-            #     #     input_features_train,
-            #     # )
-            #     # test_save_reload_model(
-            #     #     best_model,
-            #     #     model_file,
-            #     #     samples_name_list_dict,
-            #     #     Conf(**conf),
-            #     #     "test",
-            #     #     input_features_test,
-            #     # )
 
             # Compute fval on train/val datasets using eval_model
             fval_train, fval_val = (
@@ -343,12 +322,11 @@ def train(
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     # Plot model weights - proxy for model architecture -- disabled for now
-    # TODO @GiacomoFabrini - fix this!!!
+    # TODO @GiacomoFabrini - fix this if we want to use this!
     # plot_model_weights(model, filename=Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))
     # wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
     # Save best models
     for ensemble_id, (_, ensemble_model_member) in enumerate(best_models):
-        # TODO need to include number of ensemble member in model_file
         # Format ensemble_model_file and check parent exists
         ensemble_model_file = Path(model_file.format(ensemble_id=ensemble_id))
         ensemble_model_file.parent.mkdir(exist_ok=True, parents=True)
