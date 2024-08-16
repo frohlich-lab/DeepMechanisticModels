@@ -2,6 +2,7 @@ import fire
 import numpy as np
 import pandas as pd
 import petab
+import warnings
 
 from common import (
     EVALUATION_REFERENCE,
@@ -21,7 +22,6 @@ from evaluation_utils import (get_measurements_and_obervables,
                               process_avg_model_simulation)
 from typing import Dict
 from util import load_petab_base_files
-
 
 conf = fire.Fire(Conf)
 
@@ -173,6 +173,9 @@ def evaluate_average_model(
     return pd.DataFrame(evaluations)
 
 
+# Suppress all DeprecationWarning warnings (coming from petab)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
 # Get petab_base_files
 petab_base_files = load_petab_base_files(conf)
 
@@ -187,6 +190,8 @@ for dataset in ["train", "test"]:
             mode="avg_model",
         )
     )
+    rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
+    print(f'avg_model on {dataset} - RMSE = {rmse_avg_model}')
 
     # average -- this looks NOT to be in use at the moment (only avg_model)
     # df = evaluate_average(dataset, conf, samples)
@@ -207,3 +212,5 @@ for dataset in ["train", "test"]:
             mode="per_sample",
         )
     )
+    rmse_per_sample = np.sqrt(np.mean(np.square(df["res"])))
+    print(f'per_sample on {dataset} - RMSE = {rmse_per_sample}')
