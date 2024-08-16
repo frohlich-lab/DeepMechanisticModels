@@ -18,7 +18,9 @@ from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
-from typing import Dict
+from pathlib import Path
+from training_configuration import N_ENSEMBLE_MEMBERS
+from typing import Dict, Tuple, List, Any
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -34,27 +36,34 @@ def get_measurements_and_obervables(conf: Conf):
     return df_meas, df_obs
 
 
-def load_model_and_obj(conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str):
+def load_model_and_obj(
+        conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str
+) -> tuple[list[DeepMechanisticModel], Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
-    # Define filepaths for training results and serialized model - only the latter is needed
-    # infile = TRAINING_OUTFILE_RESULTS.format(**conf.__dict__)
-    trained_model_file = TRAINED_BEST_MODELS.format_map(conf.__dict__)
-
-    # Load serialised best model
-    model = DeepMechanisticModel.load(
-        filename=trained_model_file,
-        problem=cytof_problem,
-        dataset=dataset,
-        petab_base_files=petab_base_files,
+    # Define filepaths for serialized models -- need to be formatted for ensemble_id
+    trained_model_file = TRAINED_BEST_MODELS.format(
+        **{**conf.__dict__, **dict(ensemble_id="{ensemble_id}")}
     )
 
-    # Create pypesto problem from loaded model to extract objective
-    pypesto_problem = create_pypesto_problem(model)
-    obj = pypesto_problem.objective.base_objective
-    
-    return model, obj
+    models = []
+    for ensemble_id in range(N_ENSEMBLE_MEMBERS):
+        ensemble_member_file = Path(trained_model_file.format(ensemble_id=ensemble_id))
+
+        # Load ensemble member model
+        model = DeepMechanisticModel.load(
+            filename=ensemble_member_file,
+            problem=cytof_problem,
+            dataset=dataset,
+            petab_base_files=petab_base_files,
+        )
+        models.append(model)
+
+    # Create pypesto problem from any of the loaded models to extract objective
+    pypesto_problem = create_pypesto_problem(models[0])
+    obj = pypesto_problem.objective.base_objective.base_objective
+    return models, obj
 
 
 def process_per_sample_pretrain(
