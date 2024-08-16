@@ -100,7 +100,7 @@ def plot_single_sample(
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + facet_grid(rows=petab.OBSERVABLE_ID, cols="treatment")
+        + facet_grid(f"{petab.OBSERVABLE_ID} ~ treatment")
         + xlab("time [min]")
         + ylab("measurement")
         + ggtitle(f"cell line: {sample[1:]}")
