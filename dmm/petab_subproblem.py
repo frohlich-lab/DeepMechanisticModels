@@ -1,13 +1,16 @@
+from typing import List, Sequence
+
+import libsbml
 import numpy as np
 import pandas as pd
 import petab
 import pysb
+from petab.models.sbml_model import SbmlModel
+from pypesto.petab import PetabImporter
+from pysb.export import export
 
 from . import MODEL_FEATURE_PREFIX
 from .problem import Problem
-from petab.models.pysb_model import PySBModel
-from pypesto.petab import PetabImporter
-from typing import List, Sequence
 
 
 def generate_parameter_table(
@@ -111,6 +114,84 @@ def generate_parameter_table(
     return parameter_table
 
 
+def convert_to_sbml(model):
+    sbml = export(model, "sbml")
+    reader = libsbml.SBMLReader()
+    doc = reader.readSBMLFromString(sbml)
+    sbml_model = doc.getModel()
+    t_species = next(
+        (
+            s.getId()
+            for s in sbml_model.getListOfSpecies()
+            if s.getName() == "__t()"
+        ),
+        None,
+    )
+
+    for iobs, obs in enumerate(model.observables):
+        sbml_model.getParameter(f"__obs{iobs}").setId(obs.name)
+        for rule in sbml_model.getListOfRules():
+            if rule.getVariable() == f"__obs{iobs}":
+                rule.setVariable(obs.name)
+
+    if t_species:
+        # replace time species with time symbol
+        for rule in sbml_model.getListOfRules():
+            if t_species in rule.getFormula():
+                math_ast = rule.getMath()
+                # Convert the ASTNode to a MathML string
+                mathml_string = libsbml.writeMathMLToString(math_ast)
+                mathml_string = mathml_string.replace(
+                    "<ci> __s3 </ci>",
+                    '<csymbol encoding="text" definitionURL="http://www.sbml.org/sbml/symbols/time">time</csymbol>',
+                )
+                # Convert the MathML string back to an ASTNode
+                math_ast = libsbml.readMathMLFromString(mathml_string)
+                rule.setMath(math_ast)
+        # remove modifiers from reactions
+        for reaction in sbml_model.getListOfReactions():
+            if any(
+                s.getSpecies() == t_species
+                for s in reaction.getListOfModifiers()
+            ):
+                reaction.removeModifier(t_species)
+
+        # remove reaction with time species as product
+        bad_reactions = [
+            reaction.id
+            for reaction in sbml_model.getListOfReactions()
+            if any(
+                s.getSpecies() == t_species
+                for s in reaction.getListOfProducts()
+            )
+        ]
+        for bad_reaction in bad_reactions:
+            sbml_model.removeReaction(bad_reaction)
+
+        # remove time species
+        # make sure to not have the reaction as variable in python!
+        sbml_model.removeSpecies(t_species)
+
+    doc.validateSBML()
+
+    for i_error in range(doc.getNumErrors()):
+        error = doc.getError(i_error)
+        # we ignore any info messages for now
+        if error.getSeverity() >= libsbml.LIBSBML_SEV_ERROR:
+            print(
+                f"libSBML {error.getCategoryAsString()} "
+                f"({error.getSeverityAsString()}):"
+                f" {error.getMessage()}"
+            )
+
+    return SbmlModel(
+        sbml_model=sbml_model,
+        sbml_document=doc,
+        sbml_reader=reader,
+        model_id=model.name,
+    )
+
+
 def load_petab(
     problem: Problem,
     dataset: str,
@@ -119,13 +200,11 @@ def load_petab(
     observable_table: pd.DataFrame,
     samples: Sequence[str] = None,
 ) -> PetabImporter:
-    """
-    Imports data from a csv and converts it to the petab format. This
+    """Imports data from a csv and converts it to the petab format. This
     function is used to connect the mechanistic model to the specified data
     in order to define the loss function of the autoencoder up to the
     inflated parameters
     """
-
     # TEMPORARY: filter out baseline data
     measurement_table = measurement_table[
         measurement_table[petab.SIMULATION_CONDITION_ID]
@@ -190,7 +269,7 @@ def load_petab(
         condition_df=condition_table,
         observable_df=observable_table,
         parameter_df=parameter_table,
-        model=PySBModel(model, model.name),
+        model=convert_to_sbml(model),
     )
 
     filter_observables(petab_problem)

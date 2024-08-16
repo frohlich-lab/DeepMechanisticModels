@@ -1,11 +1,16 @@
 """Per sample pretraining.
 """
 
+import os
+from logging import ERROR
 from pathlib import Path
 
+import amici.logging
+import amici.petab.parameter_mapping
 import fides
 import fire
 import numpy as np
+import petab
 import pypesto
 from pypesto.optimize import FidesOptimizer
 
@@ -31,6 +36,8 @@ conf = fire.Fire(Conf)
 
 problem = CytofProblem(conf.model)
 
+os.environ["AMICI_EXPERIMENTAL_SBML_NONCONST_CLS"] = "1"
+
 petab_base_importer = load_petab(
     problem=problem, dataset=conf.data, **load_petab_base_files(conf)
 )
@@ -45,6 +52,18 @@ importer = generate_per_sample_pretraining_problems(
 outdir = pretrain_dir / conf.model / conf.data
 figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
 pypesto_problem = importer.create_problem()
+simulation_conditions = petab.get_simulation_conditions(
+    importer.petab_problem.measurement_df
+)
+pypesto_problem.objective.parameter_mapping = (
+    amici.petab.parameter_mapping.create_parameter_mapping(
+        petab_problem=importer.petab_problem,
+        simulation_conditions=simulation_conditions,
+        scaled_parameters=True,
+        amici_model=pypesto_problem.objective.amici_model,
+        fill_fixed_parameters=True,
+    )
+)
 
 problem.apply_objective_settings(pypesto_problem.objective)
 
@@ -56,12 +75,13 @@ optimizer = FidesOptimizer(
         fides.Options.MAXITER: 100,
     }
 )
+amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
 result = pretrain(
     problem=pypesto_problem,
     startpoint_method=pypesto.startpoint.UniformStartpoints(
         check_fval=True, check_grad=True
     ),
-    nstarts=20,  # multistarts for pretraining (hard-coded)
+    nstarts=50,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
