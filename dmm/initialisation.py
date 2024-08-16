@@ -9,7 +9,7 @@ import pandas as pd
 import pypesto
 import scipy.linalg as la
 
-from . import MODEL_FEATURE_PREFIX
+from . import MODEL_FEATURE_PREFIX, MEDIAN_FEATURE_PREFIX
 from cytof.problem import CytofProblem
 from .config_options import Conf
 from .dmm_autoencoder_eqx import DeepMechanisticModel
@@ -215,6 +215,10 @@ def get_kin_params_median_deviation(
             if not col.startswith(MODEL_FEATURE_PREFIX)
         ]
     ]
+    avg_model_params.rename(
+        columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
+        inplace=True
+    )
     # Set random seed for poisson sampling
     # this means all 0 jobs have the same matrix
     # of kinetic parameters vs cell-lines.
@@ -245,6 +249,10 @@ def get_kin_params_median_deviation(
                 ]
             for pretraining in pretrained_samples.values()
         ]
+    )
+    par_combo.rename(
+        columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
+        inplace=True
     )
     par_combo.index = list(pretrained_samples.keys())
     par_combo = par_combo.reindex(model.sample_name_list)

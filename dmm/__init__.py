@@ -14,3 +14,4 @@ def plot_and_save_fig(filename: str, figdir: Optional[Path] = None):
 
 
 MODEL_FEATURE_PREFIX = "DEV_"
+MEDIAN_FEATURE_PREFIX = "MED_"
