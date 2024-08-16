@@ -18,7 +18,7 @@ class SafeDict(dict):
 # Get the DEBUG environment variable
 debug_mode = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 
-CONTEXT_SET = set([context for context, _ in CONTEXTS_FEATURES])
+CONTEXT_SET = sorted(list(set([context for context, _ in CONTEXTS_FEATURES])))
 
 MODEL_FEATURE_PREFIX = "INPUT_"
 
@@ -76,8 +76,9 @@ PRETRAINED_BEST_MODELS = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + "_nn_pre_bm.eqx")
 )
 
+# TODO @GiacomoFabrini check this works and replace how this is handled everywhere!
 TRAINED_BEST_MODELS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_bm.eqx")
+    results_dir / "{model}" / "{data}" / (tpl_results_file + "_bm_{ensemble_id}.eqx")
 )
 
 TRAINED_MODEL_WEIGHT_PLOTS = str(
