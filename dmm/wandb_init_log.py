@@ -59,7 +59,7 @@ def init_wandb(
             "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag  # label experiment with date of experiment start
-        ]
+        ],
     )
 
     # Define W&B metrics
