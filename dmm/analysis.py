@@ -24,24 +24,28 @@ def process_simulation(
     conf,
     sample,
 ):
-    idx = measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
-    mdf = measurement_df[idx]
-    sdf = simulation_df[idx]
-    # Reindex sdf to match mdf and check
-    sdf = sdf.reindex(mdf.index)
+    # Set columns for multi-index
     cols_to_check = [
         petab.OBSERVABLE_ID,
         petab.PREEQUILIBRATION_CONDITION_ID,
         petab.TIME,
         petab.SIMULATION_CONDITION_ID
     ]
-    try:
-        assert mdf[cols_to_check].equals(sdf[cols_to_check])
-    except AssertionError:
-        print("measurement and simulation dataframes are not identically ordered!")
+    # Sort by same observables and subset to same cell-line/sample
+    mdf = measurement_df[
+        measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+        ].sort_values(by=cols_to_check).set_index(cols_to_check)
+    sdf = simulation_df[
+        simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+        ].sort_values(by=cols_to_check).set_index(cols_to_check)
+    # Subset to common observables (needed for regressors)
+    sdf = sdf[sdf.index.isin(mdf.index)]
 
+    # Compute residual dataframe
     res = mdf.copy()
     res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
+    # Unpack multi-index
+    res.reset_index(inplace=True)
 
     for _, r in res.iterrows():
         # re-defining condition in such a way that fits both avg and avg_model references and regression standards
@@ -172,7 +176,7 @@ def simulate_dmm(
 
 
 def evaluate_simulations(
-    model,
+    models,  # list of models to ensemble
     input_features,
     obj,
     conf,
@@ -183,21 +187,32 @@ def evaluate_simulations(
     evaluations,
     plot_file_prefix: str,
 ):
-    # Simulate DMM model
-    simulation_df = simulate_dmm(model, input_features, obj, petab_problem)
+    # Simulate DMM ensemble models one by one with the same obj
+    simulation_dfs = []
+    for model in models:
+        simulation_dfs.append(
+            simulate_dmm(model, input_features, obj, petab_problem, jit_fn=False)
+        )
+    # Initialise average simulation_df with any of the simulation_dfs
+    avg_simulation_df = simulation_dfs[0].copy()
+    # Compute average of simulation columns and replace the simulation column in the avg_simulation_df
+    avg_simulation_df[petab.SIMULATION] = np.mean(
+        [df[petab.SIMULATION].values for df in simulation_dfs], axis=0
+    )
+    # TODO @GiacomoFabrini check avg_simulation_df does what you expect!
 
     for sample in samples:
         process_simulation(
             evaluations=evaluations,
             measurement_df=petab_problem.measurement_df,
-            simulation_df=simulation_df,
+            simulation_df=avg_simulation_df,
             conf=conf,
             sample=sample,
         )
 
     plot_cross_samples(
         petab_problem.measurement_df,
-        simulation_df,
+        avg_simulation_df,
         figdir=outdir / dataset,
         prefix=plot_file_prefix,
     )
