@@ -8,6 +8,7 @@ import pypesto
 import seaborn as sns
 import wandb
 
+from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
 from pypesto.objective.base import ResultDict
 
@@ -16,7 +17,7 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree
-from optax import adam, adamw, GradientTransformationExtraArgs, Schedule, sgdr_schedule
+from optax import adam, adamw, GradientTransformationExtraArgs, OptState, Schedule, sgdr_schedule
 from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
 from pypesto.C import MODE_RES, RDATAS, ModeType
@@ -87,7 +88,7 @@ def get_optimiser_and_opt_state(
         model: DeepMechanisticModel,
         filter_spec: Optional[PyTree] = None,
         pretraining: bool = False,
-) -> Tuple[GradientTransformationExtraArgs, PyTree]:
+) -> Tuple[GradientTransformationExtraArgs, OptState]:
     """
     Returns the optimiser and optimiser state for training the model.
     :param conf:
@@ -135,7 +136,7 @@ def get_optimiser_and_opt_state(
     plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
     plt.ylabel("Learning Rate")
     plt.xlabel("Epoch")
-    wandb.log({"Learning Rate Schedule": plt})
+    wandb.log({"Learning Rate Schedule": plt}, step=0)
 
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
@@ -347,16 +348,23 @@ class Chi2Objective(pypesto.objective.Objective):
         assert mode in [pypesto.C.MODE_FUN], "Only residual mode is supported"
         # TODO: @FabianFrohlich: add some additional safeguards
         res = self.base_objective(x, sensi_orders, mode, return_dict=True, **kwargs)
-        ndata = sum(sum(np.logical_not(np.isnan(r[pypesto.C.RES]))) for r in res[RDATAS])
+        ndata = sum(
+            sum(np.logical_not(np.isnan(r[pypesto.C.RES])))
+            for r in res[RDATAS]
+            if r.status == AMICI_SUCCESS
+        )
 
         ret = dict()
         if 0 in sensi_orders:
             mse = sum(
-                r[pypesto.C.RES].dot(r[pypesto.C.RES]) for r in res[RDATAS]
-            ) / ndata
+                r['chi2'] for r in res[RDATAS]
+                if r.status == AMICI_SUCCESS
+            ) / max(ndata, 1)
+            if ndata == 0:  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
+                mse = np.inf
             ret[pypesto.C.FVAL] = mse
         if 1 in sensi_orders:
-            smse = res[pypesto.C.GRAD] / ndata
+            smse = res[pypesto.C.GRAD] / max(ndata, 1)
             ret[pypesto.C.GRAD] = smse
         return ret
 
@@ -570,29 +578,68 @@ def plot_model_weights(model: DeepMechanisticModel, filename: str = None):
     plt.show()
 
 
+def compute_simulation_from_model(
+        pp,
+        model: DeepMechanisticModel,
+        input_data: jnp.ndarray,
+        return_petab_problem: bool = False
+):
+    x = model_output_to_petab_input(model, input_data)
+    # TODO @GiacomoFabrini - can this can be unified in general framework that can work with both
+    #  fval and Chi2Objective?
+    obj = pp.objective.base_objective.base_objective
+    amici_model = obj.amici_model
+    petab_problem = obj.amici_object_builder.petab_problem
+    res = obj(x, mode=MODE_RES, return_dict=True)
+    simulation_df = rdatas_to_simulation_df(
+        res[RDATAS],
+        model=amici_model,
+        measurement_df=petab_problem.measurement_df,
+    )
+    return (simulation_df, petab_problem) if return_petab_problem else simulation_df
+
+
 def rmse(
         pp,
         model: DeepMechanisticModel,
         input_data
 ):
     try:
-        x = model_output_to_petab_input(model, input_data)
-        # TODO @GiacomoFabrini - can this can be unified in general framework that can work with both
-        #  fval and Chi2Objective?
-        obj = pp.objective.base_objective.base_objective
-        amici_model = obj.amici_model
-        petab_problem = obj.amici_object_builder.petab_problem
-        res = obj(x, mode=MODE_RES, return_dict=True)
-        simulation_df = rdatas_to_simulation_df(
-            res[RDATAS],
-            model=amici_model,
-            measurement_df=petab_problem.measurement_df,
+        simulation_df, petab_problem = compute_simulation_from_model(
+            pp=pp, model=model, input_data=input_data, return_petab_problem=True
         )
         return np.sqrt(
             np.mean(
                 np.square(
                     simulation_df[petab.SIMULATION]
                     - petab_problem.measurement_df[petab.MEASUREMENT]
+                )
+            )
+        )
+    except Exception as e:
+        print(e)
+        return np.NaN
+
+
+def rmse_ensemble(
+        pp,
+        best_models: list[tuple[float, DeepMechanisticModel]],
+        input_data
+):
+    try:
+        residuals = []
+        for (_, model) in best_models:
+            simulation_df, petab_problem = compute_simulation_from_model(
+                pp=pp, model=model, input_data=input_data, return_petab_problem=True
+            )
+            # track residuals for each model
+            residuals.append(
+                (simulation_df[petab.SIMULATION] - petab_problem.measurement_df[petab.MEASUREMENT]).values
+            )
+        return np.sqrt(
+            np.mean(
+                np.square(
+                    np.array(residuals).mean(axis=0)  # equivalent to computing the residual of the mean simulation
                 )
             )
         )
@@ -661,7 +708,8 @@ def plot_and_log_pretraining_result(
         training_targets: jnp.ndarray,
         validation_data: jnp.ndarray,
         validation_targets: jnp.ndarray,
-        dataset: str,
+        plot_dir: Path,
+        plot_name: str,
 ):
     training_pred = vmap(model)(training_data)["inflated"]
     validation_pred = vmap(model)(validation_data)["inflated"]
@@ -670,7 +718,7 @@ def plot_and_log_pretraining_result(
 
     import matplotlib.colors as mcolors
     norm = mcolors.Normalize(-10, 10)
-    plt.subplots(2, 4, figsize=(20, 10))
+    fig, ax = plt.subplots(2, 4, figsize=(20, 10))
     for ind, (array, cbar, label) in enumerate(zip(
             [training_data, training_targets, training_pred, training_error,
              validation_data, validation_targets, validation_pred, validation_error],
@@ -681,5 +729,18 @@ def plot_and_log_pretraining_result(
         plt.subplot(2, 4, ind+1)
         sns.heatmap(array, norm=norm, cbar=cbar, cmap='coolwarm')
         plt.title(label)
-    # Log as chart to W&B
-    wandb.log({f"pretraining_results_{dataset}": plt})
+    # Save plot
+    plot_filepath = Path(
+        plot_dir / (plot_name + ".png")
+    )
+    plot_filepath.parent.mkdir(exist_ok=True, parents=True)
+    plt.savefig(plot_filepath)
+    # Instantiate artifact
+    plot_artifact = wandb.Artifact(
+        name=plot_name,
+        description="pretraining_results",
+        type="plot",
+    )
+    # Add and log artifact
+    plot_artifact.add(wandb.Image(str(plot_filepath)), plot_name)
+    wandb.log_artifact(plot_artifact)
