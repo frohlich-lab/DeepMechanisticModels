@@ -1,6 +1,7 @@
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import os
 import subprocess
 import wandb
 
@@ -94,6 +95,7 @@ def pretrain_network(
         conf: Dict,
         n_epoch,
         early_stopping_params: EarlyStoppingParams,
+        plot_dir: Path,
         debug_mode: bool = False,
         return_best: str = "val",
 ) -> DeepMechanisticModel:
@@ -169,7 +171,7 @@ def pretrain_network(
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
     # Training loop
-    for epoch in range(n_epoch + 1):
+    for epoch in range(1, n_epoch+1):  # natural counting
         # Make training step - model is not updated to get current metrics
         next_model, model, opt_state, loss_train, mse_train, grads = make_pretrain_step(
             model,
@@ -197,7 +199,7 @@ def pretrain_network(
                 best_losses[dataset] = loss_value
                 best_models[dataset] = eval_model
 
-        # Log loss_train and loss_val
+        # Log loss_train and loss_val, then extra loss terms
         wandb.log(
             {
                 "loss_train": loss_train,
@@ -205,9 +207,8 @@ def pretrain_network(
                 "loss_val": loss_val,
                 "mse_val": mse_val,
             },
-            step=epoch
+            step=epoch,
         )
-
         log_extra_loss_terms(
             model=model,
             conf=conf,
@@ -257,12 +258,13 @@ def pretrain_network(
                 if early_stopper.should_stop:
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
                     break
+
     for dataset in ["train", "val"]:
         print(f'best loss_{dataset}: {best_losses[dataset]}')
     wandb.log({"final_epoch": epoch})
-    # # Save best pretrained model -- not in use for now
+    # Save best pretrained model -- not currently in use
     # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
-    # best_model.save(pretrained_model_file)
+    # best_models[return_best].save(pretrained_model_file)
     # Plot model predictions - for best_models across train and val -> log to W&B
     for dataset in ["train", "val"]:
         plot_and_log_pretraining_result(
@@ -271,10 +273,11 @@ def pretrain_network(
             training_targets=training_targets,
             validation_data=validation_data,
             validation_targets=validation_targets,
-            dataset=dataset,
+            plot_dir=plot_dir,
+            plot_name=f"pretraining_results_best_on_{dataset}",
         )
-    # Log serialised pretrained model
-    wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
+    # Log serialised pretrained model -- not in use at the moment
+    # wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
@@ -283,7 +286,13 @@ def pretrain_network(
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Error syncing wandb directory: {e}")
 
-    # # Check: is best_model actually the best?
+    # Remove local plot files
+    for dataset in ["train", "val"]:
+        os.remove(
+            Path(plot_dir / (f"pretraining_results_best_on_{dataset}" + ".png"))
+        )
+
+    # # Check: is best_model actually the best? -- NOT IN USE
     # loss_val, _ = loss_pretrain(
     #     model=best_models["val"],
     #     conf=conf,
@@ -292,6 +301,7 @@ def pretrain_network(
     # )
     #
     # assert loss_val == best_losses["val"], "Best model val is not the one with the best validation loss!"
+
     # Return best model according to validation/training loss
     print(f"Returning best model according to {return_best} loss = {best_losses[return_best]}")
     return best_models[return_best]
