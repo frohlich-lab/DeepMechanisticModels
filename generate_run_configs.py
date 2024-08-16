@@ -96,7 +96,7 @@ def generate_linear_scan(STARTS: list[str]):
     # Compute all possible combinations of hyperparameters for the linear scans
     linear_scan_configs = [
         {
-            **central_values, # every other hyperparameter is fixed to the assigned central value
+            **central_values,  # every other hyperparameter is fixed to the assigned central value
             hyperparam: hp_value,  # specific hyperparameter is varied within its range
             "context": context,
             "features": features,
@@ -275,7 +275,7 @@ def generate_refined_tuning_configs(STARTS: list[str], filepath: str, hps_to_tun
     return refined_tuning_configs
 
 
-def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict=None):
+def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = None):
     STARTS = [str(i) for i in range(n_starts)]
     if hp_run_mode == "linear_scans":
         return generate_linear_scan(STARTS=STARTS)
@@ -288,7 +288,6 @@ def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict=None)
         return generate_refined_tuning_configs(STARTS=STARTS, filepath=filepath, hps_to_tune=refine_hps)
     else:
         raise ValueError(f"Invalid run mode: {hp_run_mode}")
-    return run_configs
 
 
 # generate_run_configs(
