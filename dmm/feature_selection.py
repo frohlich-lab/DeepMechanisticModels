@@ -170,10 +170,10 @@ def load_data(
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
     else:
-        # for training, compute feature set
-        # filter too many nans
+        # for training, compute feature set, filtering out too many nans
+        # TODO @GiacomoFabrini: fix this - it needs to yield consistent numbers of columns!!!
         input_data = input_data.loc[
-            :, input_data.isna().sum() / input_data.shape[0] < 0.2
+            :, input_data.isna().sum() / input_data.shape[0] < 0.3
         ]
         if contextualization == "transcriptomics":
             # look at mean vs variance plot
