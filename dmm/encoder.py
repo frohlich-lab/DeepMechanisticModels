@@ -1,5 +1,4 @@
-"""
-Materials for a simple linear encoder, and its analytical reverse.
+"""Materials for a simple linear encoder, and its analytical reverse.
 """
 
 from typing import List, Union
@@ -10,8 +9,7 @@ import numpy as np
 
 
 class AutoEncoder(eqx.Module):
-    """
-    A simple linear autoencoder.
+    """A simple linear autoencoder.
 
     :param features:
         input data for the encoder
@@ -25,9 +23,15 @@ class AutoEncoder(eqx.Module):
 
     n_features: int = eqx.static_field()  # input size
     n_latent: int = eqx.static_field()  # bottleneck layer size
-    n_params: int = eqx.static_field()  # number of kinetic parameters = output layer size
-    n_encode_weights: int = eqx.static_field()  # known from input size and bottleneck layer size
-    n_inflate_weights: int = eqx.static_field()  # known from bottleneck layer size and output layer size
+    n_params: int = (
+        eqx.static_field()
+    )  # number of kinetic parameters = output layer size
+    n_encode_weights: int = (
+        eqx.static_field()
+    )  # known from input size and bottleneck layer size
+    n_inflate_weights: int = (
+        eqx.static_field()
+    )  # known from bottleneck layer size and output layer size
     n_encoder_pars: int = eqx.static_field()  # known from two above (sum)
     data: np.ndarray = eqx.static_field()
     x_names: List[str] = eqx.static_field()
@@ -38,11 +42,13 @@ class AutoEncoder(eqx.Module):
         features: np.ndarray,
         n_latent: int = 1,
         n_params: int = 12,
-        orth_reg_strategy: str = "L2"  # default orthogonal regularisation strategy is L2
+        orth_reg_strategy: str = "L2",  # default orthogonal regularisation strategy is L2
     ):
         self.n_features = features.shape[1]
         if n_latent > self.n_features:
-            raise ValueError("Latent space size cannot be larger than input feature space size!")
+            raise ValueError(
+                "Latent space size cannot be larger than input feature space size!"
+            )
         # assert n_latent <= self.n_features
         elif features.ndim != 2:
             raise ValueError("features expected to be two-dimensional!")
@@ -63,9 +69,10 @@ class AutoEncoder(eqx.Module):
             f"encoder_{iw}_weight" for iw in range(self.n_encode_weights)
         ] + [f"inflate_{iw}_weight" for iw in range(self.n_inflate_weights)]
 
+        self.data = features
+
     def encode(self, parameters: jnp.ndarray):
-        """
-        Run the input through the encoder.
+        """Run the input through the encoder.
 
         :param parameters:
             parametrization of full autoencoder
@@ -74,8 +81,7 @@ class AutoEncoder(eqx.Module):
         return jnp.dot(self.data, weights)
 
     def encode_sample(self, sample: np.ndarray, parameters: jnp.ndarray):
-        """
-        Run the input through the encoder.
+        """Run the input through the encoder.
 
         :param parameters:
             parametrization of full autoencoder
@@ -88,8 +94,7 @@ class AutoEncoder(eqx.Module):
         embedding: Union[np.ndarray, jnp.ndarray],
         parameters: jnp.ndarray,
     ):
-        """
-        Run the input through the decoder.
+        """Run the input through the decoder.
 
         :param parameters:
             parametrization of full autoencoder
@@ -107,8 +112,7 @@ class AutoEncoder(eqx.Module):
         return jnp.dot(embedding, weights)
 
     def encode_params(self, parameters: jnp.ndarray):
-        """
-        Run the encoder and then inflate to parameters.
+        """Run the encoder and then inflate to parameters.
 
         :param parameters:
             parametrization of full autoencoder

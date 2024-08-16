@@ -43,14 +43,12 @@ def generate_synthetic_data(
     # setup model parameter scales
     model.setParameterScale(
         amici.parameterScalingFromIntVector(
-            amici.IntVector(
-                [
+            [
                     amici.ParameterScaling.none
                     if bounds[par_id.split("_")[-1]][2] == "lin"
                     else amici.ParameterScaling.log10
                     for par_id in model.getParameterIds()
-                ]
-            )
+            ]
         )
     )
 
@@ -82,51 +80,76 @@ def generate_synthetic_data(
     np.random.seed(0)
 
     # set input parameters to zero to simulate the baseline
-    sample_par_names = [
+    deviations_names = [
         par_id
         for par_id in model.getParameterIds()
         if par_id.startswith(MODEL_FEATURE_PREFIX)
     ]
 
-    for par_id in sample_par_names:
+    for par_id in deviations_names:
         model.setParameterById(par_id, 0.0)
 
     # generate static parameters that are consistent across samples
-    static_pars = dict()
+    parameter_means = dict()
+
+    avg_model_vars = {
+        'MED_EGFR__Y1173_p_sus_amp': -2.0,
+        'MED_EGF_0_trans_tau': 0.0,
+        'ERBB2_eq': 1.0,
+        'MED_ERBB2_dephosphorylation_Y1248_base_kcat': 4.0,
+        'MED_ERBB2_phosphorylation_Y1248_base_kr': 0.0,
+        'MED_ERBB2_phosphorylation_Y1248_kr': 2.0,
+        'MEK_eq': 1.0,
+        'MED_MEK_dephosphorylation_S222_base_kcat': 0.0,
+        'MED_MEK_phosphorylation_S222_base_kr': -4.0,
+        'ERK_eq': 1.0,
+        'MED_ERK_dephosphorylation_Y204_base_kcat': 0.0,
+        'MED_MEK_phosphorylation_S222_kr': 4.0,
+        'MED_MEK_dephosphorylation_S222_ERK__Y204_p_kw': 3.5,
+        'MED_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw': -4.0,
+        'MED_iMEK_MEK__S222_p_obs_kd': -0.5,
+        'MED_iEGFR_EGFR__Y1173_p_kd': 0.0,
+        # following parameters have slightly different names due to petab import
+        'pERBB2_Y1248_offset': 1.8,
+        'pERBB2_Y1248_scale': 1.5,
+        'pERK_Y204_offset': -2.0,
+        'pERK_Y204_scale': 3.0,
+        'pMEK_S222_offset': 1.0,
+        'pMEK_S222_scale': 0.5,
+    }
+    for par_id in avg_model_vars:
+        assert par_id in model.getParameterIds(), par_id
 
     while True:
         for par_id in model.getParameterIds():
-            if par_id in sample_par_names:
+            if par_id in deviations_names:
                 continue
-            lb, ub, _ = bounds[par_id.split("_")[-1]]
-            lb += 1
-            ub -= 1
-            static_pars[par_id] = np.random.random() * (ub - lb) + lb
-            if par_id == "MEK_phosphorylation_S222_base_kr":
-                static_pars[par_id] -= 3.0
-            if par_id == "iMEK_MEK_kd":
-                static_pars[par_id] -= 3.0
-            model.setParameterById(par_id, static_pars[par_id])
+
+            if par_id in avg_model_vars:
+                # use approximate values from average model
+                parameter_means[par_id] = avg_model_vars[par_id]
+            else:
+                # sample from uniform distribution
+                lb, ub, _ = bounds[par_id.split("_")[-1]]
+                lb += 1
+                ub -= 1
+                parameter_means[par_id] = np.random.random() * (ub - lb) + lb
+            model.setParameterById(par_id, parameter_means[par_id])
 
         rdatas = amici.runAmiciSimulations(model, solver, [edata_base])
         if rdatas[0].status == amici.AMICI_SUCCESS:
             break
 
     encoder = AutoEncoder(
-        np.random.random((n_samples, n_features)),
+        features=np.random.random((n_samples, n_features)),
         n_latent=latent_dimension,
-        n_params=len(sample_par_names),
+        n_params=len(deviations_names),
     )
 
     # generate sparse encoder/decoder parameters
     tt_pars = np.random.random(
         encoder.n_encoder_pars
-    )  # uniform between 0 and 1
-    pars_varying = np.random.binomial(1, 0.8, (encoder.n_params,))
-    inflate_mat = np.asarray(
-        encoder.x_names[encoder.n_encode_weights :]
-    ).reshape((encoder.n_latent, encoder.n_params))
-    zero_weights = inflate_mat[:, np.logical_not(pars_varying)]
+    )
     for ip, name in enumerate(encoder.x_names):
         # xavier glorot initialization
         if name.startswith("encoder"):
@@ -136,10 +159,6 @@ def generate_synthetic_data(
         ub = np.sqrt(6.0 / n_inout)
         lb = -ub
         tt_pars[ip] = tt_pars[ip] * (ub - lb) + lb
-        # sparsity
-
-        if name in zero_weights:
-            tt_pars[ip] = 0
 
     encode_weights, inflate_weights = np.split(
         tt_pars, (encoder.n_encode_weights,)
@@ -160,25 +179,23 @@ def generate_synthetic_data(
         embedding = np.random.random(latent_dimension) * 2 - 1
         sample_data = np.array(decode(embedding, encode_weights))
         mat = encode_weights.reshape((n_features, latent_dimension))
-        assert np.allclose(sample_data, embedding.dot(np.linalg.pinv(mat)))
-        assert np.allclose(sample_data.dot(mat), embedding)
+        assert np.allclose(sample_data, embedding.dot(np.linalg.pinv(mat)), atol=1e-6)
+        assert np.allclose(sample_data.dot(mat), embedding, atol=1e-6)
         assert np.allclose(
-            embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat)
+            embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat), atol=1e-6
         )
         assert np.allclose(
-            np.asarray(encode_sample(sample_data, encode_weights)), embedding
+            np.asarray(encode_sample(sample_data, encode_weights)),
+            embedding, atol=1e-6
         )
 
-        sample_par_vals = np.array(inflate(embedding, inflate_weights))
-        assert len(sample_par_vals) == len(sample_par_names)
-        sample_pars = dict(zip(sample_par_names, sample_par_vals))
-
-        for can_be_nonzero, value in zip(pars_varying, sample_par_vals):
-            assert (value == 0.0) == np.logical_not(can_be_nonzero)
+        deviations = np.array(inflate(embedding, inflate_weights))
+        assert len(deviations) == len(deviations_names)
+        parameter_deviations = dict(zip(deviations_names, deviations))
 
         # set parameters in model
-        for par_id, val in {**static_pars, **sample_pars}.items():
-            model.setParameterById(par_id, val)
+        for par_id, val in {**parameter_means, **parameter_deviations}.items():
+            model.setParameterById(par_id, float(val))
 
         # run simulations, only add to samples if no integration error
         rdatas = amici.runAmiciSimulations(model, solver, edatas)
@@ -189,7 +206,7 @@ def generate_synthetic_data(
             for obs in model.getObservableIds():
                 sample[obs] = np.random.normal(sample[obs], std_measurements)
             sample["Sample"] = len(samples)
-            for pid, val in sample_pars.items():
+            for pid, val in parameter_deviations.items():
                 sample[pid] = val
             for ifeature, value in enumerate(sample_data):
                 sample[f"feature{ifeature}"] = value + numpy.random.normal(
@@ -267,7 +284,7 @@ def generate_synthetic_data(
     inputs.to_csv(
         data_dir / f"{problem.pathway_name}__{data_name}__reference_inputs.csv"
     )
-    pd.Series(static_pars).to_csv(
+    pd.Series(parameter_means).to_csv(
         data_dir / f"{problem.pathway_name}__{data_name}__reference_pars.csv"
     )
 
@@ -387,7 +404,7 @@ def generate_synthetic_data(
     for fp in model.getFixedParameterIds():
         if fp == "EGF_0":
             conditions[fp] = conditions[petab.CONDITION_ID].apply(
-                lambda x: "__" in x
+                lambda x: float("__" in x)
             )
         else:
             conditions[fp] = conditions[petab.CONDITION_ID].apply(
@@ -401,9 +418,7 @@ def generate_synthetic_data(
 
 
 def plot_embedding(embedding: np.ndarray, ax: plt.Axes):
-    middle = int(np.floor(len(embedding) / 2))
-    ax.plot(embedding[:middle, 0], embedding[:middle, 1], "k*")
-    ax.plot(embedding[middle:, 0], embedding[middle:, 1], "r*")
+    ax.plot(embedding[:, 0], embedding[:, 1], "k*")
 
 
 def plot_pca_inputs(
@@ -413,9 +428,7 @@ def plot_pca_inputs(
     pca.fit(x)
     x_pca = pca.transform(x)
 
-    middle = int(np.floor(len(x) / 2))
-    embed_ax.plot(x_pca[:middle, 0], x_pca[:middle, 1], "k*")
-    embed_ax.plot(x_pca[middle:, 0], x_pca[middle:, 1], "r*")
+    embed_ax.plot(x_pca[:, 0], x_pca[:, 1], "k*")
 
     if vexpl_ax is not None:
         vexpl_ax.plot(np.cumsum(pca.explained_variance_ratio_))

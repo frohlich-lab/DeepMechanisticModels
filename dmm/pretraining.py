@@ -6,7 +6,6 @@ import numpy as np
 import pandas as pd
 import petab
 import pypesto
-from petab.models.pysb_model import PySBModel
 from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.petab import (
     PetabImporter,  # general PetabImporter compared to old PetabImporterPysb
@@ -17,6 +16,7 @@ from pypesto.visualize import parameters, waterfall
 from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
+from .petab_subproblem import convert_to_sbml
 from .problem import Problem
 
 
@@ -82,10 +82,7 @@ def generate_per_sample_pretraining_problems(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=PySBModel(
-                Model(base=clean_model, name=model_name),
-                pp.model.model_id,
-            ),
+            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
         ),
         model_name=model_name,
         output_folder=str(
@@ -186,10 +183,7 @@ def generate_per_sample_reg_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=PySBModel(
-                Model(base=clean_model, name=model_name),
-                model_name,
-            ),
+            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
         ),
         model_name=model_name,
         output_folder=str(
@@ -283,10 +277,7 @@ def generate_average_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=df_train,
             condition_df=cdf,
-            model=PySBModel(
-                Model(base=clean_model, name=model_name),
-                model_name,
-            ),
+            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
         ),
         model_name=model_name,
         output_folder=str(
@@ -331,7 +322,6 @@ def pretrain(
     nstarts: int,
     optimizer,
     startpoint_method: Optional[Callable] = None,
-    hfile=None,
     engine=None,
 ) -> pypesto.Result:
     """Pretrain the provided problem via optimization.

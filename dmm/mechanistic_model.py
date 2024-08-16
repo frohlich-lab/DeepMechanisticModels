@@ -83,19 +83,21 @@ def retarded_transient_function(model: Model, output_label, input_par):
     if "t" not in model.observables.keys():
         time = Monomer("__t")
         t = Observable("_t", time())
-        # this is somewhat hacky, but this avoids inefficient steady state
-        # computation & offsetting of time variable during presimulation
+        # avoid generating a parameter, also hack that avoids time simulation
+        # when there is no input
         synthesize(time(), input_par)
 
     a_sus = add_parameter(f"{output_label}_sus_amp")
     tau_sus = add_parameter(f"{output_label}_sus_tau")
-    f_sus = a_sus * (1 - sp.exp(-t / tau_sus))
+    f_sus = a_sus * (1 - sp.exp(-t * input_par / tau_sus))
 
     tau1_trans = add_parameter(f"{output_label}_trans1_tau")
     tau2_trans = add_parameter(f"{output_label}_trans2_tau")
-    f_trans = (1.0 - sp.exp(-t / tau1_trans)) * sp.exp(-t / tau2_trans)
+    f_trans = (1.0 - sp.exp(-t * input_par / tau1_trans)) * sp.exp(
+        -t * input_par / tau2_trans
+    )
 
-    Expression(output_label, f_sus + f_trans)
+    Expression(output_label, (f_sus + f_trans) * input_par)
 
 
 def add_monomer_synth_deg(
@@ -443,7 +445,7 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
         )
 
         if target.endswith("_obs"):
-            # just instert in the beginning, nothing to worry about
+            # just insert in the beginning, nothing to worry about
             model.expressions = pysb.ComponentSet(
                 [kd, free_targets[target]] + list(model.expressions)
             )

@@ -82,7 +82,7 @@ Observable('pMEK_S222', MEK(S222='p'))
 Observable('pERK_Y204', ERK(Y204='p'))
 
 Expression('free_MEK__S222_p_obs', MEK__S222_p_obs/(1.0 + iMEK_0/iMEK_MEK__S222_p_obs_kd))
-Expression('EGFR__Y1173_p', EGFR__Y1173_p_sus_amp*(1 - exp(-_t/EGFR__Y1173_p_sus_tau)) + (1.0 - exp(-_t/EGFR__Y1173_p_trans1_tau))*exp(-_t/EGFR__Y1173_p_trans2_tau))
+Expression('EGFR__Y1173_p', EGF_0*(EGFR__Y1173_p_sus_amp*(1 - exp(-_t*EGF_0/EGFR__Y1173_p_sus_tau)) + (1.0 - exp(-_t*EGF_0/EGFR__Y1173_p_trans1_tau))*exp(-_t*EGF_0/EGFR__Y1173_p_trans2_tau)))
 Expression('free_EGFR__Y1173_p', EGFR__Y1173_p/(1.0 + iEGFR_0/iEGFR_EGFR__Y1173_p_kd))
 Expression('ERBB2_phosphorylation_Y1248_activation_rate', 1.0*ERBB2_dephosphorylation_Y1248_base_kcat*ERBB2_phosphorylation_Y1248_kr*free_EGFR__Y1173_p)
 Expression('MEK_phosphorylation_S222_activation_rate', MEK_dephosphorylation_S222_base_kcat*MEK_phosphorylation_S222_kr*free_EGFR__Y1173_p/(MEK_dephosphorylation_S222_ERK__Y204_p_kw*ERK__Y204_p_obs + 1.0))

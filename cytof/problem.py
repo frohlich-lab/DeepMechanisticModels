@@ -77,6 +77,7 @@ class CytofProblem(Problem):
                     expr.name
                     for expr in model.expressions
                     if expr.name.endswith("_obs")
+                    and not expr.name.startswith("free_")
                 ],
                 constant_parameters=[
                     par.name
@@ -114,10 +115,12 @@ class CytofProblem(Problem):
 
     def apply_solver_settings(self, solver):
         solver.setMaxSteps(int(2e4))
+        solver.setNewtonMaxSteps(int(100))
         solver.setAbsoluteTolerance(1e-12)
-        solver.setRelativeTolerance(1e-12)
-        solver.setAbsoluteToleranceSteadyState(1e-8)
-        solver.setRelativeToleranceSteadyState(1e-8)
+        solver.setRelativeTolerance(1e-10)
+        solver.setAbsoluteToleranceSteadyState(1e-12)
+        solver.setRelativeToleranceSteadyState(1e-12)
+        solver.setNewtonStepSteadyStateCheck(True)
 
     def apply_objective_settings(self, objective, n_threads: int = 1):
         amiobjective = None
@@ -157,6 +160,12 @@ class CytofProblem(Problem):
         amiobjective.guess_steadystate = False
         amiobjective.n_threads = n_threads
         self.apply_solver_settings(amiobjective.amici_solver)
+        amiobjective.amici_model.setSteadyStateSensitivityMode(
+            amici.SteadyStateSensitivityMode.integrateIfNewtonFails
+        )
+        amiobjective.amici_model.setSteadyStateComputationMode(
+            amici.SteadyStateComputationMode.integrateIfNewtonFails
+        )
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
