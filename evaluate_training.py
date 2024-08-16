@@ -46,8 +46,8 @@ def evaluate_training(
     # Initialise list to store evaluations
     evaluations = []
 
-    # Load model and objective
-    model, obj = load_model_and_obj(conf, petab_base_files, dataset)
+    # Load ensemble models and objectives
+    ensemble_models, obj = load_model_and_obj(conf, petab_base_files, dataset)
 
     # TODO @GiacomoFabrini need to fix this inconsistency in naming!
     # Extract needed features from input dictionary
@@ -57,11 +57,11 @@ def evaluate_training(
         features_dataset = 'val'
     input_features = subset_features(
             features=features[features_dataset],
-            model=model,
+            model=ensemble_models[0],  # all models have the same input features
     )
 
     evaluate_simulations(
-        model=model,
+        models=ensemble_models,
         input_features=input_features,
         obj=obj,
         conf=conf,
