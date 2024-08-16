@@ -254,7 +254,7 @@ def log_extra_loss_terms(
         full DMM training (nn_pretrain=False).
 
     :return:
-        n/a (simply logs to W&B)
+        n/a (simply logs to W&B).
     """
     # Define regularisation functions and labels which hold regardless of pretraining/regularisation drop
     reg_funs = [model.orth_encode_reg, model.orth_inflate_reg]
