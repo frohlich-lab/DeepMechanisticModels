@@ -5,6 +5,8 @@ from typing import Dict, List
 import fire
 import pandas as pd
 import petab
+import warnings
+
 from joblib import dump, load
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
@@ -50,6 +52,9 @@ samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "test": test_samples(Wildcards(conf.data, conf.samples)),
 }
+
+# Suppress all DeprecationWarning warnings (coming from petab)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 
 def build_pipeline(
@@ -114,6 +119,7 @@ def train_pipeline(
     petab_base_files: Dict[str, pd.DataFrame],
     context: str,
     samples_train,
+    impute_missing_output: bool = True,
 ):
     """Trains a sklearn.pipeline.Pipeline built via build_pipeline()
 
@@ -128,6 +134,9 @@ def train_pipeline(
 
     :param samples_train:
         data to train the regressor Pipeline on
+
+    :param impute_missing_output:
+        whether to impute missing data in output_data during pipeline training
     """
     # Load input and output data
     input_data, features_train = load_data(
@@ -142,6 +151,9 @@ def train_pipeline(
         features=None,
         **petab_base_files,
     )
+    if impute_missing_output:
+        # Impute missing data in output_data during pipeline training
+        output_data = KNNImputer().fit_transform(output_data)
     # Build pipeline and return trained_pipeline, features_train
     pipeline = build_pipeline(
         steps_list=pipeline_steps,
@@ -172,6 +184,7 @@ def evaluate_standard_regression(
     # Subset to "train"/"test"
     samples_eval = samples[dataset]
 
+    # TODO @GiacomoFabrini - need to fix this! Always consistent features between train and test!
     # Load input and output data
     input_data, _ = load_data(
         contextualization=context,
@@ -341,9 +354,7 @@ for dataset, context, mode in itt.product(
     )
 
     # if both pipeline and features exist, load them and proceed
-    if os.path.exists(trained_pipeline_file) and os.path.exists(
-        features_train_file
-    ):
+    if os.path.exists(trained_pipeline_file) and os.path.exists(features_train_file):
         trained_pipeline = load(trained_pipeline_file)
         features_train = load(features_train_file)
     # else build and train the pipeline and extract the features
@@ -381,3 +392,5 @@ for dataset, context, mode in itt.product(
             context=context,
         )
     )
+
+    del trained_pipeline, features_train, trained_pipeline_file, features_train_file
