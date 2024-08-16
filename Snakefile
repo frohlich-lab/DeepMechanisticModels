@@ -13,12 +13,7 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    PATHWAYS, DATASETS, CONTEXTS_FEATURES, SPLITS, PRETRAIN,
-    LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN,
-    RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
-    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT, LINEAR_SCHEDULE,
-    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD, FEATURES_TRANSFORM, HP_RUN_MODE, REFINE_HPS
+    PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
 )
 
 basedir = Path(os.getcwd())
@@ -201,7 +196,10 @@ rule estimate_parameters:
         pretrain_per_sample=per_sample_pretraining_train,
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
-        model=TRAINED_BEST_MODELS,  # only saving best models
+        model=[
+            TRAINED_BEST_MODELS.format_map(SafeDict(ensemble_id=ensemble_id))
+            for ensemble_id in range(N_ENSEMBLE_MEMBERS)
+        ],
     wildcard_constraints:
         model = '\w+',
         data = r'[\w\.]+',
@@ -300,7 +298,7 @@ rule estimate_parameters:
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        training=rules.estimate_parameters.output.model
+        training=rules.estimate_parameters.output.model,
     output:
         csv=[
             EVALUATION_TRAINING.format_map(SafeDict(dataset=dataset))
