@@ -15,7 +15,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
+    ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     ("proteomics", "all"),
     # ("proteomics", "rfe"),
@@ -95,7 +95,7 @@ USE_BIAS = (
 
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
 LAST_LAYER_ACTIVATION = (
-    "True",
+    # "True",
     "False",
 )
 
@@ -358,3 +358,5 @@ REFINE_HPS = None
 #     "use_early_stopping": USE_EARLY_STOP,
 #     "last_layer_activation": LAST_LAYER_ACTIVATION,
 # }
+
+N_ENSEMBLE_MEMBERS = 5  # number of ensemble members to average over (top N RMSE val across training)
