@@ -2,8 +2,8 @@ import fire
 import jax.tree_util as jtu
 
 from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
-                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode)
-from cytof.problem import CytofProblem
+                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, fig_dir)
+# from cytof.problem import CytofProblem
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
@@ -17,8 +17,8 @@ from dmm.training_helper_funcs import check_best_model, create_pypesto_problem, 
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
-from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, PRETRAIN_N_EPOCHS
+# from sklearn.model_selection import train_test_split
+from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, PRETRAIN_N_EPOCHS, N_ENSEMBLE_MEMBERS
 from util import load_petab_base_files
 
 
@@ -31,7 +31,9 @@ avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
     **{**conf.__dict__, **dict(sample=f"model_average_{conf.samples}")}
 )
 # results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
-model_file = Path(TRAINED_BEST_MODELS.format(**conf.__dict__))
+model_file = TRAINED_BEST_MODELS.format(
+    **{**conf.__dict__, **dict(ensemble_id="{ensemble_id}")}
+)
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 features_filepath = FEATURES_OUTFILE.format(
     **{**conf.__dict__, **dict(dataset='{dataset}')}
@@ -152,6 +154,7 @@ else:
         pretrained_model_file=pretrained_model_file,
         n_epoch=PRETRAIN_N_EPOCHS,
         early_stopping_params=early_stopping_params,
+        plot_dir=fig_dir / "network_pretraining",
         debug_mode=debug_mode,
         return_best="train",
     )
@@ -184,7 +187,7 @@ samples_name_list_dict = {
     dataset: model.sample_name_list
     for dataset, model in zip(["train", "test"], [model_train, model_test])
 }
-best_model, rmse_test_min = train(
+best_models = train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     filter_spec_per_param=filter_spec_per_param,
     problem_train=pypesto_problem_train,
@@ -198,14 +201,17 @@ best_model, rmse_test_min = train(
     n_epoch=N_EPOCHS,
     early_stopping_params=early_stopping_params,
     debug_mode=debug_mode,
+    ensemble_members=N_ENSEMBLE_MEMBERS,
 )
 
-# Check whether the saved best_model indeed produces the best recorded RMSE on validation
-check_best_model(
-    best_model_filename=model_file,
-    cytof_problem=CytofProblem(conf.model),
-    petab_base_files=petab_base_files,
-    input_data=input_features_test,
-    pp=pypesto_problem_test,
-    best_rmse_val=rmse_test_min,
-)
+# TODO @GiacomoFabrini -- if this is still useful, it needs to handle the new structure of best_models, i.e.
+#  a list where each item is (rmse_val, model)
+# # Check whether the saved best_model indeed produces the best recorded RMSE on validation
+# check_best_model(
+#     best_model_filename=model_file,
+#     cytof_problem=CytofProblem(conf.model),
+#     petab_base_files=petab_base_files,
+#     input_data=input_features_test,
+#     pp=pypesto_problem_test,
+#     best_rmse_val=rmse_test_min,
+# )
