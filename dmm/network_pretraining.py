@@ -262,20 +262,23 @@ def pretrain_network(
     for dataset in ["train", "val"]:
         print(f'best loss_{dataset}: {best_losses[dataset]}')
     wandb.log({"final_epoch": epoch})
+
     # Save best pretrained model -- not currently in use
     # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
     # best_models[return_best].save(pretrained_model_file)
-    # Plot model predictions - for best_models across train and val -> log to W&B
-    for dataset in ["train", "val"]:
-        plot_and_log_pretraining_result(
-            model=best_models[dataset],
-            training_data=training_data,
-            training_targets=training_targets,
-            validation_data=validation_data,
-            validation_targets=validation_targets,
-            plot_dir=plot_dir,
-            plot_name=f"pretraining_results_best_on_{dataset}",
-        )
+
+    # Plot model predictions - for best_models across train and val -> log to W&B -- disabled
+    # for dataset in ["train", "val"]:
+    #     plot_and_log_pretraining_result(
+    #         model=best_models[dataset],
+    #         training_data=training_data,
+    #         training_targets=training_targets,
+    #         validation_data=validation_data,
+    #         validation_targets=validation_targets,
+    #         plot_dir=plot_dir,
+    #         plot_name=f"pretraining_results_best_on_{dataset}",
+    #     )
+
     # Log serialised pretrained model -- not in use at the moment
     # wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
@@ -286,11 +289,11 @@ def pretrain_network(
     except subprocess.CalledProcessError as e:
         raise ValueError(f"Error syncing wandb directory: {e}")
 
-    # Remove local plot files
-    for dataset in ["train", "val"]:
-        os.remove(
-            Path(plot_dir / (f"pretraining_results_best_on_{dataset}" + ".png"))
-        )
+    # # Remove local plot files -- saving disabled above
+    # for dataset in ["train", "val"]:
+    #     os.remove(
+    #         Path(plot_dir / (f"pretraining_results_best_on_{dataset}" + ".png"))
+    #     )
 
     # # Check: is best_model actually the best? -- NOT IN USE
     # loss_val, _ = loss_pretrain(
