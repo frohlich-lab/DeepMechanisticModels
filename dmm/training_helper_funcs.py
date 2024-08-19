@@ -88,6 +88,7 @@ def get_optimiser_and_opt_state(
         model: DeepMechanisticModel,
         filter_spec: Optional[PyTree] = None,
         pretraining: bool = False,
+        log_wandb: bool = False,
 ) -> Tuple[GradientTransformationExtraArgs, OptState]:
     """
     Returns the optimiser and optimiser state for training the model.
@@ -101,6 +102,9 @@ def get_optimiser_and_opt_state(
         Optional filter specification for the model parameters.
     :param pretraining:
         boolean flag which discriminates between network pretraining and full DMM training.
+
+    :param log_wandb:
+        boolean flag to log learning rate schedule chart to wandb.
 
     :return:
         Tuple containing the optimiser and optimiser state.
@@ -132,11 +136,12 @@ def get_optimiser_and_opt_state(
     # If not schedule-free, get schedule and initialise optimiser and optimiser state accordingly
     schedule = get_scheduler(conf, n_epoch, pretraining)
 
-    # Log learning rate schedule chart to wandb
-    plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
-    plt.ylabel("Learning Rate")
-    plt.xlabel("Epoch")
-    wandb.log({"Learning Rate Schedule": plt}, step=0)
+    if log_wandb:  # do not log by default
+        # Log learning rate schedule chart to wandb
+        plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
+        plt.ylabel("Learning Rate")
+        plt.xlabel("Epoch")
+        wandb.log({"Learning Rate Schedule": plt}, step=0)
 
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
