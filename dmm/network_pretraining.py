@@ -199,34 +199,26 @@ def pretrain_network(
                 best_losses[dataset] = loss_value
                 best_models[dataset] = eval_model
 
-        # Log loss_train and loss_val, then extra loss terms
-        wandb.log(
-            {
-                "loss_train": loss_train,
-                "mse_train": mse_train,  # added MSE train to plot in W&B and debug pretraining
-                "loss_val": loss_val,
-                "mse_val": mse_val,
-            },
-            step=epoch,
-        )
-        log_extra_loss_terms(
-            model=model,
-            conf=conf,
-            input_data=validation_data,  # use validation_data for RECON_LOSS
-            epoch=epoch,
-            nn_pretrain=True,  # network pretraining stage
-        )
-
-        # Overwrite `model` with updated `next_model`
-        model = next_model
-
         # Log param values and grads every 5 epochs + check early-stopping criteria -- uses eval_model
         if epoch in log_epochs:
+            # Log loss_train and loss_val + model stats, then extra loss terms
             wandb.log(
                 {
+                    "loss_train": loss_train,
+                    "mse_train": mse_train,  # added MSE train to plot in W&B and debug pretraining
+                    "loss_val": loss_val,
+                    "mse_val": mse_val,
                     **log_model_stats(eval_model, grads, pretrain=True)
                 },
                 step=epoch,
+            )
+
+            log_extra_loss_terms(
+                model=model,
+                conf=conf,
+                input_data=validation_data,  # use validation_data for RECON_LOSS
+                epoch=epoch,
+                nn_pretrain=True,  # network pretraining stage
             )
 
             # Debugging statements
@@ -259,6 +251,10 @@ def pretrain_network(
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
                     break
 
+        # Overwrite `model` with updated `next_model` and move on to next step
+        model = next_model
+
+    # Print out the best losses (train/val) and log final epoch to W&B
     for dataset in ["train", "val"]:
         print(f'best loss_{dataset}: {best_losses[dataset]}')
     wandb.log({"final_epoch": epoch})
