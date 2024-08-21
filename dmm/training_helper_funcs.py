@@ -623,7 +623,7 @@ def rmse(
         )
     except Exception as e:
         print(e)
-        return np.NaN
+        return np.inf
 
 
 def rmse_ensemble(
@@ -650,7 +650,7 @@ def rmse_ensemble(
         )
     except Exception as e:
         print(e)
-        return np.NaN
+        return np.inf
 
 
 def test_save_reload_model(

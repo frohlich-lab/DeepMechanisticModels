@@ -153,8 +153,9 @@ def train(
     patience_counter_invalid_loss = 0
 
     # Use pretrained/randomly initialised model (if not pretrained) to get initial rmse_test_min and
-    # the collection of best_models for the ensemble
+    # the collection of best_models for the ensemble. Returns np.inf is something fails.
     rmse_test_min = rmse(problem_test, model, input_features_test)
+
     best_models = [
         (rmse_test_min, model)  # each item comprises the RMSE validation score and the model itself
         for i in range(ensemble_members)
@@ -307,7 +308,7 @@ def train(
             )
             break
 
-    # Compute RMSE val of the ensemble of best_models
+    # Compute RMSE val of the ensemble of best_models -- returns NaN if something fails
     ensemble_rmse_val = rmse_ensemble(
         pp=problem_test,
         best_models=best_models,
