@@ -146,20 +146,28 @@ EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
 
 
-def training_samples(wildcards) -> List[str]:
+def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
     split, n_splits = wildcards.samples.split("of")
-    splits = np.array_split(np.asarray(samples), int(n_splits))
-    return list(
-        np.concatenate([s for i, s in enumerate(splits) if i != int(split)])
-    )
+    if mode != "leave_one_out":
+        splits = np.array_split(np.asarray(samples), int(n_splits))
+        return list(
+            np.concatenate([s for i, s in enumerate(splits) if i != int(split)])
+        )
+    else:
+        hardest_samples = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
+        return [sample for sample in samples if sample != hardest_samples[int(split)]]
 
 
-def test_samples(wildcards) -> List[str]:
+def test_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
     split, n_splits = wildcards.samples.split("of")
-    splits = np.array_split(np.asarray(samples), int(n_splits))
-    return list(splits[int(split)])
+    if mode != "leave_one_out":
+        splits = np.array_split(np.asarray(samples), int(n_splits))
+        return list(splits[int(split)])
+    else:
+        hardest_samples = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
+        return [hardest_samples[int(split)]]
 
 
 def per_sample_pretraining_train(wildcards) -> List[str]:
@@ -179,29 +187,29 @@ def per_sample_pretraining_test(wildcards) -> List[str]:
         for sample in test_samples(wildcards)
     ]
 
-
-def select_values(data, num_selected: int):
-    # Convert the generator to a list
-    data_list = list(data)
-
-    # Generate log-spaced indices
-    num_values = len(data_list)
-
-    if num_values <= 1:
-        return data_list
-
-    indices = set(
-        np.logspace(
-            0,
-            np.log10(num_values - 1),
-            num=min(num_selected, num_values),
-            endpoint=True,
-            base=10,
-            dtype=int,
-        )
-    )
-
-    # Select values based on the indices
-    selected_values = [data_list[i] for i in indices]
-
-    return selected_values
+# Does not appear to be used?!
+# def select_values(data, num_selected: int):
+#     # Convert the generator to a list
+#     data_list = list(data)
+#
+#     # Generate log-spaced indices
+#     num_values = len(data_list)
+#
+#     if num_values <= 1:
+#         return data_list
+#
+#     indices = set(
+#         np.logspace(
+#             0,
+#             np.log10(num_values - 1),
+#             num=min(num_selected, num_values),
+#             endpoint=True,
+#             base=10,
+#             dtype=int,
+#         )
+#     )
+#
+#     # Select values based on the indices
+#     selected_values = [data_list[i] for i in indices]
+#
+#     return selected_values
