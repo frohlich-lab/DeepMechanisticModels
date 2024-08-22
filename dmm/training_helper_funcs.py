@@ -749,3 +749,32 @@ def plot_and_log_pretraining_result(
     # Add and log artifact
     plot_artifact.add(wandb.Image(str(plot_filepath)), plot_name)
     wandb.log_artifact(plot_artifact)
+
+
+class MetricHandler:
+    def __init__(self, patience=5):
+        self.counter = 0
+        self.patience = patience
+        self.invalid_metric_detected = False  # Flag to track invalid metrics in the current epoch
+
+    def handle_invalid_metrics(self, metrics, epoch):
+        # Lower flags
+        should_break = False
+        self.invalid_metric_detected = False
+
+        for metric in metrics:
+            if not np.isfinite(metric):  # if any metric is invalid, raise flag
+                self.invalid_metric_detected = True  # Set flag if any metric is invalid
+
+        if self.invalid_metric_detected:
+            self.counter += 1
+            if self.counter >= self.patience:  # fixed budget of patience
+                print(f"Too many invalid values, breaking at epoch {epoch}")
+                wandb.log(
+                    {
+                        "integration_error": epoch,
+                    }
+                )
+                should_break = True
+
+        return should_break

@@ -13,7 +13,7 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs, get_eval_model, get_finite_grads,
                                     get_optimiser_and_opt_state, map_params_to_array, model_output_to_petab_input,
-                                    rmse, rmse_ensemble)
+                                    rmse, rmse_ensemble, MetricHandler)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
@@ -147,10 +147,10 @@ def train(
         conf=conf, n_epoch=n_epoch, model=model, filter_spec=None, pretraining=False,
     )
 
-    # Initialise default values for early_stopper, epoch and tolerance for invalid RMSEs (integration errors)
+    # Initialise default values for early_stopper, epoch and metric handler (invalid fval/RMSE metrics)
     early_stopper = None
     epoch = 0
-    patience_counter_invalid_loss = 0
+    metric_handler = MetricHandler()
 
     # Use pretrained/randomly initialised model (if not pretrained) to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
@@ -196,20 +196,6 @@ def train(
             step=epoch
         )
 
-        # Handle NaN or Inf loss_train arising from simulation errors
-        if not (np.isfinite(loss_train)):
-            patience_counter_invalid_loss += 1
-            if patience_counter_invalid_loss >= 5:  # fixed budget of patience
-                print(f"Too many invalid fval values, breaking at epoch {epoch}")
-                wandb.log(
-                    {
-                        "integration_error": epoch,
-                    }
-                )
-                break  # if this happens, we still serialise `best_models` and return it
-        else:
-            patience_counter_invalid_loss = 0  # reset counter to 0
-
         # Log extra terms (regularisation)
         log_extra_loss_terms(
             model=model,
@@ -228,8 +214,9 @@ def train(
         # Update x - same param array that we had before
         x = map_params_to_array(model)
 
-        # Log RMSE values + check early-stopping criteria at log-spaced epochs
+        # Log RMSE values + check early-stopping criteria + check for invalid metrics
         if epoch in log_epochs:
+
             rmse_dict = dict()
             for dataset, pp, input_data in zip(
                     ("train", "test"),
@@ -237,6 +224,14 @@ def train(
                     (input_features_train, input_features_test)
             ):
                 rmse_dict[dataset] = rmse(pp, eval_model, input_data)
+
+            # Handle invalid loss_train (fval_train) and RMSE
+            should_break = metric_handler.handle_invalid_metrics(
+                metrics=[loss_train, rmse_dict["train"], rmse_dict["test"]],
+                epoch=epoch,
+            )
+            if should_break:
+                break
 
             # Update tally of best models on validation score -- ensemble members
             best_models = update_best_models(
@@ -322,10 +317,12 @@ def train(
     wandb.log({"final_epoch": epoch})
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
-    # Plot model weights - proxy for model architecture -- disabled for now
+
     # TODO @GiacomoFabrini - fix this if we want to use this!
+    # Plot model weights - proxy for model architecture -- disabled for now
     # plot_model_weights(model, filename=Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))
     # wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
+
     # Save best models
     for ensemble_id, (_, ensemble_model_member) in enumerate(best_models):
         # Format ensemble_model_file and check parent exists
@@ -336,12 +333,13 @@ def train(
             ensemble_model_file,
             samples_name_list_dict,
         )
-        # Log serialised ensemble member model
-        wandb.log_model(path=ensemble_model_file, name=f"trained_dmm_{ensemble_id}")
+        # Log serialised ensemble member model -- temporarily disabled
+        # wandb.log_model(path=ensemble_model_file, name=f"trained_dmm_{ensemble_id}")
+
     # Close and sync W&B run
     wandb.finish()
-    try:
-        _ = subprocess.run(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error syncing wandb directory: {e}")
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
     return best_models
