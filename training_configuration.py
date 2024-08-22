@@ -38,14 +38,20 @@ FEATURES_TRANSFORM = {
 # Cross-validation splits
 SPLITS = {
     "0of5",
-    # "1of5",
-    # "2of5",
-    # "3of5",
-    # "4of5"
+    "1of5",
+    "2of5",
+    "3of5",
+    "4of5"
 }
 
 PRETRAIN = {
     "True",
+}
+
+# INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
+MEDIAN_INIT = {
+    "per_sample",
+    # "avg_model",
 }
 
 # Network Structure and Initialisation Hyperparameters
@@ -54,16 +60,16 @@ PRETRAIN = {
 # From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
 # appears to be better? -- stat tests show the same.
 # LATENT_DIMS = (
-#     # 2,
-#     # 3,
-#     # 4,
-#     # 6,
-#     # 8,
+#     2,
+#     3,
+#     4,
+#     6,
+#     8,
 #     10,
 #     # 14  # inflater does not inflate, rather simply processes same shape input
 # )
 # Define linear scan for LATENT_DIMS
-LATENT_DIMS = {'range': (2, 4, 6, 8, 10), 'central_value': 4}
+LATENT_DIMS = {'range': (2, 3, 4, 6, 8, 10), 'central_value': 10}
 
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
@@ -82,15 +88,18 @@ NETWORK_LAYOUT = {
 }
 
 # NETWORK_LAYOUT = (
+#     (0, "False"),
+#     (1, "False"),
 #     (2, "False"),
-#     # (3, "False"),
+#     (3, "False"),
+#     (4, "False"),
 # )
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
 # hyperparameter
 USE_BIAS = (
-    # "True",
-    "False",
+    "True",
+    # "False",
 )
 
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
@@ -122,7 +131,7 @@ RECONSTRUCT = (
 # Training Hyperparameters
 # Activation Functions: activation_fn_name
 ACTIVATION_FNS = (
-    "tanh",
+    # "tanh",
     # "relu",
     # "leaky_relu",
     "swish",
@@ -146,8 +155,8 @@ ORTH_REG_STRATEGIES = (
 
 
 # Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE = (0, 1e0, 1e1, 1e2, 1e3, 1e4)
-LINEAR_SCAN_CENTRAL = 1e2
+LINEAR_SCAN_RANGE = (0, )  # (0, 1e0, 1e1, 1e2, 1e3, 1e4)
+LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 # From W&B, it seems that rmse_val.min is positively correlated with `l1reg` params
@@ -228,7 +237,7 @@ EPSILONS = {'range': LINEAR_SCAN_RANGE, 'central_value': 0}
 ZETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 0}
 
 
-# LEARNING SCHEDULE HYPERPARAMETERS
+# LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
 LRATE_PRETRAINING_RATIO = {
     10.0,
 }
@@ -239,7 +248,7 @@ LRATE_PRETRAINING_RATIO = {
 #     # 1e-3,
 # }
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (1e-4, 1e-3, 1e-2, 1e-1), 'central_value': 1e-1}  # increased central value by one OOM
+MAX_LEARNING_RATES = {'range': (1e-3, 5e-3, 1e-2, 1e-1), 'central_value': 5e-3}  # increased central value by one OOM
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
 # LEARNING_RATE_SPANS = {
@@ -249,7 +258,7 @@ MAX_LEARNING_RATES = {'range': (1e-4, 1e-3, 1e-2, 1e-1), 'central_value': 1e-1} 
 #     # 1e3,
 # }
 # Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2, 1e3), 'central_value': 1e1}
+LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2), 'central_value': 1e1}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 # LEARNING_RATE_DECAYS = {
@@ -259,7 +268,7 @@ LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2, 1e3), 'central_value': 1e1}
 #     # 0.9**3,
 # }
 # Linear scan range for lrate_decay
-LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2, 0.9**3), 'central_value': 0.9**1}
+LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2), 'central_value': 0.9**1}
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
 # WARMUP_FCTS = {
@@ -271,7 +280,7 @@ LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2, 0.9**3), 'central_valu
 #     # 1e-3,
 # }
 # Linear scan range for warmup_fct
-WARMUP_FCTS = {'range': (0.4, 0.2, 0.1, 0.05), 'central_value': 0.1}
+WARMUP_FCTS = {'range': (0.2, 0.1), 'central_value': 0.1}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
 # OPT_STEPS = {
@@ -345,7 +354,7 @@ RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
 N_EPOCHS = 1000
-PRETRAIN_N_EPOCHS = 2000
+PRETRAIN_N_EPOCHS = 0
 
 # Type of run
 HP_RUN_MODE = "linear_scans"
