@@ -28,11 +28,11 @@ def loss_and_grads_pretrain(
     model = eqx.combine(diff_model, static_model)
     # Get model output (inflated cell-line-specific parameter deviations)
     pred = jax.vmap(model)(input_data)["inflated"]
-    # Loss comprises MSE between predicted kinetic parameter deviations and
+    # Loss comprises RMSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
-    mse_value = mse(pred.flatten(), targets.flatten())
+    rmse_value = jnp.sqrt(mse(pred.flatten(), targets.flatten()))  # use RMSE instead of MSE
     loss_value = (
-            mse_value
+            rmse_value
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -48,7 +48,7 @@ def loss_and_grads_pretrain(
                 + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
-    return loss_value, mse_value
+    return loss_value, rmse_value
 
 
 @eqx.filter_jit
@@ -60,11 +60,11 @@ def loss_pretrain(
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
     pred = jax.vmap(model)(input_data)["inflated"]
-    # Loss comprises MSE between predicted kinetic parameter deviations and
+    # Loss comprises RMSE between predicted kinetic parameter deviations and
     #  those obtained from ODE pretraining.
-    mse_value = mse(pred.flatten(), targets.flatten())
+    rmse_value = jnp.sqrt(mse(pred.flatten(), targets.flatten()))  # use RMSE instead of MSE
     loss_value = (
-            mse_value
+            rmse_value
             + model.l1_encode_reg(scale=conf["l1reg_encode"])
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.l1_inflate_reg(scale=conf["l1reg_inflate"])
@@ -80,7 +80,7 @@ def loss_pretrain(
                 + model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
                 + model.symmetry_loss(scale=conf["symm_reg"])
         )
-    return loss_value, mse_value
+    return loss_value, rmse_value
 
 
 def pretrain_network(
@@ -170,10 +170,13 @@ def pretrain_network(
 
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
+
+    rmse_history = {"train": [], "val": []}  # for debug -- TODO @GiacomoFabrini - remove
+
     # Training loop
     for epoch in range(1, n_epoch+1):  # natural counting
         # Make training step - model is not updated to get current metrics
-        next_model, model, opt_state, loss_train, mse_train, grads = make_pretrain_step(
+        next_model, model, opt_state, loss_train, rmse_train, grads = make_pretrain_step(
             model,
             filter_spec,
             opt_state,
@@ -186,12 +189,15 @@ def pretrain_network(
         eval_model = get_eval_model(conf=conf, model=model, opt_state=opt_state, filter_spec=filter_spec)
 
         # Evaluate validation loss term
-        loss_val, mse_val = loss_pretrain(
+        loss_val, rmse_val = loss_pretrain(
             model=eval_model,
             conf=conf,
             input_data=validation_data,
             targets=validation_targets,
         )
+
+        rmse_history["train"].append(rmse_train)  # for debug -- TODO @GiacomoFabrini - remove
+        rmse_history["val"].append(rmse_val)  # for debug -- TODO @GiacomoFabrini - remove
 
         for dataset, loss_value in zip(["train", "val"], [loss_train, loss_val]):
             # Update best model and best loss estimate across training and validation set
@@ -205,9 +211,9 @@ def pretrain_network(
             wandb.log(
                 {
                     "loss_train": loss_train,
-                    "mse_train": mse_train,  # added MSE train to plot in W&B and debug pretraining
+                    "rmse_train": rmse_train,  # added MSE train to plot in W&B and debug pretraining
                     "loss_val": loss_val,
-                    "mse_val": mse_val,
+                    "rmse_val": rmse_val,
                     **log_model_stats(eval_model, grads, pretrain=True)
                 },
                 step=epoch,
@@ -227,8 +233,8 @@ def pretrain_network(
                     f" | epoch {epoch}  "
                     f" | loss_train {loss_train}  "
                     f" | loss_val {loss_val}  "
-                    f" | mse_train {mse_train}  "
-                    f" | mse_val {mse_val}  "
+                    f" | mse_train {rmse_train}  "
+                    f" | mse_val {rmse_val}  "
                 )
 
             if conf["use_early_stopping"]:
@@ -280,10 +286,10 @@ def pretrain_network(
     wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     command = f"wandb sync {wandb_stripped_dir}"
     wandb.finish()
-    try:
-        _ = subprocess.run(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error syncing wandb directory: {e}")
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
 
     # # Remove local plot files -- saving disabled above
     # for dataset in ["train", "val"]:
