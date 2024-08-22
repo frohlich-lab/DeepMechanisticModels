@@ -36,7 +36,8 @@ def init_wandb(
         # v2: Equinox
         # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
         # v4: Equinox, basics - LinearScans
-        project=f"DeepMechanisticModels.v4.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v5: Equinox, no network pretraining + leave-one-out cross-validation - Linear Scans
+        project=f"DeepMechanisticModels.v5.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
@@ -66,22 +67,18 @@ def init_wandb(
     if pretrain:  # neural network pretraining stage (no ODE simulations)
         metrics = {
             "loss_train": "min",
-            "mse_train": "min",
             "loss_val": "min",
-            "mse_val": "min",
         }
     else:  # full DMM training stage
         metrics = {
-            "rmse_train": "min",
-            "rmse_val": "min",
             "loss": "min",
             "fval_train": "min",
             "fval_val": "min",
             "integration_error": None,
         }
     # common metrics - orthogonal regularisation + patience_counter
-    metrics[OEREG] = "min"
-    metrics[OIREG] = "min"
+    for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
+        metrics[metric] = "min"
     metrics["patience_counter"] = None
     # optional metrics depending on the presence of decoder head
     if model.reconstruct:
