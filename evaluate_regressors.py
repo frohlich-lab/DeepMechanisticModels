@@ -1,4 +1,5 @@
 import itertools as itt
+import numpy as np
 import os
 from typing import Dict, List
 
@@ -392,5 +393,9 @@ for dataset, context, mode in itt.product(
             context=context,
         )
     )
+
+    # Added printout of RMSE on train/val datasets for each regressor (mode)
+    rmse = np.sqrt(np.mean(np.square(df["res"])))
+    print(f"RMSE for {mode} on {conf.samples}, {context}, {dataset} = {rmse}")
 
     del trained_pipeline, features_train, trained_pipeline_file, features_train_file
