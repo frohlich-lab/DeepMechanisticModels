@@ -338,8 +338,8 @@ def train(
 
     # Close and sync W&B run
     wandb.finish()
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
+    try:
+        _ = subprocess.run(command, shell=True)
+    except subprocess.CalledProcessError as e:
+        raise ValueError(f"Error syncing wandb directory: {e}")
     return best_models
