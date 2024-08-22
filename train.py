@@ -91,10 +91,12 @@ if (conf.depth == 0) and conf.linear_benchmark:
                 avg_model_parameter_file=avg_model_parameter_file,
                 features=input_features,
                 dataset=dataset,
+                median_params_method=conf.median_init,
             ),
             per_sample_parameter_file=per_sample_parameter_file,
             avg_model_parameter_file=avg_model_parameter_file,
             random_seed=conf.job,
+            median_params_method=conf.median_init,
             nn_pretrain=False,
         )
         for model, dataset in zip((model_train, model_test), ["train", "val"])
@@ -109,6 +111,7 @@ else:
         parameter_filepath=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        median_params_method=conf.median_init,
         return_full_combo=False
     )
     # Get test targets
@@ -117,6 +120,7 @@ else:
         parameter_filepath=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        median_params_method=conf.median_init,
         return_full_combo=False
     )
     targets_train, targets_test = (
@@ -137,33 +141,38 @@ else:
         per_sample_parameter_file=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        median_params_method=conf.median_init,
         nn_pretrain=True,
     )
-    # Initialise W&B run
-    init_wandb(model_train, conf, early_stopping_params, pretrain=True)
-    # Get pretrained model
-    pretrained_model = pretrain_network(
-        model=model_train,
-        filter_spec=filter_spec,
-        training_data=input_features_train,  # (batch_size, input_size)
-        training_targets=targets_train,  # (batch_size, output_size)
-        validation_data=input_features_test,
-        validation_targets=targets_test,
-        conf=conf.__dict__,
-        # rfile=rfile,
-        pretrained_model_file=pretrained_model_file,
-        n_epoch=PRETRAIN_N_EPOCHS,
-        early_stopping_params=early_stopping_params,
-        plot_dir=fig_dir / "network_pretraining",
-        debug_mode=debug_mode,
-        return_best="train",
-    )
+    if PRETRAIN_N_EPOCHS > 0:
+        # Initialise W&B run
+        init_wandb(model_train, conf, early_stopping_params, pretrain=True)
+        # Get pretrained model
+        pretrained_model = pretrain_network(
+            model=model_train,
+            filter_spec=filter_spec,
+            training_data=input_features_train,  # (batch_size, input_size)
+            training_targets=targets_train,  # (batch_size, output_size)
+            validation_data=input_features_test,
+            validation_targets=targets_test,
+            conf=conf.__dict__,
+            # rfile=rfile,
+            pretrained_model_file=pretrained_model_file,
+            n_epoch=PRETRAIN_N_EPOCHS,
+            early_stopping_params=early_stopping_params,
+            plot_dir=fig_dir / "network_pretraining",
+            debug_mode=debug_mode,
+            return_best="train",
+        )
+    else:  # skip pretraining
+        pretrained_model = model_train
     # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
     model_train = init_global_kin_params_combiner(
         model=pretrained_model,
         per_sample_parameter_file=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        median_params_method=conf.median_init,
         nn_pretrain=False,
     )
     # For pretrained models: it might be desirable to keep the learnt sparsity pattern, but drop regularisation.
