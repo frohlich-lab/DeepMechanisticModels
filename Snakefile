@@ -182,7 +182,7 @@ rule select_features:
             for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
-# TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters
+# TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
 rule estimate_parameters:
     input:
         script = 'train.py',
@@ -208,6 +208,7 @@ rule estimate_parameters:
         context = '\w+',
         features = '\w+',
         features_transform = '\w+',
+        median_init='\w+',
         n_hidden = '[0-9]+',
         nn_structure_multiplier = '[0-9]+',
         depth = '[0-9]+',
@@ -250,8 +251,9 @@ rule estimate_parameters:
             f'--{arg}={{wildcards.{arg}}}'
             for arg in (
                 'model', 'data', 'samples', 'pretrain',
-                'context', 'features', 'features_transform', 'n_hidden',
-                'nn_structure_multiplier', 'depth', 'linear_benchmark',
+                'context', 'features', 'features_transform',
+                'median_init',
+                'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
@@ -312,6 +314,7 @@ rule evaluate_training:
         context='\w+',
         features='\w+',
         features_transform='\w+',
+        median_init='\w+',
         n_hidden='[0-9]+',
         nn_structure_multiplier='[0-9]+',
         depth='[0-9]+',
@@ -354,8 +357,9 @@ rule evaluate_training:
             for arg in (
                 'model', 'data',
                 'samples', 'pretrain',
-                'context', 'features', 'features_transform', 'n_hidden',
-                'nn_structure_multiplier', 'depth', 'linear_benchmark',
+                'context', 'features', 'features_transform',
+                'median_init',
+                'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',

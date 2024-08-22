@@ -335,6 +335,7 @@ def linear_nn_init(
         avg_model_parameter_file: str,
         features: Dict[str, np.ndarray],
         dataset: str,
+        median_params_method: str,
 ):
     # Check that encoder, inflater (and potentially decoder) all have a single layer
     # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
@@ -399,6 +400,7 @@ def linear_nn_init(
         parameter_filepath=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
+        median_params_method=median_params_method,
         return_full_combo=False,
     )
 
@@ -451,6 +453,7 @@ def init_global_kin_params_combiner(
         per_sample_parameter_file: str,
         avg_model_parameter_file: str,
         random_seed: int,
+        median_params_method: str,
         nn_pretrain: bool,
 ):
     """
@@ -478,6 +481,7 @@ def init_global_kin_params_combiner(
             parameter_filepath=per_sample_parameter_file,
             avg_model_parameter_file=avg_model_parameter_file,
             random_seed=random_seed,
+            median_params_method=median_params_method,
             return_full_combo=False,
         )
         # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
