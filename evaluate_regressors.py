@@ -172,8 +172,9 @@ def evaluate_standard_regression(
     mode: str,  # 'linreg', 'lasso', 'elasticnet'
     trained_pipeline: Pipeline,
     features_train,
+    features_test,
     petab_base_files: Dict[str, pd.DataFrame],
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, list]:
     # Check the regressors have been trained
     if trained_pipeline is None:
         raise ValueError("No trained_pipeline provided for this regressor!")
@@ -193,10 +194,10 @@ def evaluate_standard_regression(
         features=features_train if dataset == "test" else None,
         **petab_base_files,
     )
-    output_data, _ = load_data(
+    output_data, test_columns = load_data(
         contextualization="cytof_dynamic",
         samples=samples_eval,
-        features=None,
+        features=features_test if dataset == "test" else None,
         **petab_base_files,
     )
 
@@ -327,12 +328,17 @@ def evaluate_standard_regression(
             sample=sample,
         )
 
-    return pd.DataFrame(evaluations)
+    return pd.DataFrame(evaluations), test_columns
 
 
 # Get petab_base_files
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
+
+features_test = {
+    context: None
+    for context in CONTEXT_SET
+}
 
 # Evaluate regressors
 for dataset, context, mode in itt.product(
@@ -372,7 +378,7 @@ for dataset, context, mode in itt.product(
         dump(trained_pipeline, trained_pipeline_file)
         dump(features_train, features_train_file)
 
-    df = evaluate_standard_regression(
+    df, test_columns = evaluate_standard_regression(
         dataset=dataset,
         conf=conf,
         samples=samples,
@@ -380,6 +386,7 @@ for dataset, context, mode in itt.product(
         mode=mode,
         trained_pipeline=trained_pipeline,
         features_train=features_train,
+        features_test=features_test[context],
         petab_base_files=petab_base_files,
     )
 
@@ -393,6 +400,10 @@ for dataset, context, mode in itt.product(
             context=context,
         )
     )
+
+    # Update features_test with test_columns to ensure consistency between train and test columns
+    if features_test[context] is None:
+        features_test[context] = test_columns
 
     # Added printout of RMSE on train/val datasets for each regressor (mode)
     rmse = np.sqrt(np.mean(np.square(df["res"])))
