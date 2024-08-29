@@ -15,7 +15,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
+    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     ("proteomics", "all"),
     # ("proteomics", "rfe"),
@@ -69,7 +69,7 @@ MEDIAN_INIT = {
 #     # 14  # inflater does not inflate, rather simply processes same shape input
 # )
 # Define linear scan for LATENT_DIMS
-LATENT_DIMS = {'range': (2, 3, 4, 6, 8, 10), 'central_value': 10}
+LATENT_DIMS = {'range': (2, 3, 4, 6, 8, 10), 'central_value': 2}
 
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
@@ -81,7 +81,7 @@ NETWORK_LAYOUT = {
         (1, "False"),
         (2, "False"),
         (3, "False"),
-        (4, "False"),
+        # (4, "False"),
         # (5, "False"),
     ),  # 0-4 hidden layers, no linear benchmark
     'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
@@ -248,7 +248,7 @@ LRATE_PRETRAINING_RATIO = {
 #     # 1e-3,
 # }
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (1e-3, 5e-3, 1e-2, 1e-1), 'central_value': 5e-3}  # increased central value by one OOM
+MAX_LEARNING_RATES = {'range': (1e-3, 5e-3, 1e-2), 'central_value': 5e-3}  # increased central value by one OOM
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
 # LEARNING_RATE_SPANS = {
@@ -258,7 +258,7 @@ MAX_LEARNING_RATES = {'range': (1e-3, 5e-3, 1e-2, 1e-1), 'central_value': 5e-3} 
 #     # 1e3,
 # }
 # Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2), 'central_value': 1e1}
+LEARNING_RATE_SPANS = {'range': (1e1, ), 'central_value': 1e1}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 # LEARNING_RATE_DECAYS = {
@@ -268,7 +268,7 @@ LEARNING_RATE_SPANS = {'range': (1e0, 1e1, 1e2), 'central_value': 1e1}
 #     # 0.9**3,
 # }
 # Linear scan range for lrate_decay
-LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2), 'central_value': 0.9**1}
+LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1), 'central_value': 0.9**1}
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
 # WARMUP_FCTS = {
@@ -280,7 +280,7 @@ LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1, 0.9**2), 'central_value': 0.9*
 #     # 1e-3,
 # }
 # Linear scan range for warmup_fct
-WARMUP_FCTS = {'range': (0.2, 0.1), 'central_value': 0.1}
+WARMUP_FCTS = {'range': (0.1, ), 'central_value': 0.1}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
 # OPT_STEPS = {
@@ -304,7 +304,7 @@ OPT_MULT = {'range': (1, 2, 5, 10), 'central_value': 2}
 # WEIGHT_DECAY = {
 #     1e-4, # default in AdamW - optax implementation
 # }
-WEIGHT_DECAY = {'range': (1e-1, 1e-2, 1e-3, 1e-4), 'central_value': 1e-4}
+WEIGHT_DECAY = {'range': (1e-2, 1e-4), 'central_value': 1e-4}
 
 # Momentum for AdamW / schedule-free AdamW
 # MOMENTUM = {
