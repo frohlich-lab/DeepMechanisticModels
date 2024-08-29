@@ -29,8 +29,8 @@ def init_wandb(
     else:
         group = f"{conf.context}_{conf.features}"
 
-    # Add requirement for wandb core - new, faster back-end
-    wandb.require("core")
+    # Add requirement for wandb core - new, faster back-end -- DISABLED WANDB
+    # wandb.require("core")
 
     wandb.init(
         # v2: Equinox

@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
-import subprocess
-import wandb
+# import subprocess
+# import wandb
 
 from common import (
     CONTEXT_SET,
@@ -326,13 +326,13 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
         for dataset in absolute_best_dmm.keys()
     }
 
-    # Log via W&B
-    wandb.init(
-        project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-        config={
-            **conf.__dict__,
-        },
-    )
+    # # Log via W&B -- DISABLED WANDB
+    # wandb.init(
+    #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+    #     config={
+    #         **conf.__dict__,
+    #     },
+    # )
 
     evaluation_dfs = [
         data,
@@ -352,20 +352,21 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
             / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
         )
 
-        # Instantiate artifact
-        evaluation_artifact = wandb.Artifact(
-            name=f"{evaluation_tag}_{conf.model}_{conf.data}",
-            description=evaluation_tag,
-            type="evaluation",
-        )
-        # Add and log artifact
-        evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
-        wandb.log_artifact(evaluation_artifact)
+        # DISABLED WANDB
+        # # Instantiate artifact
+        # evaluation_artifact = wandb.Artifact(
+        #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
+        #     description=evaluation_tag,
+        #     type="evaluation",
+        # )
+        # # Add and log artifact
+        # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
+        # wandb.log_artifact(evaluation_artifact)
 
-    # Close W&B session and upload artifacts
-    wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
-    command = f"wandb sync {wandb_stripped_dir}"
-    wandb.finish()
+    # Close W&B session and upload artifacts -- DISABLED WANDB
+    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
+    # command = f"wandb sync {wandb_stripped_dir}"
+    # wandb.finish()
     # TODO restore once done fixing script
     # try:
     #     _ = subprocess.run(command, shell=True)

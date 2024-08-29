@@ -6,7 +6,7 @@ import numpy as np
 import petab
 import pypesto
 import seaborn as sns
-import wandb
+# import wandb
 
 from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
@@ -141,7 +141,8 @@ def get_optimiser_and_opt_state(
         plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
         plt.ylabel("Learning Rate")
         plt.xlabel("Epoch")
-        wandb.log({"Learning Rate Schedule": plt}, step=0)
+        # DISABLED WANDB
+        # wandb.log({"Learning Rate Schedule": plt}, step=0)
 
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
@@ -740,15 +741,16 @@ def plot_and_log_pretraining_result(
     )
     plot_filepath.parent.mkdir(exist_ok=True, parents=True)
     plt.savefig(plot_filepath)
-    # Instantiate artifact
-    plot_artifact = wandb.Artifact(
-        name=plot_name,
-        description="pretraining_results",
-        type="plot",
-    )
-    # Add and log artifact
-    plot_artifact.add(wandb.Image(str(plot_filepath)), plot_name)
-    wandb.log_artifact(plot_artifact)
+    # DISABLED WANDB
+    # # Instantiate artifact
+    # plot_artifact = wandb.Artifact(
+    #     name=plot_name,
+    #     description="pretraining_results",
+    #     type="plot",
+    # )
+    # # Add and log artifact
+    # plot_artifact.add(wandb.Image(str(plot_filepath)), plot_name)
+    # wandb.log_artifact(plot_artifact)
 
 
 class MetricHandler:
@@ -770,11 +772,12 @@ class MetricHandler:
             self.counter += 1
             if self.counter >= self.patience:  # fixed budget of patience
                 print(f"Too many invalid values, breaking at epoch {epoch}")
-                wandb.log(
-                    {
-                        "integration_error": epoch,
-                    }
-                )
+                # DISABLED WANDB
+                # wandb.log(
+                #     {
+                #         "integration_error": epoch,
+                #     }
+                # )
                 should_break = True
 
         return should_break

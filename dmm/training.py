@@ -3,14 +3,14 @@ import jax
 import numpy as np
 import optax
 import pypesto
-import subprocess
-import wandb
+# import subprocess
+# import wandb
 
 # from common import TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix imports from common (not in use)
 from .config_options import EarlyStoppingParams
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 # from .training_helper_funcs import test_save_reload_model, plot_model_weights
-from .wandb_init_log import log_extra_loss_terms, log_model_stats
+# from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs, get_eval_model, get_finite_grads,
                                     get_optimiser_and_opt_state, map_params_to_array, model_output_to_petab_input,
                                     rmse, rmse_ensemble, MetricHandler)
@@ -188,22 +188,22 @@ def train(
             conf=conf,
         )
 
-        # Log loss_train
-        wandb.log(
-            {
-                "loss": loss_train,
-            },
-            step=epoch
-        )
+        # Log loss_train -- DISABLED WANDB
+        # wandb.log(
+        #     {
+        #         "loss": loss_train,
+        #     },
+        #     step=epoch
+        # )
 
-        # Log extra terms (regularisation)
-        log_extra_loss_terms(
-            model=model,
-            conf=conf,
-            input_data=input_features_train,  # use training features for RECON_LOSS
-            epoch=epoch,
-            nn_pretrain=False,  # full DMM training stage
-        )
+        # Log extra terms (regularisation) -- DISABLED WANDB
+        # log_extra_loss_terms(
+        #     model=model,
+        #     conf=conf,
+        #     input_data=input_features_train,  # use training features for RECON_LOSS
+        #     epoch=epoch,
+        #     nn_pretrain=False,  # full DMM training stage
+        # )
 
         # Overwrite model with updated next_model
         model = next_model
@@ -251,17 +251,17 @@ def train(
                 )
             )
 
-            # Log RMSE, fval (both train/val) and model stats
-            wandb.log(
-                {
-                    "rmse_train": rmse_dict["train"],
-                    "rmse_val": rmse_dict["test"],
-                    "fval_train": fval_train,
-                    "fval_val": fval_val,
-                    **log_model_stats(eval_model, grads, pretrain=False)
-                },
-                step=epoch
-            )
+            # Log RMSE, fval (both train/val) and model stats -- DISABLED WANDB
+            # wandb.log(
+            #     {
+            #         "rmse_train": rmse_dict["train"],
+            #         "rmse_val": rmse_dict["test"],
+            #         "fval_train": fval_train,
+            #         "fval_val": fval_val,
+            #         **log_model_stats(eval_model, grads, pretrain=False)
+            #     },
+            #     step=epoch
+            # )
 
             # Progress/debugging statements
             if debug_mode:
@@ -282,13 +282,13 @@ def train(
                         f" | has improved? {early_stopper.has_improved} "
                         f" | patience count {early_stopper.patience_count} |"
                     )
-                # Log current patience count
-                wandb.log(
-                    {
-                        "patience_counter": early_stopper.patience_count,
-                    },
-                    step=epoch
-                )
+                # Log current patience count -- DISABLED WANDB
+                # wandb.log(
+                #     {
+                #         "patience_counter": early_stopper.patience_count,
+                #     },
+                #     step=epoch
+                # )
                 # Stop training if we have run out of patience
                 if early_stopper.should_stop:
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
@@ -296,11 +296,12 @@ def train(
 
         if np.any(np.isnan(x)) or np.any(np.isinf(x)):
             # keep track of integration errors
-            wandb.log(
-                {
-                    "integration_error": epoch,
-                }
-            )
+            # DISABLED WANDB
+            # wandb.log(
+            #     {
+            #         "integration_error": epoch,
+            #     }
+            # )
             break
 
     # Compute RMSE val of the ensemble of best_models -- returns NaN if something fails
@@ -313,10 +314,10 @@ def train(
     print(f"Best single model rmse_val: {best_models[0][0]}")  # rmse_val of first model = best performing one
     print(f"Best model ensemble rmse_val: {ensemble_rmse_val}")
 
-    # W&B logs
-    wandb.log({"final_epoch": epoch})
-    wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
-    command = f"wandb sync {wandb_stripped_dir}"
+    # W&B logs -- DISABLED WANDB
+    # wandb.log({"final_epoch": epoch})
+    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
+    # command = f"wandb sync {wandb_stripped_dir}"
 
     # TODO @GiacomoFabrini - fix this if we want to use this!
     # Plot model weights - proxy for model architecture -- disabled for now
@@ -336,10 +337,10 @@ def train(
         # Log serialised ensemble member model -- temporarily disabled
         # wandb.log_model(path=ensemble_model_file, name=f"trained_dmm_{ensemble_id}")
 
-    # Close and sync W&B run
-    wandb.finish()
-    try:
-        _ = subprocess.run(command, shell=True)
-    except subprocess.CalledProcessError as e:
-        raise ValueError(f"Error syncing wandb directory: {e}")
+    # Close and sync W&B run --  -- DISABLED WANDB
+    # wandb.finish()
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
     return best_models
