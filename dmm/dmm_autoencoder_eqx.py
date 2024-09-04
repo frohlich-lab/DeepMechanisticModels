@@ -393,6 +393,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
         return oreg_inflate_loss/len(self.deep_inflater.layers)  # mean across all layers
 
+    def l1reg_inflater_output(
+            self,
+            x: Array,
+            scale: float = 1.0
+    ):
+        """
+        L1 regularization of inflater output - number of cell-specific deviations/log fold-changes.
+        """
+        output = jax.vmap(self)(x)["inflated"]
+        return scale * jnp.sum(jnp.abs(output))
+
     def reconstruction_loss(
             self,
             x: Array,  # TODO @GiacomoFabrini is this ok?

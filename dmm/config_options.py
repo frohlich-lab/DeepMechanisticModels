@@ -34,6 +34,7 @@ class Conf(dict):
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
+    l1reg_inflater_output: float = 0.0
     recon_loss: float = 0.0
     symm_reg: float = 0.0
     # Learning schedule hyperparameters
@@ -129,5 +130,6 @@ L1DREG = "l1reg_decode"  # uses the same scale as l1reg_encode
 ODREG = "oreg_decode"  # uses the same scale as oreg_encode
 L1IREG = "l1reg_inflate"
 OIREG = "oreg_inflate"
+L1REG_IO = "l1reg_inflater_output"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"

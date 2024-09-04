@@ -7,7 +7,7 @@ from training_configuration import (
     LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
     NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     # Regularisation
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
+    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS,
     # Learning rate scheduling
     LRATE_PRETRAINING_RATIO,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
@@ -71,6 +71,7 @@ def generate_linear_scan(STARTS: list[str]):
         "oreg_inflate": BETAS,
         "l1reg_encode": GAMMAS,
         "oreg_encode": DELTAS,
+        "l1reg_inflater_output": OMEGAS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
         "max_lrate": MAX_LEARNING_RATES,
@@ -155,6 +156,7 @@ def generate_grid_search(STARTS: list[str]):
         "oreg_inflate": BETAS,
         "l1reg_encode": GAMMAS,
         "oreg_encode": DELTAS,
+        "l1reg_inflater_output": OMEGAS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
         "max_lrate": MAX_LEARNING_RATES,
@@ -193,6 +195,7 @@ def generate_grid_search(STARTS: list[str]):
             "oreg_inflate": oreg_inflate,
             "l1reg_encode": l1reg_encode,
             "oreg_encode": oreg_encode,
+            "l1reg_inflater_output": l1reg_inflater_output,
             "recon_loss": recon_loss,
             "symm_reg": symm_reg,
             "lrate_pretraining_ratio": lrate_pretraining_ratio,
@@ -213,7 +216,8 @@ def generate_grid_search(STARTS: list[str]):
         for (
             (context, features), features_transform, split, pretrain, median_init, n_hidden, network_layout,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
-            orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode, recon_loss, symm_reg,
+            orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
+            l1reg_inflater_output, recon_loss, symm_reg,
             lrate_pretraining_ratio, max_lrate, lrate_span, lrate_decay, warmup_fct,
             opt_steps, opt_mult,
             weight_decay, momentum,
@@ -222,7 +226,8 @@ def generate_grid_search(STARTS: list[str]):
         ) in itt.product(
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-            ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, EPSILONS, ZETAS,
+            ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
+            OMEGAS, EPSILONS, ZETAS,
             LRATE_PRETRAINING_RATIO, MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
             OPT_STEPS, OPT_MULT,
             WEIGHT_DECAY, MOMENTUM,
