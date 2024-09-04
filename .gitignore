@@ -162,3 +162,4 @@ Graph.sh
 estimationLocal.sh
 estimationLocal_WANDB_OFFLINE.sh
 dryRunLocal.sh
+estimationLocal_WANDB_ONLINE.sh
