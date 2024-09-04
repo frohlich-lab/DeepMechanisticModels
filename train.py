@@ -4,17 +4,19 @@ import jax.tree_util as jtu
 from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
                     TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, fig_dir)
 # from cytof.problem import CytofProblem
+from dataclasses import replace
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
                                 setup_models,
                                 subset_features,
-                                get_targets)
+                                get_targets,
+                                get_features_filepaths)
 from dmm.network_pretraining import pretrain_network
 from dmm.training import train
-from dmm.training_helper_funcs import check_best_model, create_pypesto_problem, map_params_to_array, sparsify_model
-# from dmm.wandb_init_log import init_wandb
+from dmm.training_helper_funcs import (check_best_model, create_pypesto_problem, map_params_to_array, sparsify_model)
+from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 # from sklearn.model_selection import train_test_split
@@ -35,10 +37,12 @@ model_file = TRAINED_BEST_MODELS.format(
     **{**conf.__dict__, **dict(ensemble_id="{ensemble_id}")}
 )
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
-features_filepath = FEATURES_OUTFILE.format(
-    **{**conf.__dict__, **dict(dataset='{dataset}')}
+
+# Get filepaths for features and feature transformation pipeline
+features_filepath, feature_transform_pipeline_filepath = get_features_filepaths(
+    conf, FEATURES_OUTFILE, FEATURES_PIPELINE
 )
-feature_transform_pipeline_filepath = Path(FEATURES_PIPELINE.format(**conf.__dict__))
+
 # Set JAX configuration
 config.update("jax_enable_x64", True)
 
@@ -191,7 +195,7 @@ pypesto_problem_train, pypesto_problem_test = (
 )
 
 # Initialise W&B run and train -- DISABLED WANDB AFTER CLUSTER ISSUES
-# init_wandb(model_train, conf, early_stopping_params, pretrain=False)
+init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 samples_name_list_dict = {
     dataset: model.sample_name_list
     for dataset, model in zip(["train", "test"], [model_train, model_test])
