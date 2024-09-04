@@ -11,6 +11,7 @@ import scipy.linalg as la
 
 from . import MODEL_FEATURE_PREFIX, MEDIAN_FEATURE_PREFIX
 from cytof.problem import CytofProblem
+from dataclasses import replace
 from .config_options import Conf
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from pathlib import Path
@@ -90,8 +91,8 @@ def pca_transform_features(
 
 def setup_models(
         conf: Conf,
-        features_filepath: str,
-        pipeline_filepath: Union[str, Path],
+        features_filepath: Union[str, List[str]],
+        pipeline_filepath: Union[str, Path, List[str], List[Path]],
         petab_base_files: Dict[str, pd.DataFrame],
         dataset: str = "train",
         return_features: bool = False,
@@ -114,22 +115,19 @@ def setup_models(
 ]:
     problem = CytofProblem(conf.model)
 
-    # TODO @GiacomoFabrini issues with test/val nomenclature here!
+    # TODO @GiacomoFabrini: issues with test/val nomenclature here!
     settings = {
         "train": ["train"],
         "test": ["val"],
         "train+test": ["train", "val"],
     }
-    # loads features corresponding to requested dataset settings
-    features = get_features(features_filepath=features_filepath, datasets=settings[dataset])
 
-    if conf.features_transform == "pca":
-        # Check whether pipeline has already been trained. If so, load it. If not, train it.
-        if os.path.exists(pipeline_filepath):
-            pipeline = joblib.load(pipeline_filepath)
-        else:
-            pipeline = None
-        features = pca_transform_features(features, pipeline_filepath, pipeline)
+    features = process_features(
+        conf=conf,
+        features_filepath=features_filepath,
+        pipeline_filepath=pipeline_filepath,
+        datasets=settings[dataset],
+    )
 
     # Check features arrays are two-dimensional
     for key in features.keys():
@@ -523,3 +521,72 @@ def get_targets(
     ]
 
     return par_combo[inputs].values
+
+
+def get_features_filepaths(
+        conf: Conf,
+        features_file_template: str,
+        features_pipeline_template: str
+) -> tuple[Union[List[str], str], Union[List[Path], Path]]:
+    # Handle multiple contexts
+    if len(conf.context.split("+")) > 1:
+        features_filepath, feature_transform_pipeline_filepath = [], []
+        for subcontext in conf.context.split("+"):
+            subconf = replace(conf, context=subcontext)
+            features_filepath.append(
+                features_file_template.format(
+                    **{**subconf.__dict__, **dict(dataset="{dataset}", context=subcontext)}
+                )
+            )
+            feature_transform_pipeline_filepath.append(
+                Path(features_pipeline_template.format(**subconf.__dict__))
+            )
+    else:
+        features_filepath = features_file_template.format(
+            **{**conf.__dict__, **dict(dataset='{dataset}')}
+        )
+        feature_transform_pipeline_filepath = Path(features_pipeline_template.format(**conf.__dict__))
+    return features_filepath, feature_transform_pipeline_filepath
+
+
+
+def process_features(
+        conf: Conf,
+        features_filepath: Union[str, List[str]],
+        pipeline_filepath: Union[Path, List[Path]],
+        datasets: List[str],
+        mode: str = "concatenate",
+):
+    # loads features corresponding to requested dataset settings
+    if isinstance(features_filepath, list) and isinstance(pipeline_filepath, list):
+        features = [
+            get_features(features_filepath=filepath, datasets=datasets)
+            for filepath in features_filepath
+        ]
+        if conf.features_transform == "pca":
+            pipelines = [
+                joblib.load(filepath) if os.path.exists(filepath) else None
+                for filepath in pipeline_filepath
+            ]
+            features = [
+                pca_transform_features(features=subfeatures, pipeline_filepath=subpipeline_filepath, pipeline=pipeline)
+                for subfeatures, subpipeline_filepath, pipeline in zip(features, pipeline_filepath, pipelines)
+            ]
+        if mode == "concatenate":
+            features = {
+                feature_dataset: pd.concat([subfeatures[feature_dataset] for subfeatures in features], axis=1)
+                for feature_dataset in datasets
+            }
+        else:  # TODO @GiacomoFabrini: add support for contrastive learning -- conf option
+            raise ValueError(f"Unknown mode for processing features: {mode}")
+    else:
+        features = get_features(features_filepath=features_filepath, datasets=datasets)
+
+        if conf.features_transform == "pca":
+            # Check whether pipeline has already been trained. If so, load it. If not, train it.
+            if os.path.exists(pipeline_filepath):
+                pipeline = joblib.load(pipeline_filepath)
+            else:
+                pipeline = None
+            features = pca_transform_features(features, pipeline_filepath, pipeline)
+    return features

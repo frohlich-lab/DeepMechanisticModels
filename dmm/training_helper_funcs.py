@@ -10,7 +10,6 @@ import seaborn as sns
 
 from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
-from dataclasses import replace
 from pypesto.objective.base import ResultDict
 
 from .config_options import Conf
@@ -783,29 +782,3 @@ class MetricHandler:
                 should_break = True
 
         return should_break
-
-
-def get_features_filepaths(
-        conf: Conf,
-        features_file_template: str,
-        features_pipeline_template: str
-) -> tuple[Union[List[str], str], Union[List[Path], Path]]:
-    # Handle multiple contexts
-    if len(conf.context.split("+")) > 1:
-        features_filepath, feature_transform_pipeline_filepath = [], []
-        for subcontext in conf.context.split("+"):
-            subconf = replace(conf, context=subcontext)
-            features_filepath.append(
-                features_file_template.format(
-                    **{**subconf.__dict__, **dict(dataset="{dataset}", context=subcontext)}
-                )
-            )
-            feature_transform_pipeline_filepath.append(
-                Path(features_pipeline_template.format(**subconf.__dict__))
-            )
-    else:
-        features_filepath = features_file_template.format(
-            **{**conf.__dict__, **dict(dataset='{dataset}')}
-        )
-        feature_transform_pipeline_filepath = Path(features_pipeline_template.format(**conf.__dict__))
-    return features_filepath, feature_transform_pipeline_filepath
