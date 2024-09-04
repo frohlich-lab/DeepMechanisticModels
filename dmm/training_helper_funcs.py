@@ -10,8 +10,10 @@ import seaborn as sns
 
 from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
+from dataclasses import replace
 from pypesto.objective.base import ResultDict
 
+from .config_options import Conf
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
@@ -22,7 +24,7 @@ from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
 from pypesto.C import MODE_RES, RDATAS, ModeType
 from pypesto.objective.jax import JaxObjective
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 def get_scheduler(
@@ -754,7 +756,7 @@ def plot_and_log_pretraining_result(
 
 
 class MetricHandler:
-    def __init__(self, patience=5):
+    def __init__(self, patience=2):  # reduced default patience down to 2 (from 5)
         self.counter = 0
         self.patience = patience
         self.invalid_metric_detected = False  # Flag to track invalid metrics in the current epoch
@@ -781,3 +783,29 @@ class MetricHandler:
                 should_break = True
 
         return should_break
+
+
+def get_features_filepaths(
+        conf: Conf,
+        features_file_template: str,
+        features_pipeline_template: str
+) -> tuple[Union[List[str], str], Union[List[Path], Path]]:
+    # Handle multiple contexts
+    if len(conf.context.split("+")) > 1:
+        features_filepath, feature_transform_pipeline_filepath = [], []
+        for subcontext in conf.context.split("+"):
+            subconf = replace(conf, context=subcontext)
+            features_filepath.append(
+                features_file_template.format(
+                    **{**subconf.__dict__, **dict(dataset="{dataset}", context=subcontext)}
+                )
+            )
+            feature_transform_pipeline_filepath.append(
+                Path(features_pipeline_template.format(**subconf.__dict__))
+            )
+    else:
+        features_filepath = features_file_template.format(
+            **{**conf.__dict__, **dict(dataset='{dataset}')}
+        )
+        feature_transform_pipeline_filepath = Path(features_pipeline_template.format(**conf.__dict__))
+    return features_filepath, feature_transform_pipeline_filepath
