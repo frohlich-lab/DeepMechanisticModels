@@ -23,3 +23,16 @@ def generate_layer_sizes(
         layer_sizes.reverse()
 
     return layer_sizes
+
+
+# Utility function to compute the total number of parameters (weights & biases) in a DMM -- not in use
+# def get_param_number(model):
+#     """
+#     Get the number of parameters in a model.
+#     """
+#     num_params = 0
+#     for layer in model.deep_encoder.layers + model.deep_inflater.layers:
+#         num_params += layer.weight.shape[0] * layer.weight.shape[1]
+#         if model.use_layer_bias:
+#             num_params += len(layer.bias)
+#     return num_params
