@@ -139,6 +139,8 @@ def plot_single_sample_multiple_simulations(
     figdir: Path,
     sample: str,
     prefix: str,
+    fmt: str = "pdf",
+    show_save: str = "save",
 ):
     mdf = measurement_df.copy()
     sdfs = [simulation_df.copy() for simulation_df in simulation_dfs]
@@ -157,7 +159,7 @@ def plot_single_sample_multiple_simulations(
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + facet_grid(rows=petab.OBSERVABLE_ID, cols="treatment")
+        + facet_grid(f'{petab.OBSERVABLE_ID} ~ treatment')
         + xlab("time [min]")
         + ylab("measurement")
         + ggtitle(f"cell line: {sample[1:]}")
@@ -179,7 +181,12 @@ def plot_single_sample_multiple_simulations(
             size=ls,
         )
 
-    save_plot(plot, figdir, prefix)
+    if show_save == "show":
+        plt.show()
+    elif show_save == "save":
+        save_plot(plot, figdir, prefix, fmt)
+    else:
+        raise ValueError("show_save must be either 'show' or 'save'")
 
 
 def plot_cross_samples_multiple_simulations(
@@ -190,6 +197,8 @@ def plot_cross_samples_multiple_simulations(
     linesizes: List[float],
     figdir,
     prefix,
+    fmt: str = "pdf",
+    show_save: str = "save",
 ):
     for sample in measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique():
         print(f"plotting {sample} for {prefix}")
@@ -209,6 +218,8 @@ def plot_cross_samples_multiple_simulations(
             figdir / sample,
             sample,
             prefix,
+            fmt,
+            show_save,
         )
 
 
