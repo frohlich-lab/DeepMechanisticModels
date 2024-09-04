@@ -20,6 +20,7 @@ from dmm.config_options import Conf
 from dmm.initialisation import (get_features, get_features_filepaths, process_features,
                                 pca_transform_features, subset_features)
 from evaluation_utils import load_model_and_obj
+from training_configuration import N_ENSEMBLE_EVALUATION, N_ENSEMBLE_MEMBERS
 from typing import Dict
 from util import load_petab_base_files
 
@@ -107,7 +108,7 @@ for dataset in [
         conf=conf,
         samples=samples,
         petab_base_files=petab_base_files,
-        num_ensemble_members=1,  # TODO @GiacomoFabrini: check this -- reduced to best model ONLY
+        num_ensemble_members=N_ENSEMBLE_EVALUATION,
     )
     df.to_csv(
         EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__)

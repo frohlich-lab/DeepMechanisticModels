@@ -37,7 +37,7 @@ def get_measurements_and_obervables(conf: Conf):
 
 
 def load_model_and_obj(
-        conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str
+        conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str, num_ensemble_members: int
 ) -> tuple[list[DeepMechanisticModel], Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
@@ -48,7 +48,9 @@ def load_model_and_obj(
     )
 
     models = []
-    for ensemble_id in range(N_ENSEMBLE_MEMBERS):
+    for ensemble_id in range(
+            min(num_ensemble_members, N_ENSEMBLE_MEMBERS)
+    ):
         ensemble_member_file = Path(trained_model_file.format(ensemble_id=ensemble_id))
 
         # Load ensemble member model
