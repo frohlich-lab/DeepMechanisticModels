@@ -17,9 +17,9 @@ from common import (
 )
 from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
-from dmm.initialisation import get_features, pca_transform_features, subset_features
+from dmm.initialisation import (get_features, get_features_filepaths, process_features,
+                                pca_transform_features, subset_features)
 from evaluation_utils import load_model_and_obj
-from pathlib import Path
 from typing import Dict
 from util import load_petab_base_files
 
@@ -42,12 +42,13 @@ def evaluate_training(
         conf: Conf,
         samples: dict,
         petab_base_files: Dict[str, pd.DataFrame],
+        num_ensemble_members: int,
 ) -> pd.DataFrame:
     # Initialise list to store evaluations
     evaluations = []
 
     # Load ensemble models and objectives
-    ensemble_models, obj = load_model_and_obj(conf, petab_base_files, dataset)
+    ensemble_models, obj = load_model_and_obj(conf, petab_base_files, dataset, num_ensemble_members)
 
     # TODO @GiacomoFabrini need to fix this inconsistency in naming!
     # Extract needed features from input dictionary
@@ -79,25 +80,17 @@ def evaluate_training(
 # Load petab_base_files (once only)
 petab_base_files = load_petab_base_files(conf)
 
-# Load and transform features
-features_filepath = FEATURES_OUTFILE.format(
-    **{**conf.__dict__, **dict(dataset='{dataset}')}
+# Get filepaths for features and feature transformation pipeline
+features_filepath, feature_transform_pipeline_filepath = get_features_filepaths(
+    conf, FEATURES_OUTFILE, FEATURES_PIPELINE
 )
-feature_transform_pipeline_filepath = Path(
-    FEATURES_PIPELINE.format_map(conf.__dict__)
+
+features = process_features(
+    conf=conf,
+    features_filepath=features_filepath,
+    pipeline_filepath=feature_transform_pipeline_filepath,
+    datasets=["train", "val"],
 )
-features = get_features(features_filepath=features_filepath, datasets=['train', 'val'])
-if conf.features_transform == "pca":
-    # Load pre-trained pipeline if it exists
-    if os.path.exists(feature_transform_pipeline_filepath):
-        pipeline = joblib.load(feature_transform_pipeline_filepath)
-    else:
-        pipeline = None
-    features = pca_transform_features(
-        features=features,
-        pipeline_filepath=feature_transform_pipeline_filepath,
-        pipeline=pipeline,
-    )
 
 
 # TODO @GiacomoFabrini: check here "val" vs "test"
@@ -113,7 +106,8 @@ for dataset in [
         features=features,
         conf=conf,
         samples=samples,
-        petab_base_files=petab_base_files
+        petab_base_files=petab_base_files,
+        num_ensemble_members=1,  # TODO @GiacomoFabrini: check this -- reduced to best model ONLY
     )
     df.to_csv(
         EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__)
