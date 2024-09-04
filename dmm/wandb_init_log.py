@@ -5,9 +5,10 @@ import numpy as np
 import wandb
 
 from .config_options import (Conf, EarlyStoppingParams,
-                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, RECON_LOSS, SYMM_LOSS)
+                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, L1REG_IO, RECON_LOSS, SYMM_LOSS)
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
+from functools import partial
 
 
 def init_wandb(
@@ -30,14 +31,15 @@ def init_wandb(
         group = f"{conf.context}_{conf.features}"
 
     # Add requirement for wandb core - new, faster back-end -- DISABLED WANDB
-    # wandb.require("core")
+    wandb.require("core")
 
     wandb.init(
         # v2: Equinox
         # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
         # v4: Equinox, basics - LinearScans
         # v5: Equinox, no network pretraining + leave-one-out cross-validation - Linear Scans
-        project=f"DeepMechanisticModels.v5.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v6: same as v5, reduced, run locally due to wandb issues with cluster
+        project=f"DeepMechanisticModels.v6.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
@@ -91,6 +93,7 @@ def init_wandb(
         reg_metrics = {
             L1EREG: "min",
             L1IREG: "min",
+            L1REG_IO: "min",
         }
         # Add decoder regularisation terms if the model has a decoder head
         if model.reconstruct:
@@ -254,14 +257,23 @@ def log_extra_loss_terms(
         n/a (simply logs to W&B).
     """
     # Define regularisation functions and labels which hold regardless of pretraining/regularisation drop
-    reg_funs = [model.orth_encode_reg, model.orth_inflate_reg]
+    reg_funs = [
+        model.orth_encode_reg,
+        model.orth_inflate_reg,
+    ]
     log_labels = [OEREG, OIREG]
     hp_names = [OEREG, OIREG]
     # Add extra regularisation terms active during pretraining or during training if not dropped
     if nn_pretrain or (not conf["drop_reg_after_pretrain"]):
-        reg_funs.extend([model.l1_encode_reg, model.l1_inflate_reg])
-        log_labels.extend([L1EREG, L1IREG])
-        hp_names.extend([L1EREG, L1IREG])
+        reg_funs.extend(
+            [
+                model.l1_encode_reg,
+                model.l1_inflate_reg,
+                partial(model.l1reg_inflater_output, x=input_data)
+            ]
+        )
+        log_labels.extend([L1EREG, L1IREG, L1REG_IO])
+        hp_names.extend([L1EREG, L1IREG, L1REG_IO])
     # Add extra terms if the DMM has a decoder head
     if model.reconstruct:
         reg_funs.append(model.orth_decode_reg)
