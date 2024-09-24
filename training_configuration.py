@@ -17,16 +17,17 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    ("proteomics", "all"),
+    # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    ("transcriptomics", "all"),
+    # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
+    # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
 )
 
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
@@ -38,10 +39,10 @@ FEATURES_TRANSFORM = {
 # Cross-validation splits
 SPLITS = {
     "0of5",
-    "1of5",
-    "2of5",
-    "3of5",
-    "4of5"
+    # "1of5",
+    # "2of5",
+    # "3of5",
+    # "4of5"
 }
 
 PRETRAIN = {
@@ -50,8 +51,8 @@ PRETRAIN = {
 
 # INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
 MEDIAN_INIT = {
-    "per_sample",
-    # "avg_model",
+    # "per_sample",
+    "avg_model",
 }
 
 # Network Structure and Initialisation Hyperparameters
@@ -69,7 +70,14 @@ MEDIAN_INIT = {
 #     # 14  # inflater does not inflate, rather simply processes same shape input
 # )
 # Define linear scan for LATENT_DIMS
-LATENT_DIMS = {'range': (2, 3, 4, 6, 8, 10), 'central_value': 2}
+LATENT_DIMS = {'range': (
+    2,
+    # 3,
+    # 4,
+    # 6,
+    # 8,
+    # 10,
+), 'central_value': 2}
 
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
@@ -77,10 +85,10 @@ NN_STRUCTURE_MULTIPLIER = 2
 # Define network layouts for linear scans in modular fashion
 NETWORK_LAYOUT = {
     'range': (
-        (0, "False"),
-        (1, "False"),
+        # (0, "False"),
+        # (1, "False"),
         (2, "False"),
-        (3, "False"),
+        # (3, "False"),
         # (4, "False"),
         # (5, "False"),
     ),  # 0-4 hidden layers, no linear benchmark
@@ -155,7 +163,13 @@ ORTH_REG_STRATEGIES = (
 
 
 # Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE = (0, )  # (0, 1e0, 1e1, 1e2, 1e3, 1e4)
+LINEAR_SCAN_RANGE = (
+    0,
+    1e-3,
+    1e-2,
+    # 1e-1,
+    # 1e0
+)
 LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
@@ -187,7 +201,7 @@ ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {'range': (0, ), 'central_value': 0}
+BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -215,8 +229,11 @@ GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-DELTAS = {'range': (0, ), 'central_value': 0}
+DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 # previously centered at 1e7, but now excluded from scanned values
+
+# OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
+OMEGAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -225,7 +242,7 @@ DELTAS = {'range': (0, ), 'central_value': 0}
 #     1e5,
 #     1e7,
 # )
-EPSILONS = {'range': LINEAR_SCAN_RANGE, 'central_value': 0}
+EPSILONS = {'range': (0, ), 'central_value': 0}
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
 # ZETAS = (
@@ -234,7 +251,7 @@ EPSILONS = {'range': LINEAR_SCAN_RANGE, 'central_value': 0}
 #     1e5,
 #     # 1e8,
 # )
-ZETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': 0}
+ZETAS = {'range': (0, ), 'central_value': 0}
 
 
 # LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
@@ -248,7 +265,11 @@ LRATE_PRETRAINING_RATIO = {
 #     # 1e-3,
 # }
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (1e-3, 5e-3, 1e-2), 'central_value': 5e-3}  # increased central value by one OOM
+MAX_LEARNING_RATES = {'range': (
+    # 1e-3,
+    5e-3,
+    # 1e-2,
+), 'central_value': 5e-3}  # increased central value by one OOM
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
 # LEARNING_RATE_SPANS = {
@@ -268,7 +289,10 @@ LEARNING_RATE_SPANS = {'range': (1e1, ), 'central_value': 1e1}
 #     # 0.9**3,
 # }
 # Linear scan range for lrate_decay
-LEARNING_RATE_DECAYS = {'range': (0.9**0, 0.9**1), 'central_value': 0.9**1}
+LEARNING_RATE_DECAYS = {'range': (
+    # 0.9**0,
+     0.9**1,
+), 'central_value': 0.9**1}
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
 # WARMUP_FCTS = {
@@ -304,7 +328,10 @@ OPT_MULT = {'range': (1, 2, 5, 10), 'central_value': 2}
 # WEIGHT_DECAY = {
 #     1e-4, # default in AdamW - optax implementation
 # }
-WEIGHT_DECAY = {'range': (1e-2, 1e-4), 'central_value': 1e-4}
+WEIGHT_DECAY = {'range': (
+    # 1e-2,
+    1e-4,
+), 'central_value': 1e-4}
 
 # Momentum for AdamW / schedule-free AdamW
 # MOMENTUM = {
@@ -312,7 +339,10 @@ WEIGHT_DECAY = {'range': (1e-2, 1e-4), 'central_value': 1e-4}
 #     0.98,  # in Schedule-Free Learning paper they test 0.9 and 0.98
 #     # 0.99,
 # }
-MOMENTUM = {'range': (0.9, 0.98), 'central_value': 0.9}
+MOMENTUM = {'range': (
+    0.9,
+    # 0.98
+), 'central_value': 0.9}
 
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
