@@ -224,6 +224,7 @@ rule estimate_parameters:
         l1reg_encode = '[0-9\.]+',
         oreg_inflate = '[0-9\.]+',
         oreg_encode = '[0-9\.]+',
+        l1reg_inflater_output='[0-9\.]+',
         recon_loss = '[0-9\.]+',
         symm_reg = '[0-9\.]+',
         lrate_pretraining_ratio='[0-9\.]+',
@@ -257,7 +258,7 @@ rule estimate_parameters:
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
-                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
+                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
                 'recon_loss', 'symm_reg',
                 'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
@@ -330,6 +331,7 @@ rule evaluate_training:
         l1reg_encode='[0-9\.]+',
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
+        l1reg_inflater_output='[0-9\.]+',
         recon_loss='[0-9\.]+',
         symm_reg='[0-9\.]+',
         lrate_pretraining_ratio='[0-9\.]+',
@@ -363,7 +365,7 @@ rule evaluate_training:
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
-                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
+                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
                 'recon_loss', 'symm_reg',
                 'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
@@ -409,7 +411,7 @@ rule evaluate_regressors:
             for dataset, mode, context in itt.product(
                 ['train', 'test'],
                 ['linreg', 'lasso', 'elasticnet'],
-                [context for context in CONTEXT_SET]
+                [context for context in CONTEXT_SET]  # TODO @GiacomoFabrini - should not train regressors for multimodal
             )
         ]
     wildcard_constraints:
