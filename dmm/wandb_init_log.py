@@ -9,6 +9,7 @@ from .config_options import (Conf, EarlyStoppingParams,
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from functools import partial
+from jax import vmap
 
 
 def init_wandb(
@@ -31,7 +32,8 @@ def init_wandb(
         group = f"{conf.context}_{conf.features}"
 
     # Add requirement for wandb core - new, faster back-end -- DISABLED WANDB
-    wandb.require("core")
+    # wandb.require("core")
+    wandb.require("legacy-service")  # trying legacy back-end for cluster runs - 24 Sep 2024
 
     wandb.init(
         # v2: Equinox
@@ -77,6 +79,8 @@ def init_wandb(
             "fval_train": "min",
             "fval_val": "min",
             "integration_error": None,
+            "max_abs_par_dev": "min",  # max-norm of parameter deviation
+            "par_dev_frob_norm": "min",  # 2-norm of parameter deviation
         }
     # common metrics - orthogonal regularisation + patience_counter
     for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
@@ -229,6 +233,21 @@ def log_model_stats(
         stats = {**layer_stats, **kin_params_stats}
 
     return stats
+
+
+def log_param_dev_norms(
+        model: DeepMechanisticModel,
+        input_data: jnp.ndarray,
+        epoch: int,
+):
+    par_dev = vmap(model)(input_data)["inflated"]
+    wandb.log(
+        {
+            "max_abs_par_dev": jnp.max(jnp.abs(par_dev)),
+            "par_dev_frob_norm": jnp.linalg.norm(x=par_dev, ord=None),
+        },
+        step=epoch,
+    )
 
 
 def log_extra_loss_terms(
