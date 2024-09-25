@@ -18,6 +18,6 @@ export SLURM_MPI_TYPE=none
 export WANDB_MODE=online
 
 snakemake --unlock
-snakemake train_and_evaluate --local-cores 1 -j 300 --config num_starts=5 \
+snakemake train_and_evaluate --local-cores 1 -j 200 --config num_starts=5 \
     --use-singularity --slurm --default-resources slurm_account=u_froehlichf slurm_partition=ncpu \
     --rerun-incomplete
