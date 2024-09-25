@@ -17,12 +17,12 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "all"),
+    ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    # ("transcriptomics", "all"),
+    ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
@@ -39,10 +39,10 @@ FEATURES_TRANSFORM = {
 # Cross-validation splits
 SPLITS = {
     "0of5",
-    # "1of5",
-    # "2of5",
-    # "3of5",
-    # "4of5"
+    "1of5",
+    "2of5",
+    "3of5",
+    "4of5"
 }
 
 PRETRAIN = {
@@ -167,8 +167,8 @@ LINEAR_SCAN_RANGE = (
     0,
     1e-3,
     1e-2,
-    # 1e-1,
-    # 1e0
+    1e-1,
+    1e0
 )
 LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 
