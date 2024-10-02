@@ -80,8 +80,10 @@ def init_wandb(
             "fval_train": "min",
             "fval_val": "min",
             "integration_error": None,
-            "max_abs_par_dev": "min",  # max-norm of parameter deviation
+            "max_abs_par_dev": "min",  # max absolute value of parameter deviation
             "par_dev_frob_norm": "min",  # 2-norm of parameter deviation
+            "max_abs_par_median": "min",  # max absolute value of parameter median
+            "par_median_frob_norm": "min",  # 2-norm of parameter median
         }
     # common metrics - orthogonal regularisation + patience_counter
     for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
@@ -236,16 +238,19 @@ def log_model_stats(
     return stats
 
 
-def log_param_dev_norms(
+def log_param_norms(
         model: DeepMechanisticModel,
         input_data: jnp.ndarray,
         epoch: int,
 ):
     par_dev = vmap(model)(input_data)["inflated"]
+    par_medians = model.kin_params_combiner.learned_global_kin_params
     wandb.log(
         {
             "max_abs_par_dev": jnp.max(jnp.abs(par_dev)),
             "par_dev_frob_norm": jnp.linalg.norm(x=par_dev, ord=None),
+            "max_abs_par_median": jnp.max(jnp.abs(par_medians)),
+            "par_median_frob_norm": jnp.linalg.norm(x=par_medians, ord=None),
         },
         step=epoch,
     )

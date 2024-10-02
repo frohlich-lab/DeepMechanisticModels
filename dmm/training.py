@@ -10,7 +10,7 @@ import wandb
 from .config_options import EarlyStoppingParams
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 # from .training_helper_funcs import test_save_reload_model, plot_model_weights
-from .wandb_init_log import log_extra_loss_terms, log_model_stats, log_param_dev_norms
+from .wandb_init_log import log_extra_loss_terms, log_model_stats, log_param_norms
 from .training_helper_funcs import (apply_filter_to_updates, generate_log_epochs, get_eval_model, get_finite_grads,
                                     get_optimiser_and_opt_state, map_params_to_array, model_output_to_petab_input,
                                     rmse, rmse_ensemble, MetricHandler)
@@ -206,8 +206,8 @@ def train(
             nn_pretrain=False,  # full DMM training stage
         )
 
-        # Log parameter deviation norms (max and 2-norm)
-        log_param_dev_norms(
+        # Log norms (max absolute value + 2-norm) of parameter deviations and medians
+        log_param_norms(
             model=model,
             input_data=input_features_train,
             epoch=epoch,
