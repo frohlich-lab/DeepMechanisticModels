@@ -20,9 +20,6 @@ from jaxtyping import Array, Float, PyTree
 from pathlib import Path
 from typing import Dict
 
-trace_path = Path(__file__).parents[1] / "traces"
-TRACE_FILE_TEMPLATE = "{pathway}__{data}__{n_hidden}__{job}__{{id}}.csv"
-
 
 def update_best_models(
         model: DeepMechanisticModel,
