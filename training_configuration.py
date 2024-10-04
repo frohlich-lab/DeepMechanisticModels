@@ -163,12 +163,31 @@ ORTH_REG_STRATEGIES = (
 
 
 # Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE = (
+LINEAR_SCAN_RANGE_L1REG = (
+    0,
+    1e-6,
+    1e-5,
+    1e-4,
+    1e-3,
+    10**(-2.5),
+    1e-2,
+    10**(-1.5),
+    1e-1,
+    10**(-0.5),
+    1e0
+)
+
+LINEAR_SCAN_RANGE_OREG = (
     0,
     1e-3,
     1e-2,
     1e-1,
-    1e0
+    1e0,
+    1e1,
+    10**(1.5),
+    1e2,
+    10**(2.5),
+    1e3,
 )
 LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 
@@ -187,7 +206,7 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+ALPHAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
@@ -201,7 +220,7 @@ ALPHAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+BETAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -217,7 +236,7 @@ BETAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+GAMMAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 # DELTAS = (
@@ -229,11 +248,11 @@ GAMMAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-DELTAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # previously centered at 1e7, but now excluded from scanned values
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
-OMEGAS = {'range': LINEAR_SCAN_RANGE, 'central_value': LINEAR_SCAN_CENTRAL}
+OMEGAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
