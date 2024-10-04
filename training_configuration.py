@@ -165,8 +165,6 @@ ORTH_REG_STRATEGIES = (
 # Define common linear scan range for regularisation scaling hyperparameters
 LINEAR_SCAN_RANGE_L1REG = (
     0,
-    1e-6,
-    1e-5,
     1e-4,
     1e-3,
     10**(-2.5),
