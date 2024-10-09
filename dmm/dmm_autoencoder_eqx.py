@@ -439,6 +439,14 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             symmetry_reg += jnp.mean(jnp.square(diff))
         return scale * symmetry_reg/num_layers  # mean across layers - should be on the same order of magnitude as MSE
 
+
+    def constrain_median(self, x: Array, scale: float = 1.0):
+        """
+        Constrain median of global parameters to be close to initialisation (avg_model/per_sample), x.
+        """
+        return scale * mse(predictions=self.kin_params_combiner.learned_global_kin_params, targets=x)
+
+
     # inspired from Fabian's NeuralCoarseGraining
     # see: https://github.com/frohlich-lab/NeuralCoarseGraining/blob/main/ncg/static.py
     def get_hyperparams(self, samples_list_dict: dict = None) -> dict[str, Union[int, dict]]:

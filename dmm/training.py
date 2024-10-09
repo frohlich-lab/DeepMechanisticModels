@@ -43,6 +43,7 @@ def loss_fn(
         conf: Dict,
         input_data,
         problem_train: pypesto.Problem,
+        median_init_arr: Array,
 ):
     # problem_train.objective() now needs to get in input what was previously the output of the jax_fun, i.e. the output
     # of ae.embedding(x). x contained the parameters (encoder, inflater, kinetic parameters) and ae.embedding(x)
@@ -58,6 +59,7 @@ def loss_fn(
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.orth_inflate_reg(scale=conf["oreg_inflate"])
             + model.l1reg_inflater_output(x=input_data, scale=conf["l1reg_inflater_output"])
+            + model.constrain_median(x=median_init_arr, scale=conf["median_reg"])
     )
     if model.reconstruct:
         loss_value += (
@@ -87,12 +89,14 @@ def make_step(
         input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
         problem_train: pypesto.Problem,
         conf: Dict,
+        median_init_arr: Array,
 ):
     (loss_value, fval), grads = loss_fn(
         model,
         conf,
         input_data,
         problem_train,
+        median_init_arr,
     )
     grads = get_finite_grads(grads)
     if conf["optimiser"] == "adamw_sf":
@@ -174,6 +178,9 @@ def train(
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
     log_epochs = generate_log_epochs(n_epoch=n_epoch, num_samples=100, min_dist=5)  # same min_dist as before
 
+    # Get median_init_arr for median regularisation
+    median_init_arr = model.kin_params_combiner.learned_global_kin_params  # prior to any training (epoch 0)
+
     # Training loop
     for epoch in range(1, n_epoch + 1):  # natural counting
         next_model, model, opt_state, loss_train, fval, grads = make_step(
@@ -184,6 +191,7 @@ def train(
             input_data=input_features_train,
             problem_train=problem_train,
             conf=conf,
+            median_init_arr=median_init_arr,
         )
 
         # Log loss_train -- DISABLED WANDB
@@ -201,6 +209,7 @@ def train(
             input_data=input_features_train,  # use training features for RECON_LOSS
             epoch=epoch,
             nn_pretrain=False,  # full DMM training stage
+            median_init_arr=median_init_arr,
         )
 
         # Log norms (max absolute value + 2-norm) of parameter deviations and medians

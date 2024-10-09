@@ -5,7 +5,7 @@ import numpy as np
 import wandb
 
 from .config_options import (Conf, EarlyStoppingParams,
-                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, L1REG_IO, RECON_LOSS, SYMM_LOSS)
+                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, L1REG_IO, RECON_LOSS, SYMM_LOSS, MEDIAN_REG)
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from functools import partial
@@ -96,18 +96,30 @@ def init_wandb(
         metrics[ODREG] = "min"
 
     # If in pretraining or if not dropping regularisation, add L1 regularisation terms
-    if pretrain or (not conf.drop_reg_after_pretrain):
+    # TODO @GiacomoFabrini - check whether this works as intended?!
+    if pretrain:
         reg_metrics = {
             L1EREG: "min",
             L1IREG: "min",
-            L1REG_IO: "min",
         }
         # Add decoder regularisation terms if the model has a decoder head
         if model.reconstruct:
             reg_metrics[L1DREG] = "min"
+    elif not conf.drop_reg_after_pretrain:
+        reg_metrics = {
+            L1EREG: "min",
+            L1IREG: "min",
+            L1REG_IO: "min",
+            MEDIAN_REG: "min",
+        }
+        # Add decoder regularisation terms if the model has a decoder head
+        if model.reconstruct:
+            reg_metrics[L1DREG] = "min"
+    else:
+        reg_metrics = {}
 
-        # Get final metrics
-        metrics = {**metrics, **reg_metrics}
+    # Get final metrics
+    metrics = {**metrics, **reg_metrics}
 
     for metric in metrics.keys():
         # if metric summary not specified
@@ -261,7 +273,8 @@ def log_extra_loss_terms(
         conf: dict,
         input_data: jnp.ndarray,
         epoch: int,
-        nn_pretrain: bool
+        nn_pretrain: bool,
+        median_init_arr: jnp.ndarray,
 ):
     """
     Function to log extra loss terms (not fval nor loss itself) to W&B: regularisation terms, reconstruction loss.
@@ -294,11 +307,12 @@ def log_extra_loss_terms(
             [
                 model.l1_encode_reg,
                 model.l1_inflate_reg,
-                partial(model.l1reg_inflater_output, x=input_data)
+                partial(model.l1reg_inflater_output, x=input_data),
+                partial(model.constrain_median, x=median_init_arr)
             ]
         )
-        log_labels.extend([L1EREG, L1IREG, L1REG_IO])
-        hp_names.extend([L1EREG, L1IREG, L1REG_IO])
+        log_labels.extend([L1EREG, L1IREG, L1REG_IO, MEDIAN_REG])
+        hp_names.extend([L1EREG, L1IREG, L1REG_IO, MEDIAN_REG])
     # Add extra terms if the DMM has a decoder head
     if model.reconstruct:
         reg_funs.append(model.orth_decode_reg)
