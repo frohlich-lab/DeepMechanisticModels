@@ -39,6 +39,7 @@ from evaluation_utils import (get_measurements_and_obervables,
                               process_avg_model_simulation,
                               process_per_sample_pretrain)
 from generate_run_configs import generate_run_configs
+from jax import vmap
 from joblib import load
 from pathlib import Path
 from stat_test import statistical_significance_test
@@ -66,8 +67,17 @@ def get_dmm_conf(
                 "opt_steps", "opt_mult",
                 "job"
             ]:
+                value = int(value)  # cast the value to integer
+            elif key in [
+                "l1reg_encode", "oreg_encode",  # encoder
+                "l1reg_inflate", "oreg_inflate",  # inflater
+                "l1reg_inflater_output",  # inflater output
+                "recon_loss", "symm_reg",  # decoder / reconstruction
+                "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
+            ] and value == 0:
                 value = int(value)
-            setattr(dmm_conf, key, value)
+
+            setattr(dmm_conf, key, value)  # assign
     return dmm_conf
 
 
@@ -397,7 +407,7 @@ hyperparam_configs = {
     for samples in SPLITS
 }
 dfs = []
-for samples in SPLITS:
+for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
     for dataset in [
         "train",
         "test"
@@ -546,6 +556,7 @@ performance_barplot(
     conf=conf
 )
 
+
 # ########################################################################## #
 # ######################### Statistical Test Plots ######################### #
 # ########################################################################## #
@@ -573,6 +584,25 @@ if RETURN_STAT_TESTS:
 # Load measurement and observable dataframes
 df_meas, df_obs = get_measurements_and_obervables(conf)
 
+def initialise_result_dict():
+    return {
+        context: {
+            split: {
+                dataset: {}
+            }
+        }
+    for context, split, dataset in itt.product(
+            sorted(list(CONTEXT_SET)),
+            sorted(list(SPLITS)),
+            ["train", "test"],
+    )
+
+}
+# Initialise latent embeddings, parameter medians and parameter deviations results
+latent_embeddings = initialise_result_dict()
+param_medians = initialise_result_dict()
+param_deviations = initialise_result_dict()
+
 # TODO: overall structure is good, but I am wrongly fetching evaluation files - those contain residuals, whereas
 #  I need to fetch the actual simulation files to plot the time-varying response!!!
 # TODO: need to loop through SPLITS and get samples + the best configuration does not specify a single job!
@@ -583,9 +613,9 @@ for dataset, context, split in itt.product(
             "test",
         ],
         CONTEXT_SET,
-        SPLITS
+        sorted(list(SPLITS)) # ensure processing from 0of5 to 4of5
 ):
-    # Load petab base files
+    # Load petab base files and training/validation split
     conf.samples = split
     petab_base_files = load_petab_base_files(conf)
     samples_dict = {
@@ -626,7 +656,7 @@ for dataset, context, split in itt.product(
         samples_dict
     )
 
-    # Simulate best regressor
+    # Get best-regressor simulation
     regressor_mode = best_regressors[dataset][context]
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
         model=conf.model,
@@ -677,7 +707,6 @@ for dataset, context, split in itt.product(
     #  best_regressor_sim_df only has 608 - what are those 90 rows missing from the latter?
     #  Is this related to the missing/inconsistent timepoints in some samples?
 
-    # TODO @GiacomoFabrini -- this will not work! Need to adapt for ensembles!
     # BEST DMM
     # Overall (across jobs and splits)
     # Generate confs for all jobs -- include info on split
@@ -688,27 +717,46 @@ for dataset, context, split in itt.product(
     # Compute features once (same across all jobs) - depend on SPLIT
     input_features = load_and_transform_features(overall_best_confs[0], dataset)
     overall_best_dmm_sim_dfs = []
+
+    temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []
     for job, overall_best_conf in zip(JOBS, overall_best_confs):
-        # it's possible that we don't have the model file for specific jobs in case of simulation errors
-        # in that case, simply skip the specific job
+        # simulation errors might result in missing files -> skip
         try:
-            model, obj = load_model_and_obj(
-                overall_best_conf,
-                petab_base_files,
-                dataset,
+            models, obj = load_model_and_obj(
+                conf=overall_best_conf,
+                petab_base_files=petab_base_files,
+                dataset=dataset,
+                num_ensemble_members=1,   # use the best ensemble member by default
             )
         except FileNotFoundError:
             continue
+
+        # Get latent embeddings
+        temp_latent_embeddings.append(vmap(models[0].deep_encoder)(input_features))
+        # Get parameter deviations and corresponding medians
+        temp_parameter_deviations.append(vmap(models[0])(input_features)["inflated"])
+        temp_parameter_medians.append(
+            models[0].kin_params_combiner.learned_global_kin_params[
+                :temp_parameter_deviations[-1].shape[1]  # subset to the same params as the deviations
+            ]
+        )
         # Simulate and append to growing pd.DataFrame list
         overall_best_dmm_sim_dfs.append(
             simulate_dmm(
-                model=model,
+                model=models[0],
                 input_features=input_features,
                 obj=obj,
-                petab_problem=model.petab_importer.petab_problem,
+                petab_problem=models[0].petab_importer.petab_problem,
                 jit_fn=False,
             ).assign(job=job)
         )
+    # Compute mean (across multistart) latent embeddings and save in results dictionary
+    latent_embeddings[context][split][dataset] = np.mean(temp_latent_embeddings, axis=0)
+    # Compute mean (across multistart) parameter medians and deviations
+    param_medians[context][split][dataset] = np.mean(temp_parameter_medians, axis=0)
+    param_deviations[context][split][dataset] = np.mean(temp_parameter_deviations, axis=0)
+
+    # Concatenate simulations for time-varying response plot
     overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
     del overall_best_dmm_sim_dfs
     # Add identifier column (to keep replicate datapoints)
