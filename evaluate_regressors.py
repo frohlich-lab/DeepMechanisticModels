@@ -335,6 +335,8 @@ def evaluate_standard_regression(
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
+# TODO @GiacomoFabrini - consider updating this to only include a single context, as the columns to use at test/val time
+#  should be context-invariant
 features_test = {
     context: None
     for context in CONTEXT_SET
