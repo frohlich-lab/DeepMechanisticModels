@@ -31,7 +31,7 @@ def get_measurements_and_obervables(conf: Conf):
         OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
     )
     df_meas = df_meas[
-        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
+        df_meas[petab.v1.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
     ]
     return df_meas, df_obs
 
