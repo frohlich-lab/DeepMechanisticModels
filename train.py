@@ -4,7 +4,6 @@ import jax.tree_util as jtu
 from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
                     TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, fig_dir)
 # from cytof.problem import CytofProblem
-from dataclasses import replace
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
