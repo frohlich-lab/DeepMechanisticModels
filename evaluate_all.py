@@ -1,5 +1,6 @@
 import fire
 import itertools as itt
+import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -20,6 +21,7 @@ from common import (
     pretrain_dir,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
+    subtypes_tognetti,
     training_samples,
     test_samples,
     Wildcards,
@@ -27,6 +29,7 @@ from common import (
 from cytof.problem import CytofProblem
 from dataclasses import replace
 from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
+from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import get_features, pca_transform_features
@@ -46,11 +49,66 @@ from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS
 )
-from typing import List, Union
+from typing import List, Tuple, Union
 from util import load_petab_base_files
 
 
 REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]
+
+
+def get_embedding_and_params_df(
+        dmm_model: DeepMechanisticModel,
+        input_features: Union[np.ndarray, jnp.ndarray],
+        context: str,
+        split: str,
+        dataset: str,
+        job: int,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    # Latent embeddings
+    temp_latent_embeddings = vmap(dmm_model.deep_encoder)(input_features)
+    latent_embeddings_df = pd.DataFrame(
+        {
+            "cell_line": models[0].sample_name_list,
+            "L1": temp_latent_embeddings[:, 0],
+            "L2": temp_latent_embeddings[:, 1],
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+
+    # Get cell-line specific kinetic parameter names for dataframe column names
+    specific_param_names = [
+        param.replace("MED_", "") for param in dmm_model.pypesto_subproblem.x_names
+        if "MED" in param
+    ]
+
+    # Parameter deviations
+    param_deviations_df = pd.DataFrame(
+        {
+            "cell_line": dmm_model.sample_name_list,
+            **{
+                key: value
+                for key, value in zip(
+                    specific_param_names,
+                    vmap(dmm_model)(input_features)["inflated"].T
+                )
+            },
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+
+    # Full parameters (deviations + medians)
+    params_df = pd.DataFrame(
+        {
+            "cell_line": dmm_model.sample_name_list,
+            **{
+                key: value
+                for key, value in zip(
+                    specific_param_names,
+                    (vmap(dmm_model)(input_features)["inflated"] +
+                     dmm_model.kin_params_combiner.learned_global_kin_params[:len(specific_param_names)]).T
+                )
+            },
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+    return latent_embeddings_df, param_deviations_df, params_df
 
 
 def get_dmm_conf(
@@ -159,12 +217,15 @@ def get_best_performer_across_jobs(
     the standard deviation of RMSEs across the 10 jobs and however many SPLITS.
     """
     if mode == 'DMM':
-        temp_df = dataframe.reset_index().groupby(
+        # Ensure dataframe is sorted by "job" so that "rmse_list" always follows the same order of increasing job number
+        temp_df = dataframe.sort_values(by="job").reset_index().groupby(
             group_attributes + hyperparam_attributes
-        ).agg({target_attribute: ['mean', 'std']})
+        ).agg({
+            target_attribute: ['mean', 'std',  ("list", lambda x: list(x))],
+        })
         temp_df = temp_df.reset_index()
         temp_df.columns = [
-            ' '.join(col).strip()
+            ' '.join(col).strip() if isinstance(col, tuple) else col
             for col in temp_df.columns.values
         ]
         # Check passed num_best is acceptable (at least 1, integer)
@@ -319,22 +380,23 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
         num_best=1,  # does not have an effect anyway, but we are selecting the top 1
         target_attribute='rmse',
     )
-    # Get absolute best performing hyperparameter set (single job) for each dataset/context/ref combination
-    absolute_best_dmm = get_absolute_best_performer(
-        dataframe=data[data.ref == 'DMM'],
-        group_attributes=['dataset', 'context', 'ref'],
-        target_attribute='rmse',
-    )
-    # Ensure consistency in plot - only keep the best absolute in validation and plot it across both train and val
-    # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
-    #  is overwritten with 'test' RMSE
-    absolute_best_dmm = {
-        dataset: {
-            context: absolute_best_dmm["test"][context]
-            for context in absolute_best_dmm[dataset].keys()
-        }
-        for dataset in absolute_best_dmm.keys()
-    }
+    # DISABLED best single-job/multistart DMM configuration - not useful, interested in mean multistart performance
+    # # Get absolute best performing hyperparameter set (single job) for each dataset/context/ref combination
+    # absolute_best_dmm = get_absolute_best_performer(
+    #     dataframe=data[data.ref == 'DMM'],
+    #     group_attributes=['dataset', 'context', 'ref'],
+    #     target_attribute='rmse',
+    # )
+    # # Ensure consistency in plot - only keep the best absolute in validation and plot it across both train and val
+    # # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
+    # #  is overwritten with 'test' RMSE
+    # absolute_best_dmm = {
+    #     dataset: {
+    #         context: absolute_best_dmm["test"][context]
+    #         for context in absolute_best_dmm[dataset].keys()
+    #     }
+    #     for dataset in absolute_best_dmm.keys()
+    # }
 
     # # Log via W&B -- DISABLED WANDB
     # wandb.init(
@@ -383,10 +445,11 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
     # except subprocess.CalledProcessError as e:
     #     raise ValueError(f"Error syncing wandb directory: {e}")
 
+    # Removed absolute_best_dmm
     if return_stat_tests:
-        return data, stat_test_res_df, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm
+        return data, stat_test_res_df, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors
     else:
-        return data, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm
+        return data, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors
 
 
 conf = fire.Fire(Conf)
@@ -431,11 +494,11 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         )
         print(f'Finished concatenating training evaluations for {samples}, {dataset}')
 
-        # Loss vs regularization plot
-        print(f'Starting to plot loss_vs_regularization for {samples}, {dataset}')
-        plot_loss_vs_regularization(training)
-        plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
-        print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
+        # Loss vs regularization plot -- DISABLED, not useful right now
+        # print(f'Starting to plot loss_vs_regularization for {samples}, {dataset}')
+        # plot_loss_vs_regularization(training)
+        # plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
+        # print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
 
         # Add necessary attributes to training DataFrame
         training["ref"] = "DMM"  # previously "meth"
@@ -516,10 +579,11 @@ del dfs
 # as W&B artifacts
 num_best = 10
 aggregated_results = aggregate_and_log(df=df, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best)
+# Removed absolute_best_dmm from aggregated results
 if RETURN_STAT_TESTS:
-    data, stat_test_res_df, top_n_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
+    data, stat_test_res_df, top_n_dmm, best_hyperparam_dmm, best_regressors = aggregated_results
 else:
-    data, top_n_dmm, best_hyperparam_dmm, best_regressors, absolute_best_dmm = aggregated_results
+    data, top_n_dmm, best_hyperparam_dmm, best_regressors = aggregated_results
 
 
 # ########################################################################### #
@@ -584,24 +648,14 @@ if RETURN_STAT_TESTS:
 # Load measurement and observable dataframes
 df_meas, df_obs = get_measurements_and_obervables(conf)
 
-def initialise_result_dict():
-    return {
-        context: {
-            split: {
-                dataset: {}
-            }
-        }
-    for context, split, dataset in itt.product(
-            sorted(list(CONTEXT_SET)),
-            sorted(list(SPLITS)),
-            ["train", "test"],
-    )
+# Initialise latent embeddings, parameter medians and parameter deviations list of dataframes
+latent_embeddings_dfs, param_deviations_dfs, params_dfs = [], [], []
 
+# Setup features_test for regressors - need to ensure all contexts and splits have the same number of features/columns
+features_test = {
+    context: None
+    for context in CONTEXT_SET
 }
-# Initialise latent embeddings, parameter medians and parameter deviations results
-latent_embeddings = initialise_result_dict()
-param_medians = initialise_result_dict()
-param_deviations = initialise_result_dict()
 
 # TODO: overall structure is good, but I am wrongly fetching evaluation files - those contain residuals, whereas
 #  I need to fetch the actual simulation files to plot the time-varying response!!!
@@ -684,13 +738,17 @@ for dataset, context, split in itt.product(
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
     )
-    output_data, _ = load_data(
+    output_data, test_columns = load_data(
         contextualization="cytof_dynamic",
         samples=samples_dict[dataset],
-        features=None,
+        features=features_test[context] if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
     )
+    # Get features_test in "train" to later use with "test"
+    if features_test[context] is None:
+        features_test[context] = test_columns
+
     best_regressor_sim_df = pd.DataFrame(
         trained_pipeline.predict(input_data),
         index=output_data.index,
@@ -714,12 +772,13 @@ for dataset, context, split in itt.product(
         replace(get_dmm_conf(conf, best_hyperparam_dmm, dataset, context), job=job, samples=split)
         for job in JOBS
     ]
+    rmse_best_confs = best_hyperparam_dmm[dataset][context]["rmse list"]
     # Compute features once (same across all jobs) - depend on SPLIT
     input_features = load_and_transform_features(overall_best_confs[0], dataset)
     overall_best_dmm_sim_dfs = []
 
     temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []
-    for job, overall_best_conf in zip(JOBS, overall_best_confs):
+    for job, overall_best_conf, rmse_conf in zip(JOBS, overall_best_confs, rmse_best_confs):
         # simulation errors might result in missing files -> skip
         try:
             models, obj = load_model_and_obj(
@@ -731,15 +790,21 @@ for dataset, context, split in itt.product(
         except FileNotFoundError:
             continue
 
-        # Get latent embeddings
-        temp_latent_embeddings.append(vmap(models[0].deep_encoder)(input_features))
-        # Get parameter deviations and corresponding medians
-        temp_parameter_deviations.append(vmap(models[0])(input_features)["inflated"])
-        temp_parameter_medians.append(
-            models[0].kin_params_combiner.learned_global_kin_params[
-                :temp_parameter_deviations[-1].shape[1]  # subset to the same params as the deviations
-            ]
+        # ############## Latent embeddings, parameter deviations, parameters ############## #
+        # Get latent embeddings, parameter deviations and full parameters
+        partial_le_df, partial_pd_df, partial_p_df = get_embedding_and_params_df(
+            dmm_model=models[0],
+            input_features=input_features,
+            context=context,
+            split=split,
+            dataset=dataset,
+            job=job,
         )
+        # Append to growing list of dataframes
+        latent_embeddings_dfs.append(partial_le_df.assign(rmse=rmse_conf))
+        param_deviations_dfs.append(partial_pd_df.assign(rmse=rmse_conf))
+        params_dfs.append(partial_p_df.assign(rmse=rmse_conf))
+
         # Simulate and append to growing pd.DataFrame list
         overall_best_dmm_sim_dfs.append(
             simulate_dmm(
@@ -750,11 +815,6 @@ for dataset, context, split in itt.product(
                 jit_fn=False,
             ).assign(job=job)
         )
-    # Compute mean (across multistart) latent embeddings and save in results dictionary
-    latent_embeddings[context][split][dataset] = np.mean(temp_latent_embeddings, axis=0)
-    # Compute mean (across multistart) parameter medians and deviations
-    param_medians[context][split][dataset] = np.mean(temp_parameter_medians, axis=0)
-    param_deviations[context][split][dataset] = np.mean(temp_parameter_deviations, axis=0)
 
     # Concatenate simulations for time-varying response plot
     overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
@@ -770,7 +830,7 @@ for dataset, context, split in itt.product(
         columns=["job", "unique_id"]
     )
 
-    # Single-shot (single split, single job)
+    # Single-shot (single split, single job) -- NOT IN USE
     # absolute_best_conf = get_dmm_conf(conf, absolute_best_dmm, dataset, context)
     # absolute_best_dmm_model, obj = load_model_and_obj(
     #     absolute_best_conf,
@@ -824,4 +884,32 @@ for dataset, context, split in itt.product(
                 "comparison_best",
             ]
         ),
+    )
+
+# Concatenate and save in CSV format for record and further analysis
+for dfs, df_label in zip(
+    [latent_embeddings_dfs, param_deviations_dfs, params_dfs],
+    ["latent_embeddings", "parameter_deviations", "parameters_full"]
+):
+    # Concatenate
+    df = pd.concat(dfs)
+    # Add subtype information, both PAM50 and rough Luminal/Basal
+    df['subtype_PAM50'] = df['cell_line'].map(
+        {
+            cell_line: subtype["PAM50"]
+            for cell_line, subtype in subtypes_tognetti.items()
+        }
+    )
+    df['subtype_Luminal/Basal'] = df['cell_line'].map(
+        {
+            cell_line: subtype["Luminal/Basal"]
+            for cell_line, subtype in subtypes_tognetti.items()
+        }
+    )
+    # Save
+    df.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.{df_label}.csv"
     )
