@@ -165,27 +165,29 @@ ORTH_REG_STRATEGIES = (
 # Define common linear scan range for regularisation scaling hyperparameters
 LINEAR_SCAN_RANGE_L1REG = (
     0,
-    1e-4,
-    1e-3,
-    10**(-2.5),
-    1e-2,
-    10**(-1.5),
-    1e-1,
-    10**(-0.5),
-    1e0
+    # 1e-6,
+    # 1e-5,
+    # 1e-4,
+    # 1e-3,
+    # 10**(-2.5),
+    # 1e-2,
+    # 10**(-1.5),
+    # 1e-1,
+    # 10**(-0.5),
+    # 1e0
 )
 
 LINEAR_SCAN_RANGE_OREG = (
     0,
-    1e-3,
-    1e-2,
-    1e-1,
-    1e0,
-    1e1,
-    10**(1.5),
-    1e2,
-    10**(2.5),
-    1e3,
+    # 1e-3,
+    # 1e-2,
+    # 1e-1,
+    # 1e0,
+    # 1e1,
+    # 10**(1.5),
+    # 1e2,
+    # 10**(2.5),
+    # 1e3,
 )
 LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 
@@ -250,7 +252,9 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # previously centered at 1e7, but now excluded from scanned values
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
-OMEGAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
+# 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
+# to scan switching epoch
+OMEGAS = {'range': (0, 1e-4, 2e-4, 5e-4, 1e-3), 'central_value': 1e-4}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -269,6 +273,14 @@ EPSILONS = {'range': (0, ), 'central_value': 0}
 #     # 1e8,
 # )
 ZETAS = {'range': (0, ), 'central_value': 0}
+
+# ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
+ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1), 'central_value': 0}
+
+
+# Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
+# Default: mid-training
+INFLATER_OUTPUT_REG_EPOCHS = {'range': (0, 100, 300, 500, 800), 'central_value': 500}
 
 
 # LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW

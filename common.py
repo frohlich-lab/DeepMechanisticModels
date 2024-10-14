@@ -26,8 +26,10 @@ Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
 fig_dir = basedir / "figures"
-evaluations_dir = basedir / "eval_2409_regexplore"  # TODO @GiacomoFabrini rename to `evaluations`
-results_dir = basedir / "res_2409_regexplore"  # TODO @GiacomoFabrini rename to `results`
+# evaluations_dir = basedir / "eval_2409_regexplore"  # TODO @GiacomoFabrini rename to `evaluations`
+# results_dir = basedir / "res_2409_regexplore"  # TODO @GiacomoFabrini rename to `results`
+evaluations_dir = basedir / "eval_1410_out_med_reg"
+results_dir = basedir / "res_1410_out_med_reg"
 data_dir = basedir / "data"
 pretrain_dir = basedir / "pretraining"
 features_dir = basedir / "features"
