@@ -307,12 +307,17 @@ def log_extra_loss_terms(
             [
                 model.l1_encode_reg,
                 model.l1_inflate_reg,
-                partial(model.l1reg_inflater_output, x=input_data),
                 partial(model.constrain_median, x=median_init_arr)
             ]
         )
-        log_labels.extend([L1EREG, L1IREG, L1REG_IO, MEDIAN_REG])
-        hp_names.extend([L1EREG, L1IREG, L1REG_IO, MEDIAN_REG])
+        log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
+        hp_names.extend([L1EREG, L1IREG, MEDIAN_REG])
+        # Add epoch-dependent inflater output regularisation
+        if epoch > conf["inflater_output_reg_epoch"]:
+            reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
+            log_labels.extend([L1REG_IO,])
+            hp_names.extend([L1REG_IO, ])
+
     # Add extra terms if the DMM has a decoder head
     if model.reconstruct:
         reg_funs.append(model.orth_decode_reg)

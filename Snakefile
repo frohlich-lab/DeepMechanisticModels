@@ -227,6 +227,7 @@ rule estimate_parameters:
         l1reg_inflater_output='[0-9\.]+',
         recon_loss = '[0-9\.]+',
         symm_reg = '[0-9\.]+',
+        median_reg='[0-9\.]+',
         lrate_pretraining_ratio='[0-9\.]+',
         max_lrate = '[0-9\.]+',
         lrate_span = '[0-9\.]+',
@@ -246,7 +247,7 @@ rule estimate_parameters:
         mem="4GB",
         runtime="24h",
         nodes=1,
-        threads=2,
+        threads=1,  # TODO @GiacomoFabrini - change back to 2 for cluster!
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -259,7 +260,7 @@ rule estimate_parameters:
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
-                'recon_loss', 'symm_reg',
+                'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch',
                 'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
@@ -332,8 +333,10 @@ rule evaluate_training:
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
         l1reg_inflater_output='[0-9\.]+',
+        inflater_output_reg_epoch='[0-9]+',
         recon_loss='[0-9\.]+',
         symm_reg='[0-9\.]+',
+        median_reg='[0-9\.]+',
         lrate_pretraining_ratio='[0-9\.]+',
         max_lrate='[0-9\.]+',
         lrate_span='[0-9\.]+',
@@ -366,7 +369,7 @@ rule evaluate_training:
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
-                'recon_loss', 'symm_reg',
+                'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch',
                 'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
@@ -455,22 +458,22 @@ rule evaluate_all:
             model='{model}',data='{data}',samples=SPLITS,
         )
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
-        plot=[
-            EVALUATE_ALL.format_map(SafeDict(group=group))
-            for group in (
-                'n_hidden',
-                'reconstruct', 'activation_fn_name',
-                'orth_reg_strategy',
-                'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
-                'heatmaps_n_hidden_pairwise',
-                'volcano_plot_stat_test',
-            )
-        ],
+        # plot=[
+            # EVALUATE_ALL.format_map(SafeDict(group=group))
+            # for group in (
+                # 'n_hidden',
+                # 'reconstruct', 'activation_fn_name',
+                # 'orth_reg_strategy',
+                # 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
+                # 'heatmaps_n_hidden_pairwise',
+                # 'volcano_plot_stat_test',
+            # )
+        # ],
         csv=[
             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
             for filename in (
                 'evaluate_all',
-                'stat_tests_all',
+                # 'stat_tests_all',
             )
         ]
     wildcard_constraints:
@@ -494,7 +497,7 @@ rule evaluate_all:
 rule train_and_evaluate:
     input:
          evaluation=expand(
-             rules.evaluate_all.output.plot,
+             rules.evaluate_all.output.csv,  # changed it to CSV as plots might not be generated without stat tests
              model=PATHWAYS, data=DATASETS, samples=SPLITS
          ),
 

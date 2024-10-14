@@ -35,9 +35,10 @@ class Conf(dict):
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
     l1reg_inflater_output: float = 0.0
+    inflater_output_reg_epoch: int = 0
     recon_loss: float = 0.0
     symm_reg: float = 0.0
-    # median_reg: float = 0.0
+    median_reg: float = 0.0
     # Learning schedule hyperparameters
     lrate_pretraining_ratio: Optional[float] = 10.0  # default: pretraining uses a 10x lower learning rate
     max_lrate: Optional[float] = 0.01  # maximum learning rate (max in first schedule or in all without decay)

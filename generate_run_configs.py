@@ -1,4 +1,5 @@
 import itertools as itt
+import numpy as np
 import pandas as pd
 
 from training_configuration import (
@@ -7,7 +8,9 @@ from training_configuration import (
     LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
     NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     # Regularisation
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS,
+    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS, ETAS,
+    # Regularisation-adjacent
+    INFLATER_OUTPUT_REG_EPOCHS,
     # Learning rate scheduling
     LRATE_PRETRAINING_RATIO,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
@@ -17,6 +20,31 @@ from training_configuration import (
     USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
     HP_RUN_MODE, REFINE_HPS
 )
+from typing import Union
+
+
+def format_floats(run_configs: list[dict], cols_to_check: list, precision: Union[int, str] = "adaptive"):
+    def format_string(precision):
+        return "{:." + str(precision) + "f}"
+
+    for config in run_configs:
+        for col in cols_to_check:
+            if isinstance(precision, int):
+                format_prefix = format_string(precision)
+                config[col] = format_prefix.format(config[col])
+            elif precision == "adaptive":
+                if config[col] == 0:
+                    config[col] = "0.0"
+                else:
+                    oom = int(np.log10(config[col]))
+                    if oom < 0:
+                        oom = abs(oom)
+                        format_prefix = format_string(oom)
+                        config[col] = format_prefix.format(config[col])
+                    else:
+                        config[col] = str(config[col])  # regular values, e.g. 1, 10, 100
+    return run_configs
+
 
 
 def make_configs_unique(run_configs: list[dict]) -> list[dict]:
@@ -57,6 +85,11 @@ def prune_config(run_config: dict):
         hps_to_prune.extend(["recon_loss", "symm_reg"])
         prune = True
 
+    if not run_config["l1reg_inflater_output"] > 0:
+        # ignore epoch at which to enable output regularisation if no output regularisation
+        hps_to_prune.append("inflater_output_reg_epoch")
+        prune = True
+
     if prune:
         for hp in hps_to_prune:
             run_config[hp] = 0
@@ -72,8 +105,10 @@ def generate_linear_scan(STARTS: list[str]):
         "l1reg_encode": GAMMAS,
         "oreg_encode": DELTAS,
         "l1reg_inflater_output": OMEGAS,
+        "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
+        "median_reg": ETAS,
         "max_lrate": MAX_LEARNING_RATES,
         "lrate_span": LEARNING_RATE_SPANS,
         "lrate_decay": LEARNING_RATE_DECAYS,
@@ -145,6 +180,13 @@ def generate_linear_scan(STARTS: list[str]):
     # Ensure configs are unique
     unique_linear_scan_configs = make_configs_unique(linear_scan_configs)
 
+    # # Format floats in regularisation params
+    # unique_linear_scan_configs = format_floats(
+    #     run_configs=unique_linear_scan_configs,
+    #     cols_to_check=["l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "l1reg_inflater_output"],
+    #     precision="adaptive",  # necessary for values up to 1e-6
+    # )
+
     return unique_linear_scan_configs
 
 
@@ -157,8 +199,10 @@ def generate_grid_search(STARTS: list[str]):
         "l1reg_encode": GAMMAS,
         "oreg_encode": DELTAS,
         "l1reg_inflater_output": OMEGAS,
+        "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
+        "median_reg": ETAS,
         "max_lrate": MAX_LEARNING_RATES,
         "lrate_span": LEARNING_RATE_SPANS,
         "lrate_decay": LEARNING_RATE_DECAYS,
@@ -196,8 +240,10 @@ def generate_grid_search(STARTS: list[str]):
             "l1reg_encode": l1reg_encode,
             "oreg_encode": oreg_encode,
             "l1reg_inflater_output": l1reg_inflater_output,
+            "inflater_output_reg_epoch": inflater_output_reg_epoch,
             "recon_loss": recon_loss,
             "symm_reg": symm_reg,
+            "median_reg": median_reg,
             "lrate_pretraining_ratio": lrate_pretraining_ratio,
             "max_lrate": max_lrate,
             "lrate_span": lrate_span,
@@ -217,7 +263,8 @@ def generate_grid_search(STARTS: list[str]):
             (context, features), features_transform, split, pretrain, median_init, n_hidden, network_layout,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
-            l1reg_inflater_output, recon_loss, symm_reg,
+            l1reg_inflater_output, recon_loss, symm_reg, median_reg,
+            inflater_output_reg_epoch,
             lrate_pretraining_ratio, max_lrate, lrate_span, lrate_decay, warmup_fct,
             opt_steps, opt_mult,
             weight_decay, momentum,
@@ -227,7 +274,8 @@ def generate_grid_search(STARTS: list[str]):
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
-            OMEGAS, EPSILONS, ZETAS,
+            OMEGAS, EPSILONS, ZETAS, ETAS,
+            INFLATER_OUTPUT_REG_EPOCHS,
             LRATE_PRETRAINING_RATIO, MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
             OPT_STEPS, OPT_MULT,
             WEIGHT_DECAY, MOMENTUM,
@@ -244,6 +292,13 @@ def generate_grid_search(STARTS: list[str]):
 
     # Ensure configs are unique -- removes combinations of scheduling hyperparams when using schedule-free
     unique_grid_search_configs = make_configs_unique(grid_search_configs)
+
+    # # Format floats in regularisation params
+    # unique_grid_search_configs = format_floats(
+    #     run_configs=unique_grid_search_configs,
+    #     cols_to_check=["l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "l1reg_inflater_output"],
+    #     precision="adaptive",  # necessary for values up to 1e-6
+    # )
 
     return unique_grid_search_configs
 
@@ -308,7 +363,7 @@ def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = Non
 # )
 
 generate_run_configs(
-    n_starts=10,
+    n_starts=5,
     hp_run_mode=HP_RUN_MODE,
     refine_hps=REFINE_HPS,
 )

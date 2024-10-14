@@ -43,6 +43,7 @@ def loss_fn(
         conf: Dict,
         input_data,
         problem_train: pypesto.Problem,
+        regularise_inflater_output: bool,
         median_init_arr: Array,
 ):
     # problem_train.objective() now needs to get in input what was previously the output of the jax_fun, i.e. the output
@@ -58,9 +59,13 @@ def loss_fn(
             fval
             + model.orth_encode_reg(scale=conf["oreg_encode"])
             + model.orth_inflate_reg(scale=conf["oreg_inflate"])
-            + model.l1reg_inflater_output(x=input_data, scale=conf["l1reg_inflater_output"])
             + model.constrain_median(x=median_init_arr, scale=conf["median_reg"])
     )
+
+    # Enable inflater output regularisation based on flag (epoch)
+    if regularise_inflater_output:
+        loss_value += model.l1reg_inflater_output(x=input_data, scale=conf["l1reg_inflater_output"])
+
     if model.reconstruct:
         loss_value += (
                 model.reconstruction_loss(x=input_data, scale=conf["recon_loss"])
@@ -89,6 +94,7 @@ def make_step(
         input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
         problem_train: pypesto.Problem,
         conf: Dict,
+        regularise_inflater_output: bool,
         median_init_arr: Array,
 ):
     (loss_value, fval), grads = loss_fn(
@@ -96,6 +102,7 @@ def make_step(
         conf,
         input_data,
         problem_train,
+        regularise_inflater_output,
         median_init_arr,
     )
     grads = get_finite_grads(grads)
@@ -191,6 +198,7 @@ def train(
             input_data=input_features_train,
             problem_train=problem_train,
             conf=conf,
+            regularise_inflater_output=epoch > conf["inflater_output_reg_epoch"],
             median_init_arr=median_init_arr,
         )
 
