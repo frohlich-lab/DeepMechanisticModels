@@ -42,7 +42,8 @@ def init_wandb(
         # v5: Equinox, no network pretraining + leave-one-out cross-validation - Linear Scans
         # v6: same as v5, reduced, run locally due to wandb issues with cluster
         # v7: exploring various regularisation strategies, cluster, old wandb backend
-        project=f"DeepMechanisticModels.v8.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v8: various tests on l1reg_inflater_output and epoch + median_reg
+        project=f"DeepMechanisticModels.v9.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
