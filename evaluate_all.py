@@ -587,6 +587,30 @@ else:
 
 
 # ########################################################################### #
+# ################### Save train/test RMSE dataset in CSV ################### #
+# ########################################################################### #
+dmm_results = {
+    dataset: data[(data.dataset == dataset) & (data.ref == 'DMM')].drop(columns=['ref', 'dataset'])
+    for dataset in ['train', 'test']
+}
+merge_cols = data.columns.difference(['rmse', 'dataset', 'ref'])
+unified_dmm_results = pd.merge(
+    dmm_results['train'],
+    dmm_results['test'],
+    how="inner",
+    on=list(merge_cols),
+    suffixes=('_train', '_test')
+)
+unified_dmm_results.to_csv(
+    evaluations_dir
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
+)
+print("Finished saving unified (train/test) DMM RMSE results.")
+del dmm_results, unified_dmm_results, merge_cols
+
+# ########################################################################### #
 # ################### Save information on top N best DMM #################### #
 # ########################################################################### #
 
