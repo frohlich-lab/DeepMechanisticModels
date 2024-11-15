@@ -782,3 +782,26 @@ class MetricHandler:
                 should_break = True
 
         return should_break
+
+def plot_inflater_encoder_product(
+        model: DeepMechanisticModel,
+        filepath: Path
+):
+    # Compute the encoder matrix product
+    encoder_mat = model.deep_encoder.layers[0].weight
+    for layer in model.deep_encoder.layers[1:]:
+        encoder_mat = np.matmul(layer.weight, encoder_mat)
+
+    # Compute the inflater matrix product
+    inflater_mat = model.deep_inflater.layers[0].weight
+    for layer in model.deep_inflater.layers[1:]:
+        inflater_mat = np.matmul(layer.weight, inflater_mat)
+
+    # Compute the product of inflater and encoder matrices
+    inflater_encoder_product = np.matmul(inflater_mat, encoder_mat)
+
+    # Plot
+    plt.imshow(inflater_encoder_product)
+    plt.colorbar()
+    plt.savefig(filepath)
+    plt.show()
