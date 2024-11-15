@@ -461,10 +461,16 @@ def init_global_kin_params_combiner(
     B) If training the whole DMM (nn_pretrain==False), the parameters of KinParamsCombiner are initialised with the
     median of non-cell-line specific parameters and no filter_spec is returned (learnable parameters).
 
-    :param conf:
-        configuration object (Conf).
-    :param model: ]
+    :param model:
         DeepMechanisticModel instance.
+    :param per_sample_parameter_file:
+        filepath (str) to load per_sample kinetic parameters in case median_params_method == "per_sample"
+    :param avg_model_parameter_file:
+        filepath (str) to load avg_model kinetic parameters in case median_params_method == "avg_model"
+    :param random_seed:
+        int, used to seed sampling of kinetic parameters in case median_params_method == "per_sample"
+    :param median_params_method:
+        string, defines which pretrained mechanistic model parameters to use to initialise kinetic parameter medians.
     :param nn_pretrain:
         boolean flag that tracks training stages (True during pretraining of the neural network component,
         False during whole DMM training).
