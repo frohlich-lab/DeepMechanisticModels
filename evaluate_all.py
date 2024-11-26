@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 import pandas as pd
+import seaborn as sns
 # import subprocess
 # import wandb
 
@@ -45,6 +46,9 @@ from generate_run_configs import generate_run_configs
 from jax import vmap
 from joblib import load
 from pathlib import Path
+from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.preprocessing import StandardScaler
 from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS
@@ -109,6 +113,59 @@ def get_embedding_and_params_df(
         }
     ).assign(context=context, samples=split, dataset=dataset, job=job)
     return latent_embeddings_df, param_deviations_df, params_df
+
+
+def pca_latent_embeddings(
+    le_df: pd.DataFrame,
+    scale: bool = True,
+    center: bool = True,
+    center_method: str = "mean",
+    col_grouping: str = "subtype_Luminal/Basal",
+    num_jobs_plot: int = 5,
+):
+    for context in le_df.context.unique():
+        pca_dfs = []
+        for samples, job in itt.product(
+            le_df.samples.unique(),
+            le_df.job.unique()
+        ):
+            # Filter to current context, samples and job
+            sub_df = le_df[
+                (le_df.context == context) & (le_df.samples == samples) & (le_df.job == job)
+            ].copy()
+
+            # Get latent embeddings
+            les = sub_df[["L1", "L2"]].values
+            # Center and scale if necessary
+            if center:
+                if center_method == "mean":
+                    les = les - les.mean(axis=0)
+                elif center_method == "median":
+                    les = les - np.median(les, axis=0)
+            if scale:
+                les = StandardScaler().fit_transform(les)
+
+            # Get 2D PCA to try and remove potential rotations between multistart embeddings
+            pca = PCA(n_components=2)
+            les_pca = pca.fit_transform(les)
+            # Reassign to sub-DataFrame and append to context-specific list of DataFrames
+            sub_df[["L1", "L2"]] = les_pca
+            pca_dfs.append(sub_df)
+
+        # Obtain latent embedding PCA DataFrame for given context, save it and produce scatterplot
+        pca_df = pd.concat(pca_dfs)
+        pca_df.to_csv(
+            evaluations_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.{context}.latent_embeddings_pca.csv"
+        )
+        top_jobs = df.sort_values('rmse').drop_duplicates(subset='job').nsmallest(num_jobs_plot, 'rmse')["job"].values
+        plot_df = pca_df[pca_df.job.isin(top_jobs)]
+        g = sns.FacetGrid(plot_df, col=col_grouping, row="samples", hue="job")
+        g.map(plt.scatter, "L1", "L2")
+        plt.legend()
+        plt.show()
 
 
 def get_dmm_conf(
@@ -939,3 +996,14 @@ for dfs, df_label in zip(
         / f"{conf.data}"
         / f"{conf.model}.{conf.data}.{df_label}.csv"
     )
+
+    if df_label == "latent_embeddings":
+        center = True
+        scale = True
+
+        pca_latent_embeddings(
+            le_df=df,
+            scale=scale,
+            center=center,
+            num_jobs_plot=10  # use top 10 performing multistarts (lowest RMSE)
+        )
