@@ -122,6 +122,7 @@ def get_dmm_conf(
         if hasattr(dmm_conf, key) and key not in ["model", "data"]:
             if key in [
                 "n_hidden", "depth", "nn_structure_multiplier",
+                "inflater_output_reg_epoch",
                 "opt_steps", "opt_mult",
                 "job"
             ]:
@@ -131,6 +132,7 @@ def get_dmm_conf(
                 "l1reg_inflate", "oreg_inflate",  # inflater
                 "l1reg_inflater_output",  # inflater output
                 "recon_loss", "symm_reg",  # decoder / reconstruction
+                "median_reg",  # kinetic params median regularisation
                 "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
             ] and value == 0:
                 value = int(value)
