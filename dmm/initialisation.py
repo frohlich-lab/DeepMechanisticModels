@@ -266,10 +266,14 @@ def get_kin_params_median_deviation(
             par_deviations = par_combo - par_medians
             return par_medians, par_deviations
         elif median_params_method == "avg_model":
-            # Poisson sample one among the multi-starts avg_model parameters and use as medians
+            # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
+            # avg_param_combo = avg_model_params[
+            #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
+            #     ].iloc[0]
+            # Use the best initialisation from avg_model
             avg_param_combo = avg_model_params[
-                avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
-                ].iloc[0]
+                avg_model_params.index == 0
+            ].iloc[0]
             # Compute per_sample param deviations w.r.t. avg_model params
             par_deviations = par_combo - avg_param_combo
             return avg_param_combo, par_deviations
