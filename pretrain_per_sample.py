@@ -81,7 +81,7 @@ result = pretrain(
     startpoint_method=pypesto.startpoint.UniformStartpoints(
         check_fval=True, check_grad=True
     ),
-    nstarts=50,  # multistarts for pretraining (hard-coded)
+    nstarts=100,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
