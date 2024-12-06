@@ -163,3 +163,11 @@ estimationLocal.sh
 estimationLocal_WANDB_OFFLINE.sh
 dryRunLocal.sh
 estimationLocal_WANDB_ONLINE.sh
+
+
+# Downstream/test notebooks
+LinearScans_*.ipynb
+evaluation*.ipynb
+test_*.ipynb
+test_penzai.ipynb
+test_penzai.ipynb
