@@ -667,7 +667,55 @@ unified_dmm_results.to_csv(
     / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
 )
 print("Finished saving unified (train/test) DMM RMSE results.")
-del dmm_results, unified_dmm_results, merge_cols
+
+# ########################################################################### #
+# ################ Most predictive hyperparams for RMSE_val ################# #
+# ########################################################################### #
+# TODO @GiacomoFabrini - clean this up!
+# First drop any Infs or NaNs (incompatible with RandomForestRegressor)
+unified_dmm_results = unified_dmm_results.replace([np.inf, -np.inf], np.nan)
+unified_dmm_results = unified_dmm_results.dropna()
+# Then train two RandomForests, one on train and the other on val scores (RMSE)
+rfr_train, rfr_val = RandomForestRegressor(), RandomForestRegressor()
+rmse_val_targets = unified_dmm_results.pop("rmse_test")
+rmse_train_targets = unified_dmm_results.pop("rmse_train")
+# Replace categorical variables with dummy one-hot-encodings
+dummy_unified_dmm_results = pd.get_dummies(unified_dmm_results)
+# Fit and get feature importances for top 10 features
+rfr_train.fit(X=dummy_unified_dmm_results, y=rmse_train_targets)
+rfr_val.fit(X=dummy_unified_dmm_results, y=rmse_val_targets)
+results_dfs = {
+    dataset: pd.DataFrame(
+        {
+            "importances":regressor.feature_importances_[regressor.feature_importances_.argsort()][::-1][:10],
+            "features": dummy_unified_dmm_results.columns[regressor.feature_importances_.argsort()][::-1][:10],
+        }
+    )
+    for dataset, regressor in zip(["train", "val"], [rfr_train, rfr_val])
+}
+top_features_train = dummy_unified_dmm_results.columns[rfr_train.feature_importances_.argsort()][::-1][:10]
+top_features_val = dummy_unified_dmm_results.columns[rfr_val.feature_importances_.argsort()][::-1][:10]
+importances_train = rfr_train.feature_importances_[rfr_train.feature_importances_.argsort()][::-1][:10]
+importances_val = rfr_val.feature_importances_[rfr_val.feature_importances_.argsort()][::-1][:10]
+
+
+# Rudimentary bar-subplot
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+for ind, dataset in enumerate(["train", "val"]):
+    plt.subplot(1, 2, ind+1)
+    sns.barplot(data=results_dfs[dataset], x='features', y='importances')
+    plt.title('Feature Importances')
+    plt.xlabel('Features')
+    plt.ylabel('Importance')
+    plt.xticks(rotation=90)
+
+plt.tight_layout()
+plt.savefig(
+    fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
+)
+plt.close()
+del dmm_results, unified_dmm_results, merge_cols, rmse_train_targets, rmse_val_targets, dummy_unified_dmm_results
 
 # ########################################################################### #
 # ################### Save information on top N best DMM #################### #
