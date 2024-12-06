@@ -263,3 +263,14 @@ subtypes_tognetti = {
     "cUACC893": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
     "cZR7530": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
 }
+
+# From https://bmcmedgenomics.biomedcentral.com/articles/10.1186/1755-8794-5-44, Figure 1
+pam50_genelist = [
+    "FGFR4", "ERBB2", "GRB7", "BLVRA", "BAG1", "BCL2", "CXXC5", "ESR1",
+    "GPR160", "FOXA1", "MLPH", "NAT1", "SLC39A6", "MAPT", "PGR", "MDM2",
+    "TMEM45B", "MMP11", "ACTR3B", "CDC6", "CCNE1", "EXO1", "CDCA1", "KNTC2",
+    "BIRC5", "CENPF", "ANLN", "CDC20", "CCNB1", "CEP55", "MYBL2", "MKI67",
+    "UBE2C", "RRM2", "KIF2C", "MELK", "TYMS", "PTTG1", "ORC6L", "UBE2T",
+    "CDH3", "EGFR", "KRT17", "KRT14", "KRT5", "FOXC1", "MIA", "SFRP1",
+    "PHGDH", "MYC"
+]
