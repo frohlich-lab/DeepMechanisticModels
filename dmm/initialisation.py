@@ -143,7 +143,6 @@ def setup_models(
         'n_latent': conf.n_hidden,
         'module_depth': conf.depth,
         'module_structure_multiplier': conf.nn_structure_multiplier,
-        'inflate_width': conf.inflate_width,
         'use_layer_bias': conf.use_layer_bias,
         'last_layer_activation': conf.last_layer_activation,
         'weight_init_fn': conf.nn_init_fn,
