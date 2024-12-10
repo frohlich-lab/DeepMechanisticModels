@@ -10,30 +10,30 @@ DATASETS = ("dream_cytof",)
 
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = (
-    ("cytof_init", "all"),
+    # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
-    # ("cytof_init", "elastic"),
+    ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    ("proteomics", "all"),
+    # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
-    # ("proteomics", "elastic"),
+    ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    ("transcriptomics", "all"),
+    # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
-    # ("transcriptomics", "elastic"),
+    ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
 )
 
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
 FEATURES_TRANSFORM = {
-    "pca",
-    # "None",
+    # "pca",
+    "None",
 }
 
 # Cross-validation splits
@@ -254,7 +254,7 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 # 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
 # to scan switching epoch
-OMEGAS = {'range': (0, 1e-4, 2e-4), 'central_value': 0}
+OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
