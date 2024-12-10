@@ -165,6 +165,10 @@ def pca_latent_embeddings(
         g = sns.FacetGrid(plot_df, col=col_grouping, row="samples", hue="job")
         g.map(plt.scatter, "L1", "L2")
         plt.legend()
+        plt.tight_layout()
+        plt.savefig(
+            fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.latent_embeddings_pca.top{num_jobs_plot}.pdf"
+        )
         plt.show()
 
 
@@ -1055,3 +1059,5 @@ for dfs, df_label in zip(
             center=center,
             num_jobs_plot=10  # use top 10 performing multistarts (lowest RMSE)
         )
+
+print("Done.")  # TODO remove + TODO: consider moving all helper functions into separate scripts
