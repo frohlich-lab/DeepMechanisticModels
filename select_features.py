@@ -6,6 +6,7 @@ import pandas as pd
 
 from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
 from dmm.feature_selection import build_preprocesser, load_data
+from sklearn.impute import KNNImputer
 from util import load_petab_base_files
 
 
@@ -53,7 +54,9 @@ for context in conf.context.split("+"):
     )
 
     preprocessor = build_preprocesser(conf.features, input_train, output_train)
-    preprocessor = preprocessor.fit(input_train, output_train)
+    # Need to impute missing ERBB2 data in output
+    output_train_filled = KNNImputer().fit_transform(output_train)
+    preprocessor = preprocessor.fit(input_train, output_train_filled)
 
     if conf.features == "all":
         features = features_train
