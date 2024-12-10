@@ -143,6 +143,7 @@ def setup_models(
         'n_latent': conf.n_hidden,
         'module_depth': conf.depth,
         'module_structure_multiplier': conf.nn_structure_multiplier,
+        'inflate_width': conf.inflate_width,
         'use_layer_bias': conf.use_layer_bias,
         'last_layer_activation': conf.last_layer_activation,
         'weight_init_fn': conf.nn_init_fn,
@@ -599,4 +600,16 @@ def process_features(
             else:
                 pipeline = None
             features = pca_transform_features(features, pipeline_filepath, pipeline)
+        else:
+            # Simply impute missing values (no scaling, no PCA)
+            imputer = KNNImputer()
+            imputer.fit(features["train"])
+            features = {
+                dataset: pd.DataFrame(
+                    imputer.transform(features[dataset]),
+                    index=features[dataset].index,
+                    columns=features[dataset].columns
+                )
+                for dataset in features.keys()
+            }
     return features
