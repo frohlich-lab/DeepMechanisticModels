@@ -8,7 +8,7 @@ from .custom_layers_eqx import (
 from jax import nn, random
 from jaxtyping import Array
 from typing import (
-    Callable,
+    # Callable,
     List,
     Union,
 )
@@ -98,9 +98,9 @@ class DeepComponent(eqx.Module):
         of `init_fn` dictionary.
     """
 
-    component_name: str = eqx.static_field()
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     # activation: Callable
+    component_name: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()  # makes it compatible with flattening utilities for schedule-free
     last_layer_activation: bool = eqx.static_field()
 
@@ -165,11 +165,11 @@ class KinParamsCombiner(eqx.Module):
     :param component_name:
         module name: "encoder" / "inflater" / "decoder".
 
-    :param learned_global_kin_params:
-        learned global (non-cell-specific) kinetic parameter components.
+    :param n_global_kin_params:
+        number of global kinetic parameters.
     """
-    component_name: str = eqx.static_field()
     learned_global_kin_params: Array
+    component_name: str = eqx.static_field()
 
     def __init__(
             self,
