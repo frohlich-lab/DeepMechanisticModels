@@ -352,7 +352,8 @@ def get_absolute_best_performer(
 def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
     # Define aggregation groups for DMM
     gbs_dmm = ["dataset", "ref"] + default_attributes
-
+    # replace missing values in features_transform (None instead of nan)
+    df["features_transform"] = df["features_transform"].replace(np.nan, "None")
     data_dmm = pd.DataFrame(
         [
             dict(
