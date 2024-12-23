@@ -303,13 +303,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of deep encoder weights.
         """
-        l1reg_encode_loss = 0
-        for layer in self.deep_encoder.layers:
-            w = layer.weight
-            l1reg_encode_loss += scale * jnp.mean(
-                jnp.abs(w)
-            )
-        return l1reg_encode_loss/len(self.deep_encoder.layers)  # mean across all layers
+        return l1reg(self.deep_encoder, scale)
 
     def orth_encode_reg(
             self,
@@ -318,15 +312,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         Orthogonal regularization of deep encoder weights.
         """
-        oreg_encode_loss = 0
-        reg_exponent = get_reg_exp(self.orth_reg_strategy)
-        for layer in self.deep_encoder.layers:
-            w = layer.weight
-            m = jnp.dot(w.T, w)
-            oreg_encode_loss += scale * jnp.mean(
-                jnp.abs(m - jnp.eye(m.shape[0])) ** reg_exponent
-            )
-        return oreg_encode_loss/len(self.deep_encoder.layers)  # mean across all layers
+        return orth_reg(self.deep_encoder, self.orth_reg_strategy, "encoder", scale)
 
     def l1_decode_reg(
             self,
@@ -335,13 +321,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of deep decoder weights.
         """
-        l1reg_decode_loss = 0
-        for layer in self.deep_decoder.layers:
-            w = layer.weight
-            l1reg_decode_loss += scale * jnp.mean(
-                jnp.abs(w)
-            )
-        return l1reg_decode_loss/len(self.deep_decoder.layers)  # mean across all layers
+        return l1reg(self.deep_decoder, scale)
 
     def orth_decode_reg(
             self,
@@ -350,15 +330,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         Orthogonal regularization of deep encoder weights.
         """
-        oreg_decode_loss = 0
-        reg_exponent = get_reg_exp(self.orth_reg_strategy)
-        for layer in self.deep_decoder.layers:
-            w = layer.weight
-            m = jnp.dot(w, w.T)
-            oreg_decode_loss += scale * jnp.mean(
-                jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
-            )
-        return oreg_decode_loss/len(self.deep_decoder.layers)  # mean across all layers
+        return orth_reg(self.deep_decoder, self.orth_reg_strategy, "decoder", scale)
 
     def l1_inflate_reg(
             self,
@@ -367,13 +339,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of deep inflater weights.
         """
-        l1reg_inflate_loss = 0
-        for layer in self.deep_inflater.layers:
-            w = layer.weight
-            l1reg_inflate_loss += scale * jnp.mean(
-                jnp.abs(w)
-            )
-        return l1reg_inflate_loss/len(self.deep_inflater.layers)  # mean across layers
+        return l1reg(self.deep_inflater, scale)
 
     def orth_inflate_reg(
             self,
@@ -383,15 +349,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         Orthogonal regularization of deep inflater weights.
         """
-        oreg_inflate_loss = 0
-        reg_exponent = get_reg_exp(self.orth_reg_strategy)
-        for layer in self.deep_inflater.layers:
-            w = layer.weight
-            m = jnp.dot(w, w.T)
-            oreg_inflate_loss += scale * jnp.mean(
-                jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
-            )
-        return oreg_inflate_loss/len(self.deep_inflater.layers)  # mean across all layers
+        return orth_reg(self.deep_inflater, self.orth_reg_strategy, "inflater", scale)
 
     def l1reg_inflater_output(
             self,
@@ -401,8 +359,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of inflater output - number of cell-specific deviations/log fold-changes.
         """
-        output = jax.vmap(self)(x)["inflated"]
-        return scale * jnp.sum(jnp.abs(output))
+        return scale * jnp.sum(
+            jnp.abs(
+                jax.vmap(self)(x)["inflated"]
+            )
+        )
 
     def reconstruction_loss(
             self,
@@ -527,3 +488,47 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             # Apply serialised weights and biases to model skeleton
             model = eqx.tree_deserialise_leaves(f, model)
         return model
+
+
+def l1reg(
+    module,
+    scale: float = 1.0
+):
+    """
+    L1 regularization of generic module weights.
+    """
+    l1reg_loss = 0
+    for layer in module.layers:
+        w = layer.weight
+        l1reg_loss += scale * jnp.mean(
+            jnp.abs(w)
+        )
+    return l1reg_loss / len(module.layers)  # mean across all layers
+
+
+def orth_reg(
+    module,
+    orth_reg_strategy,
+    mode: str,
+    scale: float = 1.0
+):
+    """
+    Orthogonal regularization of generic module weights.
+    """
+    oreg_loss = 0
+    reg_exponent = get_reg_exp(orth_reg_strategy)
+    if mode == "encoder":
+        for layer in module.layers:
+            w = layer.weight
+            m = jnp.dot(w.T, w)
+            oreg_loss += scale * jnp.mean(
+                jnp.abs(m - jnp.eye(m.shape[0])) ** reg_exponent
+            )
+    else:  # decoder, inflater
+        for layer in module.layers:
+            w = layer.weight
+            m = jnp.dot(w, w.T)
+            oreg_loss += scale * jnp.mean(
+                jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
+            )
+    return oreg_loss/len(module.layers)  # mean across all layers
