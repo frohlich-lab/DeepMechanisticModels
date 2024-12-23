@@ -274,14 +274,20 @@ def build_preprocesser(
         steps.append(
             (
                 "selector",
-                SelectFromModel(MultiTaskElasticNetCV(cv=5, n_alphas=20), max_features=min(50, input_data.shape[1])),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
+                SelectFromModel(
+                    MultiTaskElasticNetCV(cv=5, n_alphas=20),
+                    max_features=min(100, input_data.shape[1])
+                ),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
             )
         )
     elif preprocess == "lasso":
         steps.append(
             (
                 "selector",
-                SelectFromModel(MultiTaskLassoCV(cv=5, n_alphas=20), max_features=min(50, input_data.shape[1])),
+                SelectFromModel(
+                    MultiTaskLassoCV(cv=5, n_alphas=20),
+                    max_features=min(100, input_data.shape[1])
+                ),
              )
         )
     elif preprocess == "sequential":
