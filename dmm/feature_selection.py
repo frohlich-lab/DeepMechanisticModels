@@ -275,7 +275,7 @@ def build_preprocesser(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskElasticNetCV(cv=5, n_alphas=20),
+                    MultiTaskElasticNetCV(cv=5, n_alphas=20, max_iter=10000),  # increased max_iter 10x
                     max_features=min(100, input_data.shape[1])
                 ),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
             )
@@ -285,7 +285,7 @@ def build_preprocesser(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskLassoCV(cv=5, n_alphas=20),
+                    MultiTaskLassoCV(cv=5, n_alphas=20, max_iter=10000),
                     max_features=min(100, input_data.shape[1])
                 ),
              )
