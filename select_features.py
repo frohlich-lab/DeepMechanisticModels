@@ -5,7 +5,7 @@ import fire
 import pandas as pd
 
 from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
-from dmm.feature_selection import build_preprocesser, load_data
+from dmm.feature_selection import build_preprocesser, load_data, preprocess_mosa_latent
 from sklearn.impute import KNNImputer
 from util import load_petab_base_files
 
@@ -24,6 +24,9 @@ conf = fire.Fire(MinimalConf)
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
+if conf.context == "MOSA" and conf.samples == "4of5":
+    raise ValueError(f"{conf.context} not available for CV split {conf.samples}")
+
 samples_train = training_samples(Wildcards(conf.data, conf.samples))
 samples_val = test_samples(Wildcards(conf.data, conf.samples))
 
@@ -33,18 +36,21 @@ for context in conf.context.split("+"):
     # Replace the multi-context with single sub-context
     subconf = replace(conf, context=context)
 
-    input_train, features_train = load_data(
-        contextualization=context,
-        samples=samples_train,
-        features=None,
-        **petab_base_files,
-    )
-    input_val, _ = load_data(
-        contextualization=context,
-        samples=samples_val,
-        features=features_train,
-        **petab_base_files,
-    )
+    if subconf.context == "MOSA":
+        input_train, input_val, features_train = preprocess_mosa_latent(subconf, samples_train, samples_val)
+    else:
+        input_train, features_train = load_data(
+            contextualization=context,
+            samples=samples_train,
+            features=None,
+            **petab_base_files,
+        )
+        input_val, _ = load_data(
+            contextualization=context,
+            samples=samples_val,
+            features=features_train,
+            **petab_base_files,
+        )
 
     output_train, targets_train = load_data(
         contextualization="cytof_dynamic",

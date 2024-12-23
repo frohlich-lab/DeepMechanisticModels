@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 import petab
+from common import features_dir
 from sklearn.cross_decomposition import CCA, PLSRegression
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.feature_selection import (
@@ -98,6 +99,28 @@ def contextualize_measurements(
     )
 
     return input_data
+
+
+def preprocess_mosa_latent(conf, samples_train, samples_val):
+    annot = pd.read_csv(features_dir / conf.model / conf.data / "DepMap_model_list_20241120.csv", index_col=0)
+    mosa_latent = pd.read_csv(features_dir / conf.model / conf.data / "MOSA_20231023_092657_latent_joint.csv", index_col=0)
+    # Map from Sanger model ID to cell-line name + process into our cell-line name format (no hyphens, "c" prefix)
+    mosa_latent["cell_line"] = mosa_latent.index.map(annot["model_name"].to_dict())
+    mosa_latent["cell_line"] = mosa_latent["cell_line"].str.replace("-", "")
+    mosa_latent["cell_line"] = "c" + mosa_latent["cell_line"]
+
+    # Subset to breast cancer cell lines in our data
+    our_lines = samples_train + samples_val
+    mosa_latent = mosa_latent[mosa_latent["cell_line"].isin(our_lines)]
+
+    # Find available samples in pretrained MOSA latent embeddings
+    available_samples_train = [sample for sample in samples_train if sample in mosa_latent["cell_line"].unique()]
+    available_samples_val = [sample for sample in samples_val if sample in mosa_latent["cell_line"].unique()]
+    mosa_latent = mosa_latent.set_index("cell_line")
+    input_train = mosa_latent.loc[available_samples_train, :]
+    features_train = list(input_train.columns)
+    input_val = mosa_latent.loc[available_samples_val, :]
+    return input_train, input_val, features_train
 
 
 def load_data(
