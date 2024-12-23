@@ -169,7 +169,7 @@ def pca_latent_embeddings(
         plt.savefig(
             fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.latent_embeddings_pca.top{num_jobs_plot}.pdf"
         )
-        plt.show()
+        # plt.show()
 
 
 def get_dmm_conf(

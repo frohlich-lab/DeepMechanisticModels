@@ -133,6 +133,7 @@ def performance_barplot(
     rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
     plt.savefig(rfile)
     plt.savefig(rfile.replace('pdf', 'svg'))
+    # plt.show()
 
 
 # Volcano plots for significance of various hyperparameter values
