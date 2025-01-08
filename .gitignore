@@ -171,3 +171,7 @@ evaluation*.ipynb
 test_*.ipynb
 test_penzai.ipynb
 test_penzai.ipynb
+
+
+# Local plots and results
+local_plots_and_analysis_results/*
