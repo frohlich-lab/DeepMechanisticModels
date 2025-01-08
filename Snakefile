@@ -6,7 +6,8 @@ from common import (
     PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS,
     # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
-    EVALUATION_TRAINING, EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
+    EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
+    EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
     CONTEXT_SET, SafeDict
 )
@@ -305,8 +306,13 @@ rule evaluate_training:
         training=rules.estimate_parameters.output.model,
     output:
         csv=[
-            EVALUATION_TRAINING.format_map(SafeDict(dataset=dataset))
-            for dataset in ['train', 'test']
+            [
+                path_format.format_map(SafeDict(dataset=dataset))
+                for dataset in ['train', 'test']
+            ]
+            for path_format in [
+                EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS
+            ]
         ]
     wildcard_constraints:
         model='\w+',
