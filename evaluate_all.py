@@ -41,7 +41,7 @@ from evaluation_utils import (get_measurements_and_obervables,
                               load_model_and_obj,
                               simulate_avg_model,
                               process_avg_model_simulation,
-                              process_per_sample_pretrain)
+                              process_per_sample_pretrain, get_embedding_and_params_df)
 from generate_run_configs import generate_run_configs
 from jax import vmap
 from joblib import load
