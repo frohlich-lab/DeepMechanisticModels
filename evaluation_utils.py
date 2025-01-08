@@ -1,4 +1,4 @@
-import jax.random as jr
+import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import petab
@@ -18,9 +18,10 @@ from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
+from jax import vmap
 from pathlib import Path
 from training_configuration import N_ENSEMBLE_MEMBERS
-from typing import Dict, Tuple, List, Any
+from typing import Dict, Tuple, Any, Union
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -180,3 +181,58 @@ def process_avg_model_simulation(
         avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
     return avg_model, df_meas
+
+
+def get_embedding_and_params_df(
+        dmm_model: DeepMechanisticModel,
+        input_features: Union[np.ndarray, jnp.ndarray],
+        context: str,
+        split: str,
+        dataset: str,
+        job: int,
+) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    # Latent embeddings
+    temp_latent_embeddings = vmap(dmm_model.deep_encoder)(input_features)
+    latent_embeddings_df = pd.DataFrame(
+        {
+            "cell_line": dmm_model.sample_name_list,
+            "L1": temp_latent_embeddings[:, 0],
+            "L2": temp_latent_embeddings[:, 1],
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+
+    # Get cell-line specific kinetic parameter names for dataframe column names
+    specific_param_names = [
+        param.replace("MED_", "") for param in dmm_model.pypesto_subproblem.x_names
+        if "MED" in param
+    ]
+
+    # Parameter deviations
+    param_deviations_df = pd.DataFrame(
+        {
+            "cell_line": dmm_model.sample_name_list,
+            **{
+                key: value
+                for key, value in zip(
+                    specific_param_names,
+                    vmap(dmm_model)(input_features)["inflated"].T
+                )
+            },
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+
+    # Full parameters (deviations + medians)
+    params_df = pd.DataFrame(
+        {
+            "cell_line": dmm_model.sample_name_list,
+            **{
+                key: value
+                for key, value in zip(
+                    specific_param_names,
+                    (vmap(dmm_model)(input_features)["inflated"] +
+                     dmm_model.kin_params_combiner.learned_global_kin_params[:len(specific_param_names)]).T
+                )
+            },
+        }
+    ).assign(context=context, samples=split, dataset=dataset, job=job)
+    return latent_embeddings_df, param_deviations_df, params_df

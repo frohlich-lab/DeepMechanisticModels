@@ -6,6 +6,9 @@ import pandas as pd
 
 from common import (
     EVALUATION_TRAINING,
+    EVALUATION_EMBEDDING,
+    EVALUATION_FULL_PARAMETERS,
+    EVALUATION_PARAMETER_DEVIATIONS,
     EVALUATION_PLOT_FILE,
     FEATURES_OUTFILE,
     FEATURES_PIPELINE,
@@ -19,8 +22,9 @@ from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
 from dmm.initialisation import (get_features, get_features_filepaths, process_features,
                                 pca_transform_features, subset_features)
-from evaluation_utils import load_model_and_obj
+from evaluation_utils import load_model_and_obj, get_embedding_and_params_df
 from training_configuration import N_ENSEMBLE_EVALUATION, N_ENSEMBLE_MEMBERS
+from pathlib import Path
 from typing import Dict
 from util import load_petab_base_files
 
@@ -62,6 +66,16 @@ def evaluate_training(
             model=ensemble_models[0],  # all models have the same input features
     )
 
+    # Get latent embeddings and parameter dataframes
+    le_df, params_dev_df, params_df = get_embedding_and_params_df(
+        dmm_model=ensemble_models[0],
+        input_features=input_features,
+        context=conf.context,
+        split=conf.samples,
+        dataset=dataset,
+        job=conf.job,
+    )
+
     evaluate_simulations(
         models=ensemble_models,
         input_features=input_features,
@@ -75,7 +89,7 @@ def evaluate_training(
         plot_file_prefix=EVALUATION_PLOT_FILE.format(dataset=dataset, **conf.__dict__),
     )
 
-    return pd.DataFrame(evaluations)
+    return pd.DataFrame(evaluations), le_df, params_dev_df, params_df
 
 
 # Load petab_base_files (once only)
@@ -102,7 +116,7 @@ for dataset in [
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test
     jax.clear_caches()
-    df = evaluate_training(
+    df, le_df, params_dev_df, params_df = evaluate_training(
         dataset=dataset,
         features=features,
         conf=conf,
@@ -113,3 +127,12 @@ for dataset in [
     df.to_csv(
         EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__)
     )
+    for results, path_format in zip(
+        [le_df, params_dev_df, params_df],
+        [EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS],
+    ):
+        filepath = Path(path_format.format(dataset=dataset, **conf.__dict__))
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        results.to_csv(
+                filepath
+        )
