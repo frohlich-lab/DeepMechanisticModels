@@ -143,6 +143,33 @@ EVALUATION_TRAINING = str(
     / (tpl_evaluation_file + ".csv")
 )
 
+EVALUATION_EMBEDDING = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "embeddings"
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
+)
+
+EVALUATION_FULL_PARAMETERS = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "trained_parameters"
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
+)
+
+EVALUATION_PARAMETER_DEVIATIONS = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "trained_param_dev"
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
+)
+
 EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
