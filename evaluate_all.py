@@ -33,7 +33,7 @@ from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
 from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features, pca_transform_features
+from dmm.initialisation import get_features, pca_transform_features, impute_features
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance)
@@ -229,6 +229,8 @@ def load_and_transform_features(
             pipeline_filepath=feature_transform_pipeline_filepath,
             pipeline=pipeline,
         )
+    else:
+        features = impute_features(features)
     if dataset == 'train':
         features_dataset = 'train'
     elif dataset == 'test':

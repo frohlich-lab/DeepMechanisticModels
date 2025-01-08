@@ -600,15 +600,21 @@ def process_features(
                 pipeline = None
             features = pca_transform_features(features, pipeline_filepath, pipeline)
         else:
-            # Simply impute missing values (no scaling, no PCA)
-            imputer = KNNImputer()
-            imputer.fit(features["train"])
-            features = {
-                dataset: pd.DataFrame(
-                    imputer.transform(features[dataset]),
-                    index=features[dataset].index,
-                    columns=features[dataset].columns
-                )
-                for dataset in features.keys()
-            }
+            features = impute_features(features)
     return features
+
+
+def impute_features(features: dict) -> dict:
+    # Simply impute missing values (no scaling, no PCA)
+    imputer = KNNImputer()
+    imputer.fit(features["train"])
+    features = {
+        dataset: pd.DataFrame(
+            imputer.transform(features[dataset]),
+            index=features[dataset].index,
+            columns=features[dataset].columns
+        )
+        for dataset in features.keys()
+    }
+    return features
+
