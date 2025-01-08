@@ -18,6 +18,7 @@ from training_configuration import (
 )
 
 basedir = Path(os.getcwd())
+# tmp_dir = basedir / 'tmp'
 mencoder_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
 
@@ -246,9 +247,11 @@ rule estimate_parameters:
     retries: 1
     resources:
         mem="4GB",
+        # disk="2GB",
+        # tmpdir=str(tmp_dir),
         runtime="24h",
         nodes=1,
-        threads=1,  # TODO @GiacomoFabrini - change back to 2 for cluster!
+        threads=2,
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -357,6 +360,7 @@ rule evaluate_training:
         drop_reg_after_pretrain='True|False',
         sparsity_threshold='[0-9\.]+',
         job='[0-9]+',
+    retries: 1
     resources:
         mem="16GB",
         runtime="90min",
