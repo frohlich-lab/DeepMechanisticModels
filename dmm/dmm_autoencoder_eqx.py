@@ -359,7 +359,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of inflater output - number of cell-specific deviations/log fold-changes.
         """
-        return scale * jnp.sum(
+        # Introduced 1e-6 multiplier to investigate lower regularisation strengths without formatting issues
+        return scale * 1e-6* jnp.sum(
             jnp.abs(
                 jax.vmap(self)(x)["inflated"]
             )
