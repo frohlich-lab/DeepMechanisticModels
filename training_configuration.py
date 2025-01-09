@@ -254,7 +254,9 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 # 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
 # to scan switching epoch
-OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
+# 09.01.2024 - added pre-multiplier in DMM = 1e-6. Therefore, 1 -> 1e-6; 1e2 -> 1e-4
+#OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
+OMEGAS = {'range': (0, 1, 1e1, 1e2, 2e2), 'central_value': 0}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
