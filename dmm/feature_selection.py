@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 import petab
 from common import features_dir
+from dmm.initialisation import get_features, impute_features
 from sklearn.cross_decomposition import CCA, PLSRegression
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.feature_selection import (
@@ -129,13 +130,28 @@ def load_data(
     features,
     measurement_table,
     observable_table,
+    features_filepath = None,
 ):
-    input_data = contextualize_measurements(
-        measurement_table, observable_table, contextualization
-    )
+    if contextualization != "MOSA":
+        input_data = contextualize_measurements(
+            measurement_table, observable_table, contextualization
+        )
+    elif (contextualization == "MOSA") and (features_filepath is not None):
+        input_data = get_features(features_filepath=features_filepath, datasets=["train", "val"])
+        input_data = impute_features(input_data)
+        input_data = pd.concat([input_data["train"], input_data["val"]])
+        # ensure index has correct name
+        input_data = input_data.rename_axis(petab.PREEQUILIBRATION_CONDITION_ID)
+    else:
+        raise ValueError(
+            f"Received invalid combination: context {contextualization} and features_filepath {features_filepath}"
+        )
 
-    # subset samples
-    input_data = input_data.loc[samples, :]
+    # subset samples to dataset at hand (train, val)
+    if contextualization != "MOSA":
+        input_data = input_data.loc[samples, :]
+    else: # handle missing cell-lines for pre-trained MOSA
+        input_data = input_data.loc[[sample for sample in samples if sample in input_data.index], :]
 
     if contextualization == "cytof_dynamic":
         #  nn imputation

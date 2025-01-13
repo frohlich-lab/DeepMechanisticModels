@@ -22,6 +22,8 @@ from sklearn.preprocessing import StandardScaler
 from common import (
     CONTEXT_SET,
     EVALUATION_REGRESSOR,
+    FEATURES_OUTFILE,
+    FEATURES_PIPELINE,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
     Wildcards,
@@ -30,9 +32,11 @@ from common import (
     test_samples,
     training_samples,
 )
+from dataclasses import replace
 from dmm.analysis import process_simulation
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
+from dmm.initialisation import get_features_filepaths
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
 from util import load_petab_base_files
@@ -145,7 +149,14 @@ def train_pipeline(
         samples=samples_train,
         features=None,
         **petab_base_files,
+        features_filepath=get_features_filepaths(
+            replace(conf, context=context, features="all"), FEATURES_OUTFILE, FEATURES_PIPELINE
+        )[0] if context == "MOSA" else None,
     )
+    if context == "MOSA":
+        # Restrict to cell-lines available in pre-trained MOSA
+        samples_train = input_data.index
+
     output_data, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train,
@@ -193,7 +204,12 @@ def evaluate_standard_regression(
         samples=samples_eval,
         features=features_train if dataset == "test" else None,
         **petab_base_files,
+        features_filepath=get_features_filepaths(
+            replace(conf, context=context, features="all"), FEATURES_OUTFILE, FEATURES_PIPELINE
+        )[0] if context == "MOSA" else None,
     )
+    if context == "MOSA":
+        samples_eval = input_data.index
     output_data, test_columns = load_data(
         contextualization="cytof_dynamic",
         samples=samples_eval,
