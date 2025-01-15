@@ -174,6 +174,7 @@ EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
 
+hardest_cell_lines = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
 
 def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
@@ -184,8 +185,7 @@ def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
             np.concatenate([s for i, s in enumerate(splits) if i != int(split)])
         )
     else:
-        hardest_samples = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
-        return [sample for sample in samples if sample != hardest_samples[int(split)]]
+        return [sample for sample in samples if sample != hardest_cell_lines[int(split)]]
 
 
 def test_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
@@ -195,8 +195,7 @@ def test_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
         splits = np.array_split(np.asarray(samples), int(n_splits))
         return list(splits[int(split)])
     else:
-        hardest_samples = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
-        return [hardest_samples[int(split)]]
+        return [hardest_cell_lines[int(split)]]
 
 
 def per_sample_pretraining_train(wildcards) -> List[str]:
