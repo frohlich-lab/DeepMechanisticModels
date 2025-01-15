@@ -16,6 +16,9 @@ from common import (
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
+    EVALUATION_EMBEDDING,
+    EVALUATION_PARAMETER_DEVIATIONS,
+    EVALUATION_FULL_PARAMETERS,
     FEATURES_OUTFILE,
     FEATURES_PIPELINE,
     fig_dir,
@@ -30,7 +33,7 @@ from common import (
 from cytof.problem import CytofProblem
 from dataclasses import replace
 from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
-from dmm.autoencoder import DeepMechanisticModel
+# from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import get_features, pca_transform_features, impute_features
@@ -41,7 +44,8 @@ from evaluation_utils import (get_measurements_and_obervables,
                               load_model_and_obj,
                               simulate_avg_model,
                               process_avg_model_simulation,
-                              process_per_sample_pretrain, get_embedding_and_params_df)
+                              process_per_sample_pretrain, get_embedding_and_params_df,
+                              cosine_similarity_embeddings, pca_latent_embeddings, silhouette_embeddings)
 from generate_run_configs import generate_run_configs
 from jax import vmap
 from joblib import load
@@ -53,7 +57,7 @@ from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS
 )
-from typing import List, Tuple, Union
+from typing import List
 from util import load_petab_base_files
 
 
@@ -535,7 +539,7 @@ hyperparam_configs = {
     samples: [hyperparam_config for hyperparam_config in hyperparam_configs if hyperparam_config['samples'] == samples]
     for samples in SPLITS
 }
-dfs = []
+dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
     for dataset in [
         "train",
@@ -569,6 +573,30 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         # Add necessary attributes to training DataFrame
         training["ref"] = "DMM"  # previously "meth"
         training["dataset"] = dataset
+
+
+        # concatenate embeddings, parameter deviations and parameters
+        temp_results = {}
+        for result_type, filepath_format in zip(
+                ["latent_embeddings", "parameter_deviations", "full_parameters"],
+                [EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS]
+        ):
+            temp_results[result_type] = pd.concat(
+                pd.read_csv(efile, index_col=0).assign(**hyperparam_configuration)
+                for hyperparam_configuration in hyperparam_configs[samples]
+                if os.path.exists(
+                    efile := filepath_format.format_map(
+                        {
+                            **hyperparam_configuration,
+                            'model': conf.model,
+                            'data': conf.data,
+                            'dataset': dataset,
+                            'samples': samples
+                        }
+                    )
+                )
+            )
+            print(f'Finished concatenating {result_type} for {samples}, {dataset}')
 
         # average (not in use)
         # avg = process_reference(conf, samples, dataset, "average", "avg")
@@ -630,16 +658,24 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         # dfd = pd.concat([training, pretraining])
         # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
+        print(f"Finished concatenating training and reference models for {samples}, {dataset}")
         # Deleting DataFrames once concatenated into dfd
         del training, avg_ps_dfs, rdf
         dfs.append(dfd)
+        le_dfs.append(temp_results["latent_embeddings"])
+        param_dev_dfs.append(temp_results["parameter_deviations"])
+        param_dfs.append(temp_results["full_parameters"])
         # Deleting dfd once appended to dfs
-        del dfd
-        print(f"Finished concatenating training and reference models for {samples}, {dataset}")
+        del dfd, temp_results
 
 df = pd.concat(dfs).reset_index()
 # Now that dfs have been concatenated into df, delete them
 del dfs
+le_df = pd.concat(le_dfs)
+le_df = pca_latent_embeddings(le_df, hyperparam_configs, scale=False, center=True)
+param_dev_df = pd.concat(param_dev_dfs)
+param_df = pd.concat(param_dfs)
+del le_dfs, param_dev_dfs, param_dfs
 
 # Aggregate data into DataFrames for plotting, save the results as CSVs and log them
 # as W&B artifacts
@@ -757,6 +793,129 @@ performance_barplot(
     dataframe=data,
     conf=conf
 )
+plt.close()
+
+
+# ########################################################################### #
+# ########################### Embedding Similarity ########################## #
+# ########################################################################### #
+# Cosine-similarity
+cos_sim_job, cos_sim_cv = cosine_similarity_embeddings(le_df, hyperparam_configs)
+for cos_sim_df, name in zip([cos_sim_job, cos_sim_cv], ["job", "cv"]):
+    cos_sim_df.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.cosine_sim_{name}.csv"
+    )
+# Silhouette score
+job_silhouette_all, job_silhouette_val, cv_silhouette = silhouette_embeddings(le_df, hyperparam_configs)
+for silhouette_df, name in zip([job_silhouette_val, job_silhouette_all, cv_silhouette], ["job_val", "job_all", "cv"]):
+    silhouette_df.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.silhouette_{name}.csv"
+    )
+
+
+# ########################################################################### #
+# ######################### Param Deviation Analysis ######################## #
+# ########################################################################### #
+# List of parameter prefixes
+prefixes = ('EGFR', 'ERK', 'ERBB2', 'MEK', 'iMEK', 'iEGFR')
+# Compute ratios between deviations and medians
+param_cols = [col for col in param_dev_df.columns if col.startswith(prefixes)]
+parameter_devs = param_dev_df[param_cols].values
+medians = param_df[param_cols].values - parameter_devs
+param_dev_to_median_ratios = parameter_devs / medians
+parameter_dev_to_median_ratio_df = param_df.copy()
+parameter_dev_to_median_ratio_df[param_cols] = param_dev_to_median_ratios
+# Aggregate over all multistarts/jobs
+group_cols = [col for col in parameter_dev_to_median_ratio_df.columns if (not col.startswith(prefixes)) and (col != "job")]
+ratios_agg = (
+    parameter_dev_to_median_ratio_df
+    .groupby(group_cols)[[col for col in parameter_dev_to_median_ratio_df if col.startswith(prefixes)]]
+    .agg("mean")
+    .reset_index()
+)
+
+for context in CONTEXT_SET:
+    ### HEATMAP WITH VARYING REGULARISATION
+    # Select regularisation parameter to span based on the number of unique spanned/investigated values
+    reg_params = ["l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "l1reg_inflater_output", "median_reg"]
+    num_unique_regs = [len(ratios_agg[reg_param].unique()) for reg_param in reg_params]
+    reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
+    # Subset the DataFrame to include relevant context and columns
+    plot_df = ratios_agg[ratios_agg.context == context][
+        [col for col in param_cols + ["samples", "cell_line", reg_param]]
+    ]
+    # Create the FacetGrid with samples as rows and l1reg_inflater_output as columns
+    g = sns.FacetGrid(
+        plot_df,
+        row="samples", col=reg_param,
+        margin_titles=True, height=5, aspect=1.5
+    )
+    # Map the heatmap to each facet
+    g.map_dataframe(
+        lambda data, **kwargs: sns.heatmap(
+            data.set_index("cell_line")[param_cols],  # Set cell_line as index
+            vmin=-1, vmax=1, cmap="vlag",
+            xticklabels=True, yticklabels=True, **kwargs
+        )
+    )
+    # Adjust layout
+    g.fig.tight_layout()
+    # Save the figure
+    plt.savefig(
+        fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.param_dev_to_median_ratios.pdf"
+    )
+    plt.show()
+
+
+    for val_cell_line, split_val in zip(
+            ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185'], ["0of5", "1of5", "2of5", "3of5", "4of5"]
+    ):
+        param_dev_val = param_dev_df[(param_dev_df.cell_line.isin([val_cell_line])) & (param_dev_df.context == context)]
+        # Extract column names that start with any of the prefixes
+        parameters = [col for col in param_dev_val.columns if col.startswith(prefixes)]
+        columns = parameters + ["l1reg_inflater_output", "samples"]
+        l1reg_values = sorted(param_dev_val.l1reg_inflater_output.unique())
+        # Reshape the dataframe using melt to get a 'parameter' column and corresponding values
+        df_melted = param_dev_val.melt(
+            id_vars=["l1reg_inflater_output","samples"],
+            value_vars=parameters,
+            var_name="parameter",
+            value_name="value",
+        )
+
+        # Create FacetGrid with one column per parameter, one CV split per row
+        g = sns.FacetGrid(
+            df_melted, col="parameter", row="samples",
+            row_order=[f"{i}of5" for i in range(5)],
+            sharex=False,
+            sharey=False,
+            height=3,
+            aspect=2
+        )
+
+        # Map histogram plots to each facet
+        g.map_dataframe(
+            sns.histplot,
+            x="value",
+            hue="l1reg_inflater_output",
+            hue_order=l1reg_values,
+            palette="tab10",
+        )
+
+        # Adjust layout for better spacing
+        g.set_titles(col_template="{col_name}")
+        g.tight_layout()
+        # plt.legend()
+        plt.savefig(
+            fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.param_dev_{val_cell_line}.pdf")
+        plt.show()
+
 
 
 # ########################################################################## #
@@ -915,7 +1074,7 @@ for dataset, context, split in itt.product(
     input_features = load_and_transform_features(overall_best_confs[0], dataset)
     overall_best_dmm_sim_dfs = []
 
-    temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []
+    # temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []
     for job, overall_best_conf, rmse_conf in zip(JOBS, overall_best_confs, rmse_best_confs):
         # simulation errors might result in missing files -> skip
         try:
@@ -930,18 +1089,18 @@ for dataset, context, split in itt.product(
 
         # ############## Latent embeddings, parameter deviations, parameters ############## #
         # Get latent embeddings, parameter deviations and full parameters
-        partial_le_df, partial_pd_df, partial_p_df = get_embedding_and_params_df(
-            dmm_model=models[0],
-            input_features=input_features,
-            context=context,
-            split=split,
-            dataset=dataset,
-            job=job,
-        )
-        # Append to growing list of dataframes
-        latent_embeddings_dfs.append(partial_le_df.assign(rmse=rmse_conf))
-        param_deviations_dfs.append(partial_pd_df.assign(rmse=rmse_conf))
-        params_dfs.append(partial_p_df.assign(rmse=rmse_conf))
+        # partial_le_df, partial_pd_df, partial_p_df = get_embedding_and_params_df(
+        #     dmm_model=models[0],
+        #     input_features=input_features,
+        #     context=context,
+        #     split=split,
+        #     dataset=dataset,
+        #     job=job,
+        # )
+        # # Append to growing list of dataframes
+        # latent_embeddings_dfs.append(partial_le_df.assign(rmse=rmse_conf))
+        # param_deviations_dfs.append(partial_pd_df.assign(rmse=rmse_conf))
+        # params_dfs.append(partial_p_df.assign(rmse=rmse_conf))
 
         # Simulate and append to growing pd.DataFrame list
         overall_best_dmm_sim_dfs.append(
@@ -1024,43 +1183,44 @@ for dataset, context, split in itt.product(
         ),
     )
 
+# TODO: MODIFY OR DELETE
 # Concatenate and save in CSV format for record and further analysis
-for dfs, df_label in zip(
-    [latent_embeddings_dfs, param_deviations_dfs, params_dfs],
-    ["latent_embeddings", "parameter_deviations", "parameters_full"]
-):
-    # Concatenate
-    df = pd.concat(dfs)
-    # Add subtype information, both PAM50 and rough Luminal/Basal
-    df['subtype_PAM50'] = df['cell_line'].map(
-        {
-            cell_line: subtype["PAM50"]
-            for cell_line, subtype in subtypes_tognetti.items()
-        }
-    )
-    df['subtype_Luminal/Basal'] = df['cell_line'].map(
-        {
-            cell_line: subtype["Luminal/Basal"]
-            for cell_line, subtype in subtypes_tognetti.items()
-        }
-    )
-    # Save
-    df.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.{df_label}.csv"
-    )
-
-    if df_label == "latent_embeddings":
-        center = True
-        scale = True
-
-        pca_latent_embeddings(
-            le_df=df,
-            scale=scale,
-            center=center,
-            num_jobs_plot=10  # use top 10 performing multistarts (lowest RMSE)
-        )
+# for dfs, df_label in zip(
+#     [latent_embeddings_dfs, param_deviations_dfs, params_dfs],
+#     ["latent_embeddings", "parameter_deviations", "parameters_full"]
+# ):
+#     # Concatenate
+#     df = pd.concat(dfs)
+#     # Add subtype information, both PAM50 and rough Luminal/Basal
+#     df['subtype_PAM50'] = df['cell_line'].map(
+#         {
+#             cell_line: subtype["PAM50"]
+#             for cell_line, subtype in subtypes_tognetti.items()
+#         }
+#     )
+#     df['subtype_Luminal/Basal'] = df['cell_line'].map(
+#         {
+#             cell_line: subtype["Luminal/Basal"]
+#             for cell_line, subtype in subtypes_tognetti.items()
+#         }
+#     )
+#     # Save
+#     df.to_csv(
+#         evaluations_dir
+#         / f"{conf.model}"
+#         / f"{conf.data}"
+#         / f"{conf.model}.{conf.data}.{df_label}.csv"
+#     )
+#
+#     if df_label == "latent_embeddings":
+#         center = True
+#         scale = True
+#
+#         pca_latent_embeddings(
+#             le_df=df,
+#             scale=scale,
+#             center=center,
+#             num_jobs_plot=10  # use top 10 performing multistarts (lowest RMSE)
+#         )
 
 print("Done.")  # TODO remove + TODO: consider moving all helper functions into separate scripts
