@@ -22,6 +22,7 @@ from common import (
     FEATURES_OUTFILE,
     FEATURES_PIPELINE,
     fig_dir,
+    hardest_cell_lines,
     pretrain_dir,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
@@ -36,7 +37,7 @@ from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
 # from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features, pca_transform_features, impute_features
+from dmm.initialisation import get_features, get_features_filepaths, pca_transform_features, impute_features
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance)
@@ -55,7 +56,7 @@ from sklearn.ensemble import RandomForestRegressor
 from sklearn.preprocessing import StandardScaler
 from stat_test import statistical_significance_test
 from training_configuration import (
-    CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS
+    CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
 )
 from typing import List
 from util import load_petab_base_files
@@ -642,7 +643,9 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
-                avg_ps_df = avg_ps_df.assign(context=context, samples=samples, dataset=dataset)
+                avg_ps_df = (avg_ps_df
+                             .assign(context=context, samples=samples, dataset=dataset)
+                             .replace(np.nan, "N/A"))  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -874,7 +877,7 @@ for context in CONTEXT_SET:
 
 
     for val_cell_line, split_val in zip(
-            ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185'], ["0of5", "1of5", "2of5", "3of5", "4of5"]
+            hardest_cell_lines[:len(SPLITS)], SPLITS
     ):
         param_dev_val = param_dev_df[(param_dev_df.cell_line.isin([val_cell_line])) & (param_dev_df.context == context)]
         # Extract column names that start with any of the prefixes
@@ -1034,10 +1037,13 @@ for dataset, context, split in itt.product(
         features=features_train if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
+        features_filepath=get_features_filepaths(
+            replace(conf, context=context, features="all"), FEATURES_OUTFILE, FEATURES_PIPELINE
+        )[0] if context == "MOSA" else None,
     )
     output_data, test_columns = load_data(
         contextualization="cytof_dynamic",
-        samples=samples_dict[dataset],
+        samples=samples_dict[dataset] if context != "MOSA" else input_data.index,  # restrict samples for MOSA (not all cell-lines available)
         features=features_test[context] if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
