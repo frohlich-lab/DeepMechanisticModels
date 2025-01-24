@@ -21,9 +21,11 @@ from dmm.pretraining import generate_average_pretraining_problem, generate_per_s
 from dmm.training_helper_funcs import create_pypesto_problem
 from jax import vmap
 from pathlib import Path
+from scipy.sparse.csgraph import connected_components
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import kneighbors_graph
 from sklearn.preprocessing import StandardScaler
 from training_configuration import N_ENSEMBLE_MEMBERS
 from typing import Dict, Tuple, Any, Union
@@ -252,6 +254,22 @@ def pca_latent_embeddings(
     # col_grouping: str = "subtype_Luminal/Basal",
     # num_jobs_plot: int = 5,
 ):
+    """
+    :param le_df:
+        latent embedding pd.DataFrame
+    :param hyperparam_configs:
+        dict mapping number of `samples` (CV splits) to list of hyperparameter configurations
+    :param scale:
+        bool flag indicating whether to (unit) scale the embeddings
+    :param center:
+        bool flag indicating whether to center the embeddings
+    :param center_method:
+        str, method to center the embeddings, either "mean" or "median"
+
+    :return:
+        pd.DataFrame containing per-configuration (optionally) centered & scaled PCA-processed latent embeddings
+    """
+
     pca_dfs = []
     for samples, sub_df in le_df.groupby("samples"):
         for hyperparam_config in hyperparam_configs[samples]:
@@ -322,7 +340,7 @@ def cosine_similarity_embeddings(
             filtered_df = sub_df[mask]
             # Get latent embeddings
             jobs = sorted(filtered_df.job.unique())
-            les = [filtered_df[filtered_df.job == job][["L1", "L2"]].values for job in jobs]
+            les = [filtered_df[filtered_df.job == job].sort_values(by="cell_line")[["L1", "L2"]].values for job in jobs]
             val_les = [filtered_df[(filtered_df.job == job) & (filtered_df.dataset == "test")][["L1", "L2"]].values for
                        job in jobs]
             # Compute pairwise cosine similarities
@@ -340,10 +358,12 @@ def cosine_similarity_embeddings(
                 min_val_cos_sim=np.min(val_cos_sims),
             )
             job_results_dfs.append(temp_df)
+
     # Comparison across CV splits (train/test) with same hyperparameters and jobs - only on validation cell-lines
     # Step 1: Subset to validation cell-lines
     val_pca_le_df = pca_le_df[pca_le_df.cell_line.isin(hardest_cell_lines)]
     # Step 2: Find cell lines that appear in both train and test datasets
+    # TODO @GiacomoFabrini replace with subsetting to hardest_cell_lines corresponding to investigated CV-splits -- easier!
     valid_cell_lines = (
         val_pca_le_df.groupby('cell_line')['dataset']
         .apply(lambda x: set(x) == {'train', 'test'})
@@ -356,8 +376,9 @@ def cosine_similarity_embeddings(
     # the cell-line is in validation and those where it is in training and average
     cosine_results = []
 
+    # TODO if analysing top_n (top_10) different CV splits (and dataset) will not have consistent job numbering -- cannot order by jobs and rather have to compute all similarities
     # Group by configuration, job, and cell_line to process each group separately
-    group_cols = [col for col in val_pca_le_df.columns if col not in ['L1', 'L2', 'samples', 'dataset']]
+    group_cols = [col for col in val_pca_le_df.columns if col not in ['L1', 'L2', 'samples', 'dataset', 'job']]
     for (group_params), group in val_pca_le_df.groupby(group_cols):
         # Split into train and test subsets
         train_subset = group[group['dataset'] == 'train'][["L1", "L2"]].values
@@ -367,7 +388,7 @@ def cosine_similarity_embeddings(
         # Store the result
         cosine_results.append({**dict(zip(group_cols, group_params)), 'cosine_similarity': similarity})
 
-    # Step 5: create dataframe where each configuration (+job) has associated this mean cosine similarity and the list of all CV split cosine similarities
+    # Step 5: create dataframe where each configuration has associated mean + list of CV split cosine similarities
     cosine_df = pd.DataFrame(cosine_results).sort_values(by="cell_line") # ensure consistent ordering of CV splits
     # Group by config and job to compute the mean cosine similarity across cell lines
     cosine_summary_df = (
@@ -375,26 +396,27 @@ def cosine_similarity_embeddings(
         .agg(['mean', list])  # Compute mean and keep list of all cosine similarities
         .reset_index()
         .rename(columns={'mean': 'mean_cosine_similarity', 'list': 'cv_split_cosine_similarities'})
-        .sort_values(by=["job"])  # ensures consistent ordering of jobs prior to operation below
+        # .sort_values(by=["job"])  # ensures consistent ordering of jobs prior to operation below, not needed for top10
     )
-    # Step 6: average across the multistarts for each configuration (keep mean list of CV split-wise mean cosine similarities)
-    # Group by configuration only and average across jobs (multistarts)
-    final_summary_df = (
-        cosine_summary_df.groupby([col for col in group_cols if col not in ["cell_line", "job"]])
-        .agg({
-            'mean_cosine_similarity': 'mean',
-            'cv_split_cosine_similarities': lambda lists: np.mean(lists.tolist(), axis=0)
-        })
-        .reset_index()
-    )
+    # REMOVED LAST STEP AS IT IS NOT NECESSARY WHEN ANALYSING TOP 10 JOBS (UNPAIRED)
+    # # Step 6: average across the multistarts for each configuration (keep mean list of CV split-wise mean cosine similarities)
+    # # Group by configuration only and average across jobs (multistarts)
+    # cosine_summary_df = (
+    #     cosine_summary_df.groupby([col for col in group_cols if col not in ["cell_line", "job"]])
+    #     .agg({
+    #         'mean_cosine_similarity': 'mean',
+    #         'cv_split_cosine_similarities': lambda lists: np.mean(lists.tolist(), axis=0)
+    #     })
+    #     .reset_index()
+    # )
     # Concatenate all processed DataFrames
-    return pd.concat(job_results_dfs, ignore_index=True), final_summary_df
+    return pd.concat(job_results_dfs, ignore_index=True), cosine_summary_df
 
 
 def silhouette_embeddings(
         pca_le_df: pd.DataFrame,
         hyperparam_configs: dict,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]]:
     # Obtain unique subconfigurations (excluding job & CV-split info)
     config_dfs = []
     for samples in hyperparam_configs.keys():
@@ -402,31 +424,32 @@ def silhouette_embeddings(
     config_df = pd.concat(config_dfs, ignore_index=True).drop_duplicates()
     subconfigs = config_df.to_dict(orient="records")
 
-    # Job-wise, all cell-lines
-    all_lines_results = []
-    for samples in hyperparam_configs.keys():
-        sub_df = pca_le_df[pca_le_df.samples == samples]
-        for subconfig in subconfigs:
-            # Apply filtering using a vectorized mask
-            mask = np.all(
-                [sub_df[key] == value for key, value in subconfig.items()],
-                axis=0
-            )
-            embeddings = sub_df[mask][["L1", "L2"]].values
-            labels = sub_df[mask].job.values
-            # Compute silhouette score, mean and standard deviation and store results
-            all_lines_results.append(
-                pd.DataFrame([subconfig]).assign(
-                    samples=samples,
-                    mean_silhouette_score=silhouette_score(embeddings, labels),
-                    stddev_silhouette_score=np.std(silhouette_samples(embeddings, labels)),
-                    all_scores=[silhouette_samples(embeddings, labels)],
-                )
-            )
+    # DISABLED WITH TOP 10 JOBS
+    # # Job-wise, all cell-lines
+    # all_lines_results = []
+    # for samples in hyperparam_configs.keys():
+    #     sub_df = pca_le_df[pca_le_df.samples == samples]
+    #     for subconfig in subconfigs:
+    #         # Apply filtering using a vectorized mask
+    #         mask = np.all(
+    #             [sub_df[key] == value for key, value in subconfig.items()],
+    #             axis=0
+    #         )
+    #         embeddings = sub_df[mask][["L1", "L2"]].values
+    #         labels = sub_df[mask].job.values
+    #         # Compute silhouette score, mean and standard deviation and store results
+    #         all_lines_results.append(
+    #             pd.DataFrame([subconfig]).assign(
+    #                 samples=samples,
+    #                 mean_silhouette_score=silhouette_score(embeddings, labels),
+    #                 stddev_silhouette_score=np.std(silhouette_samples(embeddings, labels)),
+    #                 all_scores=[silhouette_samples(embeddings, labels)],
+    #             )
+    #         )
 
     val_cell_lines = pca_le_df[pca_le_df.dataset == "test"].cell_line.unique()
-    # Job-wise, validation only: subset w.r.t. validation cell-line & config.; label with job ID; compute silhouette score
-    job_results_dfs = []
+    # # Job-wise, validation only: subset w.r.t. validation cell-line & config.; label with job ID; compute silhouette score
+    # job_results_dfs = []
     # CV-split/Dataset-wise, validation only: subset w.r.t. validation cell-line & config.; label with dataset; compute silhouette score
     cv_results = []
     for cell_line in val_cell_lines:
@@ -438,17 +461,17 @@ def silhouette_embeddings(
                 axis=0
             )
             embeddings = sub_df[mask][["L1", "L2"]].values
-            job_labels = sub_df[mask].job.values
+            # job_labels = sub_df[mask].job.values
             dataset_labels = sub_df[mask].dataset.values
-            # Compute silhouette score, mean and standard deviation and store results
-            job_results_dfs.append(
-                pd.DataFrame([subconfig]).assign(
-                    cell_line=cell_line,
-                    mean_silhouette_score=silhouette_score(embeddings, job_labels),
-                    stddev_silhouette_score=np.std(silhouette_samples(embeddings, job_labels)),
-                    all_scores=[silhouette_samples(embeddings, job_labels)]
-                )
-            )
+            # # Compute silhouette score, mean and standard deviation and store results
+            # job_results_dfs.append(
+            #     pd.DataFrame([subconfig]).assign(
+            #         cell_line=cell_line,
+            #         mean_silhouette_score=silhouette_score(embeddings, job_labels),
+            #         stddev_silhouette_score=np.std(silhouette_samples(embeddings, job_labels)),
+            #         all_scores=[silhouette_samples(embeddings, job_labels)]
+            #     )
+            # )
             cv_results.append(
                 pd.DataFrame([subconfig]).assign(
                     cell_line=cell_line,
@@ -457,6 +480,68 @@ def silhouette_embeddings(
                     all_scores=[silhouette_samples(embeddings, dataset_labels)]
                 )
             )
-    return (pd.concat(all_lines_results, ignore_index=True),
-            pd.concat(job_results_dfs, ignore_index=True),
-            pd.concat(cv_results, ignore_index=True))
+    return (
+        # pd.concat(all_lines_results, ignore_index=True),
+        # pd.concat(job_results_dfs, ignore_index=True),
+        pd.concat(cv_results, ignore_index=True)
+    )
+
+
+def connectivity_score(
+        pca_le_df: pd.DataFrame,
+        hyperparam_configs: dict,
+) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
+    # Obtain unique subconfigurations (excluding job & CV-split info)
+    config_dfs = [
+        pd.DataFrame(hyperparam_configs[samples]).drop(columns=["job", "samples"]).drop_duplicates()
+        for samples in hyperparam_configs.keys()
+    ]
+    subconfigs = pd.concat(config_dfs, ignore_index=True).drop_duplicates().to_dict(orient="records")
+
+    # job_results = []
+    cv_results = []
+    for subconfig in subconfigs:
+        # Apply filtering using a vectorized mask
+        mask = np.all(
+            [pca_le_df[key] == value for key, value in subconfig.items()],
+            axis=0
+        )
+        for cell_line in pca_le_df[mask][pca_le_df[mask].dataset == "test"].cell_line.unique():
+            sub_df = pca_le_df[mask & (pca_le_df.cell_line == cell_line)]
+            for attribute, num_neighbours, results in zip(
+                    [
+                        # "job",
+                        "samples"
+                    ], [
+                        # sub_df.samples.nunique(),
+                        10,  # number of top multistarts per configuration
+                    ], [
+                        # job_results,
+                        cv_results
+                    ]
+            ):
+                # Build KNN graph on whole configuration set based on embeddings (L1, L2)
+                knn_graph = kneighbors_graph(
+                    sub_df[["L1", "L2"]],
+                    n_neighbors=num_neighbours,  # having trouble finding a good value for this! Intuitively, I would choose num_samples for job-wise, and num_jobs for split-wise
+                    mode='connectivity'
+                )
+                for attribute_value in sub_df[attribute].unique():
+                    # Extract job/CV-split specific subgraph
+                    attribute_mask = sub_df[attribute] == attribute_value
+                    knn_subgraph = knn_graph[attribute_mask][:, attribute_mask]
+                    # Get largest connected component size
+                    n_components, labels = connected_components(knn_subgraph, directed=False)
+                    largest_component_size = np.max(np.bincount(labels))
+                    # Compute connectivity score
+                    connectivity_score = largest_component_size/np.sum(attribute_mask)
+                    results.append(
+                        pd.DataFrame([subconfig]).assign(
+                            **{"cell_line": cell_line, f"{attribute}": attribute_value, "connectivity_score": connectivity_score}
+                        )
+                    )
+
+    return (
+        # pd.concat(job_results, ignore_index=True),
+        pd.concat(cv_results, ignore_index=True)
+    )
