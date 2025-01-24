@@ -1,8 +1,9 @@
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
-from common import EVALUATE_ALL, CONTEXT_SET
+from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines
 
 
 # Base plotting functions for FacetGrid
@@ -225,3 +226,37 @@ def n_hidden_pairwise_heatmap(
     rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
     plt.savefig(rfile)
     plt.savefig(rfile.replace('pdf', 'svg'))
+
+
+def plot_latent_embeddings(le_df: pd.DataFrame, save_path: str, which_cells: str):
+    hyperparam_cols = [col for col in le_df.columns if col not in ["cell_line", "L1", "L2", "context", "samples", "job"]]
+    num_hyperparams = [le_df[col].nunique() for col in hyperparam_cols]
+    top_hyperparam = hyperparam_cols[np.argmax(num_hyperparams)]
+
+    for context in le_df.context.unique():
+        sub_df = le_df[le_df.context == context]
+        if which_cells == "val_only":
+            sub_df = sub_df[sub_df.cell_line.isin(hardest_cell_lines)]
+        g = sns.FacetGrid(
+            sub_df,
+            row="samples",
+            row_order=[f"{i}of5" for i in range(5)],
+            col=top_hyperparam,
+            col_order=sorted(sub_df[top_hyperparam].unique()),
+        )
+        g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="cell_line")
+        g.add_legend()
+        plt.savefig(save_path.format(context=context, which_cells=which_cells, plot_by="samples"))  # TODO fix format_map
+        plt.close()
+
+        if which_cells == "val_only":
+            g = sns.FacetGrid(
+                sub_df,
+                row="cell_line",
+                col=top_hyperparam,
+                col_order=sorted(sub_df[top_hyperparam].unique()),
+            )
+            g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="samples")
+            g.add_legend()
+            plt.savefig(save_path.format(context=context, which_cells=which_cells, plot_by="cell_line"))
+            plt.close()
