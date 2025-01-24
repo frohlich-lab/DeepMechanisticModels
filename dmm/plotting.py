@@ -227,3 +227,4 @@ def save_plot(plot, figdir: Path, name: str, fmt: str = "pdf"):
     plt.tight_layout()
     figdir.mkdir(exist_ok=True, parents=True)
     plot.save(figdir / f"{name}.{fmt}", verbose=False)
+    plt.close()
