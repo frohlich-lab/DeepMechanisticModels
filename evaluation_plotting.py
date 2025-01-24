@@ -95,6 +95,7 @@ def group_plots(
         rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
         plt.savefig(rfile)
         plt.savefig(rfile.replace(".pdf", ".svg"))
+        plt.close()  # ensure figure is closed
         efile = rfile.replace(".pdf", ".csv")
         dataframe.to_csv(efile)
 
@@ -133,7 +134,8 @@ def performance_barplot(
     rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
     plt.savefig(rfile)
     plt.savefig(rfile.replace('pdf', 'svg'))
-    # plt.show()
+    # plt.show(
+    plt.close()  # ensure figure is closed
 
 
 # Volcano plots for significance of various hyperparameter values
