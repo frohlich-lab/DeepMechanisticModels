@@ -3,7 +3,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines
+from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti
+
+
+subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
+subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
 
 
 # Base plotting functions for FacetGrid
@@ -229,35 +233,56 @@ def n_hidden_pairwise_heatmap(
     plt.savefig(rfile.replace('pdf', 'svg'))
 
 
-def plot_latent_embeddings(le_df: pd.DataFrame, save_path: str, which_cells: str):
-    hyperparam_cols = [col for col in le_df.columns if col not in ["cell_line", "L1", "L2", "context", "samples", "job"]]
-    num_hyperparams = [le_df[col].nunique() for col in hyperparam_cols]
-    top_hyperparam = hyperparam_cols[np.argmax(num_hyperparams)]
+def plot_latent_embeddings(
+        le_df: pd.DataFrame,
+        df_label: str,
+        reg_param: str,
+        save_path: str,
+        which_cells: str
+):
+    plot_df = le_df.copy()
 
-    for context in le_df.context.unique():
-        sub_df = le_df[le_df.context == context]
+    plot_df["PAM50"] = plot_df.cell_line.map(subtypes_pam50)
+    plot_df["LB"] = plot_df.cell_line.map(subtypes_lb)
+
+    for context in plot_df.context.unique():
+        sub_df = plot_df[plot_df.context == context]
         if which_cells == "val_only":
             sub_df = sub_df[sub_df.cell_line.isin(hardest_cell_lines)]
         g = sns.FacetGrid(
             sub_df,
             row="samples",
-            row_order=[f"{i}of5" for i in range(5)],
-            col=top_hyperparam,
-            col_order=sorted(sub_df[top_hyperparam].unique()),
+            row_order=sorted(sub_df.samples.unique()),
+            col=reg_param,
+            col_order=sorted(sub_df[reg_param].unique()),
         )
         g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="cell_line")
         g.add_legend()
-        plt.savefig(save_path.format(context=context, which_cells=which_cells, plot_by="samples"))  # TODO fix format_map
+        plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="samples"))
         plt.close()
+
+        for subtype_scheme in ["PAM50", "LB"]:
+            g = sns.FacetGrid(
+                sub_df,
+                row="samples",
+                row_order=sorted(sub_df.samples.unique()),
+                col=reg_param,
+                col_order=sorted(sub_df[reg_param].unique()),
+            )
+            g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue=subtype_scheme)
+            g.add_legend()
+            plt.savefig(
+                save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by=subtype_scheme))
+            plt.close()
 
         if which_cells == "val_only":
             g = sns.FacetGrid(
                 sub_df,
                 row="cell_line",
-                col=top_hyperparam,
-                col_order=sorted(sub_df[top_hyperparam].unique()),
+                col=reg_param,
+                col_order=sorted(sub_df[reg_param].unique()),
             )
             g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="samples")
             g.add_legend()
-            plt.savefig(save_path.format(context=context, which_cells=which_cells, plot_by="cell_line"))
+            plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="cell_line"))
             plt.close()
