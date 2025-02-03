@@ -1100,44 +1100,5 @@ for dataset, context, split in itt.product(
         ),
     )
 
-# TODO: MODIFY OR DELETE
-# Concatenate and save in CSV format for record and further analysis
-# for dfs, df_label in zip(
-#     [latent_embeddings_dfs, param_deviations_dfs, params_dfs],
-#     ["latent_embeddings", "parameter_deviations", "parameters_full"]
-# ):
-#     # Concatenate
-#     df = pd.concat(dfs)
-#     # Add subtype information, both PAM50 and rough Luminal/Basal
-#     df['subtype_PAM50'] = df['cell_line'].map(
-#         {
-#             cell_line: subtype["PAM50"]
-#             for cell_line, subtype in subtypes_tognetti.items()
-#         }
-#     )
-#     df['subtype_Luminal/Basal'] = df['cell_line'].map(
-#         {
-#             cell_line: subtype["Luminal/Basal"]
-#             for cell_line, subtype in subtypes_tognetti.items()
-#         }
-#     )
-#     # Save
-#     df.to_csv(
-#         evaluations_dir
-#         / f"{conf.model}"
-#         / f"{conf.data}"
-#         / f"{conf.model}.{conf.data}.{df_label}.csv"
-#     )
-#
-#     if df_label == "latent_embeddings":
-#         center = True
-#         scale = True
-#
-#         pca_latent_embeddings(
-#             le_df=df,
-#             scale=scale,
-#             center=center,
-#             num_jobs_plot=10  # use top 10 performing multistarts (lowest RMSE)
-#         )
 
 print("Done.")  # TODO remove + TODO: consider moving all helper functions into separate scripts
