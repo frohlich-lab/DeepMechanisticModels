@@ -1,6 +1,5 @@
 import fire
 import itertools as itt
-import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
 import os
@@ -26,7 +25,6 @@ from common import (
     pretrain_dir,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
-    subtypes_tognetti,
     training_samples,
     test_samples,
     Wildcards,
@@ -50,12 +48,9 @@ from evaluation_utils import (get_measurements_and_obervables,
                               pca_latent_embeddings,
                               cosine_similarity_embeddings, silhouette_embeddings, connectivity_score)
 from generate_run_configs import generate_run_configs
-from jax import vmap
 from joblib import load
 from pathlib import Path
-from sklearn.decomposition import PCA
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.preprocessing import StandardScaler
 from stat_test import statistical_significance_test
 from training_configuration import (
     CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
