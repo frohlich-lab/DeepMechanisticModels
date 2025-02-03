@@ -802,11 +802,33 @@ best_n_dmm_df.to_csv(
 #     conf=conf
 # )
 #
-performance_barplot(
-    dataframe=data,
-    conf=conf
+
+# TODO @GiacomoFabrini -- review this in light of new subsetting on RMSE_train!?!
+# Get top 10 train jobs in `data` and plot barplots for all jobs and top10 train
+data_dmm = data[data.ref == 'DMM']
+data_nodmm = data[data.ref != 'DMM']
+top_dmm_for_merge = top_n_dmm_train[
+    [col for col in top_n_dmm_train if col not in ["rmse_train", "rmse_test", "dataset"]]
+]
+data_dmm = convert_dataframe_dtypes(data_dmm)
+data_dmm_top10 = data_dmm.merge(
+    top_dmm_for_merge,
+    how='inner',
+    on=[col for col in top_dmm_for_merge.columns]
 )
-plt.close()
+data_top10_refs = pd.concat(
+    [data_dmm_top10, data_nodmm]
+).reset_index().drop(columns=['index'])
+del data_dmm, data_nodmm, top_dmm_for_merge, data_dmm_top10
+
+for dataframe, barplot_label in zip(
+        [data, data_top10_refs], ["baseline_barplot", "baseline_barplot_top10"]
+):
+    performance_barplot(
+        dataframe=dataframe,
+        conf=conf,
+        group_name=barplot_label,
+    )
 
 
 # ########################################################################### #
