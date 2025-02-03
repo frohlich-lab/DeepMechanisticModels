@@ -250,7 +250,7 @@ def pca_latent_embeddings(
     hyperparam_configs: dict,
     scale: bool = True,
     center: bool = True,
-    center_method: str = "mean",
+    center_method: str = "auto",
     # col_grouping: str = "subtype_Luminal/Basal",
     # num_jobs_plot: int = 5,
 ):
@@ -272,96 +272,108 @@ def pca_latent_embeddings(
 
     pca_dfs = []
     for samples, sub_df in le_df.groupby("samples"):
-        for hyperparam_config in hyperparam_configs[samples]:
+        # Remove "job" key from each dictionary
+        unique_configs = {frozenset({k: v for k, v in d.items() if k != 'job'}.items()) for d in hyperparam_configs[samples]}
+
+        # Convert back to list of dicts
+        unique_configs = [dict(config) for config in unique_configs]
+        for config in unique_configs:
             # Apply filtering using a vectorized mask
             mask = np.all(
-                [sub_df[key] == value for key, value in hyperparam_config.items()],
+                [sub_df[key] == value for key, value in config.items() if key != "job"],  # keep all multistarts
                 axis=0
             )
             filtered_df = sub_df[mask].copy()
+            dataset_mapping = (filtered_df[["cell_line", "dataset"]]
+                               .iloc[:filtered_df.cell_line.nunique()]
+                               .set_index("cell_line").to_dict())
+
             # Check filtered_df is not empty - if empty, skip
             if filtered_df.empty:
                 continue
 
             # Get latent embeddings
-            les = filtered_df[["L1", "L2"]].values
+            les = filtered_df[["cell_line", "L1", "L2", "job"]].set_index("cell_line")
+            les_pivot = les.set_index('job', append=True).unstack('job')
+            les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
+
+            all_job_les = les_pivot.values
+
             # Center and scale if necessary
-            if center:
-                les -= les.mean(axis=0) if center_method == "mean" else np.median(les, axis=0)
+            if center != "auto":  # auto: centering automatically performed by PCA
+                all_job_les -= all_job_les.mean(axis=0) if center_method == "mean" else np.median(all_job_les, axis=0)
             if scale:
-                les = StandardScaler().fit_transform(les)
+                all_job_les = StandardScaler().fit_transform(all_job_les)
             # Get 2D PCA to try and remove potential rotations between multistart embeddings
             pca = PCA(n_components=2)
-            les_pca = pca.fit_transform(les)
-            # Reassign to sub-DataFrame and append to context-specific list of DataFrames
-            filtered_df[["L1", "L2"]] = les_pca
-            pca_dfs.append(filtered_df)
-
-        # pca_df.to_csv(
-        #     evaluations_dir
-        #     / f"{conf.model}"
-        #     / f"{conf.data}"
-        #     / f"{conf.model}.{conf.data}.{context}.latent_embeddings_pca.csv"
-        # )
-        # top_jobs = df.sort_values('rmse').drop_duplicates(subset='job').nsmallest(num_jobs_plot, 'rmse')["job"].values
-        # plot_df = pca_df[pca_df.job.isin(top_jobs)]
-        # g = sns.FacetGrid(plot_df, col=col_grouping, row="samples", hue="job")
-        # g.map(plt.scatter, "L1", "L2")
-        # plt.legend()
-        # plt.tight_layout()
-        # plt.savefig(
-        #     fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.latent_embeddings_pca.top{num_jobs_plot}.pdf"
-        # )
-        # plt.show()
+            les_pca = pca.fit_transform(all_job_les)
+            # Append to growing list of processed DataFrames
+            temp_df = pd.DataFrame(
+                    index=les_pivot.index,
+                    data=les_pca,
+                    columns=["L1", "L2"]
+                ).assign(
+                    **{key: value for key, value in config.items() if key!="job"},
+                    variance_explained=pca.explained_variance_ratio_.sum()  # keep info on explained variance to compare across regularisation strengths
+                )
+            temp_df["dataset"] = temp_df.index.map(dataset_mapping["dataset"])
+            pca_dfs.append(
+                temp_df
+            )
 
     # Concatenate all processed DataFrames
-    return pd.concat(pca_dfs, ignore_index=True)
+    return pd.concat(pca_dfs)
 
 
 def cosine_similarity_embeddings(
         pca_le_df: pd.DataFrame,
         hyperparam_configs: dict,
-) -> tuple[pd.DataFrame, pd.DataFrame]:
-    # Pairwise comparison within same configuration, different multistarts/jobs
-    job_results_dfs = []
-    # Compute cosine similarity between latent embeddings among all pairs of multistarts and average
-    for samples, sub_df in pca_le_df.groupby("samples"):
-        # Obtain unique subconfigurations (excluding job info)
-        config_df = pd.DataFrame(hyperparam_configs[samples]).drop(columns=["job"]).drop_duplicates()
-        subconfigs = config_df.to_dict(orient="records")
-
-        for subconfig in subconfigs:
-            # Apply filtering using a vectorized mask
-            mask = np.all(
-                [sub_df[key] == value for key, value in subconfig.items()],
-                axis=0
-            )
-            # mask = (sub_df[list(subconfig)] == pd.Series(subconfig)).all(axis=1)
-            filtered_df = sub_df[mask]
-            # Get latent embeddings
-            jobs = sorted(filtered_df.job.unique())
-            les = [filtered_df[filtered_df.job == job].sort_values(by="cell_line")[["L1", "L2"]].values for job in jobs]
-            val_les = [filtered_df[(filtered_df.job == job) & (filtered_df.dataset == "test")][["L1", "L2"]].values for
-                       job in jobs]
-            # Compute pairwise cosine similarities
-            cos_sims = [cosine_similarity(les[i], les[j]).mean()
-                        for i in range(len(les)) for j in range(i + 1, len(les))]
-            val_cos_sims = [cosine_similarity(val_les[i], val_les[j]).mean()
-                            for i in range(len(val_les)) for j in range(i + 1, len(val_les))]
-            # Store results
-            temp_df = pd.DataFrame([subconfig]).assign(
-                mean_cos_sim=np.mean(cos_sims),
-                max_cos_sim=np.max(cos_sims),
-                min_cos_sim=np.min(cos_sims),
-                mean_val_cos_sim=np.mean(val_cos_sims),
-                max_val_cos_sim=np.max(val_cos_sims),
-                min_val_cos_sim=np.min(val_cos_sims),
-            )
-            job_results_dfs.append(temp_df)
+) -> pd.DataFrame:
+    # # Pairwise comparison within same configuration, different multistarts/jobs
+    # job_results_dfs = []
+    # # Compute cosine similarity between latent embeddings among all pairs of multistarts and average
+    # for samples, sub_df in pca_le_df.groupby("samples"):
+    #     # Obtain unique subconfigurations (excluding job info)
+    #     config_df = pd.DataFrame(hyperparam_configs[samples]).drop(columns=["job"]).drop_duplicates()
+    #     subconfigs = config_df.to_dict(orient="records")
+    #
+    #     for subconfig in subconfigs:
+    #         # Apply filtering using a vectorized mask
+    #         mask = np.all(
+    #             [sub_df[key] == value for key, value in subconfig.items()],
+    #             axis=0
+    #         )
+    #         # mask = (sub_df[list(subconfig)] == pd.Series(subconfig)).all(axis=1)
+    #         filtered_df = sub_df[mask]
+    #         if filtered_df.empty:  # skip if no rows match the subconfig
+    #             continue
+    #         # Get latent embeddings
+    #         jobs = sorted(filtered_df.job.unique())
+    #         les = [filtered_df[filtered_df.job == job].sort_values(by="cell_line")[["L1", "L2"]].values for job in jobs]
+    #         val_les = [filtered_df[(filtered_df.job == job) & (filtered_df.dataset == "test")][["L1", "L2"]].values for
+    #                    job in jobs]
+    #         # Compute pairwise cosine similarities
+    #         cos_sims = [cosine_similarity(les[i], les[j]).mean()
+    #                     for i in range(len(les)) for j in range(i + 1, len(les))]
+    #         val_cos_sims = [cosine_similarity(val_les[i], val_les[j]).mean()
+    #                         for i in range(len(val_les)) for j in range(i + 1, len(val_les))]
+    #         # Store results
+    #         temp_df = pd.DataFrame([subconfig]).assign(
+    #             mean_cos_sim=np.mean(cos_sims),
+    #             max_cos_sim=np.max(cos_sims),
+    #             min_cos_sim=np.min(cos_sims),
+    #             mean_val_cos_sim=np.mean(val_cos_sims),
+    #             max_val_cos_sim=np.max(val_cos_sims),
+    #             min_val_cos_sim=np.min(val_cos_sims),
+    #         )
+    #         job_results_dfs.append(temp_df)
 
     # Comparison across CV splits (train/test) with same hyperparameters and jobs - only on validation cell-lines
     # Step 1: Subset to validation cell-lines
-    val_pca_le_df = pca_le_df[pca_le_df.cell_line.isin(hardest_cell_lines)]
+    val_pca_le_df = pca_le_df.copy()
+    if "cell_line" not in val_pca_le_df.columns:
+        val_pca_le_df.reset_index(inplace=True)
+    val_pca_le_df = val_pca_le_df[val_pca_le_df.cell_line.isin(hardest_cell_lines)]
     # Step 2: Find cell lines that appear in both train and test datasets
     # TODO @GiacomoFabrini replace with subsetting to hardest_cell_lines corresponding to investigated CV-splits -- easier!
     valid_cell_lines = (
@@ -370,6 +382,8 @@ def cosine_similarity_embeddings(
         .loc[lambda x: x]  # Keep only True values
         .index
     )
+    if valid_cell_lines.empty:
+        return pd.DataFrame()
     # Step 3: Keep only rows where cell_line is in valid_cell_lines
     val_pca_le_df = val_pca_le_df[val_pca_le_df.cell_line.isin(valid_cell_lines)]
     # Step 4: For each configuration and cell-line, compute cosine similarities between the CV split where
@@ -378,7 +392,7 @@ def cosine_similarity_embeddings(
 
     # TODO if analysing top_n (top_10) different CV splits (and dataset) will not have consistent job numbering -- cannot order by jobs and rather have to compute all similarities
     # Group by configuration, job, and cell_line to process each group separately
-    group_cols = [col for col in val_pca_le_df.columns if col not in ['L1', 'L2', 'samples', 'dataset', 'job']]
+    group_cols = [col for col in val_pca_le_df.columns if col not in ['L1', 'L2', 'samples', 'dataset', 'job', 'variance_explained']]
     for (group_params), group in val_pca_le_df.groupby(group_cols):
         # Split into train and test subsets
         train_subset = group[group['dataset'] == 'train'][["L1", "L2"]].values
@@ -410,7 +424,8 @@ def cosine_similarity_embeddings(
     #     .reset_index()
     # )
     # Concatenate all processed DataFrames
-    return pd.concat(job_results_dfs, ignore_index=True), cosine_summary_df
+    # return pd.concat(job_results_dfs, ignore_index=True), cosine_summary_df
+    return cosine_summary_df
 
 
 def silhouette_embeddings(
@@ -460,6 +475,8 @@ def silhouette_embeddings(
                 [sub_df[key] == value for key, value in subconfig.items()],
                 axis=0
             )
+            if sub_df[mask].empty:
+                continue  # skip missing subconfigs
             embeddings = sub_df[mask][["L1", "L2"]].values
             # job_labels = sub_df[mask].job.values
             dataset_labels = sub_df[mask].dataset.values
