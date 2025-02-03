@@ -305,12 +305,20 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return outputs
 
 
-    def update_sparsity_binary_mask(self, x, threshold: float = 0.05):
-        # Compute median param dev across samples
-        param_dev_median = jnp.median(jax.vmap(self)(x)["inflated"], axis=0)
+    def update_sparsity_binary_mask(self, x, threshold: float = 0.03, min_kept: int = 3):
+        # Compute absolute median param dev across samples
+        absolute_param_dev_median = jnp.abs(jnp.median(jax.vmap(self)(x)["inflated"], axis=0))
+
+        # Sort absolute median param dev in descending order
+        sorted_deviations = jnp.sort(absolute_param_dev_median)[::-1]
+
+        # Update threshold to keep at least `min_kept` elements -- if more, default threshold is kept
+        threshold = jnp.minimum(threshold, sorted_deviations[min_kept - 1])
+
         # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
         new_sparsity_binary_mask = jnp.where(
             param_dev_median < threshold,
+            absolute_param_dev_median < threshold,
             0.0,
             self.sparsity_binary_mask
         )
