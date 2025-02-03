@@ -419,7 +419,6 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
     # except subprocess.CalledProcessError as e:
     #     raise ValueError(f"Error syncing wandb directory: {e}")
 
-    # Removed absolute_best_dmm
     if return_stat_tests:
         return data, stat_test_res_df, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors
     else:
@@ -477,11 +476,6 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         # plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
         # print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
 
-        # Add necessary attributes to training DataFrame
-        training["ref"] = "DMM"  # previously "meth"
-        training["dataset"] = dataset
-
-
         # concatenate embeddings, parameter deviations and parameters
         temp_results = {}
         for result_type, filepath_format in zip(
@@ -503,13 +497,7 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
                     )
                 )
             )
-            print(f'Finished concatenating {result_type} for {samples}, {dataset}')
-
-        # average (not in use)
-        # avg = process_reference(conf, samples, dataset, "average", "avg")
-
-        # model average (avg_model)
-        avg_model = process_reference(conf, samples, dataset, "avg_model", "avg_model")
+        print(f'Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}')
 
         # Get references (avg_model, per_sample)
         avg_model, ps = [
@@ -518,7 +506,6 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         ]
 
         # Process regressors - linreg, lasso, elasticnet
-        print(f'Processing regressors model for {samples}, {dataset}')
         regressor_dfs = {
             mode: pd.concat(
                 pd.read_csv(
@@ -541,7 +528,6 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         }
         print(f'Finished processing regressors for {samples}, {dataset}')
 
-        print(f'Starting to build hyperparam/job combination copies for references models - {samples}, {dataset}')
         # Removed addition of None hyperparameters - already done before the `process_simulations` step
         avg_ps_dfs = []
         for context in CONTEXT_SET:
@@ -565,7 +551,6 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
             avg_ps_dfs.append(avg_ps_df)
             # Once appended, this can be deleted
             del avg_ps_df
-        print(f"Finished processing reference models for {samples}, {dataset}")
 
         # dfd = pd.concat([training, pretraining])
         # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
@@ -611,7 +596,6 @@ dmm_results = {
               .drop(columns=['ref', 'dataset']))
     for dataset in ['train', 'test']
 }
-merge_cols = data.columns.difference(['rmse', 'dataset', 'ref'])
 unified_dmm_results = pd.merge(
     dmm_results['train'],
     dmm_results['test'],
@@ -694,7 +678,6 @@ plt.savefig(
     outdir / f"pca.latent_embeddings.{reg_param}.variance_explained.pdf"
 )
 plt.close()
-del dmm_results, unified_dmm_results, merge_cols, rmse_train_targets, rmse_val_targets, dummy_unified_dmm_results
 
 # ########################################################################### #
 # ################### Save information on top N best DMM #################### #
