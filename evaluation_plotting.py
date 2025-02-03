@@ -1,9 +1,12 @@
 import seaborn as sns
+import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
 from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti
+from pathlib import Path
+from typing import List, Union
 
 
 subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
@@ -286,3 +289,101 @@ def plot_latent_embeddings(
             g.add_legend()
             plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="cell_line"))
             plt.close()
+
+def plot_val_param_dev_spread(
+        param_dev_df: pd.DataFrame,
+        param_cols: List,
+        top_reg_param: str,
+        reg_params: List,
+        figure_filepath: Union[str, Path],
+):
+    param_val_df = param_dev_df[param_dev_df.dataset == "test"]
+    # Melt the dataframe to get a boxplot
+    param_val_df = pd.melt(
+        param_val_df
+        .drop(columns=[col for col in param_val_df.columns if
+                       col not in param_cols + reg_params + ["cell_line"]]),
+        id_vars=["cell_line"] + reg_params,
+        var_name='Parameter',
+        value_name='value'
+    )
+    # Create FacetGrid with one column per parameter, one CV split per row
+    g = sns.FacetGrid(param_val_df, row="cell_line", col=top_reg_param, aspect=4, sharey=True)
+    g.map_dataframe(sns.boxplot, x="Parameter", y="value")
+    # g.map_dataframe(sns.stripplot, x="Parameter", y="value")
+    plt.ylim([-4, 4])
+    for ax in g.axes.flat:
+        for label in ax.get_xticklabels():
+            label.set_rotation(90)
+    plt.tight_layout()
+    plt.savefig(figure_filepath)
+    plt.close()
+
+
+def plot_parameter_heatmaps(
+        param_df: pd.DataFrame,
+        param_cols: List,
+        group_cols: List,
+        top_reg_param: str,
+        plot_label: str,
+        figure_filepath: Union[str, Path],
+        val_only: bool,
+        add_avg_to_val: bool = False,
+):
+    # Adds an extra row in each heatmap corresponding to average cell-line
+    if val_only and add_avg_to_val:
+        # Create "average" rows for each unique group
+        avg_df = (
+            param_df.groupby(
+                [col for col in group_cols if col not in ["cell_line", "dataset"]],
+                dropna=False
+            )[param_cols]
+            .mean()
+            .reset_index()
+        ).assign(cell_line="average")  # Add label for average cell line
+        param_df = pd.concat([param_df, avg_df], ignore_index=True)
+
+    g = sns.FacetGrid(
+        param_df,
+        row="samples", row_order=sorted(param_df.samples.unique()),
+        col=top_reg_param, col_order=sorted(param_df[top_reg_param].unique()),
+        margin_titles=True, height=5, aspect=1.5
+    )
+
+    # Set colorbar range
+    if plot_label == "param_dev":
+        vmin, vmax = -1.5, 1.5
+    elif plot_label == "param":
+        vmin, vmax = -10, 10
+    else:
+        raise ValueError(f"Invalid plot_label: {plot_label}")
+
+    def plot_heatmap_with_highlight(data, samples, **kwargs):
+        ax = plt.gca()  # Get the current axis
+        sns.heatmap(
+            data.set_index("cell_line")[param_cols],
+            vmin=vmin, vmax=vmax, cmap="vlag",
+            xticklabels=True, yticklabels=True, ax=ax, **kwargs
+        )
+        # Highlight the validation cell line
+        if val_only:
+            # Get the correct validation cell line for the current split
+            current_sample = data.samples.unique()[0]  # Extract the sample for this facet
+            split_index = int(current_sample.split("of")[0])  # Parse the split index (e.g., 0of5 -> 0)
+            val_cell_line = hardest_cell_lines[split_index]  # Adjust for the current split
+
+            if val_cell_line in data.cell_line.values:
+                idx = data.cell_line.tolist().index(val_cell_line)
+                rect = patches.Rectangle(
+                    (0, idx),  # Bottom-left corner of the rectangle
+                    len(param_cols),  # Width of the rectangle (number of columns)
+                    1,  # Height of the rectangle (1 row)
+                    linewidth=2, edgecolor="gold", facecolor="none"
+                )
+                ax.add_patch(rect)
+
+    g.map_dataframe(plot_heatmap_with_highlight, samples="samples")
+
+    g.fig.tight_layout()
+    plt.savefig(figure_filepath)
+    plt.close()
