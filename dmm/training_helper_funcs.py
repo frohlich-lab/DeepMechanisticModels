@@ -290,6 +290,7 @@ def sparsify_model(
 def apply_filter_to_updates(updates, filter_spec):
     """
     Zeroes out the updates corresponding to False values in the filter_spec_per_param.
+    Also zeroes out any updates to model.sparsity_binary_mask.
     """
 
     def mask_update(update, mask):
@@ -297,6 +298,12 @@ def apply_filter_to_updates(updates, filter_spec):
 
     # Apply the mask to zero out updates where filter_spec_per_param is False
     masked_updates = tree_map(mask_update, updates, filter_spec)
+    # Always zero out updates to sparsity binary mask
+    masked_updates = eqx.tree_at(
+        lambda u: u.sparsity_binary_mask,
+        masked_updates,
+        jnp.zeros_like(masked_updates.sparsity_binary_mask)
+    )
     return masked_updates
 
 
