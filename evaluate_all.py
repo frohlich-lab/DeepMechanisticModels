@@ -530,6 +530,7 @@ outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 
 JOBS = tuple([i for i in range(conf.n_starts)])
+
 # Compute run configurations and arrange by CV split
 hyperparam_configs = generate_run_configs(
     n_starts=conf.n_starts,
@@ -537,17 +538,16 @@ hyperparam_configs = generate_run_configs(
     refine_hps=REFINE_HPS,
 )
 hyperparam_configs = {
-    samples: [hyperparam_config for hyperparam_config in hyperparam_configs if hyperparam_config['samples'] == samples]
+    samples: [
+        hyperparam_config for hyperparam_config in hyperparam_configs
+        if hyperparam_config['samples'] == samples
+    ]
     for samples in SPLITS
 }
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
-    for dataset in [
-        "train",
-        "test"
-    ]:
-        print(f'Starting to concatenate training evaluations for {samples}, {dataset}')
-        # training
+    for dataset in ["train","test"]:
+        # DMM evaluations
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
             for hyperparam_configuration in hyperparam_configs[samples]
@@ -562,6 +562,9 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
                     }
                 )
             )
+        ).assign(
+            ref="DMM",  # previously called "meth"
+            dataset=dataset
         )
         print(f'Finished concatenating training evaluations for {samples}, {dataset}')
 
@@ -605,8 +608,11 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         # model average (avg_model)
         avg_model = process_reference(conf, samples, dataset, "avg_model", "avg_model")
 
-        # per sample
-        ps = process_reference(conf, samples, dataset, "per_sample", "sample")
+        # Get references (avg_model, per_sample)
+        avg_model, ps = [
+            process_reference(conf, samples, dataset, mode, ref_name)
+            for mode, ref_name in zip(["avg_model", "per_sample"], ["avg_model", "sample"])
+        ]
 
         # Process regressors - linreg, lasso, elasticnet
         print(f'Processing regressors model for {samples}, {dataset}')
@@ -674,17 +680,20 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
 df = pd.concat(dfs).reset_index()
 # Now that dfs have been concatenated into df, delete them
 del dfs
-le_df = pd.concat(le_dfs)
-le_df = pca_latent_embeddings(le_df, hyperparam_configs, scale=False, center=True)
-param_dev_df = pd.concat(param_dev_dfs)
-param_df = pd.concat(param_dfs)
+le_df, param_dev_df, param_df = [pd.concat(dfs) for dfs in [le_dfs, param_dev_dfs, param_dfs]]
+for results_df in [le_df, param_dev_df, param_df]:
+    results_df["job"] = results_df["job"].astype(int)
 del le_dfs, param_dev_dfs, param_dfs
 
-# Aggregate data into DataFrames for plotting, save the results as CSVs and log them
-# as W&B artifacts
+# ########################################################################### #
+# ############################### Aggregation ############################### #
+# ########################################################################### #
+
+# Aggregate data, save CSVs and log W&B artifacts (currently disabled)
 num_best = 10
-aggregated_results = aggregate_and_log(df=df, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best)
-# Removed absolute_best_dmm from aggregated results
+aggregated_results = aggregate_and_log(
+    df=df, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
+)
 if RETURN_STAT_TESTS:
     data, stat_test_res_df, top_n_dmm, best_hyperparam_dmm, best_regressors = aggregated_results
 else:
@@ -695,7 +704,8 @@ else:
 # ################### Save train/test RMSE dataset in CSV ################### #
 # ########################################################################### #
 dmm_results = {
-    dataset: data[(data.dataset == dataset) & (data.ref == 'DMM')].drop(columns=['ref', 'dataset'])
+    dataset: (data[(data.dataset == dataset) & (data.ref == 'DMM')]
+              .drop(columns=['ref', 'dataset']))
     for dataset in ['train', 'test']
 }
 merge_cols = data.columns.difference(['rmse', 'dataset', 'ref'])
@@ -703,7 +713,7 @@ unified_dmm_results = pd.merge(
     dmm_results['train'],
     dmm_results['test'],
     how="inner",
-    on=list(merge_cols),
+    on=list(data.columns.difference(['rmse', 'dataset', 'ref'])),
     suffixes=('_train', '_test')
 )
 unified_dmm_results.to_csv(
