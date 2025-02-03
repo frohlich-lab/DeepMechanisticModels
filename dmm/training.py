@@ -190,6 +190,10 @@ def train(
 
     # Training loop
     for epoch in range(1, n_epoch + 1):  # natural counting
+        # At inflater_output_reg_epoch, update sparsity mask in the model inflated output and lift inflater output
+        # regularisation to fine-tune only above threhsold param dev
+        if epoch == conf["inflater_output_reg_epoch"]:
+            model = model.update_sparsity_binary_mask(x=input_features_train)
         next_model, model, opt_state, loss_train, fval, grads = make_step(
             model=model,
             filter_spec_per_param=filter_spec_per_param,
@@ -198,7 +202,7 @@ def train(
             input_data=input_features_train,
             problem_train=problem_train,
             conf=conf,
-            regularise_inflater_output=epoch > conf["inflater_output_reg_epoch"],
+            regularise_inflater_output=epoch < conf["inflater_output_reg_epoch"],  # changed behaviour -- after epoch is reached, regularisation behaviour changes
             median_init_arr=median_init_arr,
         )
 

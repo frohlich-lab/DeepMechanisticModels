@@ -68,6 +68,7 @@ def update_module_params_dict(
 
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
+    sparsity_binary_mask: jnp.ndarray
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
     module_depth: int = eqx.static_field()
@@ -275,6 +276,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
         }
 
+        # Initialise dummy sparsity binary mask with an array of ones the same size as inflater kinetic param dev
+        self.sparsity_binary_mask = jnp.ones(self.n_inflated_specific_kin_params)
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
             **params,
@@ -292,6 +295,27 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         problem.apply_objective_settings(
             self.pypesto_subproblem.objective, n_threads=self.n_threads
         )
+
+
+    def __call__(self, x):
+        # Call the parent __call__ method to get the original outputs
+        outputs = super().__call__(x)
+        # Apply the sparsity binary mask element-wise
+        outputs["inflated"] = outputs["inflated"] * self.sparsity_binary_mask
+        return outputs
+
+
+    def update_sparsity_binary_mask(self, x, threshold: float = 0.05):
+        # Compute median param dev across samples
+        param_dev_median = jnp.median(jax.vmap(self)(x)["inflated"], axis=0)
+        # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
+        new_sparsity_binary_mask = jnp.where(
+            param_dev_median < threshold,
+            0.0,
+            self.sparsity_binary_mask
+        )
+        return eqx.tree_at(lambda model: model.sparsity_binary_mask, self, new_sparsity_binary_mask)
+
 
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
         return self(input_data)["inflated"]  # inflated kinetic parameters (global first, cell-line-specific second)

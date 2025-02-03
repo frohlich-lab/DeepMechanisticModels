@@ -35,7 +35,7 @@ class Conf(dict):
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
     l1reg_inflater_output: float = 0.0
-    inflater_output_reg_epoch: int = 0
+    inflater_output_reg_epoch: int = 200  # after, regularisation is lifted but the sparsity pattern is kept
     recon_loss: float = 0.0
     symm_reg: float = 0.0
     median_reg: float = 0.0

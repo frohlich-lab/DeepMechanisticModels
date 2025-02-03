@@ -227,6 +227,7 @@ rule estimate_parameters:
         oreg_inflate = '[0-9\.]+',
         oreg_encode = '[0-9\.]+',
         l1reg_inflater_output='[0-9\.]+',
+        inflater_output_reg_epoch='[0-9\.]+',
         recon_loss = '[0-9\.]+',
         symm_reg = '[0-9\.]+',
         median_reg='[0-9\.]+',
