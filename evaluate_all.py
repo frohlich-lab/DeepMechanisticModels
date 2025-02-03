@@ -376,23 +376,6 @@ def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
         num_best=1,  # does not have an effect anyway, but we are selecting the top 1
         target_attribute='rmse',
     )
-    # DISABLED best single-job/multistart DMM configuration - not useful, interested in mean multistart performance
-    # # Get absolute best performing hyperparameter set (single job) for each dataset/context/ref combination
-    # absolute_best_dmm = get_absolute_best_performer(
-    #     dataframe=data[data.ref == 'DMM'],
-    #     group_attributes=['dataset', 'context', 'ref'],
-    #     target_attribute='rmse',
-    # )
-    # # Ensure consistency in plot - only keep the best absolute in validation and plot it across both train and val
-    # # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
-    # #  is overwritten with 'test' RMSE
-    # absolute_best_dmm = {
-    #     dataset: {
-    #         context: absolute_best_dmm["test"][context]
-    #         for context in absolute_best_dmm[dataset].keys()
-    #     }
-    #     for dataset in absolute_best_dmm.keys()
-    # }
 
     # # Log via W&B -- DISABLED WANDB
     # wandb.init(
