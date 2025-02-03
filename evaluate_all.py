@@ -40,13 +40,15 @@ from dmm.feature_selection import load_data
 from dmm.initialisation import get_features, get_features_filepaths, pca_transform_features, impute_features
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
-                                 volcano_hyperparameter_significance)
+                                 volcano_hyperparameter_significance,
+                                 plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps)
 from evaluation_utils import (get_measurements_and_obervables,
                               load_model_and_obj,
                               simulate_avg_model,
                               process_avg_model_simulation,
                               process_per_sample_pretrain, get_embedding_and_params_df,
-                              cosine_similarity_embeddings, pca_latent_embeddings, silhouette_embeddings)
+                              pca_latent_embeddings,
+                              cosine_similarity_embeddings, silhouette_embeddings, connectivity_score)
 from generate_run_configs import generate_run_configs
 from jax import vmap
 from joblib import load
@@ -183,8 +185,18 @@ def get_dmm_conf(
         dataset: str,
         context: str,
 ) -> Conf:
+    """
+    Get the DMM configuration for a given dataset and context, ensuring integer values are cast as integers.
+    :param conf: configuration object (Conf)
+    :param dmm_params: dictionary of parameters for DMM
+    :param dataset: dataset (train/val)
+    :param context: context (cytof_init/proteomics/transcriptomics/MOSA)
+
+    return: updated configuration object (Conf)
+    """
     dmm_conf = Conf(model=conf.model, data=conf.data)
     for key, value in dmm_params[dataset][context].items():
+        # Cast values to integer (always or if the value is zero)
         if hasattr(dmm_conf, key) and key not in ["model", "data"]:
             if key in [
                 "n_hidden", "depth", "nn_structure_multiplier",
@@ -192,19 +204,44 @@ def get_dmm_conf(
                 "opt_steps", "opt_mult",
                 "job"
             ]:
-                value = int(value)  # cast the value to integer
+                value = int(value)
             elif key in [
                 "l1reg_encode", "oreg_encode",  # encoder
-                "l1reg_inflate", "oreg_inflate",  # inflater
-                "l1reg_inflater_output",  # inflater output
+                "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
                 "recon_loss", "symm_reg",  # decoder / reconstruction
                 "median_reg",  # kinetic params median regularisation
                 "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
             ] and value == 0:
                 value = int(value)
 
-            setattr(dmm_conf, key, value)  # assign
+            setattr(dmm_conf, key, value)
     return dmm_conf
+
+
+def convert_dataframe_dtypes(df: pd.DataFrame):
+    cols = ["n_hidden", "depth", "nn_structure_multiplier",
+            "inflater_output_reg_epoch",
+            "opt_steps", "opt_mult",
+            "job"]
+    for col in cols:
+        df[col] = pd.to_numeric(df[col], downcast='integer')
+    additional_cols = ["l1reg_encode", "oreg_encode",  # encoder
+            "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
+            "recon_loss", "symm_reg",  # decoder / reconstruction
+            "median_reg",  # kinetic params median regularisation
+            "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
+    ]
+    for col in additional_cols:
+        if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
+            df[col] = pd.to_numeric(df[col], downcast='integer')
+        else:
+            df[col] = df[col].astype("float")
+    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation",
+                "drop_reg_after_pretrain"]:
+        df[col] = df[col].astype(str)
+    for col in ["reconstruct", "use_simple_linear_schedule", "use_early_stopping"]:
+        df[col] = df[col].astype(bool)
+    return df
 
 
 def load_and_transform_features(
@@ -724,51 +761,71 @@ unified_dmm_results.to_csv(
 )
 print("Finished saving unified (train/test) DMM RMSE results.")
 
+
 # ########################################################################### #
-# ################ Most predictive hyperparams for RMSE_val ################# #
+# ##################### Top 10 jobs (train) per config ###################### #
 # ########################################################################### #
-# TODO @GiacomoFabrini - clean this up!
-# First drop any Infs or NaNs (incompatible with RandomForestRegressor)
-unified_dmm_results = unified_dmm_results.replace([np.inf, -np.inf], np.nan)
-unified_dmm_results = unified_dmm_results.dropna()
-# Then train two RandomForests, one on train and the other on val scores (RMSE)
-rfr_train, rfr_val = RandomForestRegressor(), RandomForestRegressor()
-rmse_val_targets = unified_dmm_results.pop("rmse_test")
-rmse_train_targets = unified_dmm_results.pop("rmse_train")
-# Replace categorical variables with dummy one-hot-encodings
-dummy_unified_dmm_results = pd.get_dummies(unified_dmm_results)
-# Fit and get feature importances for top 10 features
-rfr_train.fit(X=dummy_unified_dmm_results, y=rmse_train_targets)
-rfr_val.fit(X=dummy_unified_dmm_results, y=rmse_val_targets)
-results_dfs = {
-    dataset: pd.DataFrame(
-        {
-            "importances":regressor.feature_importances_[regressor.feature_importances_.argsort()][::-1][:10],
-            "features": dummy_unified_dmm_results.columns[regressor.feature_importances_.argsort()][::-1][:10],
-        }
+config_cols = list(next(iter(hyperparam_configs.values()))[0].keys())
+config_cols.remove("job")
+top_n_train = 10
+# Subset to top N=10 jobs for each configuration according to rmse_train metric
+top_n_dmm_train = unified_dmm_results.groupby(config_cols).apply(
+    lambda x: x.nsmallest(top_n_train, "rmse_train")
+).reset_index(drop=True)
+# Ensure same dtypes as original dataframe
+top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
+
+# Subset parameter deviation, parameter and latent embeddings to top N=10 jobs
+top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train = [
+    df.merge(
+        top_n_dmm_train,
+        how="inner",
+        on=(config_cols + ["job"])
+    )[df.columns]
+    for df in [param_dev_df, param_df, le_df]
+]
+
+# Compute PCA latent embeddings -- from [2 (LE1, LE2) * num_top_jobs]
+# features/columns down to [2 (LE1*, LE2*)] components. Auto-centering
+# performed through PCA itself.
+top_n_pca_le_df_train = pca_latent_embeddings(
+    top_n_le_df_train, hyperparam_configs, scale=False
+).reset_index()
+top_n_pca_le_df_train.to_csv(
+    evaluations_dir
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.top_{num_best}_pca_latent_embeddings.csv"
+)
+
+# Select reg_param for plotting based on the number of unique investigated values
+reg_params = [
+    "l1reg_inflate", "oreg_inflate",   # inflater
+    "l1reg_encode", "oreg_encode",  # encoder
+    "l1reg_inflater_output", "median_reg"  # param dev, param medians
+]
+num_unique_regs = [len(top_n_pca_le_df_train[reg_param].unique()) for reg_param in reg_params]
+reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
+
+for (latent_embedding_df, df_label), which_cells in itt.product(
+    zip([top_n_le_df_train, top_n_pca_le_df_train], ["pristine", "pca"]),
+        ["all", "val_only"]
+):
+    plot_latent_embeddings(
+        le_df=latent_embedding_df,
+        df_label=df_label,
+        reg_param=reg_param,
+        save_path=str(
+            outdir / "{context}.latent_embeddings.{df_label}.{which_cells}.{plot_by}.pdf"
+        ),
+        which_cells=which_cells,
     )
-    for dataset, regressor in zip(["train", "val"], [rfr_train, rfr_val])
-}
-top_features_train = dummy_unified_dmm_results.columns[rfr_train.feature_importances_.argsort()][::-1][:10]
-top_features_val = dummy_unified_dmm_results.columns[rfr_val.feature_importances_.argsort()][::-1][:10]
-importances_train = rfr_train.feature_importances_[rfr_train.feature_importances_.argsort()][::-1][:10]
-importances_val = rfr_val.feature_importances_[rfr_val.feature_importances_.argsort()][::-1][:10]
 
-
-# Rudimentary bar-subplot
-fig, axes = plt.subplots(1, 2, figsize=(14, 6))
-
-for ind, dataset in enumerate(["train", "val"]):
-    plt.subplot(1, 2, ind+1)
-    sns.barplot(data=results_dfs[dataset], x='features', y='importances')
-    plt.title('Feature Importances')
-    plt.xlabel('Features')
-    plt.ylabel('Importance')
-    plt.xticks(rotation=90)
-
+plt.close("all")
+sns.boxplot(top_n_pca_le_df_train, x=reg_param, y="variance_explained")
 plt.tight_layout()
 plt.savefig(
-    fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
+    outdir / f"pca.latent_embeddings.{reg_param}.variance_explained.pdf"
 )
 plt.close()
 del dmm_results, unified_dmm_results, merge_cols, rmse_train_targets, rmse_val_targets, dummy_unified_dmm_results
@@ -835,23 +892,33 @@ for dataframe, barplot_label in zip(
 # ########################### Embedding Similarity ########################## #
 # ########################################################################### #
 # Cosine-similarity
-cos_sim_job, cos_sim_cv = cosine_similarity_embeddings(le_df, hyperparam_configs)
-for cos_sim_df, name in zip([cos_sim_job, cos_sim_cv], ["job", "cv"]):
-    cos_sim_df.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.cosine_sim_{name}.csv"
-    )
+cv_cos_sim = cosine_similarity_embeddings(top_n_pca_le_df_train, hyperparam_configs)
+cv_cos_sim.to_csv(
+    evaluations_dir
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.cosine_sim_cv.csv"
+)
 # Silhouette score
-job_silhouette_all, job_silhouette_val, cv_silhouette = silhouette_embeddings(le_df, hyperparam_configs)
-for silhouette_df, name in zip([job_silhouette_val, job_silhouette_all, cv_silhouette], ["job_val", "job_all", "cv"]):
-    silhouette_df.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.silhouette_{name}.csv"
-    )
+cv_silhouette = silhouette_embeddings(top_n_pca_le_df_train, hyperparam_configs)
+cv_silhouette.to_csv(
+    evaluations_dir
+    / f"{conf.model}"
+    / f"{conf.data}"
+    / f"{conf.model}.{conf.data}.silhouette_cv.csv"
+)
+g = sns.FacetGrid(
+    cv_silhouette,
+    row="context", row_order=sorted(cv_silhouette.context.unique()),
+    hue="cell_line"
+)
+g.map_dataframe(sns.scatterplot, x=reg_param, y="mean_silhouette_score")
+plt.tight_layout()
+plt.legend()
+plt.xscale("symlog")
+plt.savefig(fig_dir / conf.model / conf.data / f"mean_silhouette_score_{reg_param}.pdf")
+plt.close()
+print("Computed similarity scores for latent embeddings.")
 
 
 # ########################################################################### #
@@ -860,88 +927,51 @@ for silhouette_df, name in zip([job_silhouette_val, job_silhouette_all, cv_silho
 # List of parameter prefixes
 prefixes = ('EGFR', 'ERK', 'ERBB2', 'MEK', 'iMEK', 'iEGFR')
 # Compute ratios between deviations and medians
-param_cols = [col for col in param_dev_df.columns if col.startswith(prefixes)]
-parameter_devs = param_dev_df[param_cols].values
-medians = param_df[param_cols].values - parameter_devs
-param_dev_to_median_ratios = parameter_devs / medians
-parameter_dev_to_median_ratio_df = param_df.copy()
-parameter_dev_to_median_ratio_df[param_cols] = param_dev_to_median_ratios
-# Aggregate over all multistarts/jobs
-group_cols = [col for col in parameter_dev_to_median_ratio_df.columns if (not col.startswith(prefixes)) and (col != "job")]
-ratios_agg = (
-    parameter_dev_to_median_ratio_df
-    .groupby(group_cols)[[col for col in parameter_dev_to_median_ratio_df if col.startswith(prefixes)]]
-    .agg("mean")
-    .reset_index()
+param_cols = [col for col in param_df.columns if col.startswith(prefixes)]
+# Choose whether to plot the average of all multistarts or only the top 10 with respect to training performance (rmse_train)
+plot_top_n_train = True
+
+## Plot spread of parameter deviations across multistarts for validation cell-lines
+plot_val_param_dev_spread(
+    top_n_param_dev_df_train if plot_top_n_train else param_dev_df,
+    param_cols,
+    reg_param,
+    ["l1reg_inflater_output", "median_reg"],  # TODO any better way of dynamically defining this?
+    fig_dir / conf.model / conf.data / f"param_dev_boxplot_val_only_{reg_param}.pdf"
 )
 
 for context in CONTEXT_SET:
-    ### HEATMAP WITH VARYING REGULARISATION
-    # Select regularisation parameter to span based on the number of unique spanned/investigated values
-    reg_params = ["l1reg_inflate", "oreg_inflate", "l1reg_encode", "oreg_encode", "l1reg_inflater_output", "median_reg"]
-    num_unique_regs = [len(ratios_agg[reg_param].unique()) for reg_param in reg_params]
-    reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
-    # Subset the DataFrame to include relevant context and columns
-    plot_df = ratios_agg[ratios_agg.context == context][
-        [col for col in param_cols + ["samples", "cell_line", reg_param]]
-    ]
-    # Create the FacetGrid with samples as rows and l1reg_inflater_output as columns
-    g = sns.FacetGrid(
-        plot_df,
-        row="samples", col=reg_param,
-        margin_titles=True, height=5, aspect=1.5
-    )
-    # Map the heatmap to each facet
-    g.map_dataframe(
-        lambda data, **kwargs: sns.heatmap(
-            data.set_index("cell_line")[param_cols],  # Set cell_line as index
-            vmin=-1, vmax=1, cmap="vlag",
-            xticklabels=True, yticklabels=True, **kwargs
-        )
-    )
-    # Adjust layout
-    g.fig.tight_layout()
-    # Save the figure
-    plt.savefig(
-        fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.param_dev_to_median_ratios.pdf"
-    )
-    plt.show()
-
-
-    for val_cell_line, split_val in zip(
-            hardest_cell_lines[:len(SPLITS)], SPLITS
+    for plot_label, parameter_dataframe in zip(
+            ["param", "param_dev"],
+            [
+                top_n_param_df_train if plot_top_n_train else param_df,
+                top_n_param_dev_df_train if plot_top_n_train else param_dev_df
+            ]
     ):
-        param_dev_val = param_dev_df[(param_dev_df.cell_line.isin([val_cell_line])) & (param_dev_df.context == context)]
-        # Extract column names that start with any of the prefixes
-        parameters = [col for col in param_dev_val.columns if col.startswith(prefixes)]
-        columns = parameters + ["l1reg_inflater_output", "samples"]
-        l1reg_values = sorted(param_dev_val.l1reg_inflater_output.unique())
-        # Reshape the dataframe using melt to get a 'parameter' column and corresponding values
-        df_melted = param_dev_val.melt(
-            id_vars=["l1reg_inflater_output","samples"],
-            value_vars=parameters,
-            var_name="parameter",
-            value_name="value",
+        # Heatmaps VS Regularisation strength
+        # Subset to context and compute the median over all jobs
+        group_cols = [col for col in parameter_dataframe.columns if
+                      (not col.startswith(prefixes)) and (col != "job")]
+        plot_df = (
+            parameter_dataframe[parameter_dataframe.context == context].groupby(group_cols)[param_cols]
+            .agg("median")  # CHANGED FROM MEAN TO MEDIAN
+            .reset_index()
         )
 
-        # Create FacetGrid with one column per parameter, one CV split per row
-        g = sns.FacetGrid(
-            df_melted, col="parameter", row="samples",
-            row_order=[f"{i}of5" for i in range(5)],
-            sharex=False,
-            sharey=False,
-            height=3,
-            aspect=2
-        )
+        for val_only, val_label in zip([True, False], ["val_only", "all"]):
+            filtered_df = plot_df if not val_only else plot_df[
+                plot_df.cell_line.isin(hardest_cell_lines)
+            ]
 
-        # Map histogram plots to each facet
-        g.map_dataframe(
-            sns.histplot,
-            x="value",
-            hue="l1reg_inflater_output",
-            hue_order=l1reg_values,
-            palette="tab10",
-        )
+            plot_parameter_heatmaps(
+                filtered_df,
+                param_cols,
+                group_cols,
+                reg_param,
+                plot_label,
+                fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}.pdf",
+                val_only,
+            )
 
         # Adjust layout for better spacing
         g.set_titles(col_template="{col_name}")
