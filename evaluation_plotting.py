@@ -103,7 +103,8 @@ def group_plots(
 
 def performance_barplot(
         dataframe: pd.DataFrame,
-        conf
+        conf,
+        group_name: str,
 ):
     # PERFORMANCE BARPLOT
     _ = plt.figure()
@@ -112,7 +113,7 @@ def performance_barplot(
         row="dataset",  # top: train, bottom: test
         col="context",  # columns: cytof_init, proteomics, transcriptomics
         row_order=("train", "test"),
-        col_order=("cytof_init", "proteomics", "transcriptomics"),
+        col_order=sorted(CONTEXT_SET),
     )
 
     g.map_dataframe(
@@ -132,7 +133,7 @@ def performance_barplot(
     g.tick_params(axis='x', rotation=90)
     g.add_legend()
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group="baseline_barplot")
+    rfile = EVALUATE_ALL.format(**conf.__dict__, group=group_name)
     plt.savefig(rfile)
     plt.savefig(rfile.replace('pdf', 'svg'))
     # plt.show(
