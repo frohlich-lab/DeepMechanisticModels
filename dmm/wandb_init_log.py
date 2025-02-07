@@ -314,7 +314,6 @@ def log_extra_loss_terms(
         log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
         hp_names.extend([L1EREG, L1IREG, MEDIAN_REG])
         # Add epoch-dependent inflater output regularisation
-        if epoch > conf["inflater_output_reg_epoch"]:
         if epoch < conf["inflater_output_reg_epoch"]:
             reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
             log_labels.extend([L1REG_IO,])
