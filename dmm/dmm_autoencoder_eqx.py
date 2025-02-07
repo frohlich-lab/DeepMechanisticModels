@@ -68,8 +68,9 @@ def update_module_params_dict(
 
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
-    sparsity_binary_mask: jnp.ndarray
+    kin_params_combiner: KinParamsCombiner
     sparsity_binary_mask: Tuple  # prevent undesired updates
+
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
     module_depth: int = eqx.static_field()
@@ -87,12 +88,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     reconstruct: bool = eqx.static_field()
     model_key: Any = eqx.static_field()
 
+
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
     n_inflated_specific_kin_params: int = eqx.static_field()
     n_global_kin_params: int = eqx.static_field()
-
-    kin_params_combiner: KinParamsCombiner
 
     def __init__(
             self,
@@ -277,6 +277,12 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
         }
 
+        # Instantiate Kinetic Parameters Combiner module
+        self.kin_params_combiner = KinParamsCombiner(
+            component_name='kin_params_combiner',
+            n_global_kin_params=self.n_global_kin_params
+        )
+
         # Initialise dummy sparsity binary mask with a tuple of ones the same size as inflater kinetic param dev
         self.sparsity_binary_mask = tuple(
             [1 for _ in range(self.n_inflated_specific_kin_params)]
@@ -288,12 +294,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             key=self.model_key,
             activation_fn_name=self.activation_fn_name,
             reconstruct=self.reconstruct,
-        )
-
-        # Instantiate Kinetic Parameters Combiner module
-        self.kin_params_combiner = KinParamsCombiner(
-            component_name='kin_params_combiner',
-            n_global_kin_params=self.n_global_kin_params
         )
 
         problem.apply_objective_settings(
@@ -309,13 +309,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return outputs
 
 
-    def update_sparsity_binary_mask(self, x, threshold_perc: float = 0.5, round_up: bool = False):
+    def update_sparsity_binary_mask(self, x, threshold_perc: int = 50, round_up: bool = False):
         """
         Update the sparsity binary mask based on the median parameter deviation across samples.
         :param x:
             input data.
         :param threshold_perc:
-            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%).
+            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%, specified as 50).
         :param round_up:
             boolean flag to round up or down when computing the threshold (default: False).
 
@@ -332,8 +332,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
         # Considering we want sparsity, I have opted to round down by default - behaviour can be changed via round_up.
         threshold = sorted_deviations[jnp.clip(
-            int(jnp.floor(len(sorted_deviations) * (1 - threshold_perc))) - 1 if not round_up else
-            int(jnp.ceil(len(sorted_deviations) * (1 - threshold_perc))) - 1,
+            int(jnp.floor(len(sorted_deviations) * (1 - threshold_perc/100))) - 1 if not round_up else
+            int(jnp.ceil(len(sorted_deviations) * (1 - threshold_perc/100))) - 1,
             0,
             len(sorted_deviations) - 1
         )]

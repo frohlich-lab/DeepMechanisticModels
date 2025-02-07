@@ -37,14 +37,14 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         via reconstruction loss in true autoencoder spirit.
     """
 
+    deep_encoder: DeepComponent
+    deep_inflater: DeepComponent
+    deep_decoder: Union[eqx.Module, DeepComponent]
+
     encoder_params: ModuleParams = eqx.static_field()
     inflater_params: ModuleParams = eqx.static_field()
     decoder_params: ModuleParams = eqx.static_field()
     reconstruct: bool = eqx.static_field()
-
-    deep_encoder: DeepComponent
-    deep_inflater: DeepComponent
-    deep_decoder: Union[eqx.Module, DeepComponent]
 
     def __init__(
             self,

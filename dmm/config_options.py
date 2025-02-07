@@ -36,7 +36,7 @@ class Conf(dict):
     oreg_inflate: float = 0.0
     l1reg_inflater_output: float = 0.0
     inflater_output_reg_epoch: int = 200  # after, regularisation is lifted but the sparsity pattern is kept
-    sparse_threshold_perc: float = 0.5
+    sparse_threshold_perc: int = 50  # specified as percentage value (50=50%)
     recon_loss: float = 0.0
     symm_reg: float = 0.0
     median_reg: float = 0.0
