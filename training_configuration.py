@@ -281,13 +281,12 @@ ZETAS = {'range': (0, ), 'central_value': 0}
 # ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100), 'central_value': 0}
 ETAS = {'range': (0, ), 'central_value': 0}
 
-
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}  # N_EPOCHS for MOSA
 
 # Percentage thresholds for sparisty
-SPARSE_THRESH_PERCS = {'range': (0.5, ), 'central_value': 0.5}
+SPARSE_THRESH_PERCS = {'range': (50, ), 'central_value': 50}
 
 
 # LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
