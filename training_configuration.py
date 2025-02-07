@@ -13,21 +13,22 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
-    ("cytof_init", "elastic"),
+    # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
-    ("proteomics", "elastic"),
+    # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
-    ("transcriptomics", "elastic"),
+    # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
+    ("MOSA", "all"),
 )
 
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
@@ -42,7 +43,7 @@ SPLITS = {
     "1of5",
     "2of5",
     "3of5",
-    "4of5"
+    # "4of5",
 }
 
 PRETRAIN = {
@@ -255,8 +256,8 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
 # to scan switching epoch
 # 09.01.2024 - added pre-multiplier in DMM = 1e-6. Therefore, 1 -> 1e-6; 1e2 -> 1e-4
-#OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
-OMEGAS = {'range': (0, 1, 1e1, 1e2, 2e2), 'central_value': 0}
+# OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
+OMEGAS = {'range': (0, 1, 1e1, 1e2, 2e2), 'central_value': 1e2}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -277,12 +278,13 @@ EPSILONS = {'range': (0, ), 'central_value': 0}
 ZETAS = {'range': (0, ), 'central_value': 0}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
+# ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100), 'central_value': 0}
 ETAS = {'range': (0, ), 'central_value': 0}
 
 
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
-INFLATER_OUTPUT_REG_EPOCHS = {'range': (0, ), 'central_value': 0}
+INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}  # N_EPOCHS for MOSA
 
 # Percentage thresholds for sparisty
 SPARSE_THRESH_PERCS = {'range': (0.5, ), 'central_value': 0.5}
