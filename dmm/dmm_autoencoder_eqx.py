@@ -14,7 +14,7 @@ from .problem import Problem
 from .two_headed_deep_autoencoder_eqx import TwoHeadedDeepAutoencoder
 from jaxtyping import Array
 from pathlib import Path
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List, Tuple, Union
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -69,6 +69,7 @@ def update_module_params_dict(
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     sparsity_binary_mask: jnp.ndarray
+    sparsity_binary_mask: Tuple  # prevent undesired updates
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
     module_depth: int = eqx.static_field()
@@ -110,7 +111,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             sample_name_list: List[str],
             n_input_features: int,
             n_latent: int,
-            n_threads=1,
+            n_threads: int = 1,
             orth_reg_strategy: str = "L2",
             activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
             reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
@@ -276,8 +277,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
         }
 
-        # Initialise dummy sparsity binary mask with an array of ones the same size as inflater kinetic param dev
-        self.sparsity_binary_mask = jnp.ones(self.n_inflated_specific_kin_params)
+        # Initialise dummy sparsity binary mask with a tuple of ones the same size as inflater kinetic param dev
+        self.sparsity_binary_mask = tuple(
+            [1 for _ in range(self.n_inflated_specific_kin_params)]
+        )
+
         # Initialise TwoHeadedDeepAutoencoder
         super().__init__(
             **params,
@@ -300,29 +304,52 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     def __call__(self, x):
         # Call the parent __call__ method to get the original outputs
         outputs = super().__call__(x)
-        # Apply the sparsity binary mask element-wise
-        outputs["inflated"] = outputs["inflated"] * self.sparsity_binary_mask
+        # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
+        outputs["inflated"] = outputs["inflated"] * jnp.array(self.sparsity_binary_mask)
         return outputs
 
 
-    def update_sparsity_binary_mask(self, x, threshold: float = 0.03, min_kept: int = 3):
+    def update_sparsity_binary_mask(self, x, threshold_perc: float = 0.5, round_up: bool = False):
+        """
+        Update the sparsity binary mask based on the median parameter deviation across samples.
+        :param x:
+            input data.
+        :param threshold_perc:
+            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%).
+        :param round_up:
+            boolean flag to round up or down when computing the threshold (default: False).
+
+        :return:
+            new instance of DMM with updated sparsity binary mask.
+        """
         # Compute absolute median param dev across samples
         absolute_param_dev_median = jnp.abs(jnp.median(jax.vmap(self)(x)["inflated"], axis=0))
 
         # Sort absolute median param dev in descending order
         sorted_deviations = jnp.sort(absolute_param_dev_median)[::-1]
 
-        # Update threshold to keep at least `min_kept` elements -- if more, default threshold is kept
-        threshold = jnp.minimum(threshold, sorted_deviations[min_kept - 1])
+        # Compute threshold to keep threshold_perc values and ensure within bounds
+        # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
+        # Considering we want sparsity, I have opted to round down by default - behaviour can be changed via round_up.
+        threshold = sorted_deviations[jnp.clip(
+            int(jnp.floor(len(sorted_deviations) * (1 - threshold_perc))) - 1 if not round_up else
+            int(jnp.ceil(len(sorted_deviations) * (1 - threshold_perc))) - 1,
+            0,
+            len(sorted_deviations) - 1
+        )]
 
         # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
-        new_sparsity_binary_mask = jnp.where(
-            param_dev_median < threshold,
+        new_sparsity_binary_mask = tuple(jnp.where(
             absolute_param_dev_median < threshold,
             0.0,
-            self.sparsity_binary_mask
+            jnp.array(self.sparsity_binary_mask)
+        ).tolist())
+        return eqx.tree_at(
+            lambda model: model.sparsity_binary_mask,
+            self,
+            new_sparsity_binary_mask,
+            is_leaf=lambda leaf: type(leaf) is tuple  # is this needed?
         )
-        return eqx.tree_at(lambda model: model.sparsity_binary_mask, self, new_sparsity_binary_mask)
 
 
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:

@@ -1,7 +1,6 @@
 import seaborn as sns
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
-import numpy as np
 import pandas as pd
 
 from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti

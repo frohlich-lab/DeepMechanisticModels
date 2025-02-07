@@ -284,6 +284,9 @@ ETAS = {'range': (0, ), 'central_value': 0}
 # Default: mid-training
 INFLATER_OUTPUT_REG_EPOCHS = {'range': (0, ), 'central_value': 0}
 
+# Percentage thresholds for sparisty
+SPARSE_THRESH_PERCS = {'range': (0.5, ), 'central_value': 0.5}
+
 
 # LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
 LRATE_PRETRAINING_RATIO = {

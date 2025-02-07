@@ -3,7 +3,7 @@ import equinox as eqx
 from .config_options import ModuleParams
 from .deepcomponent_eqx import DeepComponent
 from jax import config, random
-from typing import Union
+from typing import Any, Union
 
 config.update("jax_enable_x64", True)
 
@@ -51,7 +51,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             encoder_params: ModuleParams,
             inflater_params: ModuleParams,
             decoder_params: ModuleParams,
-            key,
+            key: Any,
             activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
             reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
     ):

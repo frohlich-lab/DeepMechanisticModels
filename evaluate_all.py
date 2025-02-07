@@ -652,7 +652,7 @@ top_n_pca_le_df_train.to_csv(
 reg_params = [
     "l1reg_inflate", "oreg_inflate",   # inflater
     "l1reg_encode", "oreg_encode",  # encoder
-    "l1reg_inflater_output", "median_reg"  # param dev, param medians
+    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch"  # param dev, param medians
 ]
 num_unique_regs = [len(top_n_pca_le_df_train[reg_param].unique()) for reg_param in reg_params]
 reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
@@ -785,7 +785,7 @@ plot_val_param_dev_spread(
     top_n_param_dev_df_train if plot_top_n_train else param_dev_df,
     param_cols,
     reg_param,
-    ["l1reg_inflater_output", "median_reg"],  # TODO any better way of dynamically defining this?
+    reg_params,  # TODO any better way of dynamically defining this?
     fig_dir / conf.model / conf.data / f"param_dev_boxplot_val_only_{reg_param}.pdf"
 )
 

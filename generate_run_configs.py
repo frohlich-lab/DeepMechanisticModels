@@ -8,7 +8,7 @@ from training_configuration import (
     LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
     NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     # Regularisation
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS, ETAS,
+    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS, ETAS, SPARSE_THRESH_PERCS,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
     # Learning rate scheduling
@@ -86,8 +86,8 @@ def prune_config(run_config: dict):
         prune = True
 
     if not run_config["l1reg_inflater_output"] > 0:
-        # ignore epoch at which to enable output regularisation if no output regularisation
-        hps_to_prune.append("inflater_output_reg_epoch")
+        # ignore epoch at which to disable output regularisation + sparsity % threshold if no output regularisation
+        hps_to_prune.extend(["inflater_output_reg_epoch", "sparse_threshold_perc"])
         prune = True
 
     if prune:
@@ -106,6 +106,7 @@ def generate_linear_scan(STARTS: list[str]):
         "oreg_encode": DELTAS,
         "l1reg_inflater_output": OMEGAS,
         "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
+        "sparse_threshold_perc": SPARSE_THRESH_PERCS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
         "median_reg": ETAS,
@@ -200,6 +201,7 @@ def generate_grid_search(STARTS: list[str]):
         "oreg_encode": DELTAS,
         "l1reg_inflater_output": OMEGAS,
         "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
+        "sparse_threshold_perc": SPARSE_THRESH_PERCS,
         "recon_loss": EPSILONS,
         "symm_reg": ZETAS,
         "median_reg": ETAS,
@@ -241,6 +243,7 @@ def generate_grid_search(STARTS: list[str]):
             "oreg_encode": oreg_encode,
             "l1reg_inflater_output": l1reg_inflater_output,
             "inflater_output_reg_epoch": inflater_output_reg_epoch,
+            "sparse_threshold_perc": sparse_threshold_perc,
             "recon_loss": recon_loss,
             "symm_reg": symm_reg,
             "median_reg": median_reg,
@@ -264,7 +267,7 @@ def generate_grid_search(STARTS: list[str]):
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
             l1reg_inflater_output, recon_loss, symm_reg, median_reg,
-            inflater_output_reg_epoch,
+            inflater_output_reg_epoch, sparse_threshold_perc,
             lrate_pretraining_ratio, max_lrate, lrate_span, lrate_decay, warmup_fct,
             opt_steps, opt_mult,
             weight_decay, momentum,
@@ -275,7 +278,7 @@ def generate_grid_search(STARTS: list[str]):
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
             OMEGAS, EPSILONS, ZETAS, ETAS,
-            INFLATER_OUTPUT_REG_EPOCHS,
+            INFLATER_OUTPUT_REG_EPOCHS, SPARSE_THRESH_PERCS,
             LRATE_PRETRAINING_RATIO, MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
             OPT_STEPS, OPT_MULT,
             WEIGHT_DECAY, MOMENTUM,
