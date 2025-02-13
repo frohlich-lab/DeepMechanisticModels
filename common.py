@@ -300,3 +300,5 @@ pam50_genelist = [
     "CDH3", "EGFR", "KRT17", "KRT14", "KRT5", "FOXC1", "MIA", "SFRP1",
     "PHGDH", "MYC"
 ]
+
+REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]

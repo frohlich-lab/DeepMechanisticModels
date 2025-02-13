@@ -5,9 +5,12 @@ import petab
 
 from amici.petab_objective import rdatas_to_simulation_df
 from common import (
+    default_attributes,
+    evaluations_dir,
     hardest_cell_lines,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
+    REGRESSION_MODES,
     TRAINED_BEST_MODELS,
     Wildcards,
     test_samples,
@@ -19,16 +22,19 @@ from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
+from evaluation_plotting import random_forest_importance_plot
 from jax import vmap
 from pathlib import Path
 from scipy.sparse.csgraph import connected_components
 from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.metrics import silhouette_score, silhouette_samples
 from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.neighbors import kneighbors_graph
 from sklearn.preprocessing import StandardScaler
-from training_configuration import N_ENSEMBLE_MEMBERS
-from typing import Dict, Tuple, Any, Union
+from stat_test import statistical_significance_test
+from training_configuration import HP_RUN_MODE, N_ENSEMBLE_MEMBERS, SPLITS
+from typing import Dict, List, Tuple, Any, Union
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -562,3 +568,287 @@ def connectivity_score(
         # pd.concat(job_results, ignore_index=True),
         pd.concat(cv_results, ignore_index=True)
     )
+
+
+def train_rf_features_to_rmse(dmm_results: pd.DataFrame, conf, num_top_features: int = 10):
+    # Drop Infs & NaNs (incompatible with RandomForestRegressor)
+    dmm_results = dmm_results.replace([np.inf, -np.inf], np.nan).dropna()
+    # Get targets
+    reg_targets_train = dmm_results.pop("rmse_train")
+    reg_targets_val = dmm_results.pop("rmse_test")
+
+    # Replace categorical variables with dummy one-hot-encodings
+    reg_features = pd.get_dummies(dmm_results)
+
+    # Fit regressors
+    rfr_train, rfr_val = RandomForestRegressor(), RandomForestRegressor()
+    rfr_train.fit(X=reg_features, y=reg_targets_train)
+    rfr_val.fit(X=reg_features, y=reg_targets_val)
+
+    # Store and plot feature importances
+    results_dfs = {
+        dataset: pd.DataFrame(
+            {
+                "importances":regressor.feature_importances_[regressor.feature_importances_.argsort()][::-1][:num_top_features],
+                "features": reg_features.columns[regressor.feature_importances_.argsort()][::-1][:num_top_features],
+            }
+        )
+        for dataset, regressor in zip(["train", "val"], [rfr_train, rfr_val])
+    }
+    random_forest_importance_plot(results_dfs, conf, "show")
+
+
+def convert_dataframe_dtypes(df: pd.DataFrame):
+    cols = ["n_hidden", "depth", "nn_structure_multiplier",
+            "inflater_output_reg_epoch",
+            "opt_steps", "opt_mult",
+            "job"]
+    for col in cols:
+        df[col] = pd.to_numeric(df[col], downcast='integer')
+    additional_cols = ["l1reg_encode", "oreg_encode",  # encoder
+            "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
+            "recon_loss", "symm_reg",  # decoder / reconstruction
+            "median_reg",  # kinetic params median regularisation
+            "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
+    ]
+    for col in additional_cols:
+        if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
+            df[col] = pd.to_numeric(df[col], downcast='integer')
+        else:
+            df[col] = df[col].astype("float")
+    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation",
+                "drop_reg_after_pretrain"]:
+        df[col] = df[col].astype(str)
+    for col in ["reconstruct", "use_simple_linear_schedule", "use_early_stopping"]:
+        df[col] = df[col].astype(bool)
+    return df
+
+
+def get_best_regressor(
+        dataframe: pd.DataFrame,
+        group_attributes: List,
+        target_attribute='rmse',
+) -> pd.DataFrame:
+    """
+    Returns a pd.DataFrame with the best performing regressor on each context (cytof_init, proteomics,
+    transcriptomics) / dataset (train/val) pair.
+    """
+    min_rmse = dataframe.reset_index().groupby(
+        group_attributes
+    )[target_attribute].min().reset_index()
+    best_regressor_df = dataframe.merge(
+        min_rmse[["context", "dataset", target_attribute]],
+        on=['context', 'dataset', target_attribute]
+    )
+    return best_regressor_df
+
+
+def aggregate_and_log(df: pd.DataFrame, conf: Conf, return_stat_tests: bool, num_best: int = 10):
+    # Define aggregation groups for DMM and refs
+    gbs_dmm = ["dataset", "ref"] + default_attributes
+    gbs_refs = ["dataset", "context", "samples", "ref"]
+    # Replace missing values in features_transform (None instead of nan)
+    df["features_transform"] = df["features_transform"].replace(np.nan, "None")
+
+    temp_dfs = []
+    for ref_subset, group_cols in zip(["DMM", "refs"], [gbs_dmm, gbs_refs]):
+        if ref_subset == "DMM":
+            subset_df = df[df.ref == "DMM"]
+        else:
+            subset_df = df[~df.ref.isin(["DMM"])]
+        temp_dfs.append(
+            pd.DataFrame(
+                [
+                    dict(
+                        zip(group_cols, group),
+                        rmse=np.sqrt(np.square(group_df["res"]).mean()),
+                    )
+                    for group, group_df in subset_df.groupby(group_cols)
+                ]
+            )
+        )
+    data = pd.concat(temp_dfs).sort_values(by="ref")
+    # print("Overall evaluation DataFrame is now ready.")
+    # cleanup
+    del temp_dfs
+
+    # Statistical tests -- currently disabled
+    # TODO @GiacomoFabrini -- review statistical tests? What do we want to do with them?
+    if return_stat_tests:
+        # Prepare statistical test dataframe
+        # Create pivot table for statistical testing
+        cols = [
+            'dataset', 'context', 'features', 'ref',
+            'n_hidden', 'orth_reg_strategy',
+            'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode'
+        ]
+        # pivot table and create one column per cross-validation split and multistart/job
+        pivot_data = data.pivot_table(index=cols, columns=['samples', 'job'], values='rmse')
+        pivot_data = pivot_data.reset_index()
+        # Create list of the MultiIndex RMSE columns created above
+        JOBS = tuple([i for i in range(conf.n_starts)])
+        multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
+        # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns
+        pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
+                                                   axis=1)
+        # Add the newly created column to the list of columns to be kept (cols)
+        cols += ['rmse_list']
+        # Subset the pivot table and reduce MultiIndex back to single-level index
+        data_stat_tests = pivot_data[cols]
+        data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
+        print("DataFrame for statistical testing is now ready.")
+
+        stat_test_res_df = statistical_significance_test(data_stat_tests)
+
+    # Get the best regressor for each context/dataset pair
+    best_regressors = get_best_regressor(
+        dataframe=data[data.ref.isin(REGRESSION_MODES)],
+        group_attributes=['dataset', 'context'],
+        target_attribute='rmse',
+    )
+    print("Computed best regressor for each context/dataset pair.")
+
+    # Combine train/val RMSE results for regressors and baselines
+    nodmm_results = {
+        dataset: (data[(data.dataset == dataset) & (~data.ref.isin(['DMM']))]
+                  .drop(columns=['dataset']))
+        for dataset in ['train', 'test']
+    }
+    unified_nodmm_results = pd.merge(
+        nodmm_results['train'],
+        nodmm_results['test'],
+        how="inner",
+        on=list(data.columns.difference(['rmse', 'dataset'])),
+        suffixes=('_train', '_test')
+    )
+    unified_baselines = unified_nodmm_results[unified_nodmm_results.ref.isin(["avg_model", "sample"])]
+    unified_baselines["model"] = unified_baselines["ref"]
+    unified_regressors = unified_nodmm_results[unified_nodmm_results.ref.isin(REGRESSION_MODES)]
+    unified_best_regressors = unified_regressors.merge(
+        best_regressors[best_regressors.dataset == "train"][['context', 'ref']],  # keep regressors that perform best on training set (same as DMM)
+        how="inner",
+        on=['context', 'ref']
+    )
+    unified_best_regressors["model"] = unified_best_regressors["ref"] + unified_best_regressors["context"]
+    unified_nodmm_results = pd.concat([unified_baselines, unified_best_regressors])
+
+    # Combine train/val RMSE results for DMMs
+    dmm_results = {
+        dataset: (data[(data.dataset == dataset) & (data.ref == 'DMM')]
+                  .drop(columns=['ref', 'dataset']))
+        for dataset in ['train', 'test']
+    }
+    unified_dmm_results = pd.merge(
+        dmm_results['train'],
+        dmm_results['test'],
+        how="inner",
+        on=list(data.columns.difference(['rmse', 'dataset', 'ref'])),
+        suffixes=('_train', '_test')
+    )
+    unified_dmm_results.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
+    )
+    print("Finished saving unified (train/test) DMM RMSE results.")
+
+    # Restrict DMM results to top 10 jobs for each configuration according to training performance
+    config_cols = [attribute for attribute in gbs_dmm if attribute not in ["ref", "job", "dataset"]]
+    top_n_dmm_train = unified_dmm_results.groupby(config_cols).apply(
+        lambda x: x.nsmallest(num_best, "rmse_train")
+    ).reset_index(drop=True)
+    # Ensure same dtypes as original dataframe
+    top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
+    # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
+    top_n_dmm_train_cv = top_n_dmm_train.groupby(config_cols).agg(rmse_test_agg=("rmse_test", "mean")).reset_index()
+
+    for cvsplit_label in ["MOSAsplits", "allsplits"]:
+        if cvsplit_label == "MOSAsplits":
+            sub_df = top_n_dmm_train_cv[top_n_dmm_train_cv.samples.isin([f"{i}of5" for i in range(4)])]
+        else:
+            sub_df = top_n_dmm_train_cv
+        best_configs_dmm = (sub_df
+                            .groupby([col for col in config_cols if col != "samples"])
+                            .agg(
+                                mean_rmse_test = ("rmse_test_agg", "mean"),
+                                rmse_test_list = ("rmse_test_agg", lambda x: list(x)))
+                            .reset_index().sort_values(by="mean_rmse_test", ascending=True)
+                            .groupby("context").head(1))
+        best_configs_dmm.to_csv(
+            evaluations_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.top1_best_dmm_{HP_RUN_MODE}.csv"
+        )
+
+        # Get the top 10 jobs corresponding to best validation config
+        best_configs_dmm_jobs = top_n_dmm_train.merge(
+            best_configs_dmm,
+            on=[col for col in best_configs_dmm.columns if col not in ["mean_rmse_test", "rmse_test_list"]]
+        ).drop(columns=["mean_rmse_test", "rmse_test_list"]).assign(ref="DMM")
+
+        best_configs_dmm_jobs["model"] = best_configs_dmm_jobs["ref"] + best_configs_dmm_jobs["context"]
+        if cvsplit_label == "MOSAsplits":
+            best_configs_dmm_jobs = best_configs_dmm_jobs[
+                best_configs_dmm_jobs.samples.isin([f"{i}of5" for i in range(4)])
+            ]
+        barplot_df = pd.concat([unified_nodmm_results, best_configs_dmm_jobs])
+        barplot_df.to_csv(
+            evaluations_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
+        )
+
+    # # Log via W&B -- DISABLED WANDB
+    # wandb.init(
+    #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
+    #     config={
+    #         **conf.__dict__,
+    #     },
+    # )
+
+    evaluation_dfs = [
+        data,
+    ]
+    evaluation_tags = [
+        "evaluate_all",
+    ]
+    if return_stat_tests:
+        evaluation_dfs.append(stat_test_res_df)
+        evaluation_tags.append("stat_tests_all")
+    for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
+        # Save dataframes to CSV
+        evaluation_df.to_csv(
+            evaluations_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
+        )
+
+        # DISABLED WANDB
+        # # Instantiate artifact
+        # evaluation_artifact = wandb.Artifact(
+        #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
+        #     description=evaluation_tag,
+        #     type="evaluation",
+        # )
+        # # Add and log artifact
+        # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
+        # wandb.log_artifact(evaluation_artifact)
+
+    # Close W&B session and upload artifacts -- DISABLED WANDB
+    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
+    # command = f"wandb sync {wandb_stripped_dir}"
+    # wandb.finish()
+    # TODO @GiacomoFabrini: restore WANDB?
+    # try:
+    #     _ = subprocess.run(command, shell=True)
+    # except subprocess.CalledProcessError as e:
+    #     raise ValueError(f"Error syncing wandb directory: {e}")
+
+    if return_stat_tests:
+        return data, stat_test_res_df, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results
+    else:
+        return data, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results

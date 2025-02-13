@@ -3,13 +3,16 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from common import EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti
+from common import fig_dir, EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti
 from pathlib import Path
 from typing import List, Union
 
 
 subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
 subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
+
+colours_lb = {"Normal": "green", "Luminal": "blue", "Basal": "red", "Other": "black"}
+colours_pam50 = {"Normal": "green", "LA": "cyan", "LB": "navy", "HER2": "gold", "Basal": "red", "Other": "black"}
 
 
 # Base plotting functions for FacetGrid
@@ -324,10 +327,14 @@ def plot_parameter_heatmaps(
         param_cols: List,
         group_cols: List,
         top_reg_param: str,
+        samples_train: List[str],
+        samples_val: List[str],
         plot_label: str,
         figure_filepath: Union[str, Path],
-        val_only: bool,
+        figure_fmt: str = ".pdf",
+        val_only: bool = False,
         add_avg_to_val: bool = False,
+        type: str = "heatmap"
 ):
     # Adds an extra row in each heatmap corresponding to average cell-line
     if val_only and add_avg_to_val:
@@ -357,32 +364,103 @@ def plot_parameter_heatmaps(
     else:
         raise ValueError(f"Invalid plot_label: {plot_label}")
 
-    def plot_heatmap_with_highlight(data, samples, **kwargs):
-        ax = plt.gca()  # Get the current axis
-        sns.heatmap(
-            data.set_index("cell_line")[param_cols],
-            vmin=vmin, vmax=vmax, cmap="vlag",
-            xticklabels=True, yticklabels=True, ax=ax, **kwargs
+    if type == "heatmap":
+        def plot_heatmap_with_highlight(data, val_only, **kwargs):
+            ax = plt.gca()  # Get the current axis
+            sns.heatmap(
+                data.set_index("cell_line")[param_cols].reindex(samples_train + samples_val) if not val_only
+                else data.set_index("cell_line")[param_cols],
+                vmin=vmin, vmax=vmax, cmap="vlag",
+                xticklabels=True, yticklabels=True, ax=ax, **kwargs
+            )
+            # Highlight the validation cell line
+            if val_only:
+                # Get the correct validation cell line for the current split
+                current_sample = data.samples.unique()[0]  # Extract the sample for this facet
+                split_index = int(current_sample.split("of")[0])  # Parse the split index (e.g., 0of5 -> 0)
+                val_cell_line = hardest_cell_lines[split_index]  # Adjust for the current split
+
+                if val_cell_line in data.cell_line.values:
+                    idx = data.cell_line.tolist().index(val_cell_line)
+                    rect = patches.Rectangle(
+                        (0, idx),  # Bottom-left corner of the rectangle
+                        len(param_cols),  # Width of the rectangle (number of columns)
+                        1,  # Height of the rectangle (1 row)
+                        linewidth=2, edgecolor="gold", facecolor="none"
+                    )
+                    ax.add_patch(rect)
+            else:
+                # Highlight ALL validation cell-lines -- rectangle len(samples_val) high at the bottom of the heatmap
+                train_count = len(samples_train)
+                val_count = len(samples_val)
+
+                if val_count > 0:
+                    rect = patches.Rectangle(
+                        (0, train_count),  # Start at the first validation sample row
+                        len(param_cols),  # Full width of the heatmap
+                        val_count,  # Height covering all validation samples
+                        linewidth=2, edgecolor="gold", facecolor="none"
+                    )
+                    ax.add_patch(rect)
+
+        g = sns.FacetGrid(
+            param_df,
+            row="samples", row_order=sorted(param_df.samples.unique()),
+            col=top_reg_param, col_order=sorted(param_df[top_reg_param].unique()),
+            margin_titles=True, height=5, aspect=1.5
         )
-        # Highlight the validation cell line
-        if val_only:
-            # Get the correct validation cell line for the current split
-            current_sample = data.samples.unique()[0]  # Extract the sample for this facet
-            split_index = int(current_sample.split("of")[0])  # Parse the split index (e.g., 0of5 -> 0)
-            val_cell_line = hardest_cell_lines[split_index]  # Adjust for the current split
+        g.map_dataframe(plot_heatmap_with_highlight, val_only=val_only)
+        g.fig.tight_layout()
+        plt.savefig(str(figure_filepath) + ".h" + figure_fmt)
+        plt.close()
+    elif type == "clustermap":
+        samples = sorted(param_df.samples.unique())
+        reg_params = sorted(param_df[top_reg_param].unique())
+        # Plot individually - cannot assign ax to Clustermap, so incompatible with FacetGrid and subplots
+        for i, sample in enumerate(samples):
+            for j, reg_param in enumerate(reg_params):
+                subset = param_df[
+                    (param_df["samples"] == sample) & (param_df[top_reg_param] == reg_param)
+                    ].set_index("cell_line")
+                if subset.empty:
+                    continue
+                for sb_label, subtypes, colours in zip(
+                        ["PAM50", "LB"],
+                        [subtypes_pam50, subtypes_lb],
+                        [colours_pam50, colours_lb]):
+                    sns.clustermap(
+                        data=subset[param_cols],
+                        row_colors=subset.index.map({
+                            cell_line: colours[subtypes[cell_line]]
+                            for cell_line in subtypes.keys()
+                        }),
+                        col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
+                        xticklabels=True, yticklabels=True,
+                    )
+                    plt.tight_layout()
+                    plt.savefig(
+                        str(figure_filepath) + f".c.{sample}.{reg_param}.{sb_label}" + figure_fmt
+                    )
+                    plt.close()
 
-            if val_cell_line in data.cell_line.values:
-                idx = data.cell_line.tolist().index(val_cell_line)
-                rect = patches.Rectangle(
-                    (0, idx),  # Bottom-left corner of the rectangle
-                    len(param_cols),  # Width of the rectangle (number of columns)
-                    1,  # Height of the rectangle (1 row)
-                    linewidth=2, edgecolor="gold", facecolor="none"
-                )
-                ax.add_patch(rect)
 
-    g.map_dataframe(plot_heatmap_with_highlight, samples="samples")
+def random_forest_importance_plot(results_dfs: dict[str, pd.DataFrame], conf, save_or_show: str = "show"):
+    plt.subplots(1, len(list(results_dfs.keys())), figsize=(14, 6))
 
-    g.fig.tight_layout()
-    plt.savefig(figure_filepath)
+    for ind, dataset in enumerate(["train", "val"]):
+        plt.subplot(1, 2, ind + 1)
+        sns.barplot(data=results_dfs[dataset], x='features', y='importances')
+        plt.title(f'Feature Importances - {dataset}')
+        plt.xlabel('Features')
+        plt.ylabel('Importance')
+        xticks = plt.gca().get_xticks()
+        plt.xticks(xticks, rotation=90, labels=results_dfs[dataset]['features'])
+
+    plt.tight_layout()
+    if save_or_show == "show":
+        plt.show()
+    else:
+        plt.savefig(
+            fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
+        )
     plt.close()

@@ -25,6 +25,7 @@ from common import (
     pretrain_dir,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
+    REGRESSION_MODES,
     training_samples,
     test_samples,
     Wildcards,
@@ -40,91 +41,22 @@ from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance,
                                  plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps)
-from evaluation_utils import (get_measurements_and_obervables,
+from evaluation_utils import (aggregate_and_log, convert_dataframe_dtypes,
+                              get_measurements_and_obervables,
                               load_model_and_obj,
                               simulate_avg_model,
                               process_avg_model_simulation,
                               process_per_sample_pretrain, get_embedding_and_params_df,
                               pca_latent_embeddings,
-                              cosine_similarity_embeddings, silhouette_embeddings, connectivity_score)
+                              cosine_similarity_embeddings, silhouette_embeddings,
+                              train_rf_features_to_rmse)
 from generate_run_configs import generate_run_configs
 from joblib import load
 from pathlib import Path
-from sklearn.ensemble import RandomForestRegressor
-from stat_test import statistical_significance_test
 from training_configuration import (
-    CONTEXTS_FEATURES, SPLITS, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
+    CONTEXTS_FEATURES, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
 )
-from typing import List
 from util import load_petab_base_files
-
-
-REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]
-
-
-def get_dmm_conf(
-        conf: Conf,
-        dmm_params: dict,
-        dataset: str,
-        context: str,
-) -> Conf:
-    """
-    Get the DMM configuration for a given dataset and context, ensuring integer values are cast as integers.
-    :param conf: configuration object (Conf)
-    :param dmm_params: dictionary of parameters for DMM
-    :param dataset: dataset (train/val)
-    :param context: context (cytof_init/proteomics/transcriptomics/MOSA)
-
-    return: updated configuration object (Conf)
-    """
-    dmm_conf = Conf(model=conf.model, data=conf.data)
-    for key, value in dmm_params[dataset][context].items():
-        # Cast values to integer (always or if the value is zero)
-        if hasattr(dmm_conf, key) and key not in ["model", "data"]:
-            if key in [
-                "n_hidden", "depth", "nn_structure_multiplier",
-                "inflater_output_reg_epoch",
-                "opt_steps", "opt_mult",
-                "job"
-            ]:
-                value = int(value)
-            elif key in [
-                "l1reg_encode", "oreg_encode",  # encoder
-                "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
-                "recon_loss", "symm_reg",  # decoder / reconstruction
-                "median_reg",  # kinetic params median regularisation
-                "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
-            ] and value == 0:
-                value = int(value)
-
-            setattr(dmm_conf, key, value)
-    return dmm_conf
-
-
-def convert_dataframe_dtypes(df: pd.DataFrame):
-    cols = ["n_hidden", "depth", "nn_structure_multiplier",
-            "inflater_output_reg_epoch",
-            "opt_steps", "opt_mult",
-            "job"]
-    for col in cols:
-        df[col] = pd.to_numeric(df[col], downcast='integer')
-    additional_cols = ["l1reg_encode", "oreg_encode",  # encoder
-            "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
-            "recon_loss", "symm_reg",  # decoder / reconstruction
-            "median_reg",  # kinetic params median regularisation
-            "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
-    ]
-    for col in additional_cols:
-        if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
-            df[col] = pd.to_numeric(df[col], downcast='integer')
-        else:
-            df[col] = df[col].astype("float")
-    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation",
-                "drop_reg_after_pretrain"]:
-        df[col] = df[col].astype(str)
-    for col in ["reconstruct", "use_simple_linear_schedule", "use_early_stopping"]:
-        df[col] = df[col].astype(bool)
-    return df
 
 
 def load_and_transform_features(
@@ -190,247 +122,9 @@ def process_reference(
     return ref
 
 
-def get_best_performer_across_jobs(
-        dataframe: pd.DataFrame,
-        group_attributes: List,
-        hyperparam_attributes: List,
-        mode: str,
-        num_best: int,
-        target_attribute='rmse',
-):
-    """
-    Returns a pandas DataFrame with the hyperparameter setting producing
-    the lowest mean RMSE across all jobs and all cross-validation SPLITS (samples)
-    for each combination of the group_attributes (dataset = 'train'/'test',
-    context = 'cytof_init' / 'proteomics', 'transcriptomics',
-    ref = 'DMM'). The returned DataFrame reports both the mean and
-    the standard deviation of RMSEs across the 10 jobs and however many SPLITS.
-    """
-    if mode == 'DMM':
-        # Ensure dataframe is sorted by "job" so that "rmse_list" always follows the same order of increasing job number
-        temp_df = dataframe.sort_values(by="job").reset_index().groupby(
-            group_attributes + hyperparam_attributes
-        ).agg({
-            target_attribute: ['mean', 'std',  ("list", lambda x: list(x))],
-        })
-        temp_df = temp_df.reset_index()
-        temp_df.columns = [
-            ' '.join(col).strip() if isinstance(col, tuple) else col
-            for col in temp_df.columns.values
-        ]
-        # Check passed num_best is acceptable (at least 1, integer)
-        if num_best < 1:
-            raise ValueError(f"num_best must be >=1, {num_best} was found instead.")
-        elif not isinstance(num_best, int):
-            raise TypeError(f"num_best must be of type int, {type(num_best)} was found instead.")
-
-        # sort (default: ascending order - from lowest rmse mean to highest -- keep num_best (>=1)
-        result = temp_df.sort_values(by=[target_attribute + ' mean']).groupby(group_attributes).head(num_best)
-        result_dict = {
-            dataset: {
-                context: result[(result.dataset == dataset) & (result.context == context)].iloc[:num_best].to_dict(
-                    orient='records')
-                for context in result[result.dataset == dataset].context.unique()
-            }
-            for dataset in result.dataset.unique()
-        }
-        # TODO need to ensure that this is returning the same configurations across train/test, not the best
-        #  in each, even though we can simply subset to the best in `val` and simulate across both train and test
-        return result_dict
-    elif mode == 'regressor':
-        min_rmse = dataframe.reset_index().groupby(
-            group_attributes + hyperparam_attributes
-        )[target_attribute].min()
-        result = pd.merge(dataframe, min_rmse, on=['context', 'dataset', target_attribute])
-        result_dict = {
-            dataset: {
-                context: result[(result.dataset == dataset) & (result.context == context)].iloc[0].ref
-                for context in result[result.dataset == dataset].context.unique()
-            }
-            for dataset in result.dataset.unique()
-        }
-        return result_dict
-    else:
-        raise ValueError(f"Invalid mode: {mode}")
-
-
-def get_absolute_best_performer(
-        dataframe: pd.DataFrame,
-        group_attributes: List,
-        target_attribute='rmse',
-):
-    # Potential issues: this returns the first occurring minimum - there might be
-    # ties, but this is unlikely within numerical accuracy.
-    temp_dataframe = dataframe.reset_index()
-    min_rmse_indices = temp_dataframe.groupby(
-        by=group_attributes
-    )[target_attribute].idxmin()
-    result = temp_dataframe.loc[min_rmse_indices]
-    result_dict = {
-        dataset: {
-            context: result[(result.dataset == dataset) & (result.context == context)].iloc[0].to_dict()
-            for context in result[result.dataset == dataset].context.unique()
-        }
-        for dataset in result.dataset.unique()
-    }
-    return result_dict
-
-
-def aggregate_and_log(df: pd.DataFrame, return_stat_tests: bool, num_best: int):
-    # Define aggregation groups for DMM
-    gbs_dmm = ["dataset", "ref"] + default_attributes
-    # replace missing values in features_transform (None instead of nan)
-    df["features_transform"] = df["features_transform"].replace(np.nan, "None")
-    data_dmm = pd.DataFrame(
-        [
-            dict(
-                zip(gbs_dmm, group),
-                rmse=np.sqrt(np.square(group_df["res"]).mean()),  # RMSE
-            )
-            for group, group_df in df.groupby(gbs_dmm)
-        ]
-    )
-
-    # Define aggregation groups for references
-    gbs_refs = [
-        "dataset",
-        "context",
-        "samples",
-        "ref",
-    ]
-
-    df_refs = df[~df.ref.isin(["DMM"])]
-    data_refs = pd.DataFrame(
-        [
-            dict(
-                zip(gbs_refs, group_ref),
-                rmse=np.sqrt(np.square(group_df_ref["res"]).mean()),  # mean RMSE = RMSE (single values)
-            )
-            for group_ref, group_df_ref in df_refs.groupby(gbs_refs)
-        ]
-    )
-
-    data = pd.concat([data_dmm, data_refs]).sort_values(by="ref")
-    # print("Overall evaluation DataFrame is now ready.")
-    # cleanup
-    del df, df_refs, data_dmm, data_refs
-
-    if return_stat_tests:
-        # Prepare statistical test dataframe
-        # Create pivot table for statistical testing
-        cols = [
-            'dataset', 'context', 'features', 'ref',
-            'n_hidden', 'orth_reg_strategy',
-            'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode'
-        ]
-        # pivot table and create one column per cross-validation split and multistart/job
-        pivot_data = data.pivot_table(index=cols, columns=['samples', 'job'], values='rmse')
-        pivot_data = pivot_data.reset_index()
-        # Create list of the MultiIndex RMSE columns created above
-        multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
-        # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns
-        pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
-                                                   axis=1)
-        # Add the newly created column to the list of columns to be kept (cols)
-        cols += ['rmse_list']
-        # Subset the pivot table and reduce MultiIndex back to single-level index
-        data_stat_tests = pivot_data[cols]
-        data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
-        print("DataFrame for statistical testing is now ready.")
-
-        stat_test_res_df = statistical_significance_test(data_stat_tests)
-
-    # Get best performing hyperparameter set across jobs for each dataset/context/ref combination
-    top_n_hyperparam_dmm = get_best_performer_across_jobs(
-        dataframe=data[data.ref == 'DMM'],
-        group_attributes=['dataset', 'context', 'features', 'pretrain'],
-        hyperparam_attributes=[x for x in default_attributes if x not in [
-            'context', 'features', 'pretrain',  # in group_attributes
-            'samples', 'job'  # need to average across samples and job
-        ]],
-        mode='DMM',
-        num_best=num_best,  # select the best `num_best` per context (e.g. 10 best configurations per context)
-        target_attribute='rmse',
-    )
-    # Keep top 1 on validation set for plotting across samples vs references and regressors
-    # Assign the best validation configuration to both train and test -- ensures consistency in plots
-    # TODO: from this point onwards, RMSE is only valid for 'test', not for 'train' (not used anyway). 'train' RMSE
-    #  is overwritten with 'test' RMSE
-    best_hyperparam_dmm = {
-        dataset: {
-            context: top_n_hyperparam_dmm["test"][context][0]
-            for context in top_n_hyperparam_dmm[dataset].keys()
-        }
-        for dataset in top_n_hyperparam_dmm.keys()
-    }
-    best_regressors = get_best_performer_across_jobs(
-        dataframe=data[data.ref.isin(REGRESSION_MODES)],
-        group_attributes=['dataset', 'context'],
-        hyperparam_attributes=[],
-        mode='regressor',
-        num_best=1,  # does not have an effect anyway, but we are selecting the top 1
-        target_attribute='rmse',
-    )
-
-    # # Log via W&B -- DISABLED WANDB
-    # wandb.init(
-    #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    #     config={
-    #         **conf.__dict__,
-    #     },
-    # )
-
-    evaluation_dfs = [
-        data,
-    ]
-    evaluation_tags = [
-        "evaluate_all",
-    ]
-    if return_stat_tests:
-        evaluation_dfs.append(stat_test_res_df)
-        evaluation_tags.append("stat_tests_all")
-    for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
-        # Save dataframes to CSV
-        evaluation_df.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
-        )
-
-        # DISABLED WANDB
-        # # Instantiate artifact
-        # evaluation_artifact = wandb.Artifact(
-        #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
-        #     description=evaluation_tag,
-        #     type="evaluation",
-        # )
-        # # Add and log artifact
-        # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
-        # wandb.log_artifact(evaluation_artifact)
-
-    # Close W&B session and upload artifacts -- DISABLED WANDB
-    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
-    # command = f"wandb sync {wandb_stripped_dir}"
-    # wandb.finish()
-    # TODO restore once done fixing script
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
-
-    if return_stat_tests:
-        return data, stat_test_res_df, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors
-    else:
-        return data, top_n_hyperparam_dmm, best_hyperparam_dmm, best_regressors
-
-
 conf = fire.Fire(Conf)
-
 outdir = fig_dir / conf.model / conf.data
-
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
-
 JOBS = tuple([i for i in range(conf.n_starts)])
 
 # Compute run configurations and arrange by CV split
@@ -446,8 +140,10 @@ hyperparam_configs = {
     ]
     for samples in SPLITS
 }
+
+# Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
-for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
+for samples in sorted(list(SPLITS)):
     for dataset in ["train","test"]:
         # DMM evaluations
         training = pd.concat(
@@ -474,6 +170,7 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
         # print(f'Starting to plot loss_vs_regularization for {samples}, {dataset}')
         # plot_loss_vs_regularization(training)
         # plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
+        # plt.close()
         # print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
 
         # concatenate embeddings, parameter deviations and parameters
@@ -552,26 +249,21 @@ for samples in sorted(list(SPLITS)):  # process from 0of5 to 4of5
             # Once appended, this can be deleted
             del avg_ps_df
 
-        # dfd = pd.concat([training, pretraining])
         # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
         print(f"Finished concatenating training and reference models for {samples}, {dataset}")
-        # Deleting DataFrames once concatenated into dfd
-        del training, avg_ps_dfs, rdf
         dfs.append(dfd)
         le_dfs.append(temp_results["latent_embeddings"])
         param_dev_dfs.append(temp_results["parameter_deviations"])
         param_dfs.append(temp_results["full_parameters"])
-        # Deleting dfd once appended to dfs
-        del dfd, temp_results
+        # Cleanup
+        del training, avg_ps_dfs, rdf, dfd, temp_results
 
 df = pd.concat(dfs).reset_index()
-# Now that dfs have been concatenated into df, delete them
-del dfs
 le_df, param_dev_df, param_df = [pd.concat(dfs) for dfs in [le_dfs, param_dev_dfs, param_dfs]]
 for results_df in [le_df, param_dev_df, param_df]:
     results_df["job"] = results_df["job"].astype(int)
-del le_dfs, param_dev_dfs, param_dfs
+del dfs, le_dfs, param_dev_dfs, param_dfs
 
 # ########################################################################### #
 # ############################### Aggregation ############################### #
@@ -580,57 +272,33 @@ del le_dfs, param_dev_dfs, param_dfs
 # Aggregate data, save CSVs and log W&B artifacts (currently disabled)
 num_best = 10
 aggregated_results = aggregate_and_log(
-    df=df, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
+    df=df, conf=conf, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
 )
 if RETURN_STAT_TESTS:
-    data, stat_test_res_df, top_n_dmm, best_hyperparam_dmm, best_regressors = aggregated_results
+    data, stat_test_res_df, top_n_dmm_train, best_hyperparam_dmm, best_regressors, unified_dmm_results = aggregated_results
 else:
-    data, top_n_dmm, best_hyperparam_dmm, best_regressors = aggregated_results
+    data, top_n_dmm_train, best_hyperparam_dmm, best_regressors, unified_dmm_results = aggregated_results
 
 
 # ########################################################################### #
-# ################### Save train/test RMSE dataset in CSV ################### #
+# ################## Most predictive hyperparams for RMSE ################### #
 # ########################################################################### #
-dmm_results = {
-    dataset: (data[(data.dataset == dataset) & (data.ref == 'DMM')]
-              .drop(columns=['ref', 'dataset']))
-    for dataset in ['train', 'test']
-}
-unified_dmm_results = pd.merge(
-    dmm_results['train'],
-    dmm_results['test'],
-    how="inner",
-    on=list(data.columns.difference(['rmse', 'dataset', 'ref'])),
-    suffixes=('_train', '_test')
-)
-unified_dmm_results.to_csv(
-    evaluations_dir
-    / f"{conf.model}"
-    / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
-)
-print("Finished saving unified (train/test) DMM RMSE results.")
 
+# train_rf_features_to_rmse(
+#     dmm_results=unified_dmm_results,
+#     conf=conf,
+#     num_top_features=10
+# )
 
 # ########################################################################### #
-# ##################### Top 10 jobs (train) per config ###################### #
+# #### Restrict embeddings and params to top 10 jobs (train) per config ##### #
 # ########################################################################### #
-config_cols = list(next(iter(hyperparam_configs.values()))[0].keys())
-config_cols.remove("job")
-top_n_train = 10
-# Subset to top N=10 jobs for each configuration according to rmse_train metric
-top_n_dmm_train = unified_dmm_results.groupby(config_cols).apply(
-    lambda x: x.nsmallest(top_n_train, "rmse_train")
-).reset_index(drop=True)
-# Ensure same dtypes as original dataframe
-top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
-
 # Subset parameter deviation, parameter and latent embeddings to top N=10 jobs
 top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train = [
     df.merge(
         top_n_dmm_train,
         how="inner",
-        on=(config_cols + ["job"])
+        on=default_attributes
     )[df.columns]
     for df in [param_dev_df, param_df, le_df]
 ]
@@ -641,12 +309,65 @@ top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train = [
 top_n_pca_le_df_train = pca_latent_embeddings(
     top_n_le_df_train, hyperparam_configs, scale=False
 ).reset_index()
-top_n_pca_le_df_train.to_csv(
-    evaluations_dir
-    / f"{conf.model}"
-    / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.top_{num_best}_pca_latent_embeddings.csv"
-)
+
+for df_to_save, df_label in zip(
+    [top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train, top_n_pca_le_df_train],
+    ["param_dev", "param", "le", "pca_le"]
+):
+    df_to_save.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.top_{num_best}_{df_label}.csv"
+    )
+
+# REMOVE AFTER INTERPHACE
+# for samples_list, csv_label in zip(
+#         [[f"{i}of5" for i in range(5)], [f"{i}of5" for i in range(4)]],
+#         ["all", "MOSA_compatible"]
+# ):
+#     agg_df = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].groupby(
+#         ["context", "l1reg_inflater_output"]
+#     ).agg(
+#         rmse_test_mean=("rmse_test", "mean"),
+#         rmse_test_list=("rmse_test", lambda x: list(x))
+#     ).reset_index()
+#     # Get best configuration for each context across all CV splits
+#     optimal_dmm = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].merge(
+#         agg_df, on=["context", "l1reg_inflater_output"]
+#     ).sort_values(by="rmse_test_mean", ascending=True).groupby(
+#         ["context"]
+#     ).head(1).reset_index()
+#     # Get top 10 jobs for optimal configs
+#     optimal_dmm_top_10 = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].merge(
+#         optimal_dmm[["context", "l1reg_inflater_output"]], on=["context", "l1reg_inflater_output"]
+#     ).assign(ref="DMM")
+#     # Get simplified data for references
+#     data_nodmm = data[(data.ref != "DMM") & (data.features_transform != "pca")]
+#     data_nodmm_train = data_nodmm[data_nodmm.dataset == "train"].rename(columns={"rmse": "rmse_train"})
+#     data_nodmm_test = data_nodmm[data_nodmm.dataset == "test"].rename(columns={"rmse": "rmse_test"})
+#     data_nodmm_combined = data_nodmm_train.drop(columns=["dataset"]).merge(
+#         data_nodmm_test.drop(columns=["dataset"]),
+#         on=[col for col in data_nodmm_train if col not in ["dataset", "rmse_train"]]
+#     )
+#     data_regressors = data_nodmm_combined[~data_nodmm_combined.ref.isin(["avg_model", "sample"])]
+#     data_regressors = data_regressors[data_regressors.samples.isin(samples_list)]
+#     best_reg_mean = data_regressors.groupby(["context", "ref"]).agg(rmse_test_mean=("rmse_test", "mean")).reset_index()
+#     best_reg_mean = best_reg_mean.sort_values(by="rmse_test_mean", ascending=True).groupby("context").head(1)
+#     best_regressors = data_regressors.merge(best_reg_mean, on=["context", "ref"])
+#     data_baseline = data_nodmm_combined[data_nodmm_combined.ref.isin(["avg_model", "sample"])].drop_duplicates(subset=["ref", "samples"])
+#     data_baseline["context"] = ""  # zero out context
+#     data_refs_clean = pd.concat([data_baseline, best_regressors])
+#     barplot_data = pd.concat([optimal_dmm_top_10, data_refs_clean])
+#     barplot_data["model"] = barplot_data["ref"] + "" + barplot_data["context"]
+#     barplot_data.to_csv(
+#         evaluations_dir
+#         / f"{conf.model}"
+#         / f"{conf.data}"
+#         / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs_{csv_label}.csv"
+#     )
+
+
 
 # Select reg_param for plotting based on the number of unique investigated values
 reg_params = [
@@ -680,26 +401,6 @@ plt.savefig(
 plt.close()
 
 # ########################################################################### #
-# ################### Save information on top N best DMM #################### #
-# ########################################################################### #
-
-# Step 1: Extract data and flatten the structure
-flat_top_n_dmm = []
-for dataset, contexts in top_n_dmm.items():
-    for context, context_list in contexts.items():
-        for context_dict in context_list:
-            flat_top_n_dmm.append({**{'dataset': dataset, 'context': context}, **context_dict})
-
-# Step 2: Create a DataFrame
-best_n_dmm_df = pd.DataFrame(flat_top_n_dmm)
-best_n_dmm_df.to_csv(
-    evaluations_dir
-    / f"{conf.model}"
-    / f"{conf.data}"
-    / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_{HP_RUN_MODE}.csv"
-)
-
-# ########################################################################### #
 # ############################ Performance Plots ############################ #
 # ########################################################################### #
 
@@ -709,31 +410,27 @@ best_n_dmm_df.to_csv(
 # )
 #
 
-# TODO @GiacomoFabrini -- review this in light of new subsetting on RMSE_train!?!
-# Get top 10 train jobs in `data` and plot barplots for all jobs and top10 train
-data_dmm = data[data.ref == 'DMM']
 data_nodmm = data[data.ref != 'DMM']
-top_dmm_for_merge = top_n_dmm_train[
-    [col for col in top_n_dmm_train if col not in ["rmse_train", "rmse_test", "dataset"]]
-]
-data_dmm = convert_dataframe_dtypes(data_dmm)
-data_dmm_top10 = data_dmm.merge(
-    top_dmm_for_merge,
-    how='inner',
-    on=[col for col in top_dmm_for_merge.columns]
-)
-data_top10_refs = pd.concat(
-    [data_dmm_top10, data_nodmm]
-).reset_index().drop(columns=['index'])
-del data_dmm, data_nodmm, top_dmm_for_merge, data_dmm_top10
+data_dmm = convert_dataframe_dtypes(data[data.ref == "DMM"])
 
-for dataframe, barplot_label in zip(
-        [data, data_top10_refs], ["baseline_barplot", "baseline_barplot_top10"]
-):
+for barplot_label in ["all", "top_val"]:
+    if barplot_label == "all":
+        data_top_dmm = data_dmm.merge(
+            top_n_dmm_train,
+            on=[col for col in top_n_dmm_train.columns if col not in ["rmse_train", "rmse_test"]]
+        ).drop(columns=["rmse_train", "rmse_test"])
+    else:
+        data_top_dmm = data_dmm.merge(
+            best_hyperparam_dmm,
+            on=[col for col in best_hyperparam_dmm.columns if col not in ["rmse_train", "rmse_test", "model"]]
+        ).drop(columns=["rmse_train", "rmse_test", "model"])
+
+    barplot_df = pd.concat([data_top_dmm, data_nodmm])
+
     performance_barplot(
-        dataframe=dataframe,
+        dataframe=barplot_df,
         conf=conf,
-        group_name=barplot_label,
+        group_name=f"baseline_barplot_{barplot_label}",
     )
 
 
@@ -779,6 +476,9 @@ prefixes = ('EGFR', 'ERK', 'ERBB2', 'MEK', 'iMEK', 'iEGFR')
 param_cols = [col for col in param_df.columns if col.startswith(prefixes)]
 # Choose whether to plot the average of all multistarts or only the top 10 with respect to training performance (rmse_train)
 plot_top_n_train = True
+samples_val = sorted(param_df[param_df.dataset != "train"].cell_line.unique())
+cell_lines = sorted(param_df.cell_line.unique())
+samples_train = [cell_line for cell_line in cell_lines if cell_line not in samples_val]
 
 ## Plot spread of parameter deviations across multistarts for validation cell-lines
 plot_val_param_dev_spread(
@@ -801,6 +501,8 @@ for context in CONTEXT_SET:
         # Subset to context and compute the median over all jobs
         group_cols = [col for col in parameter_dataframe.columns if
                       (not col.startswith(prefixes)) and (col != "job")]
+        # TODO once we reinclude this!
+        group_cols = [col for col in group_cols if col != "sparse_threshold_perc"]
         plot_df = (
             parameter_dataframe[parameter_dataframe.context == context].groupby(group_cols)[param_cols]
             .agg("median")  # CHANGED FROM MEAN TO MEDIAN
@@ -817,18 +519,58 @@ for context in CONTEXT_SET:
                 param_cols,
                 group_cols,
                 reg_param,
+                samples_train,
+                samples_val,
                 plot_label,
-                fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}.pdf",
-                val_only,
+                fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}",
+                val_only=val_only,
+                type="heatmap"
             )
 
-        # Adjust layout for better spacing
-        g.set_titles(col_template="{col_name}")
-        g.tight_layout()
-        # plt.legend()
-        plt.savefig(
-            fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.param_dev_{val_cell_line}.pdf")
-        plt.show()
+    # # PARAMETER DEVIATION HISTOGRAMS PER CELL-LINE -- REMOVED FOR NOW
+    # for val_cell_line, split_val in zip(
+    #         hardest_cell_lines[:len(SPLITS)], SPLITS
+    # ):
+    #     param_dev_val = param_dev_df[(param_dev_df.cell_line.isin([val_cell_line])) & (param_dev_df.context == context)]
+    #     # Extract column names that start with any of the prefixes
+    #     parameters = [col for col in param_dev_val.columns if col.startswith(prefixes)]
+    #     columns = parameters + ["l1reg_inflater_output", "samples"]
+    #     l1reg_values = sorted(param_dev_val.l1reg_inflater_output.unique())
+    #     # Reshape the dataframe using melt to get a 'parameter' column and corresponding values
+    #     df_melted = param_dev_val.melt(
+    #         id_vars=["l1reg_inflater_output","samples"],
+    #         value_vars=parameters,
+    #         var_name="parameter",
+    #         value_name="value",
+    #     )
+    #
+    #     # Create FacetGrid with one column per parameter, one CV split per row
+    #     g = sns.FacetGrid(
+    #         df_melted, col="parameter", row="samples",
+    #         row_order=[f"{i}of5" for i in range(5)],
+    #         sharex=False,
+    #         sharey=False,
+    #         height=3,
+    #         aspect=2
+    #     )
+    #
+    #     # Map histogram plots to each facet
+    #     g.map_dataframe(
+    #         sns.histplot,
+    #         x="value",
+    #         hue="l1reg_inflater_output",
+    #         hue_order=l1reg_values,
+    #         palette="tab10",
+    #     )
+    #
+    #     # Adjust layout for better spacing
+    #     g.set_titles(col_template="{col_name}")
+    #     g.tight_layout()
+    #     # plt.legend()
+    #     plt.savefig(
+    #         fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.param_dev_{val_cell_line}.pdf")
+    #     plt.show()
+    #     plt.close()
 
 
 
@@ -859,24 +601,14 @@ if RETURN_STAT_TESTS:
 # Load measurement and observable dataframes
 df_meas, df_obs = get_measurements_and_obervables(conf)
 
-# Initialise latent embeddings, parameter medians and parameter deviations list of dataframes
-latent_embeddings_dfs, param_deviations_dfs, params_dfs = [], [], []
-
 # Setup features_test for regressors - need to ensure all contexts and splits have the same number of features/columns
 features_test = {
     context: None
     for context in CONTEXT_SET
 }
 
-# TODO: overall structure is good, but I am wrongly fetching evaluation files - those contain residuals, whereas
-#  I need to fetch the actual simulation files to plot the time-varying response!!!
-# TODO: need to loop through SPLITS and get samples + the best configuration does not specify a single job!
-# We need to fetch all of them and plot mean ± std
 for dataset, context, split in itt.product(
-        [
-            "train",
-            "test",
-        ],
+        ["train","test"],
         CONTEXT_SET,
         sorted(list(SPLITS)) # ensure processing from 0of5 to 4of5
 ):
@@ -922,7 +654,9 @@ for dataset, context, split in itt.product(
     )
 
     # Get best-regressor simulation
-    regressor_mode = best_regressors[dataset][context]
+    regressor_mode = best_regressors[
+        (best_regressors.context == context) & (best_regressors.dataset == dataset)
+    ].ref.values[0]
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
         model=conf.model,
         data=conf.data,
@@ -979,20 +713,26 @@ for dataset, context, split in itt.product(
     #  best_regressor_sim_df only has 608 - what are those 90 rows missing from the latter?
     #  Is this related to the missing/inconsistent timepoints in some samples?
 
-    # BEST DMM
-    # Overall (across jobs and splits)
-    # Generate confs for all jobs -- include info on split
-    overall_best_confs = [
-        replace(get_dmm_conf(conf, best_hyperparam_dmm, dataset, context), job=job, samples=split)
-        for job in JOBS
+    # BEST DMM -- chosen as best on validation set when considering performance from top 10 jobs on training set
+    best_config_jobs = sorted(best_hyperparam_dmm[
+        (best_hyperparam_dmm.context == context) & (best_hyperparam_dmm.samples == split)
+    ].job.unique())
+    best_dmm_conf_obj = [
+        Conf(
+            model=conf.model,
+            data=conf.data,
+            **best_hyperparam_dmm[
+                   (best_hyperparam_dmm.context == context) & (best_hyperparam_dmm.samples == split) & (best_hyperparam_dmm.job == job)
+                ].drop(columns=["rmse_train", "rmse_test", "ref", "model"]).to_dict(orient="records")[0]
+        )
+        for job in best_config_jobs
     ]
-    rmse_best_confs = best_hyperparam_dmm[dataset][context]["rmse list"]
     # Compute features once (same across all jobs) - depend on SPLIT
-    input_features = load_and_transform_features(overall_best_confs[0], dataset)
+    input_features = load_and_transform_features(best_dmm_conf_obj[0], dataset)
     overall_best_dmm_sim_dfs = []
 
     # temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []
-    for job, overall_best_conf, rmse_conf in zip(JOBS, overall_best_confs, rmse_best_confs):
+    for job, overall_best_conf in zip(best_config_jobs, best_dmm_conf_obj):
         # simulation errors might result in missing files -> skip
         try:
             models, obj = load_model_and_obj(
@@ -1003,21 +743,6 @@ for dataset, context, split in itt.product(
             )
         except FileNotFoundError:
             continue
-
-        # ############## Latent embeddings, parameter deviations, parameters ############## #
-        # Get latent embeddings, parameter deviations and full parameters
-        # partial_le_df, partial_pd_df, partial_p_df = get_embedding_and_params_df(
-        #     dmm_model=models[0],
-        #     input_features=input_features,
-        #     context=context,
-        #     split=split,
-        #     dataset=dataset,
-        #     job=job,
-        # )
-        # # Append to growing list of dataframes
-        # latent_embeddings_dfs.append(partial_le_df.assign(rmse=rmse_conf))
-        # param_deviations_dfs.append(partial_pd_df.assign(rmse=rmse_conf))
-        # params_dfs.append(partial_p_df.assign(rmse=rmse_conf))
 
         # Simulate and append to growing pd.DataFrame list
         overall_best_dmm_sim_dfs.append(
@@ -1034,7 +759,7 @@ for dataset, context, split in itt.product(
     overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
     del overall_best_dmm_sim_dfs
     # Add identifier column (to keep replicate datapoints)
-    overall_best_dmm_sim_df["unique_id"] = list(range(int(len(overall_best_dmm_sim_df) / len(JOBS)))) * int(len(JOBS))
+    overall_best_dmm_sim_df["unique_id"] = list(range(int(len(overall_best_dmm_sim_df) / len(best_config_jobs)))) * int(len(best_config_jobs))
     # Group by all necessary columns, compute mean for "simulation" column and drop unnecessary columns
     overall_best_dmm_sim_df = overall_best_dmm_sim_df.groupby(
         ["observableId", "preequilibrationConditionId",
@@ -1044,20 +769,6 @@ for dataset, context, split in itt.product(
         columns=["job", "unique_id"]
     )
 
-    # Single-shot (single split, single job) -- NOT IN USE
-    # absolute_best_conf = get_dmm_conf(conf, absolute_best_dmm, dataset, context)
-    # absolute_best_dmm_model, obj = load_model_and_obj(
-    #     absolute_best_conf,
-    #     petab_base_files,
-    #     dataset
-    # )
-    # absolute_best_dmm_sim_df = simulate_dmm(
-    #     model=absolute_best_dmm_model,
-    #     input_features=load_and_transform_features(absolute_best_conf, dataset),
-    #     obj=obj,
-    #     petab_problem=absolute_best_dmm_model.petab_importer.petab_problem,
-    # )
-
     # Plot the time-varying response
     plot_cross_samples_multiple_simulations(
         measurement_df=df_meas_subset,
@@ -1066,29 +777,25 @@ for dataset, context, split in itt.product(
             avg_model_sim_df,
             best_regressor_sim_df,
             overall_best_dmm_sim_df,
-            # absolute_best_dmm_sim_df
         ],
         labels=[  # TODO @GiacomoFabrini need to find a way to use these to produce secondary legend (currently unused)
             "per_sample",
             "avg_model",
             "best_regressor",
             "best_dmm_overall",
-            # "best_singleshot_dmm"
         ],
         linetypes=[
-            (0, (1, 5)),  # similar to "loosely dotted" in matplotlib but with twice more frequent dots
-            "dotted",
             "dashed",
+            "dashdot",
+            "dotted",
             "solid",
-            # "dashdot",
-        ],  # TODO change this to something more appropriate
+        ],
         linesizes=[
             1,
             1,
             1,
             1.25,  # slightly thicker lines for DMM models
-            # 1.25,
-        ],  # TODO change this to something more appropriate
+        ],
         figdir=outdir / dataset,
         prefix="__".join(
             [
@@ -1100,5 +807,4 @@ for dataset, context, split in itt.product(
         ),
     )
 
-
-print("Done.")  # TODO remove + TODO: consider moving all helper functions into separate scripts
+print("Done.")
