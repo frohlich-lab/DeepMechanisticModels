@@ -31,10 +31,7 @@ def init_wandb(
     else:
         group = f"{conf.context}_{conf.features}"
 
-    # Add requirement for wandb core - new, faster back-end -- DISABLED WANDB
-    # wandb.require("core")
-    wandb.require("legacy-service")  # trying legacy back-end for cluster runs - 24 Sep 2024
-
+    # Init wandb (default: new 'core' backend)
     wandb.init(
         # v2: Equinox
         # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
@@ -43,6 +40,8 @@ def init_wandb(
         # v6: same as v5, reduced, run locally due to wandb issues with cluster
         # v7: exploring various regularisation strategies, cluster, old wandb backend
         # v8: various tests on l1reg_inflater_output and epoch + median_reg
+        # v11: l1reg scheduling
+        # v12: MOSA 200 starts, no l1reg scheduling
         project=f"DeepMechanisticModels.v9.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
