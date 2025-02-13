@@ -18,7 +18,8 @@ from training_configuration import (
     LINEAR_SCHEDULE,
     # OTHER OPTIONS
     USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
-    HP_RUN_MODE, REFINE_HPS
+    HP_RUN_MODE, REFINE_HPS,
+    N_EPOCHS,
 )
 from typing import Union
 
@@ -86,8 +87,10 @@ def prune_config(run_config: dict):
         prune = True
 
     if not run_config["l1reg_inflater_output"] > 0:
-        # ignore epoch at which to disable output regularisation + sparsity % threshold if no output regularisation
-        hps_to_prune.extend(["inflater_output_reg_epoch", "sparse_threshold_perc"])
+        # if no inflater output L1 regularisation, ignore sparsity threshold (set to default),
+        # and postpone epoch at which sparsity is imposed until final epoch (i.e. do not impose any sparsity mask)
+        hps_to_prune.extend(["sparse_threshold_perc"])
+        run_config["inflater_output_reg_epoch"] = N_EPOCHS
         prune = True
 
     if prune:
