@@ -349,13 +349,6 @@ def plot_parameter_heatmaps(
         ).assign(cell_line="average")  # Add label for average cell line
         param_df = pd.concat([param_df, avg_df], ignore_index=True)
 
-    g = sns.FacetGrid(
-        param_df,
-        row="samples", row_order=sorted(param_df.samples.unique()),
-        col=top_reg_param, col_order=sorted(param_df[top_reg_param].unique()),
-        margin_titles=True, height=5, aspect=1.5
-    )
-
     # Set colorbar range
     if plot_label == "param_dev":
         vmin, vmax = -1.5, 1.5
