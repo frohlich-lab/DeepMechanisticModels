@@ -501,8 +501,8 @@ for context in CONTEXT_SET:
         # Subset to context and compute the median over all jobs
         group_cols = [col for col in parameter_dataframe.columns if
                       (not col.startswith(prefixes)) and (col != "job")]
-        # TODO once we reinclude this!
-        group_cols = [col for col in group_cols if col != "sparse_threshold_perc"]
+        # # TODO once we reinclude this!
+        # group_cols = [col for col in group_cols if col != "sparse_threshold_perc"]
         plot_df = (
             parameter_dataframe[parameter_dataframe.context == context].groupby(group_cols)[param_cols]
             .agg("median")  # CHANGED FROM MEAN TO MEDIAN
