@@ -39,10 +39,16 @@ def get_features(
         dataset: pd.read_csv(
             features_filepath.format(dataset=dataset),
             index_col=0
-        )
+        ).sort_index()  # once again, ensure cell-lines appear in alphabetical order
         for dataset in datasets
     }
     return features
+
+
+def get_median_param_names(model: DeepMechanisticModel):
+    return [name[4:] if "MED" in name else name
+            for name in model.pypesto_subproblem.x_names
+            if "DEV" not in name]
 
 
 def pca_transform_features(
@@ -318,6 +324,11 @@ def subset_features(
     petab_samples = []
     if pypesto_subproblem is None:
         pypesto_subproblem = model.pypesto_subproblem
+    # This filtering can be seen as redundant, as model.sample_name_list is set to petab_samples,
+    # computed in the same way from the original features.index, but here we also make sure that such
+    # samples appear in the features dataframe. That being said, if they are not, DMMs won't work because
+    # they expect the full sample set
+    # TODO discuss with Fabian - can be removed and a check for same length can be included instead (with ValueError)
     for name in pypesto_subproblem.x_names:
         if not name.startswith(MODEL_FEATURE_PREFIX):
             continue
@@ -492,6 +503,10 @@ def init_global_kin_params_combiner(
             median_params_method=median_params_method,
             return_full_combo=False,
         )
+
+        # Check order of initialised median parameters matches petab median parameter order
+        assert list(par_medians.index.values) == get_median_param_names(model)
+
         # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
         new_global_kin_params = jnp.array(par_medians.values)
         # Check shape match prior to initialisation

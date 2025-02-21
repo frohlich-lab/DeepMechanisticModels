@@ -192,7 +192,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         self.orth_reg_strategy = orth_reg_strategy
         self.activation_fn_name = activation_fn_name
 
-        self.sample_name_list = sample_name_list
         self.n_input_features = n_input_features
         self.n_latent = n_latent
 
@@ -209,7 +208,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             measurement_table=measurement_table,
             condition_table=condition_table,
             observable_table=observable_table,
-            samples=self.sample_name_list,  # features needed here!
+            samples=sample_name_list,  # these will get sorted within petab_importer
         )
         self.pypesto_subproblem = self.petab_importer.create_problem()
 
@@ -224,7 +223,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             if sample not in petab_samples and sample in sample_name_list:
                 petab_samples.append(sample)
 
-        n_samples = len(sample_name_list)
+        # Store sample names
+        self.sample_name_list = petab_samples
+        n_samples = len(self.sample_name_list)
 
         # n_inflated_specific_kin_params = number of cell-line-specific parameters (per cell-line = sample)
         # these kinetic parameters are the targets of the inflater module (previously model_inputs)

@@ -10,7 +10,7 @@ def get_samples(data_name):
             "cBT549",
             "cCAL148",
             "cCAL851",
-            "cCAL51",
+            "cCAL51",  # mind that this cell-line DOES NOT follow alphabetical order
             "cDU4475",
             "cEFM192A",
             "cEVSAT",

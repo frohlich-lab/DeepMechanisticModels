@@ -27,8 +27,10 @@ del petab_base_files["condition_table"]
 if conf.context == "MOSA" and conf.samples == "4of5":
     raise ValueError(f"{conf.context} not available for CV split {conf.samples}")
 
-samples_train = training_samples(Wildcards(conf.data, conf.samples))
-samples_val = test_samples(Wildcards(conf.data, conf.samples))
+samples_train, samples_val = [
+    sorted(dataset_samples(Wildcards(conf.data, conf.samples)))
+    for dataset_samples in (training_samples, test_samples)
+]
 
 # Modified to handle multiple context in case of multimodal learning (context1+context2+...+contextN).
 # For now, this simply repeats the same procedure for each context independently.
