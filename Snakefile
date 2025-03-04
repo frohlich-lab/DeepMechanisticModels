@@ -99,7 +99,7 @@ rule pretrain_per_sample:
         data='[\w\.]+',
         sample='\w+',
     resources:
-        mem="1GB",
+        mem="2GB",
         runtime="6h",
         nodes=1,
         threads=1,
@@ -123,7 +123,7 @@ rule pretrain_average_model:
         data='[\w\.]+',
         samples='[0-9]+of[0-9]+',
     resources:
-        mem="1GB",
+        mem="2GB",
         runtime="6h",
         nodes=1,
         threads=1,
@@ -174,7 +174,7 @@ rule select_features:
         data='[\w\.]+',
         samples='[0-9]+of[0-9]+',
     resources:
-        mem="1GB",
+        mem="4GB",
         runtime="10h",
         nodes=1,
         threads=1,
@@ -196,6 +196,7 @@ rule estimate_parameters:
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
         pretrain_per_sample=per_sample_pretraining_train,
+        pretrain_average_model=rules.pretrain_average_model.output.pretraining
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=[
