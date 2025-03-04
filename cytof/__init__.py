@@ -5,12 +5,12 @@ def get_samples(data_name):
     if data_name == "dream_cytof":
         return [
             "c184A1",
-            "cBT20",
+            "cBT20",  # EGFR amplification (10-14 times)
             "cBT474",
             "cBT549",
             "cCAL148",
             "cCAL851",
-            "cCAL51",  # mind that this cell-line DOES NOT follow alphabetical order
+            "cCAL51",  # mind that this cell-line DOES NOT follow alphabetical order -- microsatellite instability (MSI)
             "cDU4475",
             "cEFM192A",
             "cEVSAT",

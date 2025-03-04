@@ -14,6 +14,17 @@ subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tog
 colours_lb = {"Normal": "green", "Luminal": "blue", "Basal": "red", "Other": "black"}
 colours_pam50 = {"Normal": "green", "LA": "cyan", "LB": "navy", "HER2": "gold", "Basal": "red", "Other": "black"}
 
+# colours_ms = {"Stable (MSS)": "green", "Instable (MSI-low)": "orange", "Instable (MSI-high)": "red", "Unknown": "gray"}
+# colours_site = {
+#     "In situ; Breast, epithelium": "cornflowerblue",
+#     "In situ; Breast": "cyan",
+#     "Metastatic; Pleural effusion": "orange",
+#     "Metastatic; Pericardial effusion": "red",
+#     "Metastatic; Skin": "purple",
+#     "Metastatic; Ascites": "orange",
+#     "Metastatic; Brain": "green",
+#     "Unknown": "black"
+# }
 
 # Base plotting functions for FacetGrid
 def lineplot_methods(data, *args, **kwargs):
@@ -266,7 +277,7 @@ def plot_latent_embeddings(
         plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="samples"))
         plt.close()
 
-        for subtype_scheme in ["PAM50", "LB"]:
+        for subtype_scheme in [col for col in ["PAM50", "LB", "Site", "MS_Status", "Disease"] if col in sub_df.columns]:
             g = sns.FacetGrid(
                 sub_df,
                 row="samples",
@@ -351,7 +362,9 @@ def plot_parameter_heatmaps(
 
     # Set colorbar range
     if plot_label == "param_dev":
-        vmin, vmax = -1.5, 1.5
+        min_dev, max_dev = param_df[param_cols].min().min(), param_df[param_cols].max().max()
+        abs_largest = max(abs(min_dev), abs(max_dev))
+        vmin, vmax = -abs_largest, abs_largest
     elif plot_label == "param":
         vmin, vmax = -10, 10
     else:
@@ -456,4 +469,41 @@ def random_forest_importance_plot(results_dfs: dict[str, pd.DataFrame], conf, sa
         plt.savefig(
             fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
         )
+    plt.close()
+
+
+def plot_rmse_val_cell_lines(df, conf, reg_param):
+    g = sns.FacetGrid(
+        df[df["sample"].isin(hardest_cell_lines)],
+        row="sample", row_order=hardest_cell_lines[:len(df.samples.unique())],
+        col=reg_param, col_order=sorted(df[reg_param].unique()),
+        hue="dataset",
+        sharex=True, sharey=True
+    )
+    g.map_dataframe(sns.histplot, x="rmse")
+    plt.tight_layout()
+    plt.legend()
+    figure_filepath = fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.RMSE_top10train_by_cl.svg"
+    if not figure_filepath.parent.exists():
+        figure_filepath.parent.mkdir(parents=True)
+    plt.savefig(figure_filepath)
+
+
+def plot_mse_param_dev_val_across_splits(diffs: pd.DataFrame, conf, context: str, reg_param: str):
+    g = sns.FacetGrid(
+        diffs, col="cell_line", col_order=hardest_cell_lines[:len(diffs.cell_line.unique())], hue="samples",
+    )
+    # Disable auto legend handling and add to each subplot
+    g.map_dataframe(sns.lineplot, x=reg_param, y="MSE", marker='o', legend=False)
+    for ax in g.axes.flat:
+        handles, labels = ax.get_legend_handles_labels()
+        # Order labels in legend by CV number
+        sorted_pairs = sorted(zip(labels, handles), key=lambda x: int(x[0].split("of")[0]))
+        sorted_labels, sorted_handles = zip(*sorted_pairs) if sorted_pairs else ([], [])
+        if sorted_handles:
+            ax.legend(sorted_handles, sorted_labels, title="Samples")
+    plt.tight_layout()
+    plt.savefig(
+        fig_dir / conf.model / conf.data / f"{context}.param_dev_mse.vs.{reg_param}.pdf"
+    )
     plt.close()

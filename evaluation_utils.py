@@ -1,3 +1,4 @@
+import itertools as itt
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
@@ -22,7 +23,7 @@ from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
-from evaluation_plotting import random_forest_importance_plot
+from evaluation_plotting import random_forest_importance_plot, plot_rmse_val_cell_lines
 from jax import vmap
 from pathlib import Path
 from scipy.sparse.csgraph import connected_components
@@ -643,21 +644,41 @@ def get_best_regressor(
     return best_regressor_df
 
 
-def aggregate_and_log(df: pd.DataFrame, conf: Conf, return_stat_tests: bool, num_best: int = 10):
+def aggregate_and_log(
+        df: pd.DataFrame,
+        conf: Conf,
+        top_reg_param: str,
+        return_stat_tests: bool,
+        num_best: int = 10
+):
     # Define aggregation groups for DMM and refs
     gbs_dmm = ["dataset", "ref"] + default_attributes
+    gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
     gbs_refs = ["dataset", "context", "samples", "ref"]
     # Replace missing values in features_transform (None instead of nan)
     df["features_transform"] = df["features_transform"].replace(np.nan, "None")
 
     temp_dfs = []
-    for ref_subset, group_cols in zip(["DMM", "refs"], [gbs_dmm, gbs_refs]):
-        if ref_subset == "DMM":
-            subset_df = df[df.ref == "DMM"]
+    for ref_subset, group_cols in zip(["DMM", "DMM_CL", "refs"], [gbs_dmm, gbs_dmm_cl, gbs_refs]):
+        if ref_subset != "DMM_CL":
+            if ref_subset == "DMM":
+                subset_df = df[df.ref == "DMM"]
+            else:
+                subset_df = df[~df.ref.isin(["DMM"])]
+            temp_dfs.append(
+                pd.DataFrame(
+                    [
+                        dict(
+                            zip(group_cols, group),
+                            rmse=np.sqrt(np.square(group_df["res"]).mean()),
+                        )
+                        for group, group_df in subset_df.groupby(group_cols)
+                    ]
+                )
+            )
         else:
-            subset_df = df[~df.ref.isin(["DMM"])]
-        temp_dfs.append(
-            pd.DataFrame(
+            subset_df = df[df.ref == "DMM"]
+            dmm_by_cl = pd.DataFrame(
                 [
                     dict(
                         zip(group_cols, group),
@@ -666,7 +687,7 @@ def aggregate_and_log(df: pd.DataFrame, conf: Conf, return_stat_tests: bool, num
                     for group, group_df in subset_df.groupby(group_cols)
                 ]
             )
-        )
+
     data = pd.concat(temp_dfs).sort_values(by="ref")
     # print("Overall evaluation DataFrame is now ready.")
     # cleanup
@@ -760,6 +781,20 @@ def aggregate_and_log(df: pd.DataFrame, conf: Conf, return_stat_tests: bool, num
     ).reset_index(drop=True)
     # Ensure same dtypes as original dataframe
     top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
+    # Subset results at the cell-line granularity
+    top_n_results_by_cl = convert_dataframe_dtypes(dmm_by_cl).merge(
+        top_n_dmm_train,
+        how='inner',
+        on=default_attributes
+    )[dmm_by_cl.columns]
+    # Plot and store
+    plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
+    top_n_results_by_cl.to_csv(
+        evaluations_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test_by_cl_top10train.csv"
+    )
     # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
     top_n_dmm_train_cv = top_n_dmm_train.groupby(config_cols).agg(rmse_test_agg=("rmse_test", "mean")).reset_index()
 
@@ -852,3 +887,44 @@ def aggregate_and_log(df: pd.DataFrame, conf: Conf, return_stat_tests: bool, num
         return data, stat_test_res_df, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results
     else:
         return data, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results
+
+
+def compute_deviation_ratio(
+        param_dev_df: pd.DataFrame,
+        param_cols: list,
+        reg_param: str
+):
+    val_param_dev = param_dev_df[param_dev_df.cell_line.isin(hardest_cell_lines)]
+
+    def compute_stats(group):
+        return pd.Series({
+            'mean': group[param_cols].mean().mean(),
+            'median': group[param_cols].median().median(),
+            'min': group[param_cols].min().min(),
+            'max': group[param_cols].max().max()
+        })
+
+    stats_df = val_param_dev.groupby(
+        ['cell_line', 'l1reg_inflater_output', 'samples']
+    ).apply(compute_stats).reset_index()
+    stats_df["range"] = stats_df["max"] - stats_df["min"]
+
+    results_dfs = []
+    for samples, reg_param_val in itt.product(stats_df.samples.unique(), stats_df[reg_param].unique()):
+        val_cell_line = hardest_cell_lines[int(samples.split('of')[0])]
+        subset_df = stats_df[(stats_df.samples == samples) & (stats_df[reg_param] == reg_param_val)]
+        val_cell = subset_df[subset_df.cell_line == val_cell_line]
+        train_cells = subset_df[subset_df.cell_line != val_cell_line]
+        average_range = train_cells["range"].mean()
+        results_dfs.append(
+            pd.DataFrame(
+                {
+                    "cell_line": [val_cell["cell_line"].values[0]],
+                    "samples": [samples],
+                    reg_param: [reg_param_val],
+                    "deviation_ratio": [val_cell["range"].values[0]/average_range]
+                }
+            )
+        )
+
+    return pd.concat(results_dfs)

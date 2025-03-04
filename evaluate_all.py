@@ -8,9 +8,11 @@ import seaborn as sns
 # import subprocess
 # import wandb
 
+from annotation_utils import get_cell_line_cellosaurus_annotations
 from common import (
     CONTEXT_SET,
     default_attributes,
+    features_dir,
     evaluations_dir,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
@@ -40,7 +42,8 @@ from dmm.initialisation import get_features, get_features_filepaths, pca_transfo
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance,
-                                 plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps)
+                                 plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps,
+                                 plot_mse_param_dev_val_across_splits)
 from evaluation_utils import (aggregate_and_log, convert_dataframe_dtypes,
                               get_measurements_and_obervables,
                               load_model_and_obj,
@@ -49,7 +52,8 @@ from evaluation_utils import (aggregate_and_log, convert_dataframe_dtypes,
                               process_per_sample_pretrain, get_embedding_and_params_df,
                               pca_latent_embeddings,
                               cosine_similarity_embeddings, silhouette_embeddings,
-                              train_rf_features_to_rmse)
+                              train_rf_features_to_rmse,
+                              compute_deviation_ratio)
 from generate_run_configs import generate_run_configs
 from joblib import load
 from pathlib import Path
@@ -265,6 +269,15 @@ for results_df in [le_df, param_dev_df, param_df]:
     results_df["job"] = results_df["job"].astype(int)
 del dfs, le_dfs, param_dev_dfs, param_dfs
 
+# Select reg_param for plotting based on the number of unique investigated values
+reg_params = [
+    "l1reg_inflate", "oreg_inflate",   # inflater
+    "l1reg_encode", "oreg_encode",  # encoder
+    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch"  # param dev, param medians
+]
+num_unique_regs = [len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params]
+reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
+
 # ########################################################################### #
 # ############################### Aggregation ############################### #
 # ########################################################################### #
@@ -272,7 +285,7 @@ del dfs, le_dfs, param_dev_dfs, param_dfs
 # Aggregate data, save CSVs and log W&B artifacts (currently disabled)
 num_best = 10
 aggregated_results = aggregate_and_log(
-    df=df, conf=conf, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
+    df=df, conf=conf, top_reg_param=reg_param, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
 )
 if RETURN_STAT_TESTS:
     data, stat_test_res_df, top_n_dmm_train, best_hyperparam_dmm, best_regressors, unified_dmm_results = aggregated_results
@@ -321,69 +334,18 @@ for df_to_save, df_label in zip(
         / f"{conf.model}.{conf.data}.top_{num_best}_{df_label}.csv"
     )
 
-# REMOVE AFTER INTERPHACE
-# for samples_list, csv_label in zip(
-#         [[f"{i}of5" for i in range(5)], [f"{i}of5" for i in range(4)]],
-#         ["all", "MOSA_compatible"]
-# ):
-#     agg_df = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].groupby(
-#         ["context", "l1reg_inflater_output"]
-#     ).agg(
-#         rmse_test_mean=("rmse_test", "mean"),
-#         rmse_test_list=("rmse_test", lambda x: list(x))
-#     ).reset_index()
-#     # Get best configuration for each context across all CV splits
-#     optimal_dmm = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].merge(
-#         agg_df, on=["context", "l1reg_inflater_output"]
-#     ).sort_values(by="rmse_test_mean", ascending=True).groupby(
-#         ["context"]
-#     ).head(1).reset_index()
-#     # Get top 10 jobs for optimal configs
-#     optimal_dmm_top_10 = top_n_dmm_train[top_n_dmm_train.samples.isin(samples_list)].merge(
-#         optimal_dmm[["context", "l1reg_inflater_output"]], on=["context", "l1reg_inflater_output"]
-#     ).assign(ref="DMM")
-#     # Get simplified data for references
-#     data_nodmm = data[(data.ref != "DMM") & (data.features_transform != "pca")]
-#     data_nodmm_train = data_nodmm[data_nodmm.dataset == "train"].rename(columns={"rmse": "rmse_train"})
-#     data_nodmm_test = data_nodmm[data_nodmm.dataset == "test"].rename(columns={"rmse": "rmse_test"})
-#     data_nodmm_combined = data_nodmm_train.drop(columns=["dataset"]).merge(
-#         data_nodmm_test.drop(columns=["dataset"]),
-#         on=[col for col in data_nodmm_train if col not in ["dataset", "rmse_train"]]
-#     )
-#     data_regressors = data_nodmm_combined[~data_nodmm_combined.ref.isin(["avg_model", "sample"])]
-#     data_regressors = data_regressors[data_regressors.samples.isin(samples_list)]
-#     best_reg_mean = data_regressors.groupby(["context", "ref"]).agg(rmse_test_mean=("rmse_test", "mean")).reset_index()
-#     best_reg_mean = best_reg_mean.sort_values(by="rmse_test_mean", ascending=True).groupby("context").head(1)
-#     best_regressors = data_regressors.merge(best_reg_mean, on=["context", "ref"])
-#     data_baseline = data_nodmm_combined[data_nodmm_combined.ref.isin(["avg_model", "sample"])].drop_duplicates(subset=["ref", "samples"])
-#     data_baseline["context"] = ""  # zero out context
-#     data_refs_clean = pd.concat([data_baseline, best_regressors])
-#     barplot_data = pd.concat([optimal_dmm_top_10, data_refs_clean])
-#     barplot_data["model"] = barplot_data["ref"] + "" + barplot_data["context"]
-#     barplot_data.to_csv(
-#         evaluations_dir
-#         / f"{conf.model}"
-#         / f"{conf.data}"
-#         / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs_{csv_label}.csv"
-#     )
-
-
-
-# Select reg_param for plotting based on the number of unique investigated values
-reg_params = [
-    "l1reg_inflate", "oreg_inflate",   # inflater
-    "l1reg_encode", "oreg_encode",  # encoder
-    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch"  # param dev, param medians
-]
-num_unique_regs = [len(top_n_pca_le_df_train[reg_param].unique()) for reg_param in reg_params]
-reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
-
+# Get Cellosaurus annotations
+brca_annot_df = get_cell_line_cellosaurus_annotations(file_dir= features_dir / conf.model / conf.data)
 for (latent_embedding_df, df_label), which_cells in itt.product(
     zip([top_n_le_df_train, top_n_pca_le_df_train], ["pristine", "pca"]),
         ["all", "val_only"]
 ):
+    plotting_df = latent_embedding_df.merge(
+        brca_annot_df.reset_index()[["cell_line", "Site", "MS_Status", "Disease"]],
+        on="cell_line"
+    )
     plot_latent_embeddings(
-        le_df=latent_embedding_df,
+        le_df=plotting_df,
         df_label=df_label,
         reg_param=reg_param,
         save_path=str(
@@ -488,6 +450,7 @@ plot_val_param_dev_spread(
     reg_params,  # TODO any better way of dynamically defining this?
     fig_dir / conf.model / conf.data / f"param_dev_boxplot_val_only_{reg_param}.pdf"
 )
+plt.close("all")
 
 for context in CONTEXT_SET:
     for plot_label, parameter_dataframe in zip(
@@ -508,6 +471,40 @@ for context in CONTEXT_SET:
             .agg("median")  # CHANGED FROM MEAN TO MEDIAN
             .reset_index()
         )
+
+        if plot_label == "param_dev":
+            # Get ratios between param deviation ranges across train/val per samples/reg_param combo
+            # This uses the median across jobs, but we could directly use ALL JOBS (parameter_dataframe
+            val_param_dev_ratios = compute_deviation_ratio(plot_df, param_cols, reg_param)
+            sns.boxplot(val_param_dev_ratios, x=reg_param, y="deviation_ratio", color='gray')
+            sns.stripplot(val_param_dev_ratios, x=reg_param, y="deviation_ratio", hue="samples")
+            plt.tight_layout()
+            plt.savefig(
+                fig_dir / conf.model / conf.data / f"{context}.param_dev_ratio.{reg_param}.pdf"
+            )
+            plt.close()
+
+            val_param_dev_df = plot_df[plot_df.cell_line.isin(hardest_cell_lines)]
+            results_dfs = []
+            for cell_line, reg_param_val in itt.product(val_param_dev_df.cell_line.unique(),
+                                                        val_param_dev_df[reg_param].unique()):
+                # Select a single cell-line and reg strength
+                sub_df = val_param_dev_df[
+                    (val_param_dev_df.cell_line == cell_line) & (val_param_dev_df[reg_param] == reg_param_val)
+                ]
+                # Get parameter for cell-line when in val set
+                params_val = sub_df[sub_df.dataset == "test"]
+                for samples in sub_df[sub_df.dataset != "test"].samples.unique():
+                    # Pick sets of parameters one CV split at a time and compute MSE among all parameter deviations
+                    params = sub_df[sub_df.samples == samples]
+                    mse = np.mean((params_val[param_cols].values - params[param_cols].values) ** 2)
+                    results_dfs.append(
+                        pd.DataFrame(
+                            {"cell_line": [cell_line], reg_param: [reg_param_val], "samples": [samples], "MSE": [mse]}
+                        )
+                    )
+            diffs = pd.concat(results_dfs).sort_values(by=["cell_line", "samples"])
+            plot_mse_param_dev_val_across_splits(diffs=diffs, conf=conf, context=context, reg_param=reg_param)
 
         for val_only, val_label in zip([True, False], ["val_only", "all"]):
             filtered_df = plot_df if not val_only else plot_df[
