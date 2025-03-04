@@ -42,7 +42,8 @@ def init_wandb(
         # v8: various tests on l1reg_inflater_output and epoch + median_reg
         # v11: l1reg scheduling
         # v12: MOSA 200 starts, no l1reg scheduling
-        project=f"DeepMechanisticModels.v9.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v13: l1reg scheduling with fixed inflater_output_reg_epoch (500, half range), scanning sparsity percentage
+        project=f"DeepMechanisticModels.v13.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
@@ -66,6 +67,7 @@ def init_wandb(
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag  # label experiment with date of experiment start
         ],
+        mode="offline"  # to run more jobs simultaneously on the cluster
     )
 
     # Define W&B metrics
