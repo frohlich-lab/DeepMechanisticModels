@@ -3,6 +3,7 @@ import jax.numpy as jnp
 import jax.flatten_util as jfu
 import matplotlib.pyplot as plt
 import numpy as np
+import optax
 import petab
 import pypesto
 import seaborn as sns
@@ -18,7 +19,7 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array, PyTree
-from optax import adam, adamw, GradientTransformationExtraArgs, OptState, Schedule, sgdr_schedule
+from optax import adam, adamw, GradientTransformationExtraArgs, join_schedules, OptState, Schedule, sgdr_schedule
 from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pathlib import Path
 from pypesto.C import MODE_RES, RDATAS, ModeType
@@ -54,14 +55,29 @@ def get_scheduler(
         # be entirely within conf object
         schedules = [
             {
-                'init_value': max_lrate / conf["lrate_span"],  # before warm-up
+                'init_value': init_value,  # before warm-up / matching end of l1reg_inflater_output stage
                 'peak_value': max_lrate,  # after warm-up
-                'warmup_steps': int(n_epoch * conf["warmup_fct"]),
-                'decay_steps': n_epoch - int(n_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
-                'end_value': max_lrate * conf["lrate_decay"]**n_epoch,  # after decay
-            }  # single linear schedule
+                'warmup_steps': int(num_epoch * conf["warmup_fct"]),
+                'decay_steps': num_epoch - int(num_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
+                'end_value': max_lrate * conf["lrate_decay"]**num_epoch,  # after decay
+            }  # single linear schedule, but restarts after dropping l1reg_inflater_output
+            for num_epoch, init_value in zip(
+                [conf["inflater_output_reg_epoch"], n_epoch - conf["inflater_output_reg_epoch"]],
+                [max_lrate / conf["lrate_span"], max_lrate * conf["lrate_decay"]**conf["inflater_output_reg_epoch"]]
+            )
         ]
+        # if conf["inflater_output_reg_epoch"] = n_epoch, drop last schedule but keep list format
+        if conf["inflater_output_reg_epoch"] == n_epoch:
+            del schedules[-1]
+            return sgdr_schedule(schedules)
+        else:
+            # Apply schedules sequentially (otherwise optax assumes they both start at epoch 0)
+            return join_schedules(
+                schedules=[sgdr_schedule([schedule]) for schedule in schedules],
+                boundaries=[conf["inflater_output_reg_epoch"]]
+            )
     else:
+        # Cosine annealing
         epochs_per_schedule = np.array([
             conf["opt_steps"] * (conf["opt_mult"] ** i)
             for i in range(int(n_epoch // conf["opt_steps"]))
@@ -80,7 +96,7 @@ def get_scheduler(
             }
             for i_schedule in range(len(epochs_per_schedule))
         ]
-    return sgdr_schedule(schedules)
+        return sgdr_schedule(schedules)
 
 
 def get_optimiser_and_opt_state(
