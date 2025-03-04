@@ -307,6 +307,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         outputs = super().__call__(x)
         # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
         outputs["inflated"] = outputs["inflated"] * jnp.array(self.sparsity_binary_mask)
+        # Finally, introduce soft constrain within ±5 (hardcoded) range through rescaled tanh: a * tanh(x/a), a=5
+        outputs["inflated"] = 5 * jnp.tanh(outputs["inflated"] / 5)
         return outputs
 
 
