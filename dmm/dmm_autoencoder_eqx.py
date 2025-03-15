@@ -318,7 +318,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param x:
             input data.
         :param threshold_perc:
-            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%, specified as 50).
+            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%, specified as 50,
+            means retaining top 50% most deviating parameters).
         :param round_up:
             boolean flag to round up or down when computing the threshold (default: False).
 
@@ -335,8 +336,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
         # Considering we want sparsity, I have opted to round down by default - behaviour can be changed via round_up.
         threshold = sorted_deviations[jnp.clip(
-            int(jnp.floor(len(sorted_deviations) * (1 - threshold_perc/100))) - 1 if not round_up else
-            int(jnp.ceil(len(sorted_deviations) * (1 - threshold_perc/100))) - 1,
+            int(jnp.floor(len(sorted_deviations) * threshold_perc/100)) - 1 if not round_up else
+            int(jnp.ceil(len(sorted_deviations) * threshold_perc/100)) - 1,
             0,
             len(sorted_deviations) - 1
         )]
