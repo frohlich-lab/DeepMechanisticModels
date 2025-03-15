@@ -8,12 +8,12 @@ from pathlib import Path
 from typing import List, Union
 
 
-subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
-subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
-
-colours_lb = {"Normal": "green", "Luminal": "blue", "Basal": "red", "Other": "black"}
-colours_pam50 = {"Normal": "green", "LA": "cyan", "LB": "navy", "HER2": "gold", "Basal": "red", "Other": "black"}
-
+# subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
+# subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
+#
+# colours_lb = {"Normal": "green", "Luminal": "blue", "Basal": "red", "Other": "black"}
+# colours_pam50 = {"Normal": "green", "LA": "cyan", "LB": "navy", "HER2": "gold", "Basal": "red", "Other": "black"}
+#
 # colours_ms = {"Stable (MSS)": "green", "Instable (MSI-low)": "orange", "Instable (MSI-high)": "red", "Unknown": "gray"}
 # colours_site = {
 #     "In situ; Breast, epithelium": "cornflowerblue",
@@ -258,8 +258,8 @@ def plot_latent_embeddings(
 ):
     plot_df = le_df.copy()
 
-    plot_df["PAM50"] = plot_df.cell_line.map(subtypes_pam50)
-    plot_df["LB"] = plot_df.cell_line.map(subtypes_lb)
+    # plot_df["PAM50"] = plot_df.cell_line.map(subtypes_pam50)
+    # plot_df["LB"] = plot_df.cell_line.map(subtypes_lb)
 
     for context in plot_df.context.unique():
         sub_df = plot_df[plot_df.context == context]
@@ -277,7 +277,12 @@ def plot_latent_embeddings(
         plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="samples"))
         plt.close()
 
-        for subtype_scheme in [col for col in ["PAM50", "LB", "Site", "MS_Status", "Disease"] if col in sub_df.columns]:
+        for subtype_scheme in [
+            col for col in [
+                "PAM50", "LB", "HR_Status", "HER2_Status",
+                "Site", "MS_Status", "Disease"
+            ] if col in sub_df.columns
+        ]:
             g = sns.FacetGrid(
                 sub_df,
                 row="samples",
@@ -430,24 +435,89 @@ def plot_parameter_heatmaps(
                     ].set_index("cell_line")
                 if subset.empty:
                     continue
-                for sb_label, subtypes, colours in zip(
-                        ["PAM50", "LB"],
-                        [subtypes_pam50, subtypes_lb],
-                        [colours_pam50, colours_lb]):
-                    sns.clustermap(
-                        data=subset[param_cols],
-                        row_colors=subset.index.map({
-                            cell_line: colours[subtypes[cell_line]]
-                            for cell_line in subtypes.keys()
-                        }),
-                        col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
-                        xticklabels=True, yticklabels=True,
+                # for annotation in ["molecular_subtypes", "cellosaurus"]:
+                #     if annotation == "molecular_subtypes":
+                #         row_colors = pd.DataFrame({
+                #             sb_label: subset.index.map({
+                #                 cell_line: colours[subtypes[cell_line]]
+                #                 for cell_line in subtypes.keys()
+                #             })
+                #             for sb_label, colours, subtypes in zip(
+                #                 ["PAM50", "LB"],
+                #                 [colours_pam50, colours_lb],
+                #                 [subtypes_pam50, subtypes_lb]
+                #             )
+                #         }, index=subset.index)
+                #     else:
+                row_colors = pd.DataFrame(
+                    {
+                        annotation: subset[annotation].map(
+                            {
+                                category: color
+                                for category, color in zip(
+                                sorted(subset[annotation].unique()),
+                                sns.color_palette(palette, subset[annotation].nunique())
+                            )
+                            }
+                        )
+                        for annotation, palette in zip(
+                        ["PAM50", "LB", "HR_Status", "HER2_Status", "Site", "Disease", "MS_Status"],
+                        ["deep", "viridis", "Blues", "Reds", "mako", "inferno", "plasma"]
                     )
-                    plt.tight_layout()
-                    plt.savefig(
-                        str(figure_filepath) + f".c.{sample}.{reg_param}.{sb_label}" + figure_fmt
-                    )
-                    plt.close()
+                    },
+                    index=subset.index
+                )
+                sns.clustermap(
+                    data=subset[param_cols],
+                    row_colors=row_colors,
+                    col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
+                    xticklabels=True, yticklabels=True,
+                )
+                # Create the legend handles
+                legend_patches = []
+                for annotation in row_colors.columns:
+                    unique_categories = subset[annotation].unique()
+                    colors = row_colors[annotation].dropna().unique()
+
+                    # Ensure alignment between unique categories and colors
+                    category_color_map = dict(zip(unique_categories, colors))
+
+                    # Create patches for legend
+                    for category, color in category_color_map.items():
+                        legend_patches.append(patches.Patch(color=color, label=f"{annotation}: {category}"))
+
+                # Plot the legend
+                plt.legend(
+                    handles=legend_patches,
+                    loc="upper right",
+                    bbox_to_anchor=(5, 1),
+                    # ncol=1,
+                    frameon=False,
+                    fontsize=5
+                )
+                plt.tight_layout()
+                plt.savefig(
+                    str(figure_filepath) + f".c.{sample}.{reg_param}" + figure_fmt
+                )
+                plt.close()
+                # for sb_label, subtypes, colours in zip(
+                #         ["PAM50", "LB"],
+                #         [subtypes_pam50, subtypes_lb],
+                #         [colours_pam50, colours_lb]):
+                #     sns.clustermap(
+                #         data=subset[param_cols],
+                #         row_colors=subset.index.map({
+                #             cell_line: colours[subtypes[cell_line]]
+                #             for cell_line in subtypes.keys()
+                #         }),
+                #         col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
+                #         xticklabels=True, yticklabels=True,
+                #     )
+                #     plt.tight_layout()
+                #     plt.savefig(
+                #         str(figure_filepath) + f".c.{sample}.{reg_param}.{sb_label}" + figure_fmt
+                #     )
+                #     plt.close()
 
 
 def random_forest_importance_plot(results_dfs: dict[str, pd.DataFrame], conf, save_or_show: str = "show"):
@@ -507,3 +577,22 @@ def plot_mse_param_dev_val_across_splits(diffs: pd.DataFrame, conf, context: str
         fig_dir / conf.model / conf.data / f"{context}.param_dev_mse.vs.{reg_param}.pdf"
     )
     plt.close()
+
+
+def plot_param_dev_hist_min_max(param_dev_df: pd.DataFrame, reg_param: str, param_cols: list[str], conf, fig_name: str):
+    for fig_label in ["single_jobs", "median"]:
+        plt.subplots(param_dev_df[reg_param].nunique(), 1, sharex=True)
+        for i, reg_param_value in enumerate(sorted(param_dev_df[reg_param].unique())):
+            if fig_label == "single_jobs":
+                sub_df = param_dev_df[param_dev_df[reg_param] == reg_param_value][param_cols]
+            elif fig_label == "median":
+                sub_df = param_dev_df[param_dev_df[reg_param] == reg_param_value].groupby(
+                    "cell_line"
+                )[param_cols].median().reset_index()[param_cols]
+            plt.subplot(param_dev_df.sparse_threshold_perc.nunique(), 1, i + 1)
+            plt.hist(sub_df.min(), label="min", color='blue')
+            plt.hist(sub_df.max(), label="max", color='orange')
+            plt.title(reg_param_value)
+        plt.legend()
+        plt.tight_layout()
+        plt.savefig(str(fig_dir / conf.model / conf.data / fig_name) + f".vs_{reg_param}.{fig_label}.pdf")

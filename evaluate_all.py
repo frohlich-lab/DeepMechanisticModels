@@ -28,6 +28,7 @@ from common import (
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
     REGRESSION_MODES,
+    subtypes_tognetti,
     training_samples,
     test_samples,
     Wildcards,
@@ -38,15 +39,15 @@ from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
 # from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features, get_features_filepaths, pca_transform_features, impute_features
+from dmm.initialisation import get_features_filepaths
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance,
                                  plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps,
                                  plot_mse_param_dev_val_across_splits)
-from evaluation_utils import (aggregate_and_log, convert_dataframe_dtypes,
+from evaluation_utils import (add_annotations, aggregate_and_log, convert_dataframe_dtypes,
                               get_measurements_and_obervables,
-                              load_model_and_obj,
+                              load_model_and_obj, load_and_transform_features,
                               simulate_avg_model,
                               process_avg_model_simulation,
                               process_per_sample_pretrain, get_embedding_and_params_df,
@@ -61,43 +62,6 @@ from training_configuration import (
     CONTEXTS_FEATURES, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
 )
 from util import load_petab_base_files
-
-
-def load_and_transform_features(
-        conf: Conf,
-        dataset: str
-) -> np.ndarray:
-    # Compute features filepath given conf and dataset
-    features_filepath = FEATURES_OUTFILE.format(
-        **{**conf.__dict__, **dict(dataset='{dataset}')}
-    )
-    # Compute filepath for feature transformation pipeline
-    feature_transform_pipeline_filepath = Path(
-        FEATURES_PIPELINE.format_map(conf.__dict__)
-    )
-    features = get_features(
-        features_filepath=features_filepath,
-        datasets=['train', 'val']
-    )
-    if conf.features_transform == "pca":
-        # Load pre-trained pipeline if it exists
-        if os.path.exists(feature_transform_pipeline_filepath):
-            pipeline = load(feature_transform_pipeline_filepath)
-        else:
-            pipeline = None
-        features = pca_transform_features(
-            features=features,
-            pipeline_filepath=feature_transform_pipeline_filepath,
-            pipeline=pipeline,
-        )
-    else:
-        features = impute_features(features)
-    if dataset == 'train':
-        features_dataset = 'train'
-    elif dataset == 'test':
-        features_dataset = 'val'
-    # TODO @GiacomoFabrini - will need to change this when we resolve 'val' vs 'test' ambiguity
-    return features[features_dataset].values
 
 
 def process_reference(
@@ -130,6 +94,31 @@ conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 JOBS = tuple([i for i in range(conf.n_starts)])
+
+# Compute subtype dictionaries
+subtypes_pam50, subtypes_lb = (
+    {
+        cl: subtypes_tognetti[cl][subtype_scheme] for cl in subtypes_tognetti.keys()
+    }
+    for subtype_scheme in ["PAM50", "Luminal/Basal"]
+)
+subtypes_hr = {
+    cl: (
+        "Positive" if subtypes_pam50[cl] in ["LA", "LB"] else
+        "Negative" if subtypes_pam50[cl] in ["HER2", "Basal"] else
+        "Unknown"
+    )
+    for cl in subtypes_pam50.keys()
+}
+
+subtypes_her2 = {
+    cl: (
+        "Negative" if subtypes_pam50[cl] in ["LA", "Basal"] else
+        "Positive" if subtypes_pam50[cl] in ["LB", "HER2"] else
+        "Unknown"
+    )
+    for cl in subtypes_pam50.keys()
+}
 
 # Compute run configurations and arrange by CV split
 hyperparam_configs = generate_run_configs(
@@ -273,7 +262,8 @@ del dfs, le_dfs, param_dev_dfs, param_dfs
 reg_params = [
     "l1reg_inflate", "oreg_inflate",   # inflater
     "l1reg_encode", "oreg_encode",  # encoder
-    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch"  # param dev, param medians
+    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch",  # param dev, param medians
+    "sparse_threshold_perc"
 ]
 num_unique_regs = [len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params]
 reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
@@ -337,12 +327,26 @@ for df_to_save, df_label in zip(
 # Get Cellosaurus annotations
 brca_annot_df = get_cell_line_cellosaurus_annotations(file_dir= features_dir / conf.model / conf.data)
 for (latent_embedding_df, df_label), which_cells in itt.product(
-    zip([top_n_le_df_train, top_n_pca_le_df_train], ["pristine", "pca"]),
+    zip(
+        [
+            # top_n_le_df_train,
+            top_n_pca_le_df_train
+        ],
+        [
+            # "pristine",
+            "pca"
+        ]
+    ),
         ["all", "val_only"]
 ):
-    plotting_df = latent_embedding_df.merge(
-        brca_annot_df.reset_index()[["cell_line", "Site", "MS_Status", "Disease"]],
-        on="cell_line"
+    # Add Cellosaurus and PAM50/LB annotations
+    plotting_df = add_annotations(
+        latent_embedding_df,
+        brca_annot_df,
+        subtypes_pam50,
+        subtypes_lb,
+        subtypes_hr,
+        subtypes_her2
     )
     plot_latent_embeddings(
         le_df=plotting_df,
@@ -442,7 +446,7 @@ samples_val = sorted(param_df[param_df.dataset != "train"].cell_line.unique())
 cell_lines = sorted(param_df.cell_line.unique())
 samples_train = [cell_line for cell_line in cell_lines if cell_line not in samples_val]
 
-## Plot spread of parameter deviations across multistarts for validation cell-lines
+# Plot spread of parameter deviations across multistarts for validation cell-lines
 plot_val_param_dev_spread(
     top_n_param_dev_df_train if plot_top_n_train else param_dev_df,
     param_cols,
@@ -451,6 +455,9 @@ plot_val_param_dev_spread(
     fig_dir / conf.model / conf.data / f"param_dev_boxplot_val_only_{reg_param}.pdf"
 )
 plt.close("all")
+
+# Plot range of values of parameter deviations (either single jobs or median)
+
 
 for context in CONTEXT_SET:
     for plot_label, parameter_dataframe in zip(
@@ -470,6 +477,15 @@ for context in CONTEXT_SET:
             parameter_dataframe[parameter_dataframe.context == context].groupby(group_cols)[param_cols]
             .agg("median")  # CHANGED FROM MEAN TO MEDIAN
             .reset_index()
+        )
+
+        plot_df = add_annotations(
+            plot_df,
+            brca_annot_df,
+            subtypes_pam50,
+            subtypes_lb,
+            subtypes_hr,
+            subtypes_her2
         )
 
         if plot_label == "param_dev":
@@ -725,7 +741,16 @@ for dataset, context, split in itt.product(
         for job in best_config_jobs
     ]
     # Compute features once (same across all jobs) - depend on SPLIT
-    input_features = load_and_transform_features(best_dmm_conf_obj[0], dataset)
+    input_features = load_and_transform_features(
+        conf=best_dmm_conf_obj[0],
+        dataset=dataset,
+        features_filepath=FEATURES_OUTFILE.format(
+            **{**conf.__dict__, **dict(dataset='{dataset}')}
+        ),
+        feature_transform_pipeline_filepath=Path(
+            FEATURES_PIPELINE.format_map(conf.__dict__)
+        )
+    )
     overall_best_dmm_sim_dfs = []
 
     # temp_latent_embeddings, temp_parameter_medians, temp_parameter_deviations = [], [], []

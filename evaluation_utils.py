@@ -1,6 +1,7 @@
 import itertools as itt
 import jax.numpy as jnp
 import numpy as np
+import os
 import pandas as pd
 import petab
 
@@ -20,11 +21,13 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.config_options import Conf
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
+from dmm.initialisation import get_features, pca_transform_features, impute_features
 from dmm.petab_subproblem import load_petab
 from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
 from dmm.training_helper_funcs import create_pypesto_problem
 from evaluation_plotting import random_forest_importance_plot, plot_rmse_val_cell_lines
 from jax import vmap
+from joblib import load
 from pathlib import Path
 from scipy.sparse.csgraph import connected_components
 from sklearn.decomposition import PCA
@@ -280,7 +283,9 @@ def pca_latent_embeddings(
     pca_dfs = []
     for samples, sub_df in le_df.groupby("samples"):
         # Remove "job" key from each dictionary
-        unique_configs = {frozenset({k: v for k, v in d.items() if k != 'job'}.items()) for d in hyperparam_configs[samples]}
+        unique_configs = {
+            frozenset({k: v for k, v in d.items() if k != 'job'}.items()) for d in hyperparam_configs[samples]
+        }
 
         # Convert back to list of dicts
         unique_configs = [dict(config) for config in unique_configs]
@@ -905,7 +910,7 @@ def compute_deviation_ratio(
         })
 
     stats_df = val_param_dev.groupby(
-        ['cell_line', 'l1reg_inflater_output', 'samples']
+        ['cell_line', reg_param, 'samples']
     ).apply(compute_stats).reset_index()
     stats_df["range"] = stats_df["max"] - stats_df["min"]
 
@@ -928,3 +933,54 @@ def compute_deviation_ratio(
         )
 
     return pd.concat(results_dfs)
+
+
+def add_annotations(
+        df: pd.DataFrame,
+        brca_annot_df: pd.DataFrame,
+        subtypes_pam50: dict,
+        subtypes_lb: dict,
+        subtypes_hr: dict,
+        subtypes_her2: dict,
+) -> pd.DataFrame:
+    annotated_df = df.copy()
+    annotated_df = annotated_df.merge(
+        brca_annot_df.reset_index()[["cell_line", "Site", "MS_Status", "Disease"]],
+        on="cell_line"
+    )
+    for col_name, subtypes_dict in zip(
+        ["PAM50", "LB", "HR_Status", "HER2_Status"], [subtypes_pam50, subtypes_lb, subtypes_hr, subtypes_her2]
+    ):
+        annotated_df[col_name] = annotated_df.cell_line.map(subtypes_dict)
+    return annotated_df
+
+
+def load_and_transform_features(
+        conf: Conf,
+        dataset: str,
+        features_filepath,
+        feature_transform_pipeline_filepath
+) -> np.ndarray:
+    features = get_features(
+        features_filepath=features_filepath,
+        datasets=['train', 'val']
+    )
+    if conf.features_transform == "pca":
+        # Load pre-trained pipeline if it exists
+        if os.path.exists(feature_transform_pipeline_filepath):
+            pipeline = load(feature_transform_pipeline_filepath)
+        else:
+            pipeline = None
+        features = pca_transform_features(
+            features=features,
+            pipeline_filepath=feature_transform_pipeline_filepath,
+            pipeline=pipeline,
+        )
+    else:
+        features = impute_features(features)
+    if dataset == 'train':
+        features_dataset = 'train'
+    elif dataset == 'test':
+        features_dataset = 'val'
+    # TODO @GiacomoFabrini - will need to change this when we resolve 'val' vs 'test' ambiguity
+    return features[features_dataset].values
