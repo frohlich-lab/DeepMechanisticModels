@@ -369,7 +369,7 @@ def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = Non
 # )
 
 generate_run_configs(
-    n_starts=50,
+    n_starts=200,
     hp_run_mode=HP_RUN_MODE,
     refine_hps=REFINE_HPS,
 )
