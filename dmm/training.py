@@ -34,7 +34,7 @@ def update_best_models(
     """
     # Insert the new (rmse_val, model) in the appropriate position in the list
     best_models.append((epoch, rmse_val, model))
-    # Prune entries with epoch = 0 to remove any entries from pre-sparsity stage
+    # Prune entries from pre-sparsity stage, i.e. with epoch = 0
     if l1reg_scheduling:
         best_models = [(epoch, rmse_val, model) for (epoch, rmse_val, model) in best_models if epoch != 0]
     # Sort in ascending order by rmse_val (first = lowest = best)
@@ -272,7 +272,7 @@ def train(
             # being applied (hence no scheduling) or after lifting l1 regularisation and imposing sparsity
 
             if (
-                    (conf["l1reg_inflater_output"] == 0) or
+                    (conf["l1reg_inflater_output"] == 0) or (int(conf["sparse_threshold_perc"]) == 100) or
                     (conf["l1reg_inflater_output"] > 0 and epoch >= conf["inflater_output_reg_epoch"])
             ):
                 best_models = update_best_models(
@@ -281,7 +281,9 @@ def train(
                     epoch=epoch,
                     best_models=best_models,
                     max_models=ensemble_members,
-                    l1reg_scheduling=bool(conf["l1reg_inflater_output"]),
+                    l1reg_scheduling=bool(
+                        conf["l1reg_inflater_output"] and (not int(conf["sparse_threshold_perc"]) == 100)
+                    ),
                 )
 
             # Compute fval on train/val datasets using eval_model
