@@ -87,9 +87,9 @@ def prune_config(run_config: dict):
         prune = True
 
     if not run_config["l1reg_inflater_output"] > 0:
-        # if no inflater output L1 regularisation, ignore sparsity threshold (set to default),
-        # and postpone epoch at which sparsity is imposed until final epoch (i.e. do not impose any sparsity mask)
-        hps_to_prune.extend(["sparse_threshold_perc"])
+        # if no inflater output L1 regularisation, keep all param dev as cell-line-specific
+        # and do not impose sparsity mask, i.e. postpone epoch at which sparsity is imposed until final epoch
+        run_config["sparse_threshold_perc"] = 100
         run_config["inflater_output_reg_epoch"] = N_EPOCHS
         prune = True
 
