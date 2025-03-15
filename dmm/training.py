@@ -24,15 +24,21 @@ from typing import Dict
 def update_best_models(
         model: DeepMechanisticModel,
         rmse_val: float,
+        epoch: int,
         best_models: list,
-        max_models: int
+        max_models: int,
+        l1reg_scheduling: bool
 ) -> list[tuple[float, DeepMechanisticModel]]:
     """
     Update the list of best models with the current model and rmse_val
     """
     # Insert the new (rmse_val, model) in the appropriate position in the list
-    best_models.append((rmse_val, model))
-    best_models = sorted(best_models, key=lambda x: x[0])  # Sort in ascending order by rmse_val (first = lowest = best)
+    best_models.append((epoch, rmse_val, model))
+    # Prune entries with epoch = 0 to remove any entries from pre-sparsity stage
+    if l1reg_scheduling:
+        best_models = [(epoch, rmse_val, model) for (epoch, rmse_val, model) in best_models if epoch != 0]
+    # Sort in ascending order by rmse_val (first = lowest = best)
+    best_models = sorted(best_models, key=lambda x: x[1])
     # Keep only the top 'max_models' entries
     return best_models[:max_models]
 
@@ -166,7 +172,7 @@ def train(
     rmse_test_min = rmse(problem_test, model, input_features_test)
 
     best_models = [
-        (rmse_test_min, model)  # each item comprises the RMSE validation score and the model itself
+        (epoch, rmse_test_min, model)  # each item comprises the epoch, the RMSE validation score and the model itself
         for i in range(ensemble_members)
     ]
 
@@ -262,13 +268,21 @@ def train(
             if should_break:
                 break
 
-            # Update tally of best models on validation score -- ensemble members
-            best_models = update_best_models(
-                model=eval_model,
-                rmse_val=rmse_dict["test"],
-                best_models=best_models,
-                max_models=ensemble_members,
-            )
+            # Update tally of best models on validation score (ensemble members) if either no l1 regularisation is
+            # being applied (hence no scheduling) or after lifting l1 regularisation and imposing sparsity
+
+            if (
+                    (conf["l1reg_inflater_output"] == 0) or
+                    (conf["l1reg_inflater_output"] > 0 and epoch >= conf["inflater_output_reg_epoch"])
+            ):
+                best_models = update_best_models(
+                    model=eval_model,
+                    rmse_val=rmse_dict["test"],
+                    epoch=epoch,
+                    best_models=best_models,
+                    max_models=ensemble_members,
+                    l1reg_scheduling=bool(conf["l1reg_inflater_output"]),
+                )
 
             # Compute fval on train/val datasets using eval_model
             fval_train, fval_val = (
@@ -340,7 +354,7 @@ def train(
         input_data=input_features_test,
     )
     # Performance printouts
-    print(f"Best single model rmse_val: {best_models[0][0]}")  # rmse_val of first model = best performing one
+    print(f"Best single model rmse_val: {best_models[0][1]} at epoch {best_models[0][0]}")
     print(f"Best model ensemble rmse_val: {ensemble_rmse_val}")
 
     # W&B logs -- DISABLED WANDB
@@ -354,7 +368,7 @@ def train(
     # wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
 
     # Save best models
-    for ensemble_id, (_, ensemble_model_member) in enumerate(best_models):
+    for ensemble_id, (_, _, ensemble_model_member) in enumerate(best_models):
         # Format ensemble_model_file and check parent exists
         ensemble_model_file = Path(model_file.format(ensemble_id=ensemble_id))
         ensemble_model_file.parent.mkdir(exist_ok=True, parents=True)
