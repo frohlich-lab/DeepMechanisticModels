@@ -647,12 +647,12 @@ def rmse(
 
 def rmse_ensemble(
         pp,
-        best_models: list[tuple[float, DeepMechanisticModel]],
+        best_models: list[tuple[int, float, DeepMechanisticModel]],
         input_data
 ):
     try:
         residuals = []
-        for (_, model) in best_models:
+        for (_, _, model) in best_models:
             simulation_df, petab_problem = compute_simulation_from_model(
                 pp=pp, model=model, input_data=input_data, return_petab_problem=True
             )
