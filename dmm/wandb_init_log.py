@@ -68,7 +68,7 @@ def init_wandb(
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag  # label experiment with date of experiment start
         ],
-        mode="offline"  # to run more jobs simultaneously on the cluster
+        # mode="offline"  # to run more jobs simultaneously on the cluster
     )
 
     # Define W&B metrics
