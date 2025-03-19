@@ -44,7 +44,8 @@ def init_wandb(
         # v12: MOSA 200 starts, no l1reg scheduling
         # v13: l1reg scheduling with fixed inflater_output_reg_epoch (500, half range), scanning sparsity percentage
         # v14: l1reg scheduling as above, but fixed best_models behaviour + updated sparse_threshold_perc behaviour
-        project=f"DeepMechanisticModels.v14.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v15: l1reg scheduling, scanning optimal value for l1reg_inflater_output on CV 1of5
+        project=f"DeepMechanisticModels.v15.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
