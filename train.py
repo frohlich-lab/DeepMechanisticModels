@@ -8,10 +8,10 @@ from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
                                 get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
-                                setup_models,
+                                process_features_and_setup_models,
                                 subset_features,
                                 get_targets,
-                                get_features_filepaths)
+                                get_features_and_pipeline_filepaths)
 from dmm.network_pretraining import pretrain_network
 from dmm.training import train
 from dmm.training_helper_funcs import (check_best_model, create_pypesto_problem, map_params_to_array, sparsify_model)
@@ -38,7 +38,7 @@ model_file = TRAINED_BEST_MODELS.format(
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Get filepaths for features and feature transformation pipeline
-features_filepath, feature_transform_pipeline_filepath = get_features_filepaths(
+features_filepath, feature_transform_pipeline_filepath = get_features_and_pipeline_filepaths(
     conf, FEATURES_OUTFILE, FEATURES_PIPELINE
 )
 
@@ -48,7 +48,7 @@ config.update("jax_enable_x64", True)
 # Get petab_base_files
 petab_base_files = load_petab_base_files(conf=conf)
 # Setup models + load and (potentially) transform input features (e.g. PCA)
-(model_train, model_test), problem, features = setup_models(
+(model_train, model_test), problem, features = process_features_and_setup_models(
     conf=conf,
     features_filepath=features_filepath,
     pipeline_filepath=feature_transform_pipeline_filepath,

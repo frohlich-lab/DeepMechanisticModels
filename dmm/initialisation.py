@@ -95,7 +95,51 @@ def pca_transform_features(
     return transformed_features
 
 
-def setup_models(
+def process_features(
+        conf: Conf,
+        features_filepath: Union[str, List[str]],
+        pipeline_filepath: Union[Path, List[Path]],
+        datasets: List[str],
+        mode: str = "concatenate",
+):
+    # loads features corresponding to requested dataset settings
+    if isinstance(features_filepath, list) and isinstance(pipeline_filepath, list):
+        features = [
+            get_features(features_filepath=filepath, datasets=datasets)
+            for filepath in features_filepath
+        ]
+        if conf.features_transform == "pca":
+            pipelines = [
+                joblib.load(filepath) if os.path.exists(filepath) else None
+                for filepath in pipeline_filepath
+            ]
+            features = [
+                pca_transform_features(features=subfeatures, pipeline_filepath=subpipeline_filepath, pipeline=pipeline)
+                for subfeatures, subpipeline_filepath, pipeline in zip(features, pipeline_filepath, pipelines)
+            ]
+        if mode == "concatenate":
+            features = {
+                feature_dataset: pd.concat([subfeatures[feature_dataset] for subfeatures in features], axis=1)
+                for feature_dataset in datasets
+            }
+        else:  # TODO @GiacomoFabrini: add support for contrastive learning -- conf option
+            raise ValueError(f"Unknown mode for processing features: {mode}")
+    else:
+        features = get_features(features_filepath=features_filepath, datasets=datasets)
+
+        if conf.features_transform == "pca":
+            # Check whether pipeline has already been trained. If so, load it. If not, train it.
+            if os.path.exists(pipeline_filepath):
+                pipeline = joblib.load(pipeline_filepath)
+            else:
+                pipeline = None
+            features = pca_transform_features(features, pipeline_filepath, pipeline)
+        else:
+            features = impute_features(features)
+    return features
+
+
+def process_features_and_setup_models(
         conf: Conf,
         features_filepath: Union[str, List[str]],
         pipeline_filepath: Union[str, Path, List[str], List[Path]],
@@ -548,7 +592,7 @@ def get_targets(
     return par_combo[inputs].values
 
 
-def get_features_filepaths(
+def get_features_and_pipeline_filepaths(
         conf: Conf,
         features_file_template: str,
         features_pipeline_template: str
@@ -574,51 +618,6 @@ def get_features_filepaths(
     return features_filepath, feature_transform_pipeline_filepath
 
 
-
-def process_features(
-        conf: Conf,
-        features_filepath: Union[str, List[str]],
-        pipeline_filepath: Union[Path, List[Path]],
-        datasets: List[str],
-        mode: str = "concatenate",
-):
-    # loads features corresponding to requested dataset settings
-    if isinstance(features_filepath, list) and isinstance(pipeline_filepath, list):
-        features = [
-            get_features(features_filepath=filepath, datasets=datasets)
-            for filepath in features_filepath
-        ]
-        if conf.features_transform == "pca":
-            pipelines = [
-                joblib.load(filepath) if os.path.exists(filepath) else None
-                for filepath in pipeline_filepath
-            ]
-            features = [
-                pca_transform_features(features=subfeatures, pipeline_filepath=subpipeline_filepath, pipeline=pipeline)
-                for subfeatures, subpipeline_filepath, pipeline in zip(features, pipeline_filepath, pipelines)
-            ]
-        if mode == "concatenate":
-            features = {
-                feature_dataset: pd.concat([subfeatures[feature_dataset] for subfeatures in features], axis=1)
-                for feature_dataset in datasets
-            }
-        else:  # TODO @GiacomoFabrini: add support for contrastive learning -- conf option
-            raise ValueError(f"Unknown mode for processing features: {mode}")
-    else:
-        features = get_features(features_filepath=features_filepath, datasets=datasets)
-
-        if conf.features_transform == "pca":
-            # Check whether pipeline has already been trained. If so, load it. If not, train it.
-            if os.path.exists(pipeline_filepath):
-                pipeline = joblib.load(pipeline_filepath)
-            else:
-                pipeline = None
-            features = pca_transform_features(features, pipeline_filepath, pipeline)
-        else:
-            features = impute_features(features)
-    return features
-
-
 def impute_features(features: dict) -> dict:
     # Simply impute missing values (no scaling, no PCA)
     imputer = KNNImputer()
@@ -632,4 +631,3 @@ def impute_features(features: dict) -> dict:
         for dataset in features.keys()
     }
     return features
-

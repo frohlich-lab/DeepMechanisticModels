@@ -18,7 +18,7 @@ from common import (
 )
 from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
-from dmm.initialisation import (get_features, get_features_filepaths, process_features,
+from dmm.initialisation import (get_features, get_features_and_pipeline_filepaths, process_features,
                                 pca_transform_features, subset_features)
 from evaluation_utils import load_model_and_obj, get_embedding_and_params_df
 from training_configuration import N_ENSEMBLE_EVALUATION, N_ENSEMBLE_MEMBERS
@@ -94,7 +94,7 @@ def evaluate_training(
 petab_base_files = load_petab_base_files(conf)
 
 # Get filepaths for features and feature transformation pipeline
-features_filepath, feature_transform_pipeline_filepath = get_features_filepaths(
+features_filepath, feature_transform_pipeline_filepath = get_features_and_pipeline_filepaths(
     conf, FEATURES_OUTFILE, FEATURES_PIPELINE
 )
 

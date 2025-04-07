@@ -39,7 +39,7 @@ from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
 # from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features_filepaths
+from dmm.initialisation import get_features_and_pipeline_filepaths
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
                                  volcano_hyperparameter_significance,
@@ -695,7 +695,7 @@ for dataset, context, split in itt.product(
         features=features_train if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
-        features_filepath=get_features_filepaths(
+        features_filepath=get_features_and_pipeline_filepaths(
             replace(conf, context=context, features="all"), FEATURES_OUTFILE, FEATURES_PIPELINE
         )[0] if context == "MOSA" else None,
     )
