@@ -171,7 +171,7 @@ EVALUATION_PARAMETER_DEVIATIONS = str(
 
 EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
-EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.pdf")
+EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.csv")
 
 hardest_cell_lines = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
 
