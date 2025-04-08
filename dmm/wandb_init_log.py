@@ -45,7 +45,8 @@ def init_wandb(
         # v13: l1reg scheduling with fixed inflater_output_reg_epoch (500, half range), scanning sparsity percentage
         # v14: l1reg scheduling as above, but fixed best_models behaviour + updated sparse_threshold_perc behaviour
         # v15: l1reg scheduling, scanning optimal value for l1reg_inflater_output on CV 1of5
-        project=f"DeepMechanisticModels.v15.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v16: updated feature selection (uniform across CV splits), regressors with feature selection, unregularised
+        project=f"DeepMechanisticModels.v16.{conf.data}.{conf.model}.{conf.run_mode_tag}",
         group=group,
         config={
             **conf.__dict__,
@@ -93,6 +94,8 @@ def init_wandb(
     for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
         metrics[metric] = "min"
     metrics["patience_counter"] = None
+    metrics["start_rmse_val"] = None
+    metrics["final_rmse_val"] = None
     # optional metrics depending on the presence of decoder head
     if model.reconstruct:
         metrics[RECON_LOSS] = "min"
