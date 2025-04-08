@@ -26,9 +26,9 @@ MODEL_FEATURE_PREFIX = "INPUT_"
 Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
-fig_dir = basedir / "figures_1503_l1reg_sched"
-evaluations_dir = basedir / "eval_1503_l1reg_sched"
-results_dir = basedir / "res_1503_l1reg_sched"
+fig_dir = basedir / "figures_08_04_unreg"
+evaluations_dir = basedir / "eval_08_04_unreg"
+results_dir = basedir / "res_1503_08_04_unreg"
 data_dir = basedir / "data"
 pretrain_dir = basedir / "pretraining"
 features_dir = basedir / "features"
