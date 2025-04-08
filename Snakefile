@@ -164,7 +164,7 @@ rule select_features:
         script='select_features.py',
         data=expand(
              rules.process_data.output.datafiles,
-                model='{model}', data='{data}', samples=SPLITS,
+                model='{model}', data='{data}',
          ),
         data_rw=expand(
              rules.reweight_data.output.data,
@@ -533,7 +533,7 @@ rule train_and_evaluate:
     input:
          evaluation=expand(
              rules.evaluate_all.output.csv,  # changed it to CSV as plots might not be generated without stat tests
-             model=PATHWAYS, data=DATASETS,
+             model=PATHWAYS, data=DATASETS
          ),
 
 

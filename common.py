@@ -30,8 +30,8 @@ fig_dir = basedir / "figures_08_04_unreg"
 evaluations_dir = basedir / "eval_08_04_unreg"
 results_dir = basedir / "res_1503_08_04_unreg"
 data_dir = basedir / "data"
-pretrain_dir = basedir / "pretraining"
-features_dir = basedir / "features"
+pretrain_dir = basedir / "pretraining_08_04_unreg"
+features_dir = basedir / "features_08_04_unreg"
 
 PER_SAMPLE_OUTFILE_PARS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.csv"
@@ -93,7 +93,7 @@ COLLECTED_TRAINING_RESULTS = str(
     / (tpl_results_file.format(**{**defaults, "job": "full"}) + ".hdf5")
 )
 
-tpl_petab_file = str(data_dir / "{model}_{data}_{file}.tsv")
+tpl_petab_file = str(data_dir / "{model}__{data}__{file}.tsv")
 MEASUREMENTS_FILE = tpl_petab_file.format(
     file="measurements", data="{data}", model="{model}"
 )
