@@ -39,11 +39,11 @@ FEATURES_TRANSFORM = {
 
 # Cross-validation splits
 SPLITS = {
-    # "0of5",
+    "0of5",
     "1of5",
-    # "2of5",
-    # "3of5",
-    # "4of5",
+    "2of5",
+    "3of5",
+    "4of5",
 }
 
 PRETRAIN = {
@@ -257,7 +257,9 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # to scan switching epoch
 # 09.01.2024 - added pre-multiplier in DMM = 1e-6. Therefore, 1 -> 1e-6; 1e2 -> 1e-4
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
-OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
+# OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
+# OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
+OMEGAS = {'range': (0, ), 'central_value': 0}  # unregularised
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -284,11 +286,12 @@ ETAS = {'range': (0, ), 'central_value': 0}
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {'range': (500, ), 'central_value': 500}  # N_EPOCHS/2, fixed
+INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}  # N_EPOCHS
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {'range': (75, ), 'central_value': 75}
+# SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
+SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
 
 # LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
 LRATE_PRETRAINING_RATIO = {
