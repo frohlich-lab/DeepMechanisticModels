@@ -9,12 +9,12 @@ from common import (
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
     EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
-    CONTEXT_SET, SafeDict
+    CONTEXT_SET, FEATURES_SET, SafeDict
 )
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    PATHWAYS, DATASETS, FEATURES_TRANSFORM, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
 )
 
 basedir = Path(os.getcwd())
@@ -162,17 +162,24 @@ rule reweight_data:
 rule select_features:
     input:
         script='select_features.py',
-        data=rules.process_data.output.datafiles,
-        data_rw=rules.reweight_data.output.data,
+        data=expand(
+             rules.process_data.output.datafiles,
+                model='{model}', data='{data}', samples=SPLITS,
+         ),
+        data_rw=expand(
+             rules.reweight_data.output.data,
+                model='{model}', data='{data}', samples=SPLITS,
+         ),
     output:
         data=[
-            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset))
-            for dataset in ['train', 'val']
+            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset, samples=samples))
+            for dataset, samples in itt.product(['train', 'val'], SPLITS)
         ]
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        context='\w+',
+        features = '\w+',
     resources:
         mem="4GB",
         runtime="10h",
@@ -181,7 +188,7 @@ rule select_features:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'features', 'samples')
+            for arg in ('model', 'data', 'context', 'features')
         )
 
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
@@ -421,20 +428,32 @@ rule evaluate_references:
 rule evaluate_regressors:
     input:
         script='evaluate_regressors.py',
-        data=rules.process_data.output.datafiles  # wait for download and processing
+        # data=rules.process_data.output.datafiles,  # wait for download and processing
+        selected_features=expand(
+             rules.select_features.output.data,
+                model='{model}', data='{data}', samples='{samples}',
+                features='{features}', features_transform='{features_transform}',
+                context=CONTEXT_SET,
+         ),  # wait for feature selection (which requires download and processing)
     output:
         csv=[
-            EVALUATION_REGRESSOR.format_map(SafeDict(dataset=dataset,mode=mode, context=context))
+            EVALUATION_REGRESSOR.format_map(
+                SafeDict(
+                    dataset=dataset,
+                    mode=mode,
+                    context=context,
+                )
+            )
             for dataset, mode, context in itt.product(
                 ['train', 'test'],
                 ['linreg', 'lasso', 'elasticnet'],
-                [context for context in CONTEXT_SET]  # TODO @GiacomoFabrini - should not train regressors for multimodal
+                CONTEXT_SET,   # TODO @GiacomoFabrini - should not train regressors for multimodal
             )
         ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        samples='[0-9]+of[0-9]+'
     retries: 1
     resources:
         mem="8GB",
@@ -444,8 +463,8 @@ rule evaluate_regressors:
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model','data','samples')
-        ) + ' --n_starts={N_STARTS}'
+        for arg in ('model', 'data', 'samples', 'features', 'features_transform')
+        )
 
 
 rule evaluate_all:
@@ -466,10 +485,11 @@ rule evaluate_all:
         ],
         reference=expand(
             rules.evaluate_references.output.csv,
-            model='{model}',data='{data}',samples=SPLITS,
+            model='{model}',data='{data}', samples=SPLITS,
         ) + expand(
             rules.evaluate_regressors.output.csv,
-            model='{model}',data='{data}',samples=SPLITS,
+            model='{model}',data='{data}', samples=SPLITS, context=CONTEXT_SET,
+            features=FEATURES_SET, features_transform=FEATURES_TRANSFORM,
         )
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         # plot=[
@@ -512,7 +532,7 @@ rule train_and_evaluate:
     input:
          evaluation=expand(
              rules.evaluate_all.output.csv,  # changed it to CSV as plots might not be generated without stat tests
-             model=PATHWAYS, data=DATASETS, samples=SPLITS
+             model=PATHWAYS, data=DATASETS,
          ),
 
 
