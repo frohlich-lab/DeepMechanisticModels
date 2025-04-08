@@ -19,6 +19,7 @@ class SafeDict(dict):
 debug_mode = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
 
 CONTEXT_SET = sorted(list(set([context for context, _ in CONTEXTS_FEATURES])))
+FEATURES_SET = sorted(list(set([features for _, features in CONTEXTS_FEATURES])))
 
 MODEL_FEATURE_PREFIX = "INPUT_"
 
@@ -112,21 +113,21 @@ EVALUATION_REGRESSOR = str(
     evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_{mode}_{context}_{dataset}.csv"
+    / "{samples}_{mode}_{features}_{features_transform}_{context}_{dataset}.csv"
 )
 
 REGR_TRAINED_PIPELINE = str(
     evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_{mode}_{context}_trained_pipeline.joblib"
+    / "{samples}_{mode}_{features}_{features_transform}_{context}_trained_pipeline.joblib"
 )
 
 REGR_FEATURES_TRAIN = str(
     evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_{mode}_{context}_features_train.joblib"
+    / "{samples}_{mode}_{features}__{features_transform}_{context}_features_train.joblib"
 )
 
 # using same defaults as above

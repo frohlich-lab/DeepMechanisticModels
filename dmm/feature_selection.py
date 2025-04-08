@@ -19,12 +19,14 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from typing import List, Optional
 
 
 def contextualize_measurements(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     contextualization: str,
+    samples: List[str],
 ) -> pd.DataFrame:
     # Check requested contextualization is available
     if contextualization not in (
@@ -53,9 +55,8 @@ def contextualize_measurements(
         input_measurements = input_measurements[
             input_measurements["measurementType"] == "cytof"
         ]
-    # For transcriptomics, proteomics and cytof_init (initial) only keep time 0
-    # In other words, only keep time-course info for cytof_dynamic
-    if contextualization in ("transcriptomics", "proteomics", "cytof_init"):
+    # For transcriptomics and proteomics, only keep time 0
+    if contextualization in ("transcriptomics", "proteomics"):
         input_measurements = input_measurements[
             input_measurements[petab.TIME] == 0
         ]
@@ -72,21 +73,54 @@ def contextualize_measurements(
         )
         # For cytof_dynamic_full, keep all observables
         if contextualization == "cytof_dynamic":
-            # For cytof_dynamic, subset observables to those within the model (ERK, MEK)
+            # For cytof_dynamic, subset observables to those within the model (ERK, MEK, ERBB2)
             input_measurements = input_measurements[
                 input_measurements[petab.OBSERVABLE_ID].isin(
                     list(observable_table.index)
                 )
             ]
         elif contextualization == "cytof_init":
-            # For cytof_init, subset to EGF stimulation only
-            input_measurements = input_measurements[
-                input_measurements[petab.SIMULATION_CONDITION_ID].apply(
-                    lambda x: x.endswith("EGF")
-                )
+            # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
+            # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
+            # TODO - do we want to exclude info from inhibitors? (can subset to EGF earlier)
+            # input_measurements = input_measurements[
+            #     input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+            #         lambda x: x.endswith("EGF")
+            #     )
+            # ]
+            harmonised_cytof_dynamic = harmonise_cytof_dynamic(input_measurements).pivot_table(
+                index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+                columns=pivot_columns,
+                # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+                values=petab.MEASUREMENT,  # the actual measurement/signal
+                aggfunc="mean",
+                # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
+                # np.nanmean generates FutureWarning
+            )
+            harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
+                :, harmonised_cytof_dynamic.isna().sum() / harmonised_cytof_dynamic.shape[0] < 0.3
             ]
+            # Fit imputer on training samples, transform train + val samples
+            if len(samples) > 1:
+                samples_train = samples
+            else:
+                samples_train = [sample for sample in harmonised_cytof_dynamic.index if sample not in samples]
+            imputer = KNNImputer()
+            imputer.fit(harmonised_cytof_dynamic.loc[samples_train, :].values)
+            input_data = pd.DataFrame(
+                imputer.transform(harmonised_cytof_dynamic.values),
+                columns=harmonised_cytof_dynamic.columns,
+                index=harmonised_cytof_dynamic.index,
+            )
+            # subset to EGF and time 0
+            input_data = input_data[[col for col in input_data.columns if (col[1] == "EGF") and (col[2] == 0.0)]]
+            input_data.columns = [col[0] for col in input_data.columns]  # remove info on condition and timepoint
+            # input_measurements = input_measurements[
+            #     input_measurements[petab.TIME] == 0
+            # ]
             # and only keep observable ID as pivot columns (rather than observable, condition, time)
-            pivot_columns = [petab.OBSERVABLE_ID]
+            # pivot_columns = [petab.OBSERVABLE_ID]
+            return input_data
     else:
         pivot_columns = [petab.OBSERVABLE_ID]
 
@@ -124,6 +158,60 @@ def preprocess_mosa_latent(conf, samples_train, samples_val):
     return input_train, input_val, features_train
 
 
+def harmonise_cytof_dynamic(input_data):
+    #  nn imputation
+    for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):
+        pairs = [
+                    ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
+                    ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
+                ] + [
+                    ((marker, pert, time), (marker, pert, 17.0))
+                    for pert in (
+                "iMEK",
+                # "iPI3K",
+                "iEGFR",
+                # "iPKC"
+            )
+                    for time in (14.0, 15.0, 16.0)
+                ]
+        for source, target in pairs:
+            if source not in input_data.columns:
+                continue
+            mask = input_data.loc[:, target].isna()
+            input_data.loc[mask, target] = input_data.loc[mask, source]
+    #  regression imputation
+    for marker in (
+            "pERK_Y204_obs",
+            "pMEK_S222_obs",
+            "pERBB2_Y1248_obs",
+    ):  # all currently considered observables - might need to access, not hardcode
+        for pert in (
+                "EGF",
+                "iMEK",
+                # "iPI3K",
+                "iEGFR",
+                # "iPKC",
+        ):  # all currently considered conditions - might need to access, not hardcode
+            for missing_time, [time_before, time_after] in zip(
+                    [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
+            ):
+                if (marker, pert, missing_time) not in input_data.columns:
+                    continue
+
+                mask = input_data.loc[
+                       :, (marker, pert, missing_time)
+                       ].isna()
+                input_data.loc[mask, (marker, pert, missing_time)] = (
+                        input_data.loc[mask, (marker, pert, time_before)]
+                        * (missing_time - time_before)
+                        / (time_after - time_before)
+                        + input_data.loc[mask, (marker, pert, time_after)]
+                        * (time_after - missing_time)
+                        / (time_after - time_before)
+                )
+    return input_data
+
+
 def load_data(
     contextualization,
     samples,
@@ -134,7 +222,7 @@ def load_data(
 ):
     if contextualization != "MOSA":
         input_data = contextualize_measurements(
-            measurement_table, observable_table, contextualization
+            measurement_table, observable_table, contextualization, samples
         )
     elif (contextualization == "MOSA") and (features_filepath is not None):
         input_data = get_features(features_filepath=features_filepath, datasets=["train", "val"])
@@ -154,57 +242,7 @@ def load_data(
         input_data = input_data.loc[[sample for sample in samples if sample in input_data.index], :]
 
     if contextualization == "cytof_dynamic":
-        #  nn imputation
-        for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):
-            pairs = [
-                ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
-                ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
-            ] + [
-                ((marker, pert, time), (marker, pert, 17.0))
-                for pert in (
-                    "iMEK",
-                    # "iPI3K",
-                    "iEGFR",
-                    # "iPKC"
-                )
-                for time in (14.0, 15.0, 16.0)
-            ]
-            for source, target in pairs:
-                if source not in input_data.columns:
-                    continue
-                mask = input_data.loc[:, target].isna()
-                input_data.loc[mask, target] = input_data.loc[mask, source]
-        #  regression imputation
-        for marker in (
-            "pERK_Y204_obs",
-            "pMEK_S222_obs",
-            "pERBB2_Y1248_obs",
-        ):  # all currently considered observables - might need to access, not hardcode
-            for pert in (
-                "EGF",
-                "iMEK",
-                # "iPI3K",
-                "iEGFR",
-                # "iPKC",
-            ):  # all currently considered conditions - might need to access, not hardcode
-                for missing_time, [time_before, time_after] in zip(
-                    [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
-                ):
-                    if (marker, pert, missing_time) not in input_data.columns:
-                        continue
-                  
-                    mask = input_data.loc[
-                        :, (marker, pert, missing_time)
-                    ].isna()
-                    input_data.loc[mask, (marker, pert, missing_time)] = (
-                        input_data.loc[mask, (marker, pert, time_before)]
-                        * (missing_time - time_before)
-                        / (time_after - time_before)
-                        + input_data.loc[mask, (marker, pert, time_after)]
-                        * (time_after - missing_time)
-                        / (time_after - time_before)
-                    )
-
+        input_data = harmonise_cytof_dynamic(input_data)
     if features:
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
@@ -238,14 +276,23 @@ def load_data(
     return input_data, features
 
 
-def build_preprocesser(
-    preprocess: str, input_data: np.ndarray, output_data: np.ndarray
+def build_preprocessor(
+    preprocess: str, input_data: np.ndarray, output_data: np.ndarray, cv = None,
 ):
     steps = [
         ("scaler", StandardScaler()),
         ("impute", KNNImputer()),
     ]
+
+    def get_cv():
+        if cv is None:
+            return 5
+        return cv
+
+    cv = get_cv()
+
     if preprocess.startswith(("pca", "spca")):
+        # Need to keep this computation of n_pca for SparsePCA (does not accept float as percentage of variance)
         inputs = Pipeline(steps).fit_transform(input_data)
         var_expl = (
             PCA(n_components=input_data.shape[0])
@@ -264,7 +311,7 @@ def build_preprocesser(
             grid = GridSearchCV(
                 pipe,
                 param_grid={"spca__alpha": np.logspace(-3, 3, 7)},
-                cv=5,
+                cv=cv,
                 scoring="neg_mean_squared_error",
             )
             grid.fit(input_data, output_data)
@@ -291,7 +338,7 @@ def build_preprocesser(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskElasticNetCV(cv=5, n_alphas=20, max_iter=10000),  # increased max_iter 10x
+                    MultiTaskElasticNetCV(cv=cv, n_alphas=20, max_iter=10000),  # increased max_iter 10x
                     max_features=min(100, input_data.shape[1])
                 ),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
             )
@@ -301,7 +348,7 @@ def build_preprocesser(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskLassoCV(cv=5, n_alphas=20, max_iter=10000),
+                    MultiTaskLassoCV(cv=cv, n_alphas=20, max_iter=10000),
                     max_features=min(100, input_data.shape[1])
                 ),
              )
@@ -313,7 +360,7 @@ def build_preprocesser(
                 SequentialFeatureSelector(
                     estimator=LinearRegression(),
                     scoring="neg_mean_squared_error",
-                    cv=5,
+                    cv=cv,
                 ),
             )
         )
@@ -326,7 +373,7 @@ def build_preprocesser(
         grid = GridSearchCV(
             pipe,
             param_grid={"selector__n_components": np.arange(1, 20)},
-            cv=5,
+            cv=cv,
             scoring="neg_mean_squared_error",
         )
         grid.fit(input_data, output_data)
