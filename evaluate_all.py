@@ -727,6 +727,8 @@ for dataset, context, split in itt.product(
     #  Is this related to the missing/inconsistent timepoints in some samples?
 
     # BEST DMM -- chosen as best on validation set when considering performance from top 10 jobs on training set
+    # TODO @GiacomoFabrini - ensure this is cast to int when it is generated
+    best_hyperparam_dmm["sparse_threshold_perc"] = best_hyperparam_dmm["sparse_threshold_perc"].astype(int)
     best_config_jobs = sorted(best_hyperparam_dmm[
         (best_hyperparam_dmm.context == context) & (best_hyperparam_dmm.samples == split)
     ].job.unique())
@@ -745,10 +747,10 @@ for dataset, context, split in itt.product(
         conf=best_dmm_conf_obj[0],
         dataset=dataset,
         features_filepath=FEATURES_OUTFILE.format(
-            **{**conf.__dict__, **dict(dataset='{dataset}')}
+            **{**best_dmm_conf_obj[0].__dict__, **dict(dataset='{dataset}')}
         ),
         feature_transform_pipeline_filepath=Path(
-            FEATURES_PIPELINE.format_map(conf.__dict__)
+            FEATURES_PIPELINE.format_map(best_dmm_conf_obj[0].__dict__)
         )
     )
     overall_best_dmm_sim_dfs = []
