@@ -160,12 +160,6 @@ class CytofProblem(Problem):
         amiobjective.guess_steadystate = False
         amiobjective.n_threads = n_threads
         self.apply_solver_settings(amiobjective.amici_solver)
-        amiobjective.amici_model.setSteadyStateSensitivityMode(
-            amici.SteadyStateSensitivityMode.integrateIfNewtonFails
-        )
-        amiobjective.amici_model.setSteadyStateComputationMode(
-            amici.SteadyStateComputationMode.integrateIfNewtonFails
-        )
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
