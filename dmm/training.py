@@ -170,6 +170,12 @@ def train(
     # Use pretrained/randomly initialised model (if not pretrained) to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
     rmse_test_min = rmse(problem_test, model, input_features_test)
+    wandb.log(
+        {
+            "start_rmse_val": rmse_test_min,
+        },
+        step=0
+    )
 
     best_models = [
         (epoch, rmse_test_min, model)  # each item comprises the epoch, the RMSE validation score and the model itself
@@ -361,6 +367,13 @@ def train(
 
     # W&B logs -- DISABLED WANDB
     wandb.log({"final_epoch": epoch})
+    rmse_val_final = rmse(problem_test, model, input_features_test)
+    wandb.log(
+        {
+            "final_rmse_val": rmse_val_final,
+        },
+        step=epoch
+    )
     # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     # command = f"wandb sync {wandb_stripped_dir}"
 
