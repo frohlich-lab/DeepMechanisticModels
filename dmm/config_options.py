@@ -10,6 +10,7 @@ class Conf(dict):
     context: str = None
     features: str = None
     # Transform input features via standard scaling and PCA
+    features_transform: str = None
     samples: str = None
     pretrain: bool = False
     sample: str = None
