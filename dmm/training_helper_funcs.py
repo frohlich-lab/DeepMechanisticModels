@@ -305,14 +305,18 @@ def sparsify_model(
 def apply_filter_to_updates(updates, filter_spec):
     """
     Zeroes out the updates corresponding to False values in the filter_spec_per_param.
-    Also zeroes out any updates to model.sparsity_binary_mask.
     """
 
     def mask_update(update, mask):
         return jnp.where(mask, update, 0.0)
 
     # Apply the mask to zero out updates where filter_spec_per_param is False
-    masked_updates = tree_map(mask_update, updates, filter_spec)
+    # Updated to reflect updated JAX handling of None in tree_map
+    masked_updates = tree_map(
+        lambda x, y: None if x is None else mask_update(x, y),
+        updates, filter_spec,
+        is_leaf=lambda x: x is None
+    )
     return masked_updates
 
 
