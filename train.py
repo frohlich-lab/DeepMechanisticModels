@@ -148,8 +148,8 @@ else:
         nn_pretrain=True,
     )
     if PRETRAIN_N_EPOCHS > 0:
-        # Initialise W&B run -- DISABLED WANDB AFTER CLUSTER ISSUES
-        # init_wandb(model_train, conf, early_stopping_params, pretrain=True)
+        # Initialise W&B run
+        init_wandb(model_train, conf, early_stopping_params, pretrain=True)
         # Get pretrained model
         pretrained_model = pretrain_network(
             model=model_train,
@@ -193,7 +193,7 @@ pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
-# Initialise W&B run and train -- DISABLED WANDB AFTER CLUSTER ISSUES
+# Initialise W&B run and train
 init_wandb(model_train, conf, early_stopping_params, pretrain=False)
 samples_name_list_dict = {
     dataset: model.sample_name_list

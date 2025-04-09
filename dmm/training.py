@@ -221,7 +221,7 @@ def train(
             median_init_arr=median_init_arr,
         )
 
-        # Log loss_train -- DISABLED WANDB
+        # Log loss_train
         wandb.log(
             {
                 "loss": loss_train,
@@ -229,7 +229,7 @@ def train(
             step=epoch
         )
 
-        # Log extra terms (regularisation) -- DISABLED WANDB
+        # Log extra terms (regularisation)
         log_extra_loss_terms(
             model=model,
             conf=conf,
@@ -302,7 +302,7 @@ def train(
                 )
             )
 
-            # Log RMSE, fval (both train/val) and model stats -- DISABLED WANDB
+            # Log RMSE, fval (both train/val) and model stats
             wandb.log(
                 {
                     "rmse_train": rmse_dict["train"],
@@ -333,7 +333,7 @@ def train(
                         f" | has improved? {early_stopper.has_improved} "
                         f" | patience count {early_stopper.patience_count} |"
                     )
-                # Log current patience count -- DISABLED WANDB
+                # Log current patience count
                 wandb.log(
                     {
                         "patience_counter": early_stopper.patience_count,
@@ -347,7 +347,6 @@ def train(
 
         if np.any(np.isnan(x)) or np.any(np.isinf(x)):
             # keep track of integration errors
-            # DISABLED WANDB
             wandb.log(
                 {
                     "integration_error": epoch,
@@ -365,12 +364,12 @@ def train(
     print(f"Best single model rmse_val: {best_models[0][1]} at epoch {best_models[0][0]}")
     print(f"Best model ensemble rmse_val: {ensemble_rmse_val}")
 
-    # W&B logs -- DISABLED WANDB
-    wandb.log({"final_epoch": epoch})
+    # W&B logs
     rmse_val_final = rmse(problem_test, model, input_features_test)
     wandb.log(
         {
             "final_rmse_val": rmse_val_final,
+            "final_epoch": epoch,
         },
         step=epoch
     )
@@ -395,7 +394,7 @@ def train(
         # Log serialised ensemble member model -- temporarily disabled
         # wandb.log_model(path=ensemble_model_file, name=f"trained_dmm_{ensemble_id}")
 
-    # Close and sync W&B run --  -- DISABLED WANDB
+    # Close and sync W&B run (online)
     wandb.finish()
     # try:
     #     _ = subprocess.run(command, shell=True)

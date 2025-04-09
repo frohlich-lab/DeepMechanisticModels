@@ -841,7 +841,7 @@ def aggregate_and_log(
             / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
         )
 
-    # # Log via W&B -- DISABLED WANDB
+    # # Log via W&B -- DISABLED WANDB FOR EVALS
     # wandb.init(
     #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
     #     config={
@@ -867,7 +867,7 @@ def aggregate_and_log(
             / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
         )
 
-        # DISABLED WANDB
+        # DISABLED WANDB ARTIFACTS
         # # Instantiate artifact
         # evaluation_artifact = wandb.Artifact(
         #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
@@ -878,7 +878,7 @@ def aggregate_and_log(
         # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
         # wandb.log_artifact(evaluation_artifact)
 
-    # Close W&B session and upload artifacts -- DISABLED WANDB
+    # Close W&B session and upload artifacts -- DISABLED WANDB FOR EVALS
     # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     # command = f"wandb sync {wandb_stripped_dir}"
     # wandb.finish()

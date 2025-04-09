@@ -7,7 +7,7 @@ import optax
 import petab
 import pypesto
 import seaborn as sns
-# import wandb
+import wandb
 
 from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
@@ -158,8 +158,7 @@ def get_optimiser_and_opt_state(
         plt.plot(jnp.arange(n_epoch), schedule(jnp.arange(n_epoch)))
         plt.ylabel("Learning Rate")
         plt.xlabel("Epoch")
-        # DISABLED WANDB
-        # wandb.log({"Learning Rate Schedule": plt}, step=0)
+        wandb.log({"Learning Rate Schedule": plt}, step=0)
 
     if extra_args is not None:
         opt = optimiser(schedule, **extra_args)
@@ -759,7 +758,7 @@ def plot_and_log_pretraining_result(
     )
     plot_filepath.parent.mkdir(exist_ok=True, parents=True)
     plt.savefig(plot_filepath)
-    # DISABLED WANDB
+    # DISABLED WANDB ARTIFACTS
     # # Instantiate artifact
     # plot_artifact = wandb.Artifact(
     #     name=plot_name,
@@ -790,12 +789,11 @@ class MetricHandler:
             self.counter += 1
             if self.counter >= self.patience:  # fixed budget of patience
                 print(f"Too many invalid values, breaking at epoch {epoch}")
-                # DISABLED WANDB
-                # wandb.log(
-                #     {
-                #         "integration_error": epoch,
-                #     }
-                # )
+                wandb.log(
+                    {
+                        "integration_error": epoch,
+                    }
+                )
                 should_break = True
 
         return should_break

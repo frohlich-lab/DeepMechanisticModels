@@ -10,6 +10,7 @@ from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from functools import partial
 from jax import vmap
+from typing import Optional
 
 
 def init_wandb(
@@ -281,7 +282,7 @@ def log_extra_loss_terms(
         input_data: jnp.ndarray,
         epoch: int,
         nn_pretrain: bool,
-        median_init_arr: jnp.ndarray,
+        median_init_arr: Optional[jnp.ndarray] = None,
 ):
     """
     Function to log extra loss terms (not fval nor loss itself) to W&B: regularisation terms, reconstruction loss.
@@ -297,6 +298,8 @@ def log_extra_loss_terms(
     :param nn_pretrain:
         flag discriminating between neural network pretraining (nn_pretrain=True) and
         full DMM training (nn_pretrain=False).
+    :param median_init_arr:
+        array of median initialisation values (Optional, only DMM training).
 
     :return:
         n/a (simply logs to W&B).
@@ -314,7 +317,6 @@ def log_extra_loss_terms(
             [
                 model.l1_encode_reg,
                 model.l1_inflate_reg,
-                partial(model.constrain_median, x=median_init_arr)
             ]
         )
         log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
@@ -324,6 +326,13 @@ def log_extra_loss_terms(
             reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
             log_labels.extend([L1REG_IO,])
             hp_names.extend([L1REG_IO, ])
+
+    if not nn_pretrain and median_init_arr is not None:
+        reg_funs.append(
+            partial(model.constrain_median, x=median_init_arr)
+        )
+        log_labels.append(MEDIAN_REG)
+        hp_names.append(MEDIAN_REG)
 
     # Add extra terms if the DMM has a decoder head
     if model.reconstruct:

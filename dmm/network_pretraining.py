@@ -3,11 +3,11 @@ import jax
 import jax.numpy as jnp
 import os
 # import subprocess
-# import wandb
+import wandb
 
 from .dmm_autoencoder_eqx import DeepMechanisticModel, mse
 from .config_options import EarlyStoppingParams
-# from .wandb_init_log import log_extra_loss_terms, log_model_stats
+from .wandb_init_log import log_extra_loss_terms, log_model_stats
 from .training_helper_funcs import (generate_log_epochs, get_eval_model, get_finite_grads,
                                     get_optimiser_and_opt_state, plot_and_log_pretraining_result)
 from flax.training.early_stopping import EarlyStopping
@@ -207,26 +207,25 @@ def pretrain_network(
 
         # Log param values and grads every 5 epochs + check early-stopping criteria -- uses eval_model
         if epoch in log_epochs:
-            # Log loss_train and loss_val + model stats, then extra loss terms -- DISABLED WANDB
-            # wandb.log(
-            #     {
-            #         "loss_train": loss_train,
-            #         "rmse_train": rmse_train,  # added MSE train to plot in W&B and debug pretraining
-            #         "loss_val": loss_val,
-            #         "rmse_val": rmse_val,
-            #         **log_model_stats(eval_model, grads, pretrain=True)
-            #     },
-            #     step=epoch,
-            # )
+            # Log loss_train and loss_val + model stats, then extra loss terms
+            wandb.log(
+                {
+                    "loss_train": loss_train,
+                    "rmse_train": rmse_train,  # added MSE train to plot in W&B and debug pretraining
+                    "loss_val": loss_val,
+                    "rmse_val": rmse_val,
+                    **log_model_stats(eval_model, grads, pretrain=True)
+                },
+                step=epoch,
+            )
 
-            # DISABLED WANDB
-            # log_extra_loss_terms(
-            #     model=model,
-            #     conf=conf,
-            #     input_data=validation_data,  # use validation_data for RECON_LOSS
-            #     epoch=epoch,
-            #     nn_pretrain=True,  # network pretraining stage
-            # )
+            log_extra_loss_terms(
+                model=model,
+                conf=conf,
+                input_data=validation_data,  # use validation_data for RECON_LOSS
+                epoch=epoch,
+                nn_pretrain=True,  # network pretraining stage
+            )
 
             # Debugging statements
             if debug_mode:
@@ -246,13 +245,13 @@ def pretrain_network(
                     f" | has improved? {early_stopper.has_improved} | "
                     f" | patience count {early_stopper.patience_count}"
                 )
-                # Log current patience count -- DISABLED WANDB
-                # wandb.log(
-                #     {
-                #         "patience_counter": early_stopper.patience_count,
-                #     },
-                #     step=epoch,
-                # )
+                # Log current patience count
+                wandb.log(
+                    {
+                        "patience_counter": early_stopper.patience_count,
+                    },
+                    step=epoch,
+                )
                 # Stop training if we have run out of patience
                 if early_stopper.should_stop:
                     print(f'Met early stopping criteria, breaking at epoch {epoch}')
@@ -261,10 +260,10 @@ def pretrain_network(
         # Overwrite `model` with updated `next_model` and move on to next step
         model = next_model
 
-    # Print out the best losses (train/val) and log final epoch to W&B -- DISABLED WANDB
+    # Print out the best losses (train/val) and log final epoch to W&B
     for dataset in ["train", "val"]:
         print(f'best loss_{dataset}: {best_losses[dataset]}')
-    # wandb.log({"final_epoch": epoch})
+    wandb.log({"final_epoch": epoch})
 
     # Save best pretrained model -- not currently in use
     # pretrained_model_file.parent.mkdir(exist_ok=True, parents=True)
@@ -284,10 +283,9 @@ def pretrain_network(
 
     # Log serialised pretrained model -- not in use at the moment
     # wandb.log_model(path=pretrained_model_file, name="nn_pretrained_model")
-    # DISABLED WANDB
     # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     # command = f"wandb sync {wandb_stripped_dir}"
-    # wandb.finish()
+    wandb.finish()
     # try:
     #     _ = subprocess.run(command, shell=True)
     # except subprocess.CalledProcessError as e:
