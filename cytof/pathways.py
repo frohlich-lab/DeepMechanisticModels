@@ -1,11 +1,10 @@
-from pysb import Observable, Parameter
+from pysb import Monomer, Observable, Parameter, Rule
 
 from dmm.mechanistic_model import (
     add_activation,
     add_inhibitor,
     add_monomer_synth_deg,
     generate_pathway,
-    retarded_transient_function,
 )
 
 active_rtks = [
@@ -18,16 +17,36 @@ active_akt = ["AKT1__T308_p", "AKT2__T309_p", "AKT3__T305_p"]
 
 
 def add_egfr(model):
-    retarded_transient_function(model, "EGFR__Y1173_p", Parameter("EGF_0"))
+    Parameter("EGF_0")
+    EGFR = Monomer(
+        "EGFR",
+        ["Y1173", "compartment"],
+        {"compartment": ["pm", "e"], "Y1173": ["u", "p"]},
+    )
 
     erbb_cascade = [
-        # ("EGFR", {"Y1173": ["EGF"]}),
+        ("EGFR", {"Y1173": ["EGF_0"]}),
         ("ERBB2", {"Y1248": ["EGFR__Y1173_p"]}),
     ]
     generate_pathway(
         model,
         erbb_cascade,
-        add_baseline_activation="first",
+        add_baseline_activation="all",
+    )
+    Rule(
+        "EGFR_degradation",
+        EGFR(compartment="e") >> None,
+        Parameter("EGFR_degradation_kcat"),
+    )
+    Rule(
+        "EGFR_endocytosis",
+        EGFR(Y1173="p", compartment="pm") >> EGFR(Y1173="p", compartment="e"),
+        Parameter("EGFR_endocytosis_kcat"),
+    )
+    Rule(
+        "EGFR_synthesis",
+        None >> EGFR(Y1173="u", compartment="pm"),
+        Parameter("EGFR_synthesis_kcat"),
     )
 
 

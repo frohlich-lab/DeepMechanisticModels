@@ -1,6 +1,5 @@
-"""Per sample pretraining.
-"""
-import os
+"""Per sample pretraining."""
+
 from logging import ERROR
 from pathlib import Path
 
@@ -10,7 +9,6 @@ import fides
 import fire
 import matplotlib.pyplot as plt
 import numpy as np
-import petab
 from pypesto.optimize import FidesOptimizer
 from pypesto.visualize import parameters, waterfall
 
@@ -30,6 +28,7 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
+from dmm.training_helper_funcs import Chi2Objective
 from util import load_petab_base_files
 
 np.random.seed(0)
@@ -37,8 +36,6 @@ np.random.seed(0)
 conf = fire.Fire(Conf)
 
 problem = CytofProblem(conf.model)
-
-os.environ["AMICI_EXPERIMENTAL_SBML_NONCONST_CLS"] = "1"
 
 petab_base_importer = load_petab(
     problem=problem,
@@ -55,35 +52,27 @@ importer = generate_average_pretraining_problem(
 
 outdir = pretrain_dir / conf.model / conf.data
 figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
-pypesto_problem = importer.create_problem()
-simulation_conditions = petab.get_simulation_conditions(
-    importer.petab_problem.measurement_df
-)
-pypesto_problem.objective.parameter_mapping = (
-    amici.petab.parameter_mapping.create_parameter_mapping(
-        petab_problem=importer.petab_problem,
-        simulation_conditions=simulation_conditions,
-        scaled_parameters=True,
-        amici_model=pypesto_problem.objective.amici_model,
-        fill_fixed_parameters=True,
-    )
-)
 
+factory = importer.create_objective_creator()
+objective = Chi2Objective(factory.create_objective())
+problem.apply_objective_settings(objective)
 
-problem.apply_objective_settings(pypesto_problem.objective)
+pypesto_problem = importer.create_problem(
+    objective=objective,
+)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 1e-6,
+        fides.Options.FATOL: 1e-8,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 100,
+        fides.Options.MAXITER: 200,
     }
 )
 amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
 result = pretrain(
     pypesto_problem,
-    100,
+    20,
     optimizer,
 )
 
@@ -106,6 +95,6 @@ parameters(result)
 plt.tight_layout()
 plt.savefig("parameters_avg.pdf")
 
-waterfall(result)
+waterfall(result, scale_y="lin")
 plt.tight_layout()
 plt.savefig("waterfall_avg.pdf")

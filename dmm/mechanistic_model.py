@@ -13,7 +13,6 @@ from pysb import (
     Parameter,
     Rule,
 )
-from pysb.macros import synthesize
 
 from . import MODEL_FEATURE_PREFIX
 
@@ -55,6 +54,7 @@ def generate_pathway(
 
     for ip, (p_name, site_activators) in enumerate(proteins):
         add_monomer_synth_deg(
+            model,
             p_name,
             psites=site_activators.keys(),
             with_synth=p_name in species_with_synth,
@@ -79,28 +79,8 @@ def generate_pathway(
             )
 
 
-def retarded_transient_function(model: Model, output_label, input_par):
-    if "t" not in model.observables.keys():
-        time = Monomer("__t")
-        t = Observable("_t", time())
-        # avoid generating a parameter, also hack that avoids time simulation
-        # when there is no input
-        synthesize(time(), input_par)
-
-    a_sus = add_parameter(f"{output_label}_sus_amp")
-    tau_sus = add_parameter(f"{output_label}_sus_tau")
-    f_sus = a_sus * (1 - sp.exp(-t * input_par / tau_sus))
-
-    tau1_trans = add_parameter(f"{output_label}_trans1_tau")
-    tau2_trans = add_parameter(f"{output_label}_trans2_tau")
-    f_trans = (1.0 - sp.exp(-t * input_par / tau1_trans)) * sp.exp(
-        -t * input_par / tau2_trans
-    )
-
-    Expression(output_label, (f_sus + f_trans) * input_par)
-
-
 def add_monomer_synth_deg(
+    model: Model,
     m_name: str,
     psites: Optional[Iterable[str]] = None,
     nsites: Optional[Iterable[str]] = None,
@@ -111,6 +91,9 @@ def add_monomer_synth_deg(
 ):
     """Adds the respective monomer plus synthesis rules and basal
     activation/deactivation rules for all activateable sites
+
+    :param model:
+        model to which the monomer will be added
 
     :param m_name:
         monomer name
@@ -141,19 +124,22 @@ def add_monomer_synth_deg(
     sites = psites + nsites + asites
     sites = sorted(sites)
 
-    m = Monomer(
-        m_name,
-        sites=sites,
-        site_states={
-            site: ["u", "p"]
-            if site in psites
-            else ["gdp", "gtp"]
-            if site in nsites
-            else asite_states
-            for site in sites
-            if site in psites + nsites + asites
-        },
-    )
+    if m_name not in model.monomers.keys():
+        m = Monomer(
+            m_name,
+            sites=sites,
+            site_states={
+                site: ["u", "p"]
+                if site in psites
+                else ["gdp", "gtp"]
+                if site in nsites
+                else asite_states
+                for site in sites
+                if site in psites + nsites + asites
+            },
+        )
+    else:
+        m = model.monomers[m_name]
 
     t = Parameter(f"{m_name}_eq", 100.0)
     t0 = Expression(f"{m_name}_init", t)
@@ -165,7 +151,9 @@ def add_monomer_synth_deg(
             else "gdp"
             if site in nsites
             else asite_states[0]
-            for site in sites
+            if site in asites
+            else m.site_states[site][0]
+            for site in m.sites
         }
     )
 
@@ -225,11 +213,13 @@ def add_or_get_modulator_obs(model: Model, modulator: str):
         string definition of an observable in format
         `{monomer_name}__{site}_{site_condition}`
     """
-    mod_name = f"{modulator}_obs"
     if modulator in model.expressions.keys():
         return model.expressions[modulator]
 
-    if mod_name in model.observables.keys():
+    if modulator in model.parameters.keys():
+        return model.parameters[modulator]
+
+    if (mod_name := f"{modulator}_obs") in model.observables.keys():
         modulator_obs = model.observables[f"{modulator}_obs"]
     else:
         mono_name, site_conditions = site_states_from_string(modulator)
@@ -253,8 +243,10 @@ def site_states_from_string(obs_string):
         site_conditions = {
             cond.split("_")[0]: cond.split("_")[1] for cond in site_conditions
         }
-    except IndexError:
-        raise ValueError(f"Malformed site condition {site_conditions}")
+    except IndexError as err:
+        raise ValueError(
+            f"Malformed site condition {site_conditions}"
+        ) from err
 
     return mono_name, site_conditions
 
@@ -314,14 +306,14 @@ def add_activation(
     else:
         raise ValueError(f"Invalid activation type {activation_type}.")
 
-    sites = [s for s in site.split("_")]
+    sites = list(site.split("_"))
 
     for s in sites:
         if s not in mono.site_states or any(
             state not in mono.site_states[s] for state in valid_states
         ):
             raise ValueError(
-                f"{s} is not a valid target for " f"{activation_type}."
+                f"{s} is not a valid target for {activation_type}."
             )
 
     if activation_type == "phosphorylation":
@@ -406,7 +398,7 @@ def add_observables(model: Model):
             for sites in itt.combinations(psites, nsites):
                 sites = sorted(sites)
                 Observable(
-                    f'p{monomer.name}_{"_".join(sites)}',
+                    f"p{monomer.name}_{'_'.join(sites)}",
                     monomer(**{site: "p" for site in sites}),
                 )
 
@@ -527,11 +519,11 @@ def cleanup_unused(model):
         | expression_dynamic_symbols
     )
 
-    unused_pars = set(
+    unused_pars = {
         par
         for par in model.parameters
         if par not in free_symbols and sp.Symbol(par.name) not in free_symbols
-    )
+    }
 
     rule_reaction_count = {rule.name: 0 for rule in model.rules}
 

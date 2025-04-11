@@ -1,7 +1,5 @@
-"""Per sample pretraining.
-"""
+"""Per sample pretraining."""
 
-import os
 from logging import ERROR
 from pathlib import Path
 
@@ -10,7 +8,6 @@ import amici.petab.parameter_mapping
 import fides
 import fire
 import numpy as np
-import petab
 import pypesto
 from pypesto.optimize import FidesOptimizer
 
@@ -28,6 +25,7 @@ from dmm.pretraining import (
     pretrain,
     store_and_plot_pretraining,
 )
+from dmm.training_helper_funcs import Chi2Objective
 from util import load_petab_base_files
 
 np.random.seed(0)
@@ -35,8 +33,6 @@ np.random.seed(0)
 conf = fire.Fire(Conf)
 
 problem = CytofProblem(conf.model)
-
-os.environ["AMICI_EXPERIMENTAL_SBML_NONCONST_CLS"] = "1"
 
 petab_base_importer = load_petab(
     problem=problem, dataset=conf.data, **load_petab_base_files(conf)
@@ -51,28 +47,21 @@ importer = generate_per_sample_pretraining_problems(
 
 outdir = pretrain_dir / conf.model / conf.data
 figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
-pypesto_problem = importer.create_problem()
-simulation_conditions = petab.get_simulation_conditions(
-    importer.petab_problem.measurement_df
-)
-pypesto_problem.objective.parameter_mapping = (
-    amici.petab.parameter_mapping.create_parameter_mapping(
-        petab_problem=importer.petab_problem,
-        simulation_conditions=simulation_conditions,
-        scaled_parameters=True,
-        amici_model=pypesto_problem.objective.amici_model,
-        fill_fixed_parameters=True,
-    )
-)
 
-problem.apply_objective_settings(pypesto_problem.objective)
+factory = importer.create_objective_creator()
+objective = Chi2Objective(factory.create_objective())
+problem.apply_objective_settings(objective)
+
+pypesto_problem = importer.create_problem(
+    objective=objective,
+)
 
 optimizer = FidesOptimizer(
     options={
-        fides.Options.FATOL: 1e-6,
+        fides.Options.FATOL: 1e-8,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 100,
+        fides.Options.MAXITER: 200,
     }
 )
 amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
@@ -81,7 +70,7 @@ result = pretrain(
     startpoint_method=pypesto.startpoint.UniformStartpoints(
         check_fval=True, check_grad=True
     ),
-    nstarts=100,  # multistarts for pretraining (hard-coded)
+    nstarts=50,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
