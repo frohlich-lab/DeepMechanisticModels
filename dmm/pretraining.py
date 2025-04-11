@@ -82,7 +82,10 @@ def generate_per_sample_pretraining_problems(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=Model(base=clean_model, name=model_name),
+            model=PySBModel(
+                Model(base=clean_model, name=model_name),
+                pp.model.model_id,
+            ),
         ),
         model_name=model_name,
         output_folder=str(
