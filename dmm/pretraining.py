@@ -4,8 +4,9 @@ from typing import Callable, List, Optional
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-import petab
+import petab.v1 as petab
 import pypesto
+from petab.v1.models.pysb_model import PySBModel
 from pypesto.optimize import OptimizeOptions, minimize
 from pypesto.petab import (
     PetabImporter,  # general PetabImporter compared to old PetabImporterPysb
@@ -16,7 +17,6 @@ from pypesto.visualize import parameters, waterfall
 from pysb import Model
 
 from . import MODEL_FEATURE_PREFIX
-from .petab_subproblem import convert_to_sbml
 from .problem import Problem
 
 
@@ -50,13 +50,13 @@ def generate_per_sample_pretraining_problems(
         [name.startswith(sample) for name in pp.condition_df.index]
     ]
     spars = (
-        set(
+        {
             e
             for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(
                 lambda x: x.split(";")
             )
             for e in t
-        )
+        }
         if petab.OBSERVABLE_PARAMETERS in mdf
         else {}
     )
@@ -82,7 +82,7 @@ def generate_per_sample_pretraining_problems(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
+            model=Model(base=clean_model, name=model_name),
         ),
         model_name=model_name,
         output_folder=str(
@@ -126,13 +126,13 @@ def generate_per_sample_reg_pretraining_problem(
         [name.startswith(sample) for name in pp.condition_df.index]
     ]
     spars = (
-        set(
+        {
             e
             for t in mdf[petab.OBSERVABLE_PARAMETERS].apply(
                 lambda x: x.split(";")
             )
             for e in t
-        )
+        }
         if petab.OBSERVABLE_PARAMETERS in mdf
         else {}
     )
@@ -183,7 +183,10 @@ def generate_per_sample_reg_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=mdf,
             condition_df=cdf,
-            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
+            model=PySBModel(
+                Model(base=clean_model, name=model_name),
+                pp.model.model_id,
+            ),
         ),
         model_name=model_name,
         output_folder=str(
@@ -218,7 +221,7 @@ def generate_average_pretraining_problem(
     # subset measurements, conditions and parameters for specified sample
     df_train = pp.measurement_df.loc[
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples), :
-    ]
+    ].copy()
 
     df_train[petab.SIMULATION_CONDITION_ID] = df_train[
         petab.SIMULATION_CONDITION_ID
@@ -228,7 +231,7 @@ def generate_average_pretraining_problem(
 
     cdf = pp.condition_df.loc[
         [name.startswith(samples[0]) for name in pp.condition_df.index], :
-    ]
+    ].copy()
     cdf.index = [
         name.replace(samples[0] + "__", "").replace(samples[0], "baseline")
         for name in cdf.index
@@ -239,13 +242,13 @@ def generate_average_pretraining_problem(
     )
     cdf.index.name = petab.CONDITION_ID
     spars = (
-        set(
+        {
             e
             for t in df_train[petab.OBSERVABLE_PARAMETERS].apply(
                 lambda x: x.split(";")
             )
             for e in t
-        )
+        }
         if petab.OBSERVABLE_PARAMETERS in df_train
         else {}
     )
@@ -277,7 +280,10 @@ def generate_average_pretraining_problem(
             observable_df=pp.observable_df,
             measurement_df=df_train,
             condition_df=cdf,
-            model=convert_to_sbml(Model(base=clean_model, name=model_name)),
+            model=PySBModel(
+                Model(base=clean_model, name=model_name),
+                pp.model.model_id,
+            ),
         ),
         model_name=model_name,
         output_folder=str(

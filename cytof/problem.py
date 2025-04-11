@@ -13,6 +13,7 @@ import pysb.export
 import sympy as sp
 
 from dmm.problem import ParameterBounds, Problem
+from dmm.training_helper_funcs import Chi2Objective
 
 from .data import load_dream_data
 
@@ -150,6 +151,8 @@ class CytofProblem(Problem):
                 )
             elif isinstance(base_objective, pypesto.objective.AmiciObjective):
                 amiobjective = base_objective
+        elif isinstance(objective, Chi2Objective):
+            amiobjective = objective.base_objective
 
         if amiobjective is None:
             logger.warning(
@@ -160,6 +163,12 @@ class CytofProblem(Problem):
         amiobjective.guess_steadystate = False
         amiobjective.n_threads = n_threads
         self.apply_solver_settings(amiobjective.amici_solver)
+        amiobjective.amici_model.setSteadyStateSensitivityMode(
+            amici.SteadyStateSensitivityMode.integrateIfNewtonFails
+        )
+        amiobjective.amici_model.setSteadyStateComputationMode(
+            amici.SteadyStateComputationMode.integrateIfNewtonFails
+        )
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
