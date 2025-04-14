@@ -79,7 +79,7 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     mean_data = []
     std_data = []
     group_ids = ["treatment", "cell_line", "time", "fileID"]
-    for file in files:
+    for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
         for ids, data in df.groupby(group_ids):
             if f"c{ids[1]}" not in get_samples("dream_cytof"):
@@ -87,15 +87,17 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
             markers = [
                 c for c in data.columns if c not in group_ids + ["cellID"]
             ]
-            m = data[markers].median()
-            std = data[markers].std()
+            m = data[markers].mean()
+            # std = data[markers].std()
+            # Create a Series of ones for std with same index (i.e., same markers) -- same weight
+            std = pd.Series(1.0, index=m.index)
             for sdf in [m, std]:
                 sdf["treatment"] = ids[0]
                 sdf["cell_line"] = ids[1]
                 sdf["time"] = ids[2]
                 sdf["fileID"] = ids[3]
             mean_data.append(m)
-            std[std.isna()] = 1.0
+            # std[std.isna()] = 1.0
             std_data.append(std)
 
     d = {
