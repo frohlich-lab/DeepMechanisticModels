@@ -14,6 +14,7 @@ init_fn = {
     "LU": initializers.lecun_uniform(),
     "XN": initializers.glorot_normal(),
     "XU": initializers.glorot_uniform(),
+    "custom": initializers.variance_scaling(scale=0.1, mode="fan_avg", distribution="uniform"),
 }
 
 
@@ -48,5 +49,5 @@ class CustomInitLinear(eqx.nn.Linear):
         )
         self.bias = bias_init(
             bias_key,
-            (out_features,)
-        ) if self.use_bias else None
+            (out_features, 1)
+        ).squeeze() if self.use_bias else None
