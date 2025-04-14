@@ -446,7 +446,7 @@ rule evaluate_regressors:
                 )
             )
             for dataset, mode, context in itt.product(
-                ['train', 'test'],
+                ['train', 'val'],
                 ['linreg', 'lasso', 'elasticnet'],
                 CONTEXT_SET,   # TODO @GiacomoFabrini - should not train regressors for multimodal
             )
