@@ -9,6 +9,7 @@ import pysb
 from . import get_samples
 
 SYNAPSE_FILES = [
+    # Subchallenge 4
     "syn20613594",  # 184A1
     "syn20613595",  # BT20
     "syn20613596",  # BT474
@@ -53,6 +54,19 @@ SYNAPSE_FILES = [
     "syn20614063",  # UACC812
     "syn20614074",  # UACC893
     "syn20614085",  # ZR7530
+    # Subchallenge 2 (added 11.04.2025)
+    "syn20631041",  # 184B5
+    "syn20631043",  # BT483
+    "syn20631044",  # HCC1428
+    "syn20631045",  # HCC1806
+    "syn20631047",  # HCC202
+    "syn20631048",  # Hs578T
+    "syn20631049",  # MCF12A
+    "syn20631050",  # MDAMB231
+    "syn20631060",  # MDAMB468
+    "syn20631061",  # SKBR3
+    "syn20631062",  # UACC3199
+    "syn20631063",  # ZR751
 ]
 
 
