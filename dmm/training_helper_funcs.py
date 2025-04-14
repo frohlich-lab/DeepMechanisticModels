@@ -702,8 +702,8 @@ def rmse(pp, model: DeepMechanisticModel, input_data):
         return np.sqrt(
             np.mean(
                 np.square(
-                    simulation_df[petab.SIMULATION]
-                    - petab_problem.measurement_df[petab.MEASUREMENT]
+                    (simulation_df[petab.SIMULATION]
+                    - petab_problem.measurement_df[petab.MEASUREMENT])/simulation_df[petab.NOISE_PARAMETERS]
                 )
             )
         )
