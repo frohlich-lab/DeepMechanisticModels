@@ -176,3 +176,5 @@ test_penzai.ipynb
 # Local plots and results
 local_plots_and_analysis_results/*
 features/EGFR_MAPK/dream_cytof/cellosaurus.txt
+pretraining_08_04_unreg/*
+pretraining_test_new_model/*
