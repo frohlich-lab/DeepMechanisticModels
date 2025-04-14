@@ -88,15 +88,16 @@ def contextualize_measurements(
             #         lambda x: x.endswith("EGF")
             #     )
             # ]
-            harmonised_cytof_dynamic = harmonise_cytof_dynamic(input_measurements).pivot_table(
-                index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
-                columns=pivot_columns,
-                # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
-                values=petab.MEASUREMENT,  # the actual measurement/signal
-                aggfunc="mean",
-                # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
-                # np.nanmean generates FutureWarning
+            harmonised_cytof_dynamic = harmonise_cytof_dynamic(
+                input_measurements.pivot_table(
+                    index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+                    columns=pivot_columns,
+                    # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+                    values=petab.MEASUREMENT,  # the actual measurement/signal
+                    aggfunc="mean",
+                )
             )
+            # Filter out too many nans, including misaligned timepoints that have just been aligned
             harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
                 :, harmonised_cytof_dynamic.isna().sum() / harmonised_cytof_dynamic.shape[0] < 0.3
             ]
@@ -114,12 +115,8 @@ def contextualize_measurements(
             )
             # subset to EGF and time 0
             input_data = input_data[[col for col in input_data.columns if (col[1] == "EGF") and (col[2] == 0.0)]]
-            input_data.columns = [col[0] for col in input_data.columns]  # remove info on condition and timepoint
-            # input_measurements = input_measurements[
-            #     input_measurements[petab.TIME] == 0
-            # ]
-            # and only keep observable ID as pivot columns (rather than observable, condition, time)
-            # pivot_columns = [petab.OBSERVABLE_ID]
+            # remove info on condition and timepoint, leaving markers only as column names
+            input_data.columns = [col[0] for col in input_data.columns]
             return input_data
     else:
         pivot_columns = [petab.OBSERVABLE_ID]
@@ -159,32 +156,52 @@ def preprocess_mosa_latent(conf, samples_train, samples_val):
 
 
 def harmonise_cytof_dynamic(input_data):
-    #  nn imputation
-    for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):
-        pairs = [
-                    ((marker, "EGF", 12.0), (marker, "EGF", 13.0)),
-                    ((marker, "EGF", 35.0), (marker, "EGF", 40.0)),
-                ] + [
-                    ((marker, pert, time), (marker, pert, 17.0))
-                    for pert in (
-                "iMEK",
-                # "iPI3K",
-                "iEGFR",
-                # "iPKC"
+    #  nearest neighbour imputation for misaligned/heterogeneous timepoints
+    def impute_missing(input_data, source, target):
+        if source not in input_data.columns:
+            return input_data
+        mask = input_data[target].isna()
+        input_data.loc[mask, target] = input_data.loc[mask, source]
+        return input_data
+
+    markers = ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs")
+    egf_and_perturbations = ("EGF", "iMEK", "iEGFR")
+
+    for marker in markers:
+        for pert in egf_and_perturbations:
+            # Impute 13.0 from 12.0 then 14.0 (order matters!)
+            for source_time in (12.0, 14.0):
+                input_data = impute_missing(
+                    input_data,
+                    source=(marker, pert, source_time),
+                    target=(marker, pert, 13.0),
+                )
+
+            # Impute 17.0 from 15.0 then 16.0 (only for inhibitors)
+            if pert != "EGF":
+                for source_time in (15.0, 16.0):
+                    input_data = impute_missing(
+                        input_data,
+                        source=(marker, pert, source_time),
+                        target=(marker, pert, 17.0),
+                    )
+
+            # Impute 40.0 -> 60.0
+            input_data = impute_missing(
+                input_data,
+                source=(marker, pert, 40.0),
+                target=(marker, pert, 60.0),
             )
-                    for time in (14.0, 15.0, 16.0)
-                ]
-        for source, target in pairs:
-            if source not in input_data.columns:
-                continue
-            mask = input_data.loc[:, target].isna()
-            input_data.loc[mask, target] = input_data.loc[mask, source]
-    #  regression imputation
-    for marker in (
-            "pERK_Y204_obs",
-            "pMEK_S222_obs",
-            "pERBB2_Y1248_obs",
-    ):  # all currently considered observables - might need to access, not hardcode
+
+        # Impute 35.0 -> 40.0 (only for EGF)
+        input_data = impute_missing(
+            input_data,
+            source=(marker, "EGF", 35.0),
+            target=(marker, "EGF", 40.0),
+        )
+
+    #  linear interpolation of intermediate missing timepoints
+    for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):  # all currently considered observables - might need to access, not hardcode
         for pert in (
                 "EGF",
                 "iMEK",
