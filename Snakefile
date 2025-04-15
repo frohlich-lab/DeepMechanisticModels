@@ -537,5 +537,17 @@ rule train_and_evaluate:
          ),
 
 
+# Only run references and regressors + whole data processing, feature selection, etc.
+rule evaluate_baselines:
+    input:
+         evaluation=expand(
+            rules.evaluate_references.output.csv,
+            model=PATHWAYS, data=DATASETS, samples=SPLITS,
+         ) + expand(
+            rules.evaluate_regressors.output.csv,
+            model=PATHWAYS, data=DATASETS, samples=SPLITS, context=CONTEXT_SET,
+            features=FEATURES_SET, features_transform=FEATURES_TRANSFORM,
+         )
+
 
 ruleorder: pretrain_average_model > pretrain_per_sample
