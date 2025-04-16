@@ -148,7 +148,7 @@ rule reweight_data:
         data='[\w\.]+',
         samples='[0-9]+of[0-9]+',
     resources:
-        mem="1GB",
+        mem="2GB",  # OOM killed on cluster
         runtime="1h",
         nodes=1,
         threads=1,
