@@ -268,27 +268,12 @@ def get_kin_params_median_deviation(
         inplace=True
     )
     # Set random seed for poisson sampling
-    # this means all 0 jobs have the same matrix
-    # of kinetic parameters vs cell-lines.
-    # Same applies for all 1 jobs, all 2 jobs, etc.
-    # Each job samples from the sets of pre-trained
-    # parameters for each cell-line with a bias towards the
-    # better performing multi-starts.
-    # However, as cell-lines are not-paired,
-    # we can combine different multistart parameter sets
-    # across cell-lines.
     np.random.seed(random_seed)
 
-    # Multi-starts of per-sample training are sorted
-    # by loss function (ascending order, lower is better,
-    # i.e. towards index 0).
-    # Parameters for initialisation are chosen
-    # from the multi-starts using Poisson sampling,
-    # with Poisson(lambda=2).
-    # Lambda is chosen so that the mode is small,
-    # but slightly larger than 0, enabling some spread.
-    # Lower index values will be more easily sampled,
-    # leading to higher chance of sampling lower loss multi-starts.
+    # Multi-starts of per-sample training are sorted by loss function (ascending order, lower is better,
+    # i.e. towards index 0). Parameters for initialisation are chosen from the multi-starts using Poisson sampling,
+    # with Poisson(lambda=2). Lambda is chosen so that the mode is small, but slightly larger than 0, enabling some
+    # spread. Lower indices will be more easily sampled, leading to higher chance of sampling lower loss multi-starts.
     par_combo = pd.concat(
         [
             pretraining[
@@ -320,9 +305,9 @@ def get_kin_params_median_deviation(
             # avg_param_combo = avg_model_params[
             #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
             #     ].iloc[0]
-            # Use the best initialisation from avg_model
+            # Use the best initialisation from avg_model (here second best)
             avg_param_combo = avg_model_params[
-                avg_model_params.index == 0
+                avg_model_params.index == 1
             ].iloc[0]
             # Compute per_sample param deviations w.r.t. avg_model params
             par_deviations = par_combo - avg_param_combo
