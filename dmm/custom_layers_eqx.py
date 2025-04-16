@@ -14,7 +14,7 @@ init_fn = {
     "LU": initializers.lecun_uniform(),
     "XN": initializers.glorot_normal(),
     "XU": initializers.glorot_uniform(),
-    "custom": initializers.variance_scaling(scale=0.1, mode="fan_avg", distribution="uniform"),
+    "custom": initializers.variance_scaling(scale=0.01, mode="fan_avg", distribution="uniform"),
 }
 
 
