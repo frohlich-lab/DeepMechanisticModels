@@ -266,7 +266,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         params = {
             f"{module}_params": ModuleParams(
                 layer_sizes=layer_sizes,
-                layer_biases=[self.use_layer_bias]*len(layer_sizes),
+                # Propagate use_bias to all layers, but do not use biases at inflater output, i.e. parameter deviations
+                layer_biases=[self.use_layer_bias]*len(layer_sizes) if module != "inflater" \
+                    else [self.use_layer_bias]*(len(layer_sizes)-1) + [False],
                 weight_init_fn=self.weight_init_fn,
                 bias_init_fn=self.bias_init_fn,
                 last_layer_activation=self.last_layer_activation,
