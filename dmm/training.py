@@ -43,6 +43,12 @@ def update_best_models(
     return best_models[:max_models]
 
 
+@eqx.filter_jit
+def jitted_objective(problem, model, data):
+    return problem.objective(
+        model_output_to_petab_input(model, data)
+    )
+
 @eqx.filter_value_and_grad(has_aux=True)
 def loss_fn(
         model: DeepMechanisticModel,
@@ -169,6 +175,7 @@ def train(
 
     # Use pretrained/randomly initialised model (if not pretrained) to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
+    # rmse_train_start = rmse(problem_train, model, input_features_train)
     rmse_test_min = rmse(problem_test, model, input_features_test)
     wandb.log(
         {
@@ -294,9 +301,7 @@ def train(
 
             # Compute fval on train/val datasets using eval_model
             fval_train, fval_val = (
-                problem.objective(
-                    model_output_to_petab_input(eval_model, input_data)
-                )
+                jitted_objective(problem, eval_model, input_data)
                 for problem, input_data in zip(
                     [problem_train, problem_test], [input_features_train, input_features_test]
                 )
