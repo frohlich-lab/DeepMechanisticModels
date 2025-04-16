@@ -120,7 +120,8 @@ LAST_LAYER_ACTIVATION = (
 # For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
 # NN_INIT_FN hyperparameter
 NN_INIT_FN = (
-    "eqx_default",
+    # "eqx_default",
+    "custom",  # custom initialisation with small scale (0.01)
     # "HN",  # He Normal
     # "HU",  # He Uniform
     # "LN",  # LeCun Normal
