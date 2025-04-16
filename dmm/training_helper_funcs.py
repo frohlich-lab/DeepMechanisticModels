@@ -403,7 +403,7 @@ class Chi2Objective(pypesto.objective.Objective):
             x, sensi_orders, mode, return_dict=True, **kwargs
         )
         ndata = sum(
-            sum(np.logical_not(np.isnan(r[pypesto.C.RES])))
+            sum(np.not_equal(r[pypesto.C.RES],0.0))
             for r in res[RDATAS]
             if r.status == AMICI_SUCCESS
         )
