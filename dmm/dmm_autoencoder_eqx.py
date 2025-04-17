@@ -174,7 +174,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             Default: ReLU.
 
         :param reconstruct:
-            boolean flag. If set to True, adds a second, autoencoding head to the network
+            boolean flag. If set to True, adds a second, auto-encoding head to the network
             (encoder->decoder) on top of the first head (encoder->inflater).
             Default: single head (False).
 
@@ -309,8 +309,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         outputs = super().__call__(x)
         # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
         outputs["inflated"] = outputs["inflated"] * jnp.array(self.sparsity_binary_mask)
-        # Finally, introduce soft constrain within ±5 (hardcoded) range through rescaled tanh: a * tanh(x/a), a=5
-        outputs["inflated"] = 5 * jnp.tanh(outputs["inflated"] / 5)
+        # Finally, introduce soft constrain within ±3 (hardcoded) range through rescaled tanh: a * tanh(x/a), a=3
+        outputs["inflated"] = 3 * jnp.tanh(outputs["inflated"] / 3)
         return outputs
 
 
