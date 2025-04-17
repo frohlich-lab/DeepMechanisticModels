@@ -4,12 +4,13 @@ from dmm.mechanistic_model import (
     add_activation,
     add_inhibitor,
     add_monomer_synth_deg,
+    add_parameter,
     generate_pathway,
 )
 
 active_rtks = [
     "EGFR__Y1173_p",
-    # 'ERBB2__Y1248_p'
+    # 'ERBB2__Y1248_p' # TODO: reactivate this? also add turnover for HER2?
 ]
 # active_erk = ['MAPK1__T185_p__Y187_p', 'MAPK3__T202_p__Y204_p']
 active_erk = ["ERK__Y204_p"]
@@ -25,28 +26,24 @@ def add_egfr(model):
     )
 
     erbb_cascade = [
-        ("EGFR", {"Y1173": ["EGF_0"]}),
         ("ERBB2", {"Y1248": ["EGFR__Y1173_p"]}),
+        ("EGFR", {"Y1173": ["EGF_0"]}),
     ]
     generate_pathway(
         model,
         erbb_cascade,
-        add_baseline_activation="all",
+        add_baseline_activation="first",
+        species_with_synth="EGFR",
     )
     Rule(
         "EGFR_degradation",
         EGFR(compartment="e") >> None,
-        Parameter("EGFR_degradation_kcat"),
+        add_parameter("EGFR_degradation_kcat"),
     )
     Rule(
         "EGFR_endocytosis",
         EGFR(Y1173="p", compartment="pm") >> EGFR(Y1173="p", compartment="e"),
-        Parameter("EGFR_endocytosis_kcat"),
-    )
-    Rule(
-        "EGFR_synthesis",
-        None >> EGFR(Y1173="u", compartment="pm"),
-        Parameter("EGFR_synthesis_kcat"),
+        add_parameter("EGFR_endocytosis_kcat"),
     )
 
 
