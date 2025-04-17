@@ -19,7 +19,7 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from typing import List, Optional
+from typing import List
 
 
 def contextualize_measurements(

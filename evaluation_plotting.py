@@ -3,7 +3,7 @@ import matplotlib.patches as patches
 import matplotlib.pyplot as plt
 import pandas as pd
 
-from common import fig_dir, EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines, subtypes_tognetti
+from common import fig_dir, EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines
 from pathlib import Path
 from typing import List, Union
 
