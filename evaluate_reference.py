@@ -37,7 +37,7 @@ indir = pretrain_dir / conf.model / conf.data
 #  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
-    "test": test_samples(Wildcards(conf.data, conf.samples)),
+    "val": test_samples(Wildcards(conf.data, conf.samples)),
 }
 
 # instantiate a replacement conf for references,
@@ -180,7 +180,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 petab_base_files = load_petab_base_files(conf)
 
 # Evaluate references/baselines
-for dataset in ["train", "test"]:
+for dataset in ["train", "val"]:
     # model average ("avg_model")
     df = evaluate_average_model(dataset, conf, samples, petab_base_files)
     df.to_csv(

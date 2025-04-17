@@ -399,7 +399,7 @@ rule evaluate_references:
     output:
         csv=[
             EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
-            for dataset, mode in itt.product(['train', 'test'], ['per_sample', 'avg_model'])
+            for dataset, mode in itt.product(['train', 'val'], ['per_sample', 'avg_model'])
         ]
     wildcard_constraints:
         model='\w+',
