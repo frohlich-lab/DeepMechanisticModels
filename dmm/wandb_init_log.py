@@ -17,7 +17,6 @@ def init_wandb(
         model: DeepMechanisticModel,
         conf: Conf,
         early_stopping_params: EarlyStoppingParams,
-        pretrain: bool,
 ):
     """
     Initialise W&B run. Run name = chosen hyperparameters in configuration string representation.
@@ -26,11 +25,7 @@ def init_wandb(
 
     # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
     activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
-
-    if pretrain:
-        group = f"{conf.context}_{conf.features}_network_pretrain"  # distinguish from whole DMM training
-    else:
-        group = f"{conf.context}_{conf.features}"
+    group = f"{conf.context}_{conf.features}"
 
     # Init wandb (default: new 'core' backend)
     wandb.init(
@@ -47,7 +42,9 @@ def init_wandb(
         # v14: l1reg scheduling as above, but fixed best_models behaviour + updated sparse_threshold_perc behaviour
         # v15: l1reg scheduling, scanning optimal value for l1reg_inflater_output on CV 1of5
         # v16: updated feature selection (uniform across CV splits), regressors with feature selection, unregularised
-        project=f"DeepMechanisticModels.v16.{conf.data}.{conf.model}.{conf.run_mode_tag}",
+        # v17: new/old mechanistic model, no reweighing, fixed Chi2 (MSE), no biases on last inflater layer (deviations)
+        # v18: fixed mechanistic model, removed pretraining and relevant code, removed schedule-free optimisers
+        project=f"DeepMechanisticModels.v17.{conf.data}.{conf.model}.TEST",
         group=group,
         config={
             **conf.__dict__,
@@ -66,31 +63,23 @@ def init_wandb(
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
             "linear_benchmark" if (conf.linear_benchmark and conf.depth == 0) else "not_benchmark",
-            "network_pretraining" if pretrain else "DMM_training",
-            "sparse_no_regularisation" if (~pretrain and conf.drop_reg_after_pretrain) else "full_regularisation",
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag  # label experiment with date of experiment start
         ],
-        # mode="offline"  # to run more jobs simultaneously on the cluster
+        mode="online"  # to run more jobs simultaneously on the cluster
     )
 
     # Define W&B metrics
-    if pretrain:  # neural network pretraining stage (no ODE simulations)
-        metrics = {
-            "loss_train": "min",
-            "loss_val": "min",
-        }
-    else:  # full DMM training stage
-        metrics = {
-            "loss": "min",
-            "fval_train": "min",
-            "fval_val": "min",
-            "integration_error": None,
-            "max_abs_par_dev": "min",  # max absolute value of parameter deviation
-            "par_dev_frob_norm": "min",  # 2-norm of parameter deviation
-            "max_abs_par_median": "min",  # max absolute value of parameter median
-            "par_median_frob_norm": "min",  # 2-norm of parameter median
-        }
+    metrics = {
+        "loss": "min",
+        "fval_train": "min",
+        "fval_val": "min",
+        "integration_error": None,
+        "max_abs_par_dev": "min",  # max absolute value of parameter deviation
+        "par_dev_frob_norm": "min",  # 2-norm of parameter deviation
+        "max_abs_par_median": "min",  # max absolute value of parameter median
+        "par_median_frob_norm": "min",  # 2-norm of parameter median
+    }
     # common metrics - orthogonal regularisation + patience_counter
     for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
         metrics[metric] = "min"
@@ -103,28 +92,15 @@ def init_wandb(
         metrics[SYMM_LOSS] = "min"
         metrics[ODREG] = "min"
 
-    # If in pretraining or if not dropping regularisation, add L1 regularisation terms
-    # TODO @GiacomoFabrini - check whether this works as intended?!
-    if pretrain:
-        reg_metrics = {
-            L1EREG: "min",
-            L1IREG: "min",
-        }
-        # Add decoder regularisation terms if the model has a decoder head
-        if model.reconstruct:
-            reg_metrics[L1DREG] = "min"
-    elif not conf.drop_reg_after_pretrain:
-        reg_metrics = {
-            L1EREG: "min",
-            L1IREG: "min",
-            L1REG_IO: "min",
-            MEDIAN_REG: "min",
-        }
-        # Add decoder regularisation terms if the model has a decoder head
-        if model.reconstruct:
-            reg_metrics[L1DREG] = "min"
-    else:
-        reg_metrics = {}
+    reg_metrics = {
+        L1EREG: "min",
+        L1IREG: "min",
+        L1REG_IO: "min",
+        MEDIAN_REG: "min",
+    }
+    # Add decoder regularisation terms if the model has a decoder head
+    if model.reconstruct:
+        reg_metrics[L1DREG] = "min"
 
     # Get final metrics
     metrics = {**metrics, **reg_metrics}
@@ -162,14 +138,12 @@ def init_wandb(
 def log_model_stats(
         model: DeepMechanisticModel,
         grad: DeepMechanisticModel,
-        pretrain: bool,  # needed?
 ):
     """
     Log parameter values (vals) and grads (grads) to wandb.
 
     :param model: DeepMechanisticModel containing parameter values
     :param grad: DeepMechanisticModel containing parameter gradients
-    :param pretrain: boolean flag indicating whether this is a pretraining run (model.kin_params_combiner frozen)
     """
 
     model_modules = {
@@ -215,45 +189,43 @@ def log_model_stats(
                 )
     stats = {**layer_stats}
 
-    # TODO @GiacomoFabrini: discuss with Fabian - does it make sense to log a histogram if
-    #  these are individual values? Other option (currently selected): log them altogether as a single histogram
-    if not pretrain:
-        # First approach: two plots (value, grad) per parameter, but hists do not make much sense in that case
-        # kin_params_stats = {
-        #     f'global_kin_param.{par_label}_{value_label}': wandb.Histogram(
-        #         np.log10(np.abs(np.array(par_val[par_val != 0])))
-        #     )
-        #     if value_label == 'grads'
-        #     else wandb.Histogram(par_val)
-        #     for value_label, par_vals in zip(
-        #         ('vals', 'grads'),
-        #         (
-        #             model.kin_params_combiner.learned_global_kin_params,
-        #             grad.kin_params_combiner.learned_global_kin_params
-        #         ),
-        #     )
-        #     for par_label, par_val in zip(
-        #         range(len(model.kin_params_combiner.learned_global_kin_params)),
-        #         np.array(par_vals).ravel(),
-        #     )
-        # }
-        # Second approach: log values and grads altogether (2 histograms overall)
-        kin_params_stats = {
-            f'global_kin_params.{value_label}': wandb.Histogram(
-                np.log10(np.abs(np.array(par_vals[par_vals != 0])))
-            )
-            if value_label == 'grads'
-            else wandb.Histogram(par_vals)
-            for value_label, par_vals in zip(
-                ('vals', 'grads'),
-                (
-                    np.array(model.kin_params_combiner.learned_global_kin_params).ravel(),
-                    np.array(grad.kin_params_combiner.learned_global_kin_params).ravel()
-                ),
-            )
-        }
-        # Augment stats with global kinetic parameters
-        stats = {**layer_stats, **kin_params_stats}
+
+    # First approach: two plots (value, grad) per parameter, but hists do not make much sense in that case
+    # kin_params_stats = {
+    #     f'global_kin_param.{par_label}_{value_label}': wandb.Histogram(
+    #         np.log10(np.abs(np.array(par_val[par_val != 0])))
+    #     )
+    #     if value_label == 'grads'
+    #     else wandb.Histogram(par_val)
+    #     for value_label, par_vals in zip(
+    #         ('vals', 'grads'),
+    #         (
+    #             model.kin_params_combiner.learned_global_kin_params,
+    #             grad.kin_params_combiner.learned_global_kin_params
+    #         ),
+    #     )
+    #     for par_label, par_val in zip(
+    #         range(len(model.kin_params_combiner.learned_global_kin_params)),
+    #         np.array(par_vals).ravel(),
+    #     )
+    # }
+    # Second approach: log values and grads altogether (2 histograms overall)
+    kin_params_stats = {
+        f'global_kin_params.{value_label}': wandb.Histogram(
+            np.log10(np.abs(np.array(par_vals[par_vals != 0])))
+        )
+        if value_label == 'grads'
+        else wandb.Histogram(par_vals)
+        for value_label, par_vals in zip(
+            ('vals', 'grads'),
+            (
+                np.array(model.kin_params_combiner.learned_global_kin_params).ravel(),
+                np.array(grad.kin_params_combiner.learned_global_kin_params).ravel()
+            ),
+        )
+    }
+    # Augment stats with global kinetic parameters
+    stats = {**layer_stats, **kin_params_stats}
 
     return stats
 
@@ -281,7 +253,6 @@ def log_extra_loss_terms(
         conf: dict,
         input_data: jnp.ndarray,
         epoch: int,
-        nn_pretrain: bool,
         median_init_arr: Optional[jnp.ndarray] = None,
 ):
     """
@@ -295,39 +266,35 @@ def log_extra_loss_terms(
         data to compute reconstruction loss on.
     :param epoch:
         training iteration/epoch.
-    :param nn_pretrain:
-        flag discriminating between neural network pretraining (nn_pretrain=True) and
-        full DMM training (nn_pretrain=False).
     :param median_init_arr:
         array of median initialisation values (Optional, only DMM training).
 
     :return:
         n/a (simply logs to W&B).
     """
-    # Define regularisation functions and labels which hold regardless of pretraining/regularisation drop
+    # Define regularisation functions and labels
     reg_funs = [
         model.orth_encode_reg,
         model.orth_inflate_reg,
     ]
     log_labels = [OEREG, OIREG]
     hp_names = [OEREG, OIREG]
-    # Add extra regularisation terms active during pretraining or during training if not dropped
-    if nn_pretrain or (not conf["drop_reg_after_pretrain"]):
-        reg_funs.extend(
-            [
-                model.l1_encode_reg,
-                model.l1_inflate_reg,
-            ]
-        )
-        log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
-        hp_names.extend([L1EREG, L1IREG, MEDIAN_REG])
-        # Add epoch-dependent inflater output regularisation
-        if epoch < conf["inflater_output_reg_epoch"]:
-            reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
-            log_labels.extend([L1REG_IO,])
-            hp_names.extend([L1REG_IO, ])
+    # Add extra regularisation terms
+    reg_funs.extend(
+        [
+            model.l1_encode_reg,
+            model.l1_inflate_reg,
+        ]
+    )
+    log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
+    hp_names.extend([L1EREG, L1IREG, MEDIAN_REG])
+    # Add epoch-dependent inflater output regularisation
+    if epoch < conf["inflater_output_reg_epoch"]:
+        reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
+        log_labels.extend([L1REG_IO,])
+        hp_names.extend([L1REG_IO, ])
 
-    if not nn_pretrain and median_init_arr is not None:
+    if median_init_arr is not None:
         reg_funs.append(
             partial(model.constrain_median, x=median_init_arr)
         )
@@ -336,13 +303,9 @@ def log_extra_loss_terms(
 
     # Add extra terms if the DMM has a decoder head
     if model.reconstruct:
-        reg_funs.append(model.orth_decode_reg)
-        log_labels.append(ODREG)
-        hp_names.append(OEREG)  # scales of decoder reg match encoder!
-        if nn_pretrain or (not conf["drop_reg_after_pretrain"]):
-            reg_funs.append(model.l1_decode_reg)
-            log_labels.append(L1DREG)
-            hp_names.append(L1EREG)
+        reg_funs.extend([model.orth_decode_reg, model.l1_decode_reg])
+        log_labels.extend([ODREG, L1DREG])
+        hp_names.extend([OEREG, L1EREG])  # scales of decoder reg match encoder!
         # and log additional decoder-related loss terms (reconstruction and symmetry loss)
         wandb.log(
             {

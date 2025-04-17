@@ -1,25 +1,24 @@
 import fire
-import jax.tree_util as jtu
 
 from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
-                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode, fig_dir)
+                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode)
 # from cytof.problem import CytofProblem
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (linear_nn_init,
-                                get_kin_params_median_deviation,
                                 init_global_kin_params_combiner,
                                 process_features_and_setup_models,
                                 subset_features,
-                                get_targets,
                                 get_features_and_pipeline_filepaths)
-from dmm.network_pretraining import pretrain_network
 from dmm.training import train
-from dmm.training_helper_funcs import (check_best_model, create_pypesto_problem, map_params_to_array, sparsify_model)
+from dmm.training_helper_funcs import (
+    # check_best_model,
+    create_pypesto_problem
+)
 from dmm.wandb_init_log import init_wandb
 from jax import config
 from pathlib import Path
 # from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, PRETRAIN_N_EPOCHS, N_ENSEMBLE_MEMBERS
+from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, N_ENSEMBLE_MEMBERS
 from util import load_petab_base_files
 
 
@@ -100,108 +99,32 @@ if (conf.depth == 0) and conf.linear_benchmark:
             avg_model_parameter_file=avg_model_parameter_file,
             random_seed=conf.job,
             median_params_method=conf.median_init,
-            nn_pretrain=False,
         )
         for model, dataset in zip((model_train, model_test), ["train", "val"])
     )
-
-    # Setup filter_spec for model training (all True - learnable params)
-    filter_spec_per_param = jtu.tree_map(lambda _: True, model_train)
 else:
-    # Get training targets as parameter deviations (second component, while first contains medians)
-    _, par_deviation_train = get_kin_params_median_deviation(
-        model=model_train,
-        parameter_filepath=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=conf.median_init,
-        return_full_combo=False
-    )
-    # Get test targets
-    _, par_deviation_test = get_kin_params_median_deviation(
-        model=model_test,
-        parameter_filepath=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=conf.median_init,
-        return_full_combo=False
-    )
-    targets_train, targets_test = (
-        get_targets(model, par_deviations)
-        for model, par_deviations in zip([model_train, model_test], [par_deviation_train, par_deviation_test])
-    )
-    # Split training data and targets into pretrain train and val data and targets not to leak true validation
-    # Disabled after GM - using all train for pretraining
-    # data_pretrain_train, data_pretrain_val, targets_pretrain_train, targets_pretrain_val = train_test_split(
-    #     input_features_train,
-    #     targets_train,
-    #     test_size=0.2,
-    #     random_state=42
-    # )
-    # Define filter_spec_per_param to freeze the KinParamsCombiner in the model
-    model_train, filter_spec = init_global_kin_params_combiner(
-        model_train,
-        per_sample_parameter_file=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=conf.median_init,
-        nn_pretrain=True,
-    )
-    if PRETRAIN_N_EPOCHS > 0:
-        # Initialise W&B run
-        init_wandb(model_train, conf, early_stopping_params, pretrain=True)
-        # Get pretrained model
-        pretrained_model = pretrain_network(
-            model=model_train,
-            filter_spec=filter_spec,
-            training_data=input_features_train,  # (batch_size, input_size)
-            training_targets=targets_train,  # (batch_size, output_size)
-            validation_data=input_features_test,
-            validation_targets=targets_test,
-            conf=conf.__dict__,
-            # rfile=rfile,
-            pretrained_model_file=pretrained_model_file,
-            n_epoch=PRETRAIN_N_EPOCHS,
-            early_stopping_params=early_stopping_params,
-            plot_dir=fig_dir / "network_pretraining",
-            debug_mode=debug_mode,
-            return_best="train",
-        )
-    else:  # skip pretraining
-        pretrained_model = model_train
-    # Initialise the params of the KinParamsCombiner (No need for filter_spec_per_param?)
+    # Initialise the params of the KinParamsCombiner
     model_train = init_global_kin_params_combiner(
-        model=pretrained_model,
+        model=model_train,
         per_sample_parameter_file=per_sample_parameter_file,
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=conf.job,
         median_params_method=conf.median_init,
-        nn_pretrain=False,
-    )
-    # For pretrained models: it might be desirable to keep the learnt sparsity pattern, but drop regularisation.
-    # We do this by zeroing-out parameters below a given threshold + filtering their updates (effectively freezing
-    # them) via a filter_spec.
-    model_train, filter_spec_per_param = sparsify_model(
-        model_train,
-        conf.drop_reg_after_pretrain,
-        conf.sparsity_threshold,
     )
 
-# Whole DMM Training
 # Setup pypesto problems for train/validation
 pypesto_problem_train, pypesto_problem_test = (
     create_pypesto_problem(mae) for mae in (model_train, model_test)
 )
 
 # Initialise W&B run and train
-init_wandb(model_train, conf, early_stopping_params, pretrain=False)
+init_wandb(model_train, conf, early_stopping_params)
 samples_name_list_dict = {
     dataset: model.sample_name_list
     for dataset, model in zip(["train", "test"], [model_train, model_test])
 }
 best_models = train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
-    filter_spec_per_param=filter_spec_per_param,
     problem_train=pypesto_problem_train,
     problem_test=pypesto_problem_test,
     input_features_train=input_features_train,

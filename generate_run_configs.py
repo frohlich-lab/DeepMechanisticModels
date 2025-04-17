@@ -12,12 +12,11 @@ from training_configuration import (
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
     # Learning rate scheduling
-    LRATE_PRETRAINING_RATIO,
     MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
     WEIGHT_DECAY, MOMENTUM,
     LINEAR_SCHEDULE,
     # OTHER OPTIONS
-    USE_EARLY_STOP, DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD,
+    USE_EARLY_STOP,
     HP_RUN_MODE, REFINE_HPS,
     N_EPOCHS,
 )
@@ -152,11 +151,8 @@ def generate_linear_scan(STARTS: list[str]):
             "activation_fn_name": activation_fn_name,
             "optimiser": optimiser,
             "orth_reg_strategy": orth_reg_strategy,
-            "lrate_pretraining_ratio": lrate_pretraining_ratio,
             "use_simple_linear_schedule": use_simple_linear_schedule,
             "use_early_stopping": use_early_stopping,
-            "drop_reg_after_pretrain": drop_reg_after_pretrain,
-            "sparsity_threshold": sparsity_threshold,
             "job": job,
         }
         for hyperparam, details in hyperparameters.items()
@@ -164,13 +160,11 @@ def generate_linear_scan(STARTS: list[str]):
         for (
             (context, features), features_transform, split, pretrain, median_init,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
-            orth_reg_strategy, lrate_pretraining_ratio, use_simple_linear_schedule, use_early_stopping,
-            drop_reg_after_pretrain, sparsity_threshold, job
+            orth_reg_strategy, use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-            ORTH_REG_STRATEGIES, LRATE_PRETRAINING_RATIO, LINEAR_SCHEDULE, USE_EARLY_STOP,
-            DROP_REG_POST_PRETRAIN, SPARSITY_THRESHOLD, STARTS
+            ORTH_REG_STRATEGIES, LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
         )
     ]
 
@@ -250,7 +244,6 @@ def generate_grid_search(STARTS: list[str]):
             "recon_loss": recon_loss,
             "symm_reg": symm_reg,
             "median_reg": median_reg,
-            "lrate_pretraining_ratio": lrate_pretraining_ratio,
             "max_lrate": max_lrate,
             "lrate_span": lrate_span,
             "lrate_decay": lrate_decay,
@@ -261,8 +254,6 @@ def generate_grid_search(STARTS: list[str]):
             "momentum": momentum,
             "use_simple_linear_schedule": use_simple_linear_schedule,
             "use_early_stopping": use_early_stopping,
-            "drop_reg_after_pretrain": drop_reg_after_pretrain,
-            "sparsity_threshold": sparsity_threshold,
             "job": job,
         }
         for (
@@ -271,22 +262,20 @@ def generate_grid_search(STARTS: list[str]):
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
             l1reg_inflater_output, recon_loss, symm_reg, median_reg,
             inflater_output_reg_epoch, sparse_threshold_perc,
-            lrate_pretraining_ratio, max_lrate, lrate_span, lrate_decay, warmup_fct,
+            max_lrate, lrate_span, lrate_decay, warmup_fct,
             opt_steps, opt_mult,
             weight_decay, momentum,
-            use_simple_linear_schedule, use_early_stopping, drop_reg_after_pretrain,
-            sparsity_threshold, job
+            use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
             CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
             OMEGAS, EPSILONS, ZETAS, ETAS,
             INFLATER_OUTPUT_REG_EPOCHS, SPARSE_THRESH_PERCS,
-            LRATE_PRETRAINING_RATIO, MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
+            MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
             OPT_STEPS, OPT_MULT,
             WEIGHT_DECAY, MOMENTUM,
-            LINEAR_SCHEDULE, USE_EARLY_STOP, DROP_REG_POST_PRETRAIN,
-            SPARSITY_THRESHOLD, STARTS
+            LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
         )
     ]
     # Unpack network layout into depth and linear_benchmark + drop network_layout key

@@ -1,7 +1,6 @@
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
-import jax.tree_util as jtu
 import joblib
 import numpy as np
 import os
@@ -58,7 +57,7 @@ def pca_transform_features(
 ) -> Dict[str, pd.DataFrame]:
     """
     :param features: dictionary of feature pd.DataFrames
-    :param pipeline_filepath: filepath where to save the trained pipeline
+    :param pipeline_filepath: filepath where to save the pipeline
     :param pipeline: trained pipeline object (optional)
 
     :return: dictionary of transformed features pd.DataFrames
@@ -235,85 +234,84 @@ def get_kin_params_median_deviation(
         median_params_method: str = "per_sample",
         return_full_combo: bool = False,
 ):
-    pretrained_samples = {}
-
-    for sample in model.sample_name_list:
-        df = pd.read_csv(
-            parameter_filepath.format(sample=sample),
-            index_col=[0],
-        )
-        pretrained_samples[sample] = df[
-            [
-                col
-                for col in df.columns
-                if not col.startswith(MODEL_FEATURE_PREFIX)
-            ]
-        ]
-
-    # Fetch avg_model params (for all multi-starts)
-    avg_model_params = pd.read_csv(
-        avg_model_parameter_file,
-        index_col=[0],
-    )
-    # Subset to columns not starting with MODEL_FEATURE_PREFIX
-    avg_model_params = avg_model_params[
-        [
-            col
-            for col in avg_model_params.columns
-            if not col.startswith(MODEL_FEATURE_PREFIX)
-        ]
-    ]
-    avg_model_params.rename(
-        columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
-        inplace=True
-    )
     # Set random seed for poisson sampling
     np.random.seed(random_seed)
 
-    # Multi-starts of per-sample training are sorted by loss function (ascending order, lower is better,
-    # i.e. towards index 0). Parameters for initialisation are chosen from the multi-starts using Poisson sampling,
-    # with Poisson(lambda=2). Lambda is chosen so that the mode is small, but slightly larger than 0, enabling some
-    # spread. Lower indices will be more easily sampled, leading to higher chance of sampling lower loss multi-starts.
-    par_combo = pd.concat(
-        [
-            pretraining[
-                pretraining.index
-                == np.min([np.random.poisson(2, 1)[0], len(pretraining) - 1])
-                ]
-            for pretraining in pretrained_samples.values()
-        ]
-    )
-    par_combo.rename(
-        columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
-        inplace=True
-    )
-    par_combo.index = list(pretrained_samples.keys())
-    par_combo = par_combo.reindex(model.sample_name_list)
+    if median_params_method == "per_sample":
+        pretrained_samples = {}
 
-    if return_full_combo:
-        return par_combo
-    else:
-        if median_params_method == "per_sample":
+        for sample in model.sample_name_list:
+            df = pd.read_csv(
+                parameter_filepath.format(sample=sample),
+                index_col=[0],
+            )
+            pretrained_samples[sample] = df[
+                [
+                    col
+                    for col in df.columns
+                    if not col.startswith(MODEL_FEATURE_PREFIX)
+                ]
+            ]
+
+        # Multi-starts of per-sample training are sorted by loss function (ascending order, lower is better,
+        # i.e. towards index 0). Parameters for initialisation are chosen from the multi-starts using Poisson sampling,
+        # with Poisson(lambda=2). Lambda is chosen so that the mode is small, but slightly larger than 0, enabling some
+        # spread. Lower indices will be more easily sampled, leading to higher chance of sampling lower loss multi-starts.
+        par_combo = pd.concat(
+            [
+                pretraining[
+                    pretraining.index
+                    == np.min([np.random.poisson(2, 1)[0], len(pretraining) - 1])
+                    ]
+                for pretraining in pretrained_samples.values()
+            ]
+        )
+        par_combo.rename(
+            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
+            inplace=True
+        )
+        par_combo.index = list(pretrained_samples.keys())
+        par_combo = par_combo.reindex(model.sample_name_list)
+
+        if return_full_combo:
+            return par_combo
+        else:
             # Compute the median across samples
             par_medians = par_combo.median(skipna=True)
             # Subtract the median from the parameters:
             # par_combo now represents variation around the median
             par_deviations = par_combo - par_medians
             return par_medians, par_deviations
-        elif median_params_method == "avg_model":
-            # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
-            # avg_param_combo = avg_model_params[
-            #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
-            #     ].iloc[0]
-            # Use the best initialisation from avg_model (here second best)
-            avg_param_combo = avg_model_params[
-                avg_model_params.index == 1
-            ].iloc[0]
-            # Compute per_sample param deviations w.r.t. avg_model params
-            par_deviations = par_combo - avg_param_combo
-            return avg_param_combo, par_deviations
-        else:
-            raise ValueError(f"Unknown method for computing median parameters: {median_params_method}")
+    elif median_params_method == "avg_model":
+        # Fetch avg_model params (for all multi-starts)
+        avg_model_params = pd.read_csv(
+            avg_model_parameter_file,
+            index_col=[0],
+        )
+        # Subset to columns not starting with MODEL_FEATURE_PREFIX
+        avg_model_params = avg_model_params[
+            [
+                col
+                for col in avg_model_params.columns
+                if not col.startswith(MODEL_FEATURE_PREFIX)
+            ]
+        ]
+        avg_model_params.rename(
+            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
+            inplace=True
+        )
+
+        # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
+        # avg_param_combo = avg_model_params[
+        #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
+        #     ].iloc[0]
+        # Use the best initialisation from avg_model (here second best)
+        avg_param_combo = avg_model_params[
+            avg_model_params.index == 1
+        ].iloc[0]
+        return avg_param_combo, None
+    else:
+        raise ValueError(f"Unknown method for computing median parameters: {median_params_method}")
 
 
 # def load_and_subset_input_features(
@@ -496,14 +494,10 @@ def init_global_kin_params_combiner(
         avg_model_parameter_file: str,
         random_seed: int,
         median_params_method: str,
-        nn_pretrain: bool,
-):
+) -> DeepMechanisticModel:
     """
     Setup KinParamsCombiner module (model.kin_params_combiner).
-    A) If pretraining the neural network component (nn_pretrain==True), its parameters are left at their initialised
-    value (zeros) and a filter_spec is created to freeze this module.
-    B) If training the whole DMM (nn_pretrain==False), the parameters of KinParamsCombiner are initialised with the
-    median of non-cell-line specific parameters and no filter_spec is returned (learnable parameters).
+    The parameters of KinParamsCombiner are initialised with the median of non-cell-line specific parameters (learnable).
 
     :param model:
         DeepMechanisticModel instance.
@@ -515,66 +509,34 @@ def init_global_kin_params_combiner(
         int, used to seed sampling of kinetic parameters in case median_params_method == "per_sample"
     :param median_params_method:
         string, defines which pretrained mechanistic model parameters to use to initialise kinetic parameter medians.
-    :param nn_pretrain:
-        boolean flag that tracks training stages (True during pretraining of the neural network component,
-        False during whole DMM training).
 
-    :returns:
-        if nn_pretrain: model and filter_spec freezing model.kin_params_combiner
-        if ~nn_pretrain: updated model with initialised model.kin_params_combiner
+    :returns: updated model with initialised model.kin_params_combiner
     """
-    if not nn_pretrain:
-        par_medians, _ = get_kin_params_median_deviation(
-            model=model,
-            parameter_filepath=per_sample_parameter_file,
-            avg_model_parameter_file=avg_model_parameter_file,
-            random_seed=random_seed,
-            median_params_method=median_params_method,
-            return_full_combo=False,
-        )
 
-        # Check order of initialised median parameters matches petab median parameter order
-        assert list(par_medians.index.values) == get_median_param_names(model)
+    par_medians, _ = get_kin_params_median_deviation(
+        model=model,
+        parameter_filepath=per_sample_parameter_file,
+        avg_model_parameter_file=avg_model_parameter_file,
+        random_seed=random_seed,
+        median_params_method=median_params_method,
+        return_full_combo=False,
+    )
 
-        # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
-        new_global_kin_params = jnp.array(par_medians.values)
-        # Check shape match prior to initialisation
-        if new_global_kin_params.shape != model.kin_params_combiner.learned_global_kin_params.shape:
-            raise ValueError("Incorrect shape of new global kin parameters!")
-        # Initialise KinParamsCombiner parameters
-        model = eqx.tree_at(
-            lambda m: m.kin_params_combiner.learned_global_kin_params,  # fetch weights from single layer of encoder
-            model,
-            new_global_kin_params
-        )
-        return model
-    else:
-        # weights of kin_params_combiner are already initialised to zeros by default
-        # just need to freeze them
-        filter_spec = jtu.tree_map(lambda _: True, model)  # everything trained by default
-        filter_spec = eqx.tree_at(
-            lambda tree: (
-                tree.kin_params_combiner.learned_global_kin_params,
-            ),
-            filter_spec,
-            replace=(
-                False,
-            ),
-        )
-    return model, filter_spec
+    # Check order of initialised median parameters matches petab median parameter order
+    assert list(par_medians.index.values) == get_median_param_names(model)
 
-
-def get_targets(
-        model: DeepMechanisticModel,
-        par_combo: pd.DataFrame,
-) -> jnp.ndarray:
-    inputs = [
-        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
-        for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_combo.index[0])
-    ]
-
-    return par_combo[inputs].values
+    # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
+    new_global_kin_params = jnp.array(par_medians.values)
+    # Check shape match prior to initialisation
+    if new_global_kin_params.shape != model.kin_params_combiner.learned_global_kin_params.shape:
+        raise ValueError("Incorrect shape of new global kin parameters!")
+    # Initialise KinParamsCombiner parameters
+    model = eqx.tree_at(
+        lambda m: m.kin_params_combiner.learned_global_kin_params,  # fetch weights from single layer of encoder
+        model,
+        new_global_kin_params
+    )
+    return model
 
 
 def get_features_and_pipeline_filepaths(

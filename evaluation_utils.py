@@ -622,8 +622,7 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
             df[col] = pd.to_numeric(df[col], downcast='integer')
         else:
             df[col] = df[col].astype("float")
-    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation",
-                "drop_reg_after_pretrain"]:
+    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation"]:
         df[col] = df[col].astype(str)
     for col in ["reconstruct", "use_simple_linear_schedule", "use_early_stopping"]:
         df[col] = df[col].astype(bool)

@@ -1,8 +1,7 @@
 from pathlib import Path
-from typing import Dict, Optional, Tuple, Union
+from typing import Dict, Tuple, Union
 
 import equinox as eqx
-import jax.flatten_util as jfu
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -13,7 +12,7 @@ from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
 from jax import vmap
 from jax.tree_util import tree_map
-from jaxtyping import Array, PyTree
+from jaxtyping import Array
 from optax import (
     GradientTransformationExtraArgs,
     OptState,
@@ -23,7 +22,6 @@ from optax import (
     join_schedules,
     sgdr_schedule,
 )
-from optax.contrib import schedule_free_adamw, schedule_free_eval_params
 from pypesto.C import MODE_RES, RDATAS, ModeType
 from pypesto.objective.base import ResultDict
 from pypesto.objective.jax import JaxObjective
@@ -37,7 +35,6 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 def get_scheduler(
     conf: Dict,
     n_epoch: int,
-    pretraining: bool = False,
 ) -> Schedule:
     """Get the learning rate scheduler.
 
@@ -45,7 +42,6 @@ def get_scheduler(
     ----------
     conf : configuration object
     n_epoch : int - total number of training epochs
-    pretraining : bool - discriminates between network pretraining and full DMM training stages
 
     Returns
     -------
@@ -53,10 +49,6 @@ def get_scheduler(
         The learning rate scheduler.
 
     """
-    if pretraining:
-        max_lrate = conf["max_lrate"] / conf["lrate_pretraining_ratio"]
-    else:
-        max_lrate = conf["max_lrate"]
 
     if conf["use_simple_linear_schedule"]:
         # Define custom steps to use the same machinery as below - schedule config should
@@ -64,14 +56,10 @@ def get_scheduler(
         schedules = [
             {
                 "init_value": init_value,  # before warm-up / matching end of l1reg_inflater_output stage
-                "peak_value": max_lrate,  # after warm-up
+                "peak_value": conf["max_lrate"],  # after warm-up
                 "warmup_steps": int(num_epoch * conf["warmup_fct"]),
-                "decay_steps": num_epoch
-                - int(
-                    num_epoch * conf["warmup_fct"]
-                ),  # n_epoch - warmup steps
-                "end_value": max_lrate
-                * conf["lrate_decay"] ** num_epoch,  # after decay
+                "decay_steps": num_epoch - int(num_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
+                "end_value": conf["max_lrate"] * conf["lrate_decay"] ** num_epoch,  # after decay
             }  # single linear schedule, but restarts after dropping l1reg_inflater_output
             for num_epoch, init_value in zip(
                 [
@@ -79,9 +67,8 @@ def get_scheduler(
                     n_epoch - conf["inflater_output_reg_epoch"],
                 ],
                 [
-                    max_lrate / conf["lrate_span"],
-                    max_lrate
-                    * conf["lrate_decay"] ** conf["inflater_output_reg_epoch"],
+                    conf["max_lrate"] / conf["lrate_span"],
+                    conf["max_lrate"] * conf["lrate_decay"] ** conf["inflater_output_reg_epoch"],
                 ],
             )
         ]
@@ -108,10 +95,10 @@ def get_scheduler(
         )
         schedules = [
             {
-                "init_value": max_lrate
+                "init_value": conf["max_lrate"]
                 / conf["lrate_span"]
                 * conf["lrate_decay"] ** i_schedule,
-                "peak_value": max_lrate * conf["lrate_decay"] ** i_schedule,
+                "peak_value": conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
                 "warmup_steps": int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
@@ -119,7 +106,7 @@ def get_scheduler(
                 "decay_steps": int(
                     conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)
                 ),
-                "end_value": max_lrate
+                "end_value": conf["max_lrate"]
                 / conf["lrate_span"]
                 * conf["lrate_decay"] ** (i_schedule + 1),
             }
@@ -132,8 +119,6 @@ def get_optimiser_and_opt_state(
     conf: Dict,
     n_epoch: int,
     model: DeepMechanisticModel,
-    filter_spec: Optional[PyTree] = None,
-    pretraining: bool = False,
     log_wandb: bool = False,
 ) -> Tuple[GradientTransformationExtraArgs, OptState]:
     """Returns the optimiser and optimiser state for training the model.
@@ -143,11 +128,6 @@ def get_optimiser_and_opt_state(
         number of training epochs.
     :param model:
         DeepMechanisticModel instance.
-    :param filter_spec:
-        Optional filter specification for the model parameters.
-    :param pretraining:
-        boolean flag which discriminates between network pretraining and full DMM training.
-
     :param log_wandb:
         boolean flag to log learning rate schedule chart to wandb.
 
@@ -155,22 +135,10 @@ def get_optimiser_and_opt_state(
         Tuple containing the optimiser and optimiser state.
     """
     # Get dynamic model parameters
-    if filter_spec is not None:
-        diff_model, _ = eqx.partition(model, filter_spec)
-    else:
-        diff_model, _ = eqx.partition(model, eqx.is_array)
+    diff_model, _ = eqx.partition(model, eqx.is_array)
+
     # Initialise optimiser and optimiser state
-    if conf["optimiser"] == "adamw_sf":  # sf = schedule-free
-        opt = schedule_free_adamw(
-            learning_rate=conf["max_lrate"],
-            warmup_steps=int(n_epoch * conf["warmup_fct"]),
-            b1=conf["momentum"],
-            weight_decay=conf["weight_decay"],
-        )
-        flat_params, _ = jfu.ravel_pytree(diff_model)
-        opt_state = opt.init(flat_params)
-        return opt, opt_state
-    elif conf["optimiser"] == "adam":
+    if conf["optimiser"] == "adam":
         optimiser = adam
         extra_args = None
     elif conf["optimiser"] == "adamw":
@@ -178,8 +146,9 @@ def get_optimiser_and_opt_state(
         extra_args = {"weight_decay": conf["weight_decay"]}
     else:
         raise ValueError(f"Unknown optimiser: {conf['optimiser']}")
-    # If not schedule-free, get schedule and initialise optimiser and optimiser state accordingly
-    schedule = get_scheduler(conf, n_epoch, pretraining)
+
+    # Get schedule and initialise optimiser and optimiser state accordingly
+    schedule = get_scheduler(conf, n_epoch)
 
     if log_wandb:  # do not log by default
         # Log learning rate schedule chart to wandb
@@ -261,79 +230,6 @@ def zero_out_layer_params(
     return new_param, ~mask
 
 
-def zero_out_and_freeze(
-    model: DeepMechanisticModel, filter_spec: PyTree, threshold: float
-):
-    """Takes in input a DeepMechanisticModel, the corresponding filter_spec_per_param (all True) and a threshold.
-    Returns in output the same model with zeroed out parameters below
-    the threshold * max absolute value in the corresponding layer and category (weights - does not work on biases)
-    of a given module, as well as a modified filter_spec_per_param, with zeroed-out values frozen (set to False).
-    """
-    # Define modules in the model and filter_spec_per_param
-    modules = [model.deep_encoder, model.deep_inflater]
-    filter_specs = [filter_spec.deep_encoder, filter_spec.deep_inflater]
-    if model.reconstruct:
-        modules.append(model.deep_decoder)
-        filter_specs.append(filter_spec.deep_decoder)
-
-    for module, fs_module in zip(modules, filter_specs):
-        # Iterate through layers, zeroing out weights/biases below the max absolute per-layer value * threshold
-        for i, layer in enumerate(module.layers):
-            if hasattr(layer, "weight"):
-                module.layers[i] = eqx.tree_at(
-                    lambda lyr: lyr.weight,
-                    layer,
-                    zero_out_layer_params(layer.weight, threshold)[0],
-                )
-                fs_module.layers[i] = eqx.tree_at(
-                    lambda lyr: lyr.weight,
-                    fs_module.layers[i],
-                    zero_out_layer_params(layer.weight, threshold)[1],
-                )
-            # Currently not filtering nor affecting biases, as there is only a single bias value per layer,
-            # so it would never be masked out with the current strategy + there are only few bias terms.
-            # if hasattr(layer, 'bias') and (layer.bias is not None):
-            #     module.layers[i] = eqx.tree_at(
-            #         lambda lyr: lyr.bias, layer, zero_out_layer_params(layer.bias, threshold)[0]
-            #     )
-            #     fs_module.layers[i] = eqx.tree_at(
-            #         lambda lyr: lyr.bias, fs_module.layers[i], zero_out_layer_params(layer.bias, threshold)[1]
-            #     )
-    return model, filter_spec
-
-
-def sparsify_model(
-    model: DeepMechanisticModel,
-    drop_regularisation_post_pretraining: bool,
-    threshold: float,
-):
-    # Default to training all parameters
-    filter_spec = tree_map(lambda _: True, model)
-
-    if drop_regularisation_post_pretraining:
-        # Zero out parameters that are below threshold * max in the corresponding layer and category (weight/bias
-        # if any) and freeze corresponding zero-ed out parameters
-        model, filter_spec = zero_out_and_freeze(model, filter_spec, threshold)
-    return model, filter_spec
-
-
-def apply_filter_to_updates(updates, filter_spec):
-    """Zeroes out the updates corresponding to False values in the filter_spec_per_param."""
-
-    def mask_update(update, mask):
-        return jnp.where(mask, update, 0.0)
-
-    # Apply the mask to zero out updates where filter_spec_per_param is False
-    # Updated to reflect updated JAX handling of None in tree_map
-    masked_updates = tree_map(
-        lambda x, y: None if x is None else mask_update(x, y),
-        updates,
-        filter_spec,
-        is_leaf=lambda x: x is None,
-    )
-    return masked_updates
-
-
 class Chi2Objective(pypesto.objective.Objective):
     base_objective: pypesto.objective.AmiciObjective
 
@@ -413,9 +309,7 @@ class Chi2Objective(pypesto.objective.Objective):
             mse = sum(
                 r["chi2"] for r in res[RDATAS] if r.status == AMICI_SUCCESS
             ) / max(ndata, 1)
-            if (
-                ndata == 0
-            ):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
+            if not all(r.status == AMICI_SUCCESS for r in res[RDATAS]):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
                 mse = np.inf
             ret[pypesto.C.FVAL] = mse
         if 1 in sensi_orders:
@@ -494,44 +388,6 @@ def enforce_minimum_spacing(arr: np.ndarray, min_dist: int) -> np.ndarray:
     return np.array([prev := x for x in arr if x - prev >= min_dist])
 
 
-def get_eval_model(
-    conf: Dict,
-    model: DeepMechanisticModel,
-    opt_state: PyTree,
-    filter_spec: Optional[PyTree],
-) -> DeepMechanisticModel:
-    """Returns the evaluation model for schedule-free learning, the model itself otherwise.
-    For schedule-free learning, optimiser tracks sequence of iterates `y`, on which gradients are evaluated.
-    Optimiser state keeps track of sequence of iterates `z`. Weights needed to evaluate the model, `x`, need to
-    be computed on the fly and stored in the model for accurate evaluation.
-
-    :param conf:
-        configuration object (dmm.config_options -> Conf) converted to dict.
-    :param model:
-        DeepMechanisticModel instance.
-    :param opt_state:
-        optimiser state.
-
-    :return:
-        Evaluation model for schedule-free learning, the model itself otherwise.
-    """
-    # For schedule-free learning, we need to get the evaluation parameters
-    if conf["optimiser"] == "adamw_sf":
-        if filter_spec is not None:
-            diff_model, static_model = eqx.partition(model, filter_spec)
-        else:
-            diff_model, static_model = eqx.partition(model, eqx.is_array)
-        flat_params, unflatten_params = jfu.ravel_pytree(diff_model)
-        eval_params = schedule_free_eval_params(opt_state, flat_params)
-        eval_diff_model = unflatten_params(eval_params)
-        eval_model = eqx.combine(eval_diff_model, static_model)
-    else:
-        # if not using schedule-free, we can just use the previous step model
-        # (not next_model)
-        eval_model = model
-    return eval_model
-
-
 def generate_log_epochs(
     n_epoch: int, num_samples: int, min_dist: int
 ) -> np.ndarray:
@@ -548,7 +404,7 @@ def plot_model_weights(model: DeepMechanisticModel, filename: str = None):
     num_columns = (
         len([*model.deep_encoder.layers, *model.deep_inflater.layers]) + 2
     )
-    single_module_height = (model.module_depth) * 2 + 1
+    single_module_height = model.module_depth * 2 + 1
     num_rows = 2 * single_module_height + 3
 
     fig = plt.figure()
@@ -809,68 +665,6 @@ def check_best_model(
         pass
     else:
         assert re_model_rmse_val == best_rmse_val
-
-
-def plot_and_log_pretraining_result(
-    model: DeepMechanisticModel,
-    training_data: jnp.ndarray,
-    training_targets: jnp.ndarray,
-    validation_data: jnp.ndarray,
-    validation_targets: jnp.ndarray,
-    plot_dir: Path,
-    plot_name: str,
-):
-    training_pred = vmap(model)(training_data)["inflated"]
-    validation_pred = vmap(model)(validation_data)["inflated"]
-    training_error = jnp.abs(training_pred - training_targets)
-    validation_error = jnp.abs(validation_pred - validation_targets)
-
-    import matplotlib.colors as mcolors
-
-    norm = mcolors.Normalize(-10, 10)
-    fig, ax = plt.subplots(2, 4, figsize=(20, 10))
-    for ind, (array, cbar, label) in enumerate(
-        zip(
-            [
-                training_data,
-                training_targets,
-                training_pred,
-                training_error,
-                validation_data,
-                validation_targets,
-                validation_pred,
-                validation_error,
-            ],
-            [False, False, False, False, False, False, False, True],
-            [
-                "training data",
-                "training targets",
-                "training predictions",
-                "training error",
-                "validation data",
-                "validation targets",
-                "validation predictions",
-                "validation error",
-            ],
-        )
-    ):
-        plt.subplot(2, 4, ind + 1)
-        sns.heatmap(array, norm=norm, cbar=cbar, cmap="coolwarm")
-        plt.title(label)
-    # Save plot
-    plot_filepath = Path(plot_dir / (plot_name + ".png"))
-    plot_filepath.parent.mkdir(exist_ok=True, parents=True)
-    plt.savefig(plot_filepath)
-    # DISABLED WANDB ARTIFACTS
-    # # Instantiate artifact
-    # plot_artifact = wandb.Artifact(
-    #     name=plot_name,
-    #     description="pretraining_results",
-    #     type="plot",
-    # )
-    # # Add and log artifact
-    # plot_artifact.add(wandb.Image(str(plot_filepath)), plot_name)
-    # wandb.log_artifact(plot_artifact)
 
 
 class MetricHandler:

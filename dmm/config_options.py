@@ -41,7 +41,6 @@ class Conf(dict):
     symm_reg: float = 0.0
     median_reg: float = 0.0
     # Learning schedule hyperparameters
-    lrate_pretraining_ratio: Optional[float] = 10.0  # default: pretraining uses a 10x lower learning rate
     max_lrate: Optional[float] = 0.01  # maximum learning rate (max in first schedule or in all without decay)
     lrate_span: Optional[float] = 1e0  # ratio between max and min learning rates in a given schedule
     lrate_decay: Optional[float] = 0.98  # if < 1, the learning rate decays between schedules.
@@ -49,15 +48,11 @@ class Conf(dict):
     warmup_fct: Optional[float] = 0.0  # fraction of schedule epochs to be used for warmup
     opt_steps: Optional[int] = 0  # Number of steps in the first schedule
     opt_mult: Optional[int] = 0  # Multiplier for the number of steps in each schedule
-    momentum: Optional[float] = 0.9  # momentum for AdamW or schedule-free AdamW (b1 in implementation, beta in paper)
-    weight_decay: Optional[float] = 1e-4  # controls weight decay for AdamW or schedule-free AdamW
+    momentum: Optional[float] = 0.9  # momentum for AdamW
+    weight_decay: Optional[float] = 1e-4  # controls weight decay for AdamW
     use_simple_linear_schedule: bool = False
     # Early-stopping
     use_early_stopping: bool = False
-    # Drop regularisation after pretraining
-    drop_reg_after_pretrain: bool = False
-    # Sparsity threshold
-    sparsity_threshold: float = 0.0
     # Other hyperparams
     job: int = 0
     threads: int = 1
@@ -86,7 +81,7 @@ class Conf(dict):
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "weight_decay", "momentum",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
-            "drop_reg_after_pretrain", "sparsity_threshold", "run_mode_tag", "date_tag",
+            "run_mode_tag", "date_tag",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list

@@ -152,7 +152,6 @@ ACTIVATION_FNS = (
 OPTIMISERS = {
     # "adam",
     "adamw",
-    # "adamw_sf",
 }
 
 
@@ -294,10 +293,7 @@ INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}  # N_EPO
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
 SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
 
-# LEARNING SCHEDULE HYPERPARAMETERS -- DISABLED PRETRAINING FOR NOW
-LRATE_PRETRAINING_RATIO = {
-    10.0,
-}
+# LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
 # MAX_LEARNING_RATES = {
 #     1e-1,
@@ -405,19 +401,6 @@ PATIENCE = 9  # should be about 50 epochs in linear scale (unsure about log-scal
 
 # MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0
-
-# Drop regularisation after pretraining
-DROP_REG_POST_PRETRAIN = {
-    # "True",
-    "False",  # disabled this - pretraining is NOT informative and is only helpful to AVOID bad param regimes
-    # at the start of training
-}
-
-# Threshold to sparsify the model weights if dropping regularisation post pretraining (while keeping learnt sparsity)
-SPARSITY_THRESHOLD = {
-    # 1e-2,
-    1e-3,  # NOT IN USE
-}
 
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False

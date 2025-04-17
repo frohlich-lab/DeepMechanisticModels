@@ -240,7 +240,6 @@ rule estimate_parameters:
         recon_loss = '[0-9\.]+',
         symm_reg = '[0-9\.]+',
         median_reg='[0-9\.]+',
-        lrate_pretraining_ratio='[0-9\.]+',
         max_lrate = '[0-9\.]+',
         lrate_span = '[0-9\.]+',
         lrate_decay = '[0-9\.]+',
@@ -251,8 +250,6 @@ rule estimate_parameters:
         momentum = '[0-9\.]+',
         use_simple_linear_schedule = 'True|False',
         use_early_stopping = 'True|False',
-        drop_reg_after_pretrain = 'True|False',
-        sparsity_threshold = '[0-9\.]+',
         job = '[0-9]+',
     retries: 1
     resources:
@@ -275,10 +272,9 @@ rule estimate_parameters:
                 'orth_reg_strategy',
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
                 'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
-                'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping', 'drop_reg_after_pretrain', 'sparsity_threshold',
+                'use_simple_linear_schedule', 'use_early_stopping',
                 'job',
             )
         ) + ' --threads={threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
@@ -357,7 +353,6 @@ rule evaluate_training:
         recon_loss='[0-9\.]+',
         symm_reg='[0-9\.]+',
         median_reg='[0-9\.]+',
-        lrate_pretraining_ratio='[0-9\.]+',
         max_lrate='[0-9\.]+',
         lrate_span='[0-9\.]+',
         lrate_decay='[0-9\.]+',
@@ -368,8 +363,6 @@ rule evaluate_training:
         momentum='[0-9\.]+',
         use_simple_linear_schedule='True|False',
         use_early_stopping='True|False',
-        drop_reg_after_pretrain='True|False',
-        sparsity_threshold='[0-9\.]+',
         job='[0-9]+',
     retries: 1
     resources:
@@ -391,10 +384,9 @@ rule evaluate_training:
                 'orth_reg_strategy',
                 'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output',
                 'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
-                'lrate_pretraining_ratio',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping', 'drop_reg_after_pretrain', 'sparsity_threshold',
+                'use_simple_linear_schedule', 'use_early_stopping',
                 'job',
             )
         )
