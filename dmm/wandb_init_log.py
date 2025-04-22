@@ -44,7 +44,8 @@ def init_wandb(
         # v16: updated feature selection (uniform across CV splits), regressors with feature selection, unregularised
         # v17: new/old mechanistic model, no reweighing, fixed Chi2 (MSE), no biases on last inflater layer (deviations)
         # v18: fixed mechanistic model, removed pretraining and relevant code, removed schedule-free optimisers
-        project=f"DeepMechanisticModels.v17.{conf.data}.{conf.model}.TEST",
+        # v19: same as v18 but with frozen kinetic param median
+        project=f"DeepMechanisticModels.v19.{conf.data}.{conf.model}.TEST",
         group=group,
         config={
             **conf.__dict__,
@@ -187,8 +188,6 @@ def log_model_stats(
                 layer_stats[f'{module}.layer{ilayer}.b_grads'] = wandb.Histogram(
                     np.log10(np.abs(np.array(grad_bias_vals[grad_bias_vals != 0])))
                 )
-    stats = {**layer_stats}
-
 
     # First approach: two plots (value, grad) per parameter, but hists do not make much sense in that case
     # kin_params_stats = {
@@ -209,6 +208,7 @@ def log_model_stats(
     #         np.array(par_vals).ravel(),
     #     )
     # }
+
     # Second approach: log values and grads altogether (2 histograms overall)
     kin_params_stats = {
         f'global_kin_params.{value_label}': wandb.Histogram(
