@@ -151,7 +151,7 @@ def train(
     epoch = 0
     metric_handler = MetricHandler()
 
-    # Use pretrained/randomly initialised model (if not pretrained) to get initial rmse_test_min and
+    # Use randomly initialised model to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
     # rmse_train_start = rmse(problem_train, model, input_features_train)
     rmse_test_min = rmse(problem_test, model, input_features_test)
@@ -219,7 +219,6 @@ def train(
             conf=conf,
             input_data=input_features_train,  # use training features for RECON_LOSS
             epoch=epoch,
-            nn_pretrain=False,  # full DMM training stage
             median_init_arr=median_init_arr,
         )
 
@@ -291,7 +290,7 @@ def train(
                     "rmse_val": np.sqrt(fval_val),
                     "fval_train": fval_train,
                     "fval_val": fval_val,
-                    **log_model_stats(eval_model, grads, pretrain=False)
+                    **log_model_stats(eval_model, grads)
                 },
                 step=epoch
             )
