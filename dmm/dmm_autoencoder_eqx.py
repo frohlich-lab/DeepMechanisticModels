@@ -328,11 +328,11 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :return:
             new instance of DMM with updated sparsity binary mask.
         """
-        # Compute absolute median param dev across samples
-        absolute_param_dev_median = jnp.abs(jnp.median(jax.vmap(self)(x)["inflated"], axis=0))
+        # Compute standard deviation of parameter deviation across samples
+        param_dev_stds = jnp.std(jax.vmap(self)(x)["inflated"], axis=0)
 
-        # Sort absolute median param dev in descending order
-        sorted_deviations = jnp.sort(absolute_param_dev_median)[::-1]
+        # Sort in descending order
+        sorted_deviations = jnp.sort(param_dev_stds)[::-1]
 
         # Compute threshold to keep threshold_perc values and ensure within bounds
         # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
@@ -346,7 +346,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
         new_sparsity_binary_mask = tuple(jnp.where(
-            absolute_param_dev_median < threshold,
+            param_dev_stds < threshold,
             0.0,
             jnp.array(self.sparsity_binary_mask)
         ).tolist())
