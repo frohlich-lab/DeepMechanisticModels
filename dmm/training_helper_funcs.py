@@ -51,39 +51,48 @@ def get_scheduler(
     """
 
     if conf["use_simple_linear_schedule"]:
-        # Define custom steps to use the same machinery as below - schedule config should
-        # be entirely within conf object
-        schedules = [
-            {
-                "init_value": init_value,  # before warm-up / matching end of l1reg_inflater_output stage
-                "peak_value": conf["max_lrate"],  # after warm-up
-                "warmup_steps": int(num_epoch * conf["warmup_fct"]),
-                "decay_steps": num_epoch - int(num_epoch * conf["warmup_fct"]),  # n_epoch - warmup steps
-                "end_value": conf["max_lrate"] * conf["lrate_decay"] ** num_epoch,  # after decay
-            }  # single linear schedule, but restarts after dropping l1reg_inflater_output
-            for num_epoch, init_value in zip(
-                [
-                    conf["inflater_output_reg_epoch"],
-                    n_epoch - conf["inflater_output_reg_epoch"],
-                ],
-                [
-                    conf["max_lrate"] / conf["lrate_span"],
-                    conf["max_lrate"] * conf["lrate_decay"] ** conf["inflater_output_reg_epoch"],
-                ],
-            )
-        ]
-        # if conf["inflater_output_reg_epoch"] = n_epoch, drop last schedule but keep list format
-        if conf["inflater_output_reg_epoch"] == n_epoch:
-            del schedules[-1]
-            return sgdr_schedule(schedules)
+        # Special case: if inflater_output_reg_epoch aligns with warmup period of overall training -> single schedule
+        if conf["inflater_output_reg_epoch"] == int(n_epoch * conf["warmup_fct"]):
+            schedule = {
+                "init_value": conf["max_lrate"] / conf["lrate_span"],
+                "peak_value": conf["max_lrate"],
+                "warmup_steps": int(n_epoch * conf["warmup_fct"]),
+                "decay_steps": n_epoch,
+                "end_value": conf["max_lrate"] * conf["lrate_decay"] ** n_epoch,
+            }
+            return sgdr_schedule([schedule])
         else:
-            # Apply schedules sequentially (otherwise optax assumes they both start at epoch 0)
-            return join_schedules(
-                schedules=[
-                    sgdr_schedule([schedule]) for schedule in schedules
-                ],
-                boundaries=[conf["inflater_output_reg_epoch"]],
-            )
+            schedules = [
+                {
+                    "init_value": init_value,  # before warm-up / matching end of l1reg_inflater_output stage
+                    "peak_value": conf["max_lrate"],  # after warm-up
+                    "warmup_steps": int(num_epoch * conf["warmup_fct"]),
+                    "decay_steps": num_epoch,  # n_epoch
+                    "end_value": conf["max_lrate"] * conf["lrate_decay"] ** num_epoch,  # after decay
+                }  # single linear schedule, but restarts after dropping l1reg_inflater_output
+                for num_epoch, init_value in zip(
+                    [
+                        conf["inflater_output_reg_epoch"],
+                        n_epoch - conf["inflater_output_reg_epoch"],
+                    ],
+                    [
+                        conf["max_lrate"] / conf["lrate_span"],
+                        conf["max_lrate"] * conf["lrate_decay"] ** conf["inflater_output_reg_epoch"],
+                    ],
+                )
+            ]
+            # if conf["inflater_output_reg_epoch"] = n_epoch, drop last schedule but keep list format
+            if conf["inflater_output_reg_epoch"] == n_epoch:
+                del schedules[-1]
+                return sgdr_schedule(schedules)
+            else:
+                # Apply schedules sequentially (otherwise optax assumes they both start at epoch 0)
+                return join_schedules(
+                    schedules=[
+                        sgdr_schedule([schedule]) for schedule in schedules
+                    ],
+                    boundaries=[conf["inflater_output_reg_epoch"]],
+                )
     else:
         # Cosine annealing
         epochs_per_schedule = np.array(
