@@ -11,13 +11,14 @@ from .dmm_autoencoder_eqx import DeepMechanisticModel
 # from .training_helper_funcs import test_save_reload_model, plot_model_weights
 from .wandb_init_log import log_extra_loss_terms, log_model_stats, log_param_norms
 from .training_helper_funcs import (generate_log_epochs, get_finite_grads,
-                                    get_optimiser_and_opt_state, map_params_to_array, model_output_to_petab_input,
+                                    get_optimiser_and_opt_state, map_params_to_array,
+                                    model_output_to_petab_input, model_output_to_petab_input_frozen_medians,
                                     rmse, rmse_ensemble, MetricHandler)
 from flax.training.early_stopping import EarlyStopping
 # doc: flax.readthedocs.io/en/latest/_modules/flax/training/early_stopping.html
 from jaxtyping import Array, Float, PyTree
 from pathlib import Path
-from typing import Dict
+from typing import Callable, Dict
 
 
 def update_best_models(
@@ -43,9 +44,9 @@ def update_best_models(
 
 
 @eqx.filter_jit
-def jitted_objective(problem, model, data):
+def jitted_objective(problem: pypesto.Problem, model: DeepMechanisticModel, data, base_obj_fn: Callable):
     return problem.objective(
-        model_output_to_petab_input(model, data)
+        base_obj_fn(model, data)
     )
 
 @eqx.filter_value_and_grad(has_aux=True)
@@ -54,6 +55,7 @@ def loss_fn(
         conf: Dict,
         input_data,
         problem_train: pypesto.Problem,
+        base_obj_fn: Callable,
         regularise_inflater_output: bool,
         median_init_arr: Array,
 ):
@@ -63,7 +65,7 @@ def loss_fn(
     # through encoder + inflater and flattened). This is now the first component of the output of the model.
     # call.
     fval = problem_train.objective(
-        model_output_to_petab_input(model, input_data)
+        base_obj_fn(model, input_data)
     )
 
     loss_value = (
@@ -102,6 +104,7 @@ def make_step(
         opt_state: PyTree,
         input_data: Float[Array, '...'],  # TODO @GiacomoFabrini fix input data shape?
         problem_train: pypesto.Problem,
+        base_obj_fn: Callable,
         conf: Dict,
         regularise_inflater_output: bool,
         median_init_arr: Array,
@@ -111,6 +114,7 @@ def make_step(
         conf,
         input_data,
         problem_train,
+        base_obj_fn,
         regularise_inflater_output,
         median_init_arr,
     )
@@ -150,6 +154,9 @@ def train(
     early_stopper = None
     epoch = 0
     metric_handler = MetricHandler()
+
+    # Setup base obj_fn
+    base_obj_fn = model_output_to_petab_input_frozen_medians if conf["freeze_medians"] else model_output_to_petab_input
 
     # Use randomly initialised model to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
@@ -200,6 +207,7 @@ def train(
             opt_state=opt_state,
             input_data=input_features_train,
             problem_train=problem_train,
+            base_obj_fn=base_obj_fn,
             conf=conf,
             regularise_inflater_output=epoch < conf["inflater_output_reg_epoch"],  # changed behaviour -- after epoch is reached, regularisation behaviour changes
             median_init_arr=median_init_arr,
@@ -251,7 +259,7 @@ def train(
 
             # Compute fval on train/val datasets using eval_model
             fval_train, fval_val = (
-                jitted_objective(problem, eval_model, input_data)
+                jitted_objective(problem, eval_model, input_data, base_obj_fn)
                 for problem, input_data in zip(
                 [problem_train, problem_test], [input_features_train, input_features_test]
             )

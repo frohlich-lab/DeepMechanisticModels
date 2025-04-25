@@ -56,6 +56,12 @@ MEDIAN_INIT = {
     "avg_model",
 }
 
+# Train/freeze median kinetic parameters
+FREEZE_MEDIANS = {
+    True,
+    # False,
+}
+
 # Network Structure and Initialisation Hyperparameters
 
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.

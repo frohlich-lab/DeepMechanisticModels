@@ -4,7 +4,7 @@ import pandas as pd
 
 from training_configuration import (
     CONTEXTS_FEATURES, FEATURES_TRANSFORM,
-    SPLITS, PRETRAIN, MEDIAN_INIT,
+    SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
     LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
     NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
     # Regularisation
@@ -143,6 +143,7 @@ def generate_linear_scan(STARTS: list[str]):
             "samples": split,
             "pretrain": pretrain,
             "median_init": median_init,
+            "freeze_medians": freeze_medians,
             "nn_structure_multiplier": NN_STRUCTURE_MULTIPLIER,  # fixed, not tuning it
             "use_layer_bias": use_layer_bias,
             "last_layer_activation": last_layer_activation,
@@ -158,11 +159,11 @@ def generate_linear_scan(STARTS: list[str]):
         for hyperparam, details in hyperparameters.items()
         for hp_value in details['range']
         for (
-            (context, features), features_transform, split, pretrain, median_init,
+            (context, features), features_transform, split, pretrain, median_init, freeze_medians,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT,
+            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
         )
@@ -224,6 +225,7 @@ def generate_grid_search(STARTS: list[str]):
             "samples": split,
             "pretrain": pretrain,
             "median_init": median_init,
+            "freeze_medians": freeze_medians,
             "n_hidden": n_hidden,
             "nn_structure_multiplier": NN_STRUCTURE_MULTIPLIER,   # fixed
             "network_layout": network_layout,
@@ -257,7 +259,8 @@ def generate_grid_search(STARTS: list[str]):
             "job": job,
         }
         for (
-            (context, features), features_transform, split, pretrain, median_init, n_hidden, network_layout,
+            (context, features), features_transform, split, pretrain, median_init, freeze_medians,
+            n_hidden, network_layout,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
             l1reg_inflater_output, recon_loss, symm_reg, median_reg,
@@ -267,7 +270,8 @@ def generate_grid_search(STARTS: list[str]):
             weight_decay, momentum,
             use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, LATENT_DIMS, NETWORK_LAYOUT,
+            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
+            LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
             OMEGAS, EPSILONS, ZETAS, ETAS,
@@ -358,7 +362,7 @@ def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = Non
 # )
 
 generate_run_configs(
-    n_starts=200,
+    n_starts=50,
     hp_run_mode=HP_RUN_MODE,
     refine_hps=REFINE_HPS,
 )

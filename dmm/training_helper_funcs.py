@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict, Tuple, Union
 
 import equinox as eqx
+import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -371,9 +372,24 @@ def model_output_to_petab_input(
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
     pred = vmap(model)(input_data)["inflated"]
-    # Concatenate learnable global kinetic parameters with pred
+    # Concatenate learnable global kinetic parameters (medians) with predicted deviations
     augmented_pred = jnp.concatenate(
         [model.kin_params_combiner.learned_global_kin_params, pred.flatten()]
+    )
+    return augmented_pred
+
+
+# Only used in training
+@eqx.filter_jit
+def model_output_to_petab_input_frozen_medians(
+    model: DeepMechanisticModel,
+    input_data: np.ndarray,
+):
+    # Get model output (inflated cell-line-specific parameter deviations)
+    pred = vmap(model)(input_data)["inflated"]
+    # Concatenate FROZEN global kinetic parameters with predicted deviations
+    augmented_pred = jnp.concatenate(
+        [jax.lax.stop_gradient(model.kin_params_combiner.learned_global_kin_params), pred.flatten()]
     )
     return augmented_pred
 

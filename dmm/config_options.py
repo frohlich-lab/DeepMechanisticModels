@@ -16,6 +16,8 @@ class Conf(dict):
     sample: str = None
     # Initialisation
     median_init: str = "None"  # can be either `per_sample` or `avg_model` -> initialises params of KinParamsCombiner
+    # Train/freeze medians
+    freeze_medians: bool = False
     # Network structure
     n_hidden: int = 0
     nn_structure_multiplier: int = 0
@@ -77,7 +79,7 @@ class Conf(dict):
         # Filter out unwanted fields from the final string representation
         unwanted_fields = [
             "model", "data", "sample", "samples", "context", "features",
-            "pretrain", "median_init", "use_layer_bias", "linear_benchmark", "nn_init_fn",
+            "pretrain", "median_init", "freeze_medians", "use_layer_bias", "linear_benchmark", "nn_init_fn",
             "max_lrate", "lrate_span", "lrate_decay", "warmup_fct", "opt_steps", "opt_mult",
             "weight_decay", "momentum",
             "use_simple_linear_schedule", "use_early_stopping", "threads", "n_starts",
