@@ -27,6 +27,7 @@ def contextualize_measurements(
     observable_table: pd.DataFrame,
     contextualization: str,
     samples: List[str],
+    impute: bool = True,  # only affects cytof_init - if False, recovers previous behaviour
 ) -> pd.DataFrame:
     # Check requested contextualization is available
     if contextualization not in (
@@ -80,44 +81,51 @@ def contextualize_measurements(
                 )
             ]
         elif contextualization == "cytof_init":
-            # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
-            # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
-            # TODO - do we want to exclude info from inhibitors? (can subset to EGF earlier)
-            # input_measurements = input_measurements[
-            #     input_measurements[petab.SIMULATION_CONDITION_ID].apply(
-            #         lambda x: x.endswith("EGF")
-            #     )
-            # ]
-            harmonised_cytof_dynamic = harmonise_cytof_dynamic(
-                input_measurements.pivot_table(
-                    index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
-                    columns=pivot_columns,
-                    # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
-                    values=petab.MEASUREMENT,  # the actual measurement/signal
-                    aggfunc="mean",
+            if impute:
+                # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
+                # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
+                # TODO - do we want to exclude info from inhibitors? (can subset to EGF earlier)
+                harmonised_cytof_dynamic = harmonise_cytof_dynamic(
+                    input_measurements.pivot_table(
+                        index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+                        columns=pivot_columns,
+                        # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+                        values=petab.MEASUREMENT,  # the actual measurement/signal
+                        aggfunc="mean",
+                    )
                 )
-            )
-            # Filter out too many nans, including misaligned timepoints that have just been aligned
-            harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
-                :, harmonised_cytof_dynamic.isna().sum() / harmonised_cytof_dynamic.shape[0] < 0.3
-            ]
-            # Fit imputer on training samples, transform train + val samples
-            if len(samples) > 1:
-                samples_train = samples
+                # Filter out too many nans, including misaligned timepoints that have just been aligned
+                harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
+                    :, harmonised_cytof_dynamic.isna().sum() / harmonised_cytof_dynamic.shape[0] < 0.3
+                ]
+                # Fit imputer on training samples, transform train + val samples
+                if len(samples) > 1:
+                    samples_train = samples
+                else:
+                    samples_train = [sample for sample in harmonised_cytof_dynamic.index if sample not in samples]
+                imputer = KNNImputer()
+                imputer.fit(harmonised_cytof_dynamic.loc[samples_train, :].values)
+                input_data = pd.DataFrame(
+                    imputer.transform(harmonised_cytof_dynamic.values),
+                    columns=harmonised_cytof_dynamic.columns,
+                    index=harmonised_cytof_dynamic.index,
+                )
+                # subset to EGF and time 0
+                input_data = input_data[[col for col in input_data.columns if (col[1] == "EGF") and (col[2] == 0.0)]]
+                # remove info on condition and timepoint, leaving markers only as column names
+                input_data.columns = [col[0] for col in input_data.columns]
+                return input_data
             else:
-                samples_train = [sample for sample in harmonised_cytof_dynamic.index if sample not in samples]
-            imputer = KNNImputer()
-            imputer.fit(harmonised_cytof_dynamic.loc[samples_train, :].values)
-            input_data = pd.DataFrame(
-                imputer.transform(harmonised_cytof_dynamic.values),
-                columns=harmonised_cytof_dynamic.columns,
-                index=harmonised_cytof_dynamic.index,
-            )
-            # subset to EGF and time 0
-            input_data = input_data[[col for col in input_data.columns if (col[1] == "EGF") and (col[2] == 0.0)]]
-            # remove info on condition and timepoint, leaving markers only as column names
-            input_data.columns = [col[0] for col in input_data.columns]
-            return input_data
+                # Subset to EGF and time 0 only
+                input_measurements = input_measurements[
+                    input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                        lambda x: x.endswith("EGF")
+                    )
+                ]
+                input_measurements = input_measurements[
+                    input_measurements[petab.TIME] == 0
+                ]
+                pivot_columns = [petab.OBSERVABLE_ID]
     else:
         pivot_columns = [petab.OBSERVABLE_ID]
 
@@ -236,10 +244,11 @@ def load_data(
     measurement_table,
     observable_table,
     features_filepath = None,
+    impute: bool = True,
 ):
     if contextualization != "MOSA":
         input_data = contextualize_measurements(
-            measurement_table, observable_table, contextualization, samples
+            measurement_table, observable_table, contextualization, samples, impute=impute
         )
     elif (contextualization == "MOSA") and (features_filepath is not None):
         input_data = get_features(features_filepath=features_filepath, datasets=["train", "val"])
