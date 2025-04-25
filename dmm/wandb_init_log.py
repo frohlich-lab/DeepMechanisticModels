@@ -45,7 +45,8 @@ def init_wandb(
         # v17: new/old mechanistic model, no reweighing, fixed Chi2 (MSE), no biases on last inflater layer (deviations)
         # v18: fixed mechanistic model, removed pretraining and relevant code, removed schedule-free optimisers
         # v19: same as v18 but with frozen kinetic param median
-        project=f"DeepMechanisticModels.v19.{conf.data}.{conf.model}.TEST",
+        # v20: updated metric to impose sparsity (median -> standard deviation); updated learning rate schedule
+        project=f"DeepMechanisticModels.v20.{conf.data}.{conf.model}.TEST",
         group=group,
         config={
             **conf.__dict__,
