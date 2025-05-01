@@ -20,12 +20,12 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
-    ("proteomics", "elastic"),
+    # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
-    ("transcriptomics", "elastic"),
+    # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
@@ -265,7 +265,7 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {'range': (0, ), 'central_value': 0}  # unregularised
+OMEGAS = {'range': (1e2, ), 'central_value': 1e2}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -292,12 +292,12 @@ ETAS = {'range': (0, ), 'central_value': 0}
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}  # N_EPOCHS
+INFLATER_OUTPUT_REG_EPOCHS = {'range': (100, ), 'central_value': 100}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
+SPARSE_THRESH_PERCS = {'range': (40, 50, 75, 100), 'central_value': 100}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
@@ -429,3 +429,6 @@ REFINE_HPS = None
 
 N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE val across training) -- NOT IN USE
 N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
+
+# Whether to force the selection of PERBB2 features in `cytof_init`
+INCLUDE_PERBB2_FORCED = True

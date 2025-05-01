@@ -2,13 +2,14 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import fire
+import numpy as np
 import pandas as pd
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import PredefinedSplit
 
 from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
 from dmm.feature_selection import build_preprocessor, load_data, preprocess_mosa_latent
-from training_configuration import SPLITS
+from training_configuration import SPLITS, INCLUDE_PERBB2_FORCED
 from util import load_petab_base_files
 
 
@@ -126,6 +127,11 @@ for context in conf.context.split("+"):
         selected_features = preprocessor.feature_names_in_[selector.get_support()]
 
     print(f"Selected {len(selected_features)} features shared across splits for {subconf.context}: {selected_features}")
+
+    if context == "cytof_init":
+        if INCLUDE_PERBB2_FORCED and "pERBB2_Y1248_obs" not in selected_features:
+            print("pERBB2_Y1248_obs not in selected features, adding it")
+            selected_features = np.append(selected_features, "pERBB2_Y1248_obs")
 
     # Transform and save per split
     for split in sorted(SPLITS):
