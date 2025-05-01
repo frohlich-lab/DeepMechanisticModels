@@ -1,23 +1,14 @@
+import fire
 import itertools as itt
 import numpy as np
 import os
-from typing import List
-
-import fire
 import pandas as pd
 import petab
 import warnings
 
 from joblib import dump, load
-from sklearn.decomposition import PCA
-from sklearn.impute import KNNImputer
-from sklearn.linear_model import (
-    LinearRegression,
-    MultiTaskElasticNetCV,
-    MultiTaskLassoCV,
-)
+
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import StandardScaler
 
 from common import (
     CONTEXT_SET,
@@ -39,107 +30,9 @@ from dmm.feature_selection import load_data
 from dmm.initialisation import get_features_and_pipeline_filepaths, process_features
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
+from regressor_training import *
+from typing import List
 from util import load_petab_base_files
-
-
-conf = fire.Fire(Conf)
-
-outdir = fig_dir / conf.model / conf.data
-indir = pretrain_dir / conf.model / conf.data
-
-# cross_sample_dir = outdir / "pretrain_cross_sample"
-# cross_sample_dir.mkdir(exist_ok=True, parents=True)
-
-# TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
-#  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
-#  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
-#  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
-# samples = {
-#     "train": training_samples(Wildcards(conf.data, conf.samples)),
-#     "test": test_samples(Wildcards(conf.data, conf.samples)),
-# }
-
-# Suppress all DeprecationWarning warnings (coming from petab)
-warnings.filterwarnings("ignore", category=DeprecationWarning)
-
-
-def build_pipeline(
-    steps_list: List[str],
-) -> Pipeline:
-    """Builds a sklearn.pipeline.Pipeline consisting of:
-    - StandardScaler(),
-    - KNNImputer(),
-    - additional steps in steps_list
-
-    :param steps_list:
-        list of additional Pipeline steps
-    """
-    # standard steps: scaling, imputation via KNN
-    steps = [
-        ("scaler", StandardScaler()),
-        ("imputer", KNNImputer()),
-    ]
-
-    # regressor steps
-    regressor_steps = {
-        # seems like LinearRegression automatically supports MultiOutput/MultiTask
-        "linreg": LinearRegression(),
-        "lasso": MultiTaskLassoCV(cv=5, n_alphas=20),
-        "elasticnet": MultiTaskElasticNetCV(cv=5, n_alphas=20),
-    }
-
-    # PCA + one among linear regression/lasso/elasticnet
-    if (steps_list is not None) and (len(steps_list) > 0):
-        for step in steps_list:
-            if step == "pca":
-                steps.append(
-                    ("pca", PCA(n_components=0.95, whiten=True))
-                )  # added whitening
-            elif step in regressor_steps.keys():
-                steps.append((step, regressor_steps[step]))
-            else:
-                raise ValueError(f"Unknown step {step}")
-    else:
-        if not steps_list:
-            if steps_list is None:
-                raise TypeError("Expected type list for steps_list, got None type")
-            else:
-                raise ValueError("List of pipeline steps is empty")
-    return Pipeline(steps)
-
-
-def train_pipeline(
-    input_data_train: pd.DataFrame,
-    output_data_train: pd.DataFrame,
-    pipeline_steps: List[str],
-    impute_missing_output: bool = True,
-):
-    """Trains a sklearn.pipeline.Pipeline built via build_pipeline()
-
-    :param input_data_train:
-        input data to train the regressor Pipeline on.
-
-    :param output_data_train:
-        output data to train the regressor Pipeline on.
-
-    :param pipeline_steps:
-        list of Pipeline steps to be passed to build_pipeline()
-
-    :param impute_missing_output:
-        whether to impute missing data in output_data during pipeline training
-    """
-
-    if impute_missing_output:
-        # Impute missing data in output_data during pipeline training
-        output_data_train = KNNImputer().fit_transform(output_data_train)
-
-    # Build pipeline and return trained_pipeline, features_train
-    pipeline = build_pipeline(
-        steps_list=pipeline_steps,
-        # input_data=input_data
-    )
-
-    return pipeline.fit(input_data_train, output_data_train), input_data_train.columns
 
 
 def evaluate_standard_regression(
@@ -157,7 +50,7 @@ def evaluate_standard_regression(
         raise ValueError("No trained_pipeline provided for this regressor!")
 
     # Process regression output/predictions (reg_pred) and output data before plotting and evaluating simulations
-    # Convert into pandas dataframe with same index and column headers as output_test
+    # Convert into pandas dataframe with the same index and column headers as output_test
     # Then process to use with plot_cross_samples() and process_simulation()
     # Finally drop index and rename column from 0 to 'simulation' to use in process_simulation()
     reg_pred = (
@@ -286,6 +179,27 @@ def evaluate_standard_regression(
     return pd.DataFrame(evaluations)
 
 
+conf = fire.Fire(Conf)
+
+outdir = fig_dir / conf.model / conf.data
+indir = pretrain_dir / conf.model / conf.data
+
+# cross_sample_dir = outdir / "pretrain_cross_sample"
+# cross_sample_dir.mkdir(exist_ok=True, parents=True)
+
+# TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
+#  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
+#  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
+#  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
+# samples = {
+#     "train": training_samples(Wildcards(conf.data, conf.samples)),
+#     "test": test_samples(Wildcards(conf.data, conf.samples)),
+# }
+
+# Suppress all DeprecationWarning warnings (coming from petab)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+
 # Get petab_base_files
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
@@ -331,7 +245,7 @@ for context, mode in itt.product(
         **petab_base_files,
     )
 
-    # Check whether trained pipeline exists
+    # Check whether the trained pipeline exists
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
         model=conf.model,
         data=conf.data,
