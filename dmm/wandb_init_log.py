@@ -46,7 +46,8 @@ def init_wandb(
         # v18: fixed mechanistic model, removed pretraining and relevant code, removed schedule-free optimisers
         # v19: same as v18 but with frozen kinetic param median
         # v20: updated metric to impose sparsity (median -> standard deviation); updated learning rate schedule
-        project=f"DeepMechanisticModels.v20.{conf.data}.{conf.model}.TEST",
+        # v21: force selection of pERBB2 features in cytof_init
+        project=f"DeepMechanisticModels.v21.{conf.data}.{conf.model}.TEST",
         group=group,
         config={
             **conf.__dict__,

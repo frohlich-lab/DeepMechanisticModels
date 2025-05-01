@@ -31,7 +31,7 @@ evaluations_dir = basedir / "eval_newmodel_newsparse"
 results_dir = basedir / "res_newmodel_newsparse"
 data_dir = basedir / "data"
 pretrain_dir = basedir / "pretraining_test_new_model"
-features_dir = basedir / "features_test_new_model"
+features_dir = basedir / "features_test_new_model_pERBB2"
 
 PER_SAMPLE_OUTFILE_PARS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.csv"
