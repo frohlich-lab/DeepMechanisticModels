@@ -38,7 +38,7 @@ def process_simulation(
     sdf = simulation_df[
         simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
         ].sort_values(by=cols_to_check).set_index(cols_to_check)
-    # Subset to common observables (needed for regressors)
+    # Subset to common observables (needed for regressors) -- alignment step
     sdf = sdf[sdf.index.isin(mdf.index)]
 
     # Compute residual dataframe
