@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-import petab
+import petab.v1 as petab
 from common import features_dir
 from dmm.initialisation import get_features, impute_features
 from sklearn.cross_decomposition import CCA, PLSRegression
