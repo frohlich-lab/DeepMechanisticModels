@@ -287,6 +287,19 @@ subtypes_tognetti = {
     "cUACC812": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
     "cUACC893": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
     "cZR7530": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
+    # added PAM50 and luminal/basal annotations for subchallenge II cell-lines
+    "c184B5": {"PAM50": "Normal", "Luminal/Basal": "Normal"},
+    "cBT483": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
+    "cHCC1428": {"PAM50": "LA", "Luminal/Basal": "Luminal"},
+    "cHCC1806": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cHCC202": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
+    "cHs578T": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cMCF12A": {"PAM50": "Normal", "Luminal/Basal": "Normal"},
+    "cMDAMB231": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cMDAMB468": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cSKBR3": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
+    "cUACC3199": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cZR751": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
 }
 
 # From https://bmcmedgenomics.biomedcentral.com/articles/10.1186/1755-8794-5-44, Figure 1
