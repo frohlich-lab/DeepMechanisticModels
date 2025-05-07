@@ -1,6 +1,3 @@
-from dataclasses import dataclass, replace
-from pathlib import Path
-
 import fire
 import numpy as np
 import pandas as pd
@@ -8,7 +5,9 @@ from sklearn.impute import KNNImputer
 from sklearn.model_selection import PredefinedSplit
 
 from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
+from dataclasses import dataclass, replace
 from dmm.feature_selection import build_preprocessor, load_data, preprocess_mosa_latent
+from pathlib import Path
 from training_configuration import SPLITS, INCLUDE_PERBB2_FORCED
 from util import load_petab_base_files
 

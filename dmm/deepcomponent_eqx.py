@@ -7,11 +7,7 @@ from .custom_layers_eqx import (
 )
 from jax import nn, random
 from jaxtyping import Array
-from typing import (
-    # Callable,
-    List,
-    Union,
-)
+from typing import List, Union
 
 
 # TODO @GiacomoFabrini LATER: consider adding eqx.nn.PReLU (parametric leaky ReLU)
@@ -76,7 +72,7 @@ class DeepComponent(eqx.Module):
 
     :param biases:
         list of bool values indicating whether to add a learnable bias to a specific layer or not.
-        This enables, for instance, to add a learnable bias array/vector to the last layer of the inflater only.
+        This makes it possible, for instance, to add a learnable bias to the last layer of the inflater only.
 
     :param key:
         random key.
@@ -99,7 +95,6 @@ class DeepComponent(eqx.Module):
     """
 
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
-    # activation: Callable
     component_name: str = eqx.static_field()
     activation_fn_name: str = eqx.static_field()  # makes it compatible with flattening utilities for schedule-free
     last_layer_activation: bool = eqx.static_field()
@@ -176,7 +171,7 @@ class KinParamsCombiner(eqx.Module):
             component_name,
             n_global_kin_params
     ):
-        # Initialize the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
+        # Initialise the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
         self.learned_global_kin_params = jnp.zeros(shape=(n_global_kin_params, ))
 
