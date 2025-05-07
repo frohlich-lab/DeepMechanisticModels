@@ -3,7 +3,7 @@ from typing import List, Tuple, Union
 
 import matplotlib.pyplot as plt
 import pandas as pd
-import petab
+import petab.v1 as petab
 from plotnine import *
 
 PLOTNINE_THEME = {

@@ -1,7 +1,7 @@
 import fire
 import numpy as np
 import pandas as pd
-import petab
+import petab.v1 as petab
 import warnings
 
 from common import (

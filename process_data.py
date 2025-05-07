@@ -2,7 +2,7 @@ import re
 
 import fire
 import pandas as pd
-import petab
+import petab.v1 as petab
 import pysb
 
 from common import (

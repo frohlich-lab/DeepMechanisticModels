@@ -1,6 +1,6 @@
 import fire
 import numpy as np
-import petab
+import petab.v1 as petab
 
 from amici.petab_objective import rdatas_to_simulation_df
 from common import (

@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import numpy.random
 import pandas as pd
-import petab
+import petab.v1 as petab
 from sklearn import decomposition
 
 from . import MODEL_FEATURE_PREFIX, plot_and_save_fig

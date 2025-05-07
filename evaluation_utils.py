@@ -3,7 +3,7 @@ import jax.numpy as jnp
 import numpy as np
 import os
 import pandas as pd
-import petab
+import petab.v1 as petab
 
 from amici.petab_objective import rdatas_to_simulation_df
 from common import (
@@ -49,7 +49,7 @@ def get_measurements_and_obervables(conf: Conf):
         OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
     )
     df_meas = df_meas[
-        df_meas[petab.v1.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
+        df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
     ]
     return df_meas, df_obs
 

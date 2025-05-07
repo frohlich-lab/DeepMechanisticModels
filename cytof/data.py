@@ -3,7 +3,7 @@ from typing import List, Tuple
 
 import numpy as np
 import pandas as pd
-import petab
+import petab.v1 as petab
 import pysb
 
 from . import get_samples

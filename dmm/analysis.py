@@ -4,7 +4,7 @@ import os
 import re
 
 import pandas as pd
-import petab
+import petab.v1 as petab
 import seaborn as sns
 
 from amici.petab_objective import rdatas_to_simulation_df

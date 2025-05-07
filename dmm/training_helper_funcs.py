@@ -6,7 +6,7 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import petab
+import petab.v1 as petab
 import pypesto
 import seaborn as sns
 from amici import AMICI_SUCCESS
