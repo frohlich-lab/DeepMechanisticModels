@@ -173,7 +173,7 @@ EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.csv")
 
-hardest_cell_lines = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cHCC2185']
+hardest_cell_lines = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cUACC3199']
 
 def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
