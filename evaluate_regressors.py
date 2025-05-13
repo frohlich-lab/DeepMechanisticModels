@@ -214,7 +214,11 @@ for context, mode in itt.product(
     # Load input features
     features_filepath, pipeline_filepath = get_features_and_pipeline_filepaths(
         replace(
-            conf, context=context, features=conf.features, features_transform=conf.features_transform
+            conf,
+            context=context,
+            features=conf.features,
+            features_selection=conf.features_selection,
+            features_transform=conf.features_transform
         ),
         FEATURES_OUTFILE,
         FEATURES_PIPELINE

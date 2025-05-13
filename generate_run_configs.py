@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 
 from training_configuration import (
-    CONTEXTS_FEATURES, FEATURES_TRANSFORM,
+    CONTEXTS_FEATURES, FEATURES_TRANSFORM, FEATURES_SELECTION,
     SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
     LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
     NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
@@ -139,6 +139,7 @@ def generate_linear_scan(STARTS: list[str]):
             hyperparam: hp_value,  # specific hyperparameter is varied within its range
             "context": context,
             "features": features,
+            "features_selection": features_selection,
             "features_transform": features_transform,
             "samples": split,
             "pretrain": pretrain,
@@ -159,11 +160,11 @@ def generate_linear_scan(STARTS: list[str]):
         for hyperparam, details in hyperparameters.items()
         for hp_value in details['range']
         for (
-            (context, features), features_transform, split, pretrain, median_init, freeze_medians,
+            (context, features), features_selection, features_transform, split, pretrain, median_init, freeze_medians,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
+            CONTEXTS_FEATURES, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
         )
@@ -221,6 +222,7 @@ def generate_grid_search(STARTS: list[str]):
         {
             "context": context,
             "features": features,
+            "features_selection": features_selection,
             "features_transform": features_transform,
             "samples": split,
             "pretrain": pretrain,
@@ -259,7 +261,7 @@ def generate_grid_search(STARTS: list[str]):
             "job": job,
         }
         for (
-            (context, features), features_transform, split, pretrain, median_init, freeze_medians,
+            (context, features), features_selection, features_transform, split, pretrain, median_init, freeze_medians,
             n_hidden, network_layout,
             use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
             orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
@@ -270,7 +272,7 @@ def generate_grid_search(STARTS: list[str]):
             weight_decay, momentum,
             use_simple_linear_schedule, use_early_stopping, job
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
+            CONTEXTS_FEATURES, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
             LATENT_DIMS, NETWORK_LAYOUT,
             USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
             ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,

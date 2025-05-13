@@ -3,7 +3,9 @@ import os
 import itertools as itt
 
 from common import (
-    PER_SAMPLE_OUTFILE_PARS, TRAINING_OUTFILE_RESULTS, TRAINED_BEST_MODELS,
+    PER_SAMPLE_OUTFILE_PARS,
+    # TRAINING_OUTFILE_RESULTS,
+    TRAINED_BEST_MODELS,
     # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
@@ -14,7 +16,7 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    PATHWAYS, DATASETS, FEATURES_TRANSFORM, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    PATHWAYS, DATASETS, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
 )
 
 basedir = Path(os.getcwd())
@@ -40,22 +42,22 @@ rule process_data:
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=cytof_dir / 'pw_{model}.py',
-        pathways=cytof_dir / 'pathways.py',
+        pathways=cytof_dir / 'pathways.py'
     output:
         datafiles=expand(
             tpl_petab_file,
             model='{model}',
             data='{data}',
             file=['measurements', 'conditions', 'observables']
-        ),
+        )
     wildcard_constraints:
         model='\w+',
-        data='[\w\.]+',
+        data='[\w\.]+'
     resources:
         mem="4GB",  # tried on cluster and process_data was OOM killed
         runtime="15m",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -70,15 +72,15 @@ rule compile_mechanistic_model:
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
-        model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py',
+        model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py'
     wildcard_constraints:
         model='\w+',
-        data='[\w\.]+',
+        data='[\w\.]+'
     resources:
         mem="8GB",
         runtime="1h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -97,12 +99,12 @@ rule pretrain_per_sample:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        sample='\w+',
+        sample='\w+'
     resources:
         mem="2GB",
         runtime="6h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -121,12 +123,12 @@ rule pretrain_average_model:
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
         runtime="6h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -140,18 +142,18 @@ rule reweight_data:
         pretraining_code=mencoder_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles,
-        pretrain_per_sample=per_sample_pretraining_train,
+        pretrain_per_sample=per_sample_pretraining_train
     output:
         data=MEASUREMENTS_FILE_RW
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",  # OOM killed on cluster
         runtime="1h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -169,7 +171,7 @@ rule select_features:
         data_rw=expand(
              rules.reweight_data.output.data,
                 model='{model}', data='{data}', samples=SPLITS,
-         ),
+         )
     output:
         data=[
             FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset, samples=samples))
@@ -180,15 +182,16 @@ rule select_features:
         data='[\w\.]+',
         context='\w+',
         features = '\w+',
+        features_selection= '\w+'
     resources:
         mem="4GB",
         runtime="10h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'features')
+            for arg in ('model', 'data', 'context', 'features', 'features_selection')
         )
 
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
@@ -209,7 +212,7 @@ rule estimate_parameters:
         model=[
             TRAINED_BEST_MODELS.format_map(SafeDict(ensemble_id=ensemble_id))
             for ensemble_id in range(N_ENSEMBLE_MEMBERS)
-        ],
+        ]
     wildcard_constraints:
         model = '\w+',
         data = r'[\w\.]+',
@@ -217,6 +220,7 @@ rule estimate_parameters:
         pretrain = 'True|False',
         context = '\w+',
         features = '\w+',
+        features_selection = '\w+',
         features_transform = '\w+',
         median_init='\w+',
         freeze_medians='True|False',
@@ -251,7 +255,7 @@ rule estimate_parameters:
         momentum = '[0-9\.]+',
         use_simple_linear_schedule = 'True|False',
         use_early_stopping = 'True|False',
-        job = '[0-9]+',
+        job = '[0-9]+'
     retries: 1
     resources:
         mem="4GB",
@@ -259,13 +263,13 @@ rule estimate_parameters:
         # tmpdir=str(tmp_dir),
         runtime="24h",
         nodes=1,
-        threads=2,
+        threads=2
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in (
                 'model', 'data', 'samples', 'pretrain',
-                'context', 'features', 'features_transform',
+                'context', 'features', 'features_selection', 'features_transform',
                 'median_init', 'freeze_medians',
                 'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
@@ -313,7 +317,7 @@ rule estimate_parameters:
 rule evaluate_training:
     input:
         script='evaluate_training.py',
-        training=rules.estimate_parameters.output.model,
+        training=rules.estimate_parameters.output.model
     output:
         csv=[
             [
@@ -331,6 +335,7 @@ rule evaluate_training:
         pretrain='True|False',
         context='\w+',
         features='\w+',
+        features_selection='\w+',
         features_transform='\w+',
         median_init='\w+',
         freeze_medians='True|False',
@@ -365,20 +370,20 @@ rule evaluate_training:
         momentum='[0-9\.]+',
         use_simple_linear_schedule='True|False',
         use_early_stopping='True|False',
-        job='[0-9]+',
+        job='[0-9]+'
     retries: 1
     resources:
         mem="16GB",
         runtime="90min",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in (
                 'model', 'data',
                 'samples', 'pretrain',
-                'context', 'features', 'features_transform',
+                'context', 'features', 'features_selection', 'features_transform',
                 'median_init', 'freeze_medians',
                 'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
@@ -406,13 +411,13 @@ rule evaluate_references:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        samples='[0-9]+of[0-9]+'
     retries: 1
     resources:
         mem="8GB",
         runtime="1h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
@@ -427,9 +432,11 @@ rule evaluate_regressors:
         selected_features=expand(
              rules.select_features.output.data,
                 model='{model}', data='{data}', samples='{samples}',
-                features='{features}', features_transform='{features_transform}',
+                features='{features}',
+                features_selection='{features_selection}',
+                features_transform='{features_transform}',
                 context=CONTEXT_SET,
-         ),  # wait for feature selection (which requires download and processing)
+         )  # wait for feature selection (which requires download and processing)
     output:
         csv=[
             EVALUATION_REGRESSOR.format_map(
@@ -448,17 +455,20 @@ rule evaluate_regressors:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+'
+        samples='[0-9]+of[0-9]+',
+        features='\w+',
+        features_selection='\w+',
+        features_transform='\w+'
     retries: 1
     resources:
         mem="8GB",
         runtime="1h",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model', 'data', 'samples', 'features', 'features_transform')
+        for arg in ('model', 'data', 'samples', 'features', 'features_selection', 'features_transform')
         )
 
 
@@ -484,7 +494,7 @@ rule evaluate_all:
         ) + expand(
             rules.evaluate_regressors.output.csv,
             model='{model}',data='{data}', samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET, features_transform=FEATURES_TRANSFORM,
+            features=FEATURES_SET, features_selection=FEATURES_SELECTION, features_transform=FEATURES_TRANSFORM,
         )
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         # plot=[
@@ -508,12 +518,12 @@ rule evaluate_all:
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        samples='[0-9]+of[0-9]+'
     resources:
         mem="16GB",
         runtime="90m",
         nodes=1,
-        threads=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -528,7 +538,7 @@ rule train_and_evaluate:
          evaluation=expand(
              rules.evaluate_all.output.csv,  # changed it to CSV as plots might not be generated without stat tests
              model=PATHWAYS, data=DATASETS
-         ),
+         )
 
 
 # Only run references and regressors + whole data processing, feature selection, etc.
@@ -540,7 +550,7 @@ rule evaluate_baselines:
          ) + expand(
             rules.evaluate_regressors.output.csv,
             model=PATHWAYS, data=DATASETS, samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET, features_transform=FEATURES_TRANSFORM,
+            features=FEATURES_SET, features_selection=FEATURES_SELECTION, features_transform=FEATURES_TRANSFORM,
          )
 
 

@@ -31,6 +31,11 @@ CONTEXTS_FEATURES = (
     # ("MOSA", "all"),
 )
 
+FEATURES_SELECTION = {
+    "per_cv",  # one round of feature selection per CV split
+    # "across_cv",  # single round of feature selection across all CV splits
+}
+
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
 FEATURES_TRANSFORM = {
     # "pca",

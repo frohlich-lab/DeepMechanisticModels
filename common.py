@@ -48,7 +48,7 @@ FEATURES_OUTFILE = str(
     / (
         "__".join(
             {
-                x: f"{{{x}}}" for x in ["context", "samples", "features"]
+                x: f"{{{x}}}" for x in ["context", "samples", "features", "features_selection"]
             }.values()
         )
         + ".csv"
@@ -59,7 +59,7 @@ FEATURES_PIPELINE = str(
     features_dir
     / "{model}"
     / "{data}"
-    / "{samples}_{features}_{context}_trained_pca_pipeline.joblib"
+    / "{context}__{samples}__{features}__{features_selection}__trained_pca_pipeline.joblib"
 )
 
 defaults = {
@@ -109,26 +109,28 @@ EVALUATION_REFERENCE = str(
     evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
 )
 
-EVALUATION_REGRESSOR = str(
+# Regressor template and files
+tpl_regressor = str(
     evaluations_dir
     / "{model}"
     / "{data}"
-    / "{samples}_{mode}_{features}_{features_transform}_{context}_{dataset}.csv"
+    / (
+        "__".join(
+            f"{{{x}}}" for x in [
+                "context",
+                "samples",
+                "mode",
+                "features",
+                "features_selection",
+                "features_transform",
+            ]
+        )
+    )
 )
 
-REGR_TRAINED_PIPELINE = str(
-    evaluations_dir
-    / "{model}"
-    / "{data}"
-    / "{samples}_{mode}_{features}_{features_transform}_{context}_trained_pipeline.joblib"
-)
-
-REGR_FEATURES_TRAIN = str(
-    evaluations_dir
-    / "{model}"
-    / "{data}"
-    / "{samples}_{mode}_{features}__{features_transform}_{context}_features_train.joblib"
-)
+EVALUATION_REGRESSOR = tpl_regressor + "__{dataset}.csv"
+REGR_TRAINED_PIPELINE = tpl_regressor + "__trained_pipeline.joblib"
+REGR_FEATURES_TRAIN = tpl_regressor + "__features_train.joblib"
 
 # using same defaults as above
 tpl_evaluation_file = "__".join(defaults.values())
