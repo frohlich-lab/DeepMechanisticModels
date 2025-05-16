@@ -20,12 +20,12 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
-    # ("proteomics", "elastic"),
+    ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
-    # ("transcriptomics", "elastic"),
+    ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
@@ -33,7 +33,7 @@ CONTEXTS_FEATURES = (
 
 FEATURES_SELECTION = {
     "per_cv",  # one round of feature selection per CV split
-    # "across_cv",  # single round of feature selection across all CV splits
+    "across_cv",  # single round of feature selection across all CV splits
 }
 
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
@@ -83,13 +83,13 @@ FREEZE_MEDIANS = {
 # )
 # Define linear scan for LATENT_DIMS
 LATENT_DIMS = {'range': (
-    2,
-    # 3,
+    # 2,
+    3,
     # 4,
     # 6,
     # 8,
     # 10,
-), 'central_value': 2}
+), 'central_value': 3}
 
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
@@ -302,7 +302,7 @@ INFLATER_OUTPUT_REG_EPOCHS = {'range': (100, ), 'central_value': 100}
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {'range': (40, 50, 75, 100), 'central_value': 100}
+SPARSE_THRESH_PERCS = {'range': (40, ), 'central_value': 40}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
@@ -436,4 +436,4 @@ N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE
 N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
 
 # Whether to force the selection of PERBB2 features in `cytof_init`
-INCLUDE_PERBB2_FORCED = True
+INCLUDE_PERBB2_FORCED = False  # disabled - only used if selected

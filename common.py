@@ -26,12 +26,12 @@ MODEL_FEATURE_PREFIX = "INPUT_"
 Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
-fig_dir = basedir / "figures_test_new_model"
-evaluations_dir = basedir / "eval_newmodel_newsparse"
-results_dir = basedir / "res_newmodel_newsparse"
+fig_dir = basedir / "figures_newcv_newselect"
+evaluations_dir = basedir / "eval_newcv_newselect"
+results_dir = basedir / "res_newcv_newselect"
 data_dir = basedir / "data"
-pretrain_dir = basedir / "pretraining_test_new_model"
-features_dir = basedir / "features_test_new_model_pERBB2"
+pretrain_dir = basedir / "pretraining_newcv_newselect"
+features_dir = basedir / "features_newcv_newselect"
 
 PER_SAMPLE_OUTFILE_PARS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.csv"
