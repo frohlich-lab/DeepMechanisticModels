@@ -257,6 +257,7 @@ for context, mode in itt.product(
         mode=mode,
         context=context,
         features=conf.features,
+        features_selection=conf.features_selection,
         features_transform=conf.features_transform,
     )
 
@@ -267,6 +268,7 @@ for context, mode in itt.product(
         mode=mode,
         context=context,
         features=conf.features,
+        features_selection=conf.features_selection,
         features_transform=conf.features_transform,
     )
 
@@ -308,6 +310,7 @@ for context, mode in itt.product(
                 mode=mode,
                 context=context,
                 features=conf.features,
+                features_selection=conf.features_selection,
                 features_transform=conf.features_transform,
             )
         )
@@ -315,6 +318,6 @@ for context, mode in itt.product(
         # Added printout of RMSE on train/val datasets for each regressor (mode)
         rmse = np.sqrt(np.mean(np.square(df["res"])))
         print(f"RMSE for {mode} on {conf.samples}, {context}, {dataset}, using {conf.features} features with"
-              f" transformation {conf.features_transform} = {rmse}")
+              f" selection {conf.features_selection} and transformation {conf.features_transform} = {rmse}")
 
     del trained_pipeline, features_train, trained_pipeline_file, features_train_file
