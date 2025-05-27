@@ -48,7 +48,8 @@ def init_wandb(
         # v20: updated metric to impose sparsity (median -> standard deviation); updated learning rate schedule
         # v21: force selection of pERBB2 features in cytof_init + n_hidde=3 for all contexts
         # v22: new CV split (cHCC2185 -> cUACC3199), new feature selection (per_cv vs across_cv)
-        project=f"DeepMechanisticModels.v22.{conf.data}.{conf.model}",
+        # v23: new CV split, per_cv selection, no l1reg inflater or sparsity, trying n_hidden, with/without frozen medians
+        project=f"DeepMechanisticModels.v23.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,

@@ -33,7 +33,7 @@ CONTEXTS_FEATURES = (
 
 FEATURES_SELECTION = {
     "per_cv",  # one round of feature selection per CV split
-    "across_cv",  # single round of feature selection across all CV splits
+    # "across_cv",  # single round of feature selection across all CV splits
 }
 
 # input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
@@ -64,7 +64,7 @@ MEDIAN_INIT = {
 # Train/freeze median kinetic parameters
 FREEZE_MEDIANS = {
     True,
-    # False,
+    False,
 }
 
 # Network Structure and Initialisation Hyperparameters
@@ -83,12 +83,12 @@ FREEZE_MEDIANS = {
 # )
 # Define linear scan for LATENT_DIMS
 LATENT_DIMS = {'range': (
-    # 2,
+    2,
     3,
     # 4,
     # 6,
     # 8,
-    # 10,
+    10,
 ), 'central_value': 3}
 
 # Network Layout/Architecture
@@ -270,7 +270,7 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {'range': (1e2, ), 'central_value': 1e2}
+OMEGAS = {'range': (0, ), 'central_value': 0}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -297,12 +297,12 @@ ETAS = {'range': (0, ), 'central_value': 0}
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {'range': (100, ), 'central_value': 100}
+INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {'range': (40, ), 'central_value': 40}
+SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
