@@ -1,8 +1,8 @@
+from typing import List
+
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
-from common import features_dir
-from dmm.initialisation import get_features, impute_features
 from sklearn.cross_decomposition import CCA, PLSRegression
 from sklearn.decomposition import PCA, SparsePCA
 from sklearn.feature_selection import (
@@ -19,7 +19,9 @@ from sklearn.linear_model import (
 from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from typing import List
+
+from common import features_dir
+from dmm.initialisation import get_features, impute_features
 
 
 def contextualize_measurements(
@@ -96,22 +98,37 @@ def contextualize_measurements(
                 )
                 # Filter out too many nans, including misaligned timepoints that have just been aligned
                 harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
-                    :, harmonised_cytof_dynamic.isna().sum() / harmonised_cytof_dynamic.shape[0] < 0.3
+                    :,
+                    harmonised_cytof_dynamic.isna().sum()
+                    / harmonised_cytof_dynamic.shape[0]
+                    < 0.3,
                 ]
                 # Fit imputer on training samples, transform train + val samples
                 if len(samples) > 1:
                     samples_train = samples
                 else:
-                    samples_train = [sample for sample in harmonised_cytof_dynamic.index if sample not in samples]
+                    samples_train = [
+                        sample
+                        for sample in harmonised_cytof_dynamic.index
+                        if sample not in samples
+                    ]
                 imputer = KNNImputer()
-                imputer.fit(harmonised_cytof_dynamic.loc[samples_train, :].values)
+                imputer.fit(
+                    harmonised_cytof_dynamic.loc[samples_train, :].values
+                )
                 input_data = pd.DataFrame(
                     imputer.transform(harmonised_cytof_dynamic.values),
                     columns=harmonised_cytof_dynamic.columns,
                     index=harmonised_cytof_dynamic.index,
                 )
                 # subset to EGF and time 0
-                input_data = input_data[[col for col in input_data.columns if (col[1] == "EGF") and (col[2] == 0.0)]]
+                input_data = input_data[
+                    [
+                        col
+                        for col in input_data.columns
+                        if (col[1] == "EGF") and (col[2] == 0.0)
+                    ]
+                ]
                 # remove info on condition and timepoint, leaving markers only as column names
                 input_data.columns = [col[0] for col in input_data.columns]
                 return input_data
@@ -142,10 +159,24 @@ def contextualize_measurements(
 
 
 def preprocess_mosa_latent(conf, samples_train, samples_val):
-    annot = pd.read_csv(features_dir / conf.model / conf.data / "DepMap_model_list_20241120.csv", index_col=0)
-    mosa_latent = pd.read_csv(features_dir / conf.model / conf.data / "MOSA_20231023_092657_latent_joint.csv", index_col=0)
+    annot = pd.read_csv(
+        features_dir
+        / conf.model
+        / conf.data
+        / "DepMap_model_list_20241120.csv",
+        index_col=0,
+    )
+    mosa_latent = pd.read_csv(
+        features_dir
+        / conf.model
+        / conf.data
+        / "MOSA_20231023_092657_latent_joint.csv",
+        index_col=0,
+    )
     # Map from Sanger model ID to cell-line name + process into our cell-line name format (no hyphens, "c" prefix)
-    mosa_latent["cell_line"] = mosa_latent.index.map(annot["model_name"].to_dict())
+    mosa_latent["cell_line"] = mosa_latent.index.map(
+        annot["model_name"].to_dict()
+    )
     mosa_latent["cell_line"] = mosa_latent["cell_line"].str.replace("-", "")
     mosa_latent["cell_line"] = "c" + mosa_latent["cell_line"]
 
@@ -154,8 +185,16 @@ def preprocess_mosa_latent(conf, samples_train, samples_val):
     mosa_latent = mosa_latent[mosa_latent["cell_line"].isin(our_lines)]
 
     # Find available samples in pretrained MOSA latent embeddings
-    available_samples_train = [sample for sample in samples_train if sample in mosa_latent["cell_line"].unique()]
-    available_samples_val = [sample for sample in samples_val if sample in mosa_latent["cell_line"].unique()]
+    available_samples_train = [
+        sample
+        for sample in samples_train
+        if sample in mosa_latent["cell_line"].unique()
+    ]
+    available_samples_val = [
+        sample
+        for sample in samples_val
+        if sample in mosa_latent["cell_line"].unique()
+    ]
     mosa_latent = mosa_latent.set_index("cell_line")
     input_train = mosa_latent.loc[available_samples_train, :]
     features_train = list(input_train.columns)
@@ -209,30 +248,32 @@ def harmonise_cytof_dynamic(input_data):
         )
 
     #  linear interpolation of intermediate missing timepoints
-    for marker in ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs"):  # all currently considered observables - might need to access, not hardcode
+    for marker in (
+        "pERK_Y204_obs",
+        "pMEK_S222_obs",
+        "pERBB2_Y1248_obs",
+    ):  # all currently considered observables - might need to access, not hardcode
         for pert in (
-                "EGF",
-                "iMEK",
-                # "iPI3K",
-                "iEGFR",
-                # "iPKC",
+            "EGF",
+            "iMEK",
+            # "iPI3K",
+            "iEGFR",
+            # "iPKC",
         ):  # all currently considered conditions - might need to access, not hardcode
             for missing_time, [time_before, time_after] in zip(
-                    [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
+                [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
             ):
                 if (marker, pert, missing_time) not in input_data.columns:
                     continue
 
-                mask = input_data.loc[
-                       :, (marker, pert, missing_time)
-                       ].isna()
+                mask = input_data.loc[:, (marker, pert, missing_time)].isna()
                 input_data.loc[mask, (marker, pert, missing_time)] = (
-                        input_data.loc[mask, (marker, pert, time_before)]
-                        * (missing_time - time_before)
-                        / (time_after - time_before)
-                        + input_data.loc[mask, (marker, pert, time_after)]
-                        * (time_after - missing_time)
-                        / (time_after - time_before)
+                    input_data.loc[mask, (marker, pert, time_before)]
+                    * (missing_time - time_before)
+                    / (time_after - time_before)
+                    + input_data.loc[mask, (marker, pert, time_after)]
+                    * (time_after - missing_time)
+                    / (time_after - time_before)
                 )
     return input_data
 
@@ -243,19 +284,27 @@ def load_data(
     features,
     measurement_table,
     observable_table,
-    features_filepath = None,
+    features_filepath=None,
     impute: bool = True,
 ):
     if contextualization != "MOSA":
         input_data = contextualize_measurements(
-            measurement_table, observable_table, contextualization, samples, impute=impute
+            measurement_table,
+            observable_table,
+            contextualization,
+            samples,
+            impute=impute,
         )
     elif (contextualization == "MOSA") and (features_filepath is not None):
-        input_data = get_features(features_filepath=features_filepath, datasets=["train", "val"])
+        input_data = get_features(
+            features_filepath=features_filepath, datasets=["train", "val"]
+        )
         input_data = impute_features(input_data)
         input_data = pd.concat([input_data["train"], input_data["val"]])
         # ensure index has correct name
-        input_data = input_data.rename_axis(petab.PREEQUILIBRATION_CONDITION_ID)
+        input_data = input_data.rename_axis(
+            petab.PREEQUILIBRATION_CONDITION_ID
+        )
     else:
         raise ValueError(
             f"Received invalid combination: context {contextualization} and features_filepath {features_filepath}"
@@ -264,8 +313,10 @@ def load_data(
     # subset samples to dataset at hand (train, val)
     if contextualization != "MOSA":
         input_data = input_data.loc[samples, :]
-    else: # handle missing cell-lines for pre-trained MOSA
-        input_data = input_data.loc[[sample for sample in samples if sample in input_data.index], :]
+    else:  # handle missing cell-lines for pre-trained MOSA
+        input_data = input_data.loc[
+            [sample for sample in samples if sample in input_data.index], :
+        ]
 
     if contextualization == "cytof_dynamic":
         input_data = harmonise_cytof_dynamic(input_data)
@@ -303,7 +354,10 @@ def load_data(
 
 
 def build_preprocessor(
-    preprocess: str, input_data: np.ndarray, output_data: np.ndarray, cv = None,
+    preprocess: str,
+    input_data: np.ndarray,
+    output_data: np.ndarray,
+    cv=None,
 ):
     steps = [
         ("scaler", StandardScaler()),
@@ -356,7 +410,12 @@ def build_preprocessor(
         steps.append(
             (
                 "selector",
-                RFECV(estimator=LinearRegression(), min_features_to_select=10),
+                RFECV(
+                    estimator=LinearRegression(),
+                    min_features_to_select=10,
+                    step=0.1,
+                    cv=cv,
+                ),
             )
         )
     elif preprocess == "elastic":
@@ -364,8 +423,10 @@ def build_preprocessor(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskElasticNetCV(cv=cv, n_alphas=20, max_iter=10000),  # increased max_iter 10x
-                    max_features=min(100, input_data.shape[1])
+                    MultiTaskElasticNetCV(
+                        cv=cv, n_alphas=20, max_iter=10000
+                    ),  # increased max_iter 10x
+                    max_features=min(100, input_data.shape[1]),
                 ),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
             )
         )
@@ -375,9 +436,9 @@ def build_preprocessor(
                 "selector",
                 SelectFromModel(
                     MultiTaskLassoCV(cv=cv, n_alphas=20, max_iter=10000),
-                    max_features=min(100, input_data.shape[1])
+                    max_features=min(100, input_data.shape[1]),
                 ),
-             )
+            )
         )
     elif preprocess == "sequential":
         steps.append(
