@@ -82,21 +82,24 @@ FREEZE_MEDIANS = {
 #     # 14  # inflater does not inflate, rather simply processes same shape input
 # )
 # Define linear scan for LATENT_DIMS
-LATENT_DIMS = {'range': (
-    2,
-    3,
-    # 4,
-    # 6,
-    # 8,
-    10,
-), 'central_value': 3}
+LATENT_DIMS = {
+    "range": (
+        2,
+        3,
+        # 4,
+        # 6,
+        # 8,
+        10,
+    ),
+    "central_value": 3,
+}
 
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network layouts for linear scans in modular fashion
 NETWORK_LAYOUT = {
-    'range': (
+    "range": (
         # (0, "False"),
         # (1, "False"),
         (2, "False"),
@@ -104,7 +107,7 @@ NETWORK_LAYOUT = {
         # (4, "False"),
         # (5, "False"),
     ),  # 0-4 hidden layers, no linear benchmark
-    'central_value': (2, "False")  # 2 hidden layers, no linear benchmark
+    "central_value": (2, "False"),  # 2 hidden layers, no linear benchmark
 }
 
 # NETWORK_LAYOUT = (
@@ -218,7 +221,10 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-ALPHAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
+ALPHAS = {
+    "range": LINEAR_SCAN_RANGE_L1REG,
+    "central_value": LINEAR_SCAN_CENTRAL,
+}
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
 # From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
@@ -232,7 +238,7 @@ ALPHAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
+BETAS = {"range": LINEAR_SCAN_RANGE_OREG, "central_value": LINEAR_SCAN_CENTRAL}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -248,7 +254,10 @@ BETAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-GAMMAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL}
+GAMMAS = {
+    "range": LINEAR_SCAN_RANGE_L1REG,
+    "central_value": LINEAR_SCAN_CENTRAL,
+}
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 # DELTAS = (
@@ -260,7 +269,10 @@ GAMMAS = {'range': LINEAR_SCAN_RANGE_L1REG, 'central_value': LINEAR_SCAN_CENTRAL
 #     # 1e8,
 #     # 1e10,  # increasing values
 # )
-DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
+DELTAS = {
+    "range": LINEAR_SCAN_RANGE_OREG,
+    "central_value": LINEAR_SCAN_CENTRAL,
+}
 # previously centered at 1e7, but now excluded from scanned values
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
@@ -270,7 +282,7 @@ DELTAS = {'range': LINEAR_SCAN_RANGE_OREG, 'central_value': LINEAR_SCAN_CENTRAL}
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {'range': (0, ), 'central_value': 0}
+OMEGAS = {"range": (0,), "central_value": 0}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -279,7 +291,7 @@ OMEGAS = {'range': (0, ), 'central_value': 0}
 #     1e5,
 #     1e7,
 # )
-EPSILONS = {'range': (0, ), 'central_value': 0}
+EPSILONS = {"range": (0,), "central_value": 0}
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
 # ZETAS = (
@@ -288,21 +300,21 @@ EPSILONS = {'range': (0, ), 'central_value': 0}
 #     1e5,
 #     # 1e8,
 # )
-ZETAS = {'range': (0, ), 'central_value': 0}
+ZETAS = {"range": (0,), "central_value": 0}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
 # ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100), 'central_value': 0}
-ETAS = {'range': (0, ), 'central_value': 0}
+ETAS = {"range": (0,), "central_value": 0}
 
 # Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {'range': (1000, ), 'central_value': 1000}
+INFLATER_OUTPUT_REG_EPOCHS = {"range": (1000,), "central_value": 1000}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
+SPARSE_THRESH_PERCS = {"range": (100,), "central_value": 100}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
@@ -312,11 +324,14 @@ SPARSE_THRESH_PERCS = {'range': (100, ), 'central_value': 100}
 #     # 1e-3,
 # }
 # Linear scan range for max_lrate
-MAX_LEARNING_RATES = {'range': (
-    # 1e-3,
-    5e-3,
-    # 1e-2,
-), 'central_value': 5e-3}  # increased central value by one OOM
+MAX_LEARNING_RATES = {
+    "range": (
+        # 1e-3,
+        5e-3,
+        # 1e-2,
+    ),
+    "central_value": 5e-3,
+}  # increased central value by one OOM
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
 # LEARNING_RATE_SPANS = {
@@ -326,7 +341,7 @@ MAX_LEARNING_RATES = {'range': (
 #     # 1e3,
 # }
 # Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {'range': (1e1, ), 'central_value': 1e1}
+LEARNING_RATE_SPANS = {"range": (1e1,), "central_value": 1e1}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 # LEARNING_RATE_DECAYS = {
@@ -336,10 +351,13 @@ LEARNING_RATE_SPANS = {'range': (1e1, ), 'central_value': 1e1}
 #     # 0.9**3,
 # }
 # Linear scan range for lrate_decay
-LEARNING_RATE_DECAYS = {'range': (
-    # 0.9**0,
-     0.9**1,
-), 'central_value': 0.9**1}
+LEARNING_RATE_DECAYS = {
+    "range": (
+        # 0.9**0,
+        0.9**1,
+    ),
+    "central_value": 0.9**1,
+}
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
 # WARMUP_FCTS = {
@@ -351,7 +369,7 @@ LEARNING_RATE_DECAYS = {'range': (
 #     # 1e-3,
 # }
 # Linear scan range for warmup_fct
-WARMUP_FCTS = {'range': (0.1, ), 'central_value': 0.1}
+WARMUP_FCTS = {"range": (0.1,), "central_value": 0.1}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
 # OPT_STEPS = {
@@ -360,7 +378,7 @@ WARMUP_FCTS = {'range': (0.1, ), 'central_value': 0.1}
 #     10,
 # }
 # Linear scan range for opt_steps
-OPT_STEPS = {'range': (1, 2, 5, 10, 100), 'central_value': 10}
+OPT_STEPS = {"range": (1, 2, 5, 10, 100), "central_value": 10}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
 # OPT_MULT = {
@@ -369,16 +387,19 @@ OPT_STEPS = {'range': (1, 2, 5, 10, 100), 'central_value': 10}
 #     # 3,
 # }
 # Linear scan range for opt_mult
-OPT_MULT = {'range': (1, 2, 5, 10), 'central_value': 2}
+OPT_MULT = {"range": (1, 2, 5, 10), "central_value": 2}
 
 # Weight-decay for AdamW / schedule-free AdamW
 # WEIGHT_DECAY = {
 #     1e-4, # default in AdamW - optax implementation
 # }
-WEIGHT_DECAY = {'range': (
-    # 1e-2,
-    1e-4,
-), 'central_value': 1e-4}
+WEIGHT_DECAY = {
+    "range": (
+        # 1e-2,
+        1e-4,
+    ),
+    "central_value": 1e-4,
+}
 
 # Momentum for AdamW / schedule-free AdamW
 # MOMENTUM = {
@@ -386,10 +407,13 @@ WEIGHT_DECAY = {'range': (
 #     0.98,  # in Schedule-Free Learning paper they test 0.9 and 0.98
 #     # 0.99,
 # }
-MOMENTUM = {'range': (
-    0.9,
-    # 0.98
-), 'central_value': 0.9}
+MOMENTUM = {
+    "range": (
+        0.9,
+        # 0.98
+    ),
+    "central_value": 0.9,
+}
 
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
@@ -408,7 +432,9 @@ USE_EARLY_STOP = {
 }
 
 # PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
-PATIENCE = 9  # should be about 50 epochs in linear scale (unsure about log-scale!)
+PATIENCE = (
+    9  # should be about 50 epochs in linear scale (unsure about log-scale!)
+)
 
 # MIN_IMPROVEMENT: min_improvement, absolute improvement in rmse_val to consider as improvement not to lose patience
 MIN_IMPROVEMENT = 0
@@ -434,6 +460,3 @@ REFINE_HPS = None
 
 N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE val across training) -- NOT IN USE
 N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
-
-# Whether to force the selection of PERBB2 features in `cytof_init`
-INCLUDE_PERBB2_FORCED = False  # disabled - only used if selected
