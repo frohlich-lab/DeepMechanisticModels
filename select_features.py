@@ -2,7 +2,9 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 import fire
+import numpy as np
 import pandas as pd
+from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import PredefinedSplit
 
@@ -95,13 +97,13 @@ for context in conf.context.split("+"):
             )
 
         output_train, features_output_train = load_data(
-            contextualization=context,
+            contextualization="cytof_dynamic",
             samples=samples_train[split],
             features=None,
             **petab_base_files,
         )
         output_val, _ = load_data(
-            contextualization=context,
+            contextualization="cytof_dynamic",
             samples=samples_val[split],
             features=features_output_train,
             **petab_base_files,
@@ -179,6 +181,22 @@ for context in conf.context.split("+"):
         selected_features_dict = {
             split: selected_features for split in sorted(SPLITS)
         }
+    elif conf.features_selection.startswith("variance"):
+        selected_features_dict = {}
+        for split in sorted(SPLITS):
+            data = inputs_dict[split]["train"]
+            n_features = int(conf.features_selection.replace("variance", ""))
+            selector = VarianceThreshold(
+                threshold=sorted(np.nanvar(data, axis=0), reverse=True)[
+                    n_features
+                ]
+            )
+            selector = selector.fit(data)
+            selected_features_dict[split] = data.columns[
+                selector.get_support()
+            ]
+            assert len(selected_features_dict[split]) == n_features
+
     elif conf.features_selection == "per_cv":
         selected_features_dict = {}
         for split in sorted(SPLITS):

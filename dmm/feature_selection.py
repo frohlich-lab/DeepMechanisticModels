@@ -412,8 +412,8 @@ def build_preprocessor(
                 "selector",
                 RFECV(
                     estimator=LinearRegression(),
-                    min_features_to_select=10,
-                    step=0.1,
+                    min_features_to_select=100,
+                    step=0.005,
                     cv=cv,
                 ),
             )
@@ -424,10 +424,14 @@ def build_preprocessor(
                 "selector",
                 SelectFromModel(
                     MultiTaskElasticNetCV(
-                        cv=cv, n_alphas=20, max_iter=10000
-                    ),  # increased max_iter 10x
-                    max_features=min(100, input_data.shape[1]),
-                ),  # ensures recommended max_features is not larger than the number of features (e.g. cytof_init)
+                        l1_ratio=[0.1, 0.5, 0.9],
+                        cv=cv,
+                        n_alphas=25,
+                        verbose=1,
+                        n_jobs=-1,  # use all available cores
+                    ),
+                    threshold="mean",
+                ),
             )
         )
     elif preprocess == "lasso":
@@ -435,7 +439,7 @@ def build_preprocessor(
             (
                 "selector",
                 SelectFromModel(
-                    MultiTaskLassoCV(cv=cv, n_alphas=20, max_iter=10000),
+                    MultiTaskLassoCV(cv=cv, n_alphas=20, max_iter=1000),
                     max_features=min(100, input_data.shape[1]),
                 ),
             )
