@@ -60,17 +60,15 @@ def prune_config(run_config: dict):
     hps_to_prune = []
 
     # Learning-rate scheduling
-    if run_config["optimiser"] == "adamw_sf":
-        # remove schedule hyperparams when using schedule-free
-        # 0 is not an otherwise valid value (used for regressors and pretraining baselines)
-        hps_to_prune.extend(["lrate_span", "lrate_decay", "opt_steps", "opt_mult"])
-        run_config["use_simple_linear_schedule"] = False  # also remove linear schedule
-        prune = True
-    elif run_config["use_simple_linear_schedule"]:  # only with adam or adamw
+    if run_config["use_simple_linear_schedule"]:  # only with adam or adamw
         hps_to_prune.extend(["opt_steps", "opt_mult", "momentum"])  # use default momentum value
         if run_config["optimiser"] == "adam":
             hps_to_prune.append("weight_decay")  # no weight decay for regular Adam, but keep it for AdamW
         prune = True
+
+    # If warm-up is applied, override it to end at the epoch at which sparsity is imposed
+    if run_config["warmup_fct"] > 0:
+        run_config["warmup_fct"] = run_config["inflater_output_reg_epoch"] / N_EPOCHS
 
     # Network structure - linear benchmark
     if run_config["linear_benchmark"] == 'True':
@@ -86,10 +84,9 @@ def prune_config(run_config: dict):
         prune = True
 
     if not run_config["l1reg_inflater_output"] > 0:
-        # if no inflater output L1 regularisation, keep all param dev as cell-line-specific
-        # and do not impose sparsity mask, i.e. postpone epoch at which sparsity is imposed until final epoch
+        # if no inflater output L1 regularisation, keep all param dev as cell-line-specific (100%)
+        # do not override inflater_output_reg_epoch as that is used to determine when to save best_models
         run_config["sparse_threshold_perc"] = 100
-        run_config["inflater_output_reg_epoch"] = N_EPOCHS
         prune = True
 
     if prune:
