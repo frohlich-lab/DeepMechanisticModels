@@ -21,6 +21,7 @@ from optax import (
     Schedule,
     adam,
     adamw,
+    inject_hyperparams,
     join_schedules,
     sgdr_schedule,
 )
@@ -158,7 +159,7 @@ def get_optimiser_and_opt_state(
     # Initialise optimiser and optimiser state
     if conf["optimiser"] == "adam":
         optimiser = adam
-        extra_args = None
+        extra_args = {}
     elif conf["optimiser"] == "adamw":
         optimiser = adamw
         extra_args = {"weight_decay": conf["weight_decay"]}
@@ -175,10 +176,7 @@ def get_optimiser_and_opt_state(
         plt.xlabel("Epoch")
         wandb.log({"Learning Rate Schedule": plt}, step=0)
 
-    if extra_args is not None:
-        opt = optimiser(schedule, **extra_args)
-    else:
-        opt = optimiser(schedule)
+    opt = inject_hyperparams(optimiser)(learning_rate=schedule, **extra_args)
     opt_state = opt.init(diff_model)
     return opt, opt_state
 

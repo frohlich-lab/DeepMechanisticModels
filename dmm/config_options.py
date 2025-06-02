@@ -37,6 +37,7 @@ class Conf(dict):
     l1reg_inflate: float = 0.0
     oreg_inflate: float = 0.0
     l1reg_inflater_output: float = 0.0
+    l2reg_inflater_output: float = 0.0
     inflater_output_reg_epoch: int = (
         200  # after, regularisation is lifted but the sparsity pattern is kept
     )
@@ -174,6 +175,7 @@ ODREG = "oreg_decode"  # uses the same scale as oreg_encode
 L1IREG = "l1reg_inflate"
 OIREG = "oreg_inflate"
 L1REG_IO = "l1reg_inflater_output"
+L2REG_IO = "l2reg_inflater_output"
 IO_SPARSITY = "inflater_output_sparsity"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"

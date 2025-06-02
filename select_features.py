@@ -37,7 +37,14 @@ def get_selected_features(
 ):
     if features == "all":
         return features_all
+
     if features.startswith("HVG"):
+        if context in ["proteomics", "transcriptomics"]:
+            # remove 20% of features with lowest mean:
+            means = np.nanmean(input_data, axis=0)
+            threshold = np.percentile(means, 20)
+            input_data = input_data.loc[:, means >= threshold]
+
         # Build and fit per-split preprocessor on training data only
         n_features = int(features.replace("HVG", ""))
         selector = VarianceThreshold(
@@ -46,14 +53,14 @@ def get_selected_features(
             ]
         )
         selector = selector.fit(input_data)
-    else:
-        preprocessor = build_preprocessor(
-            features, input_data, output_data, cv=cv
-        )
-        preprocessor = preprocessor.fit(input_data, output_data)
-        selector = preprocessor.steps[-1][1]
+        return selector.feature_names_in_[selector.get_support()]
 
-    return selector.feature_names_in_[selector.get_support()]
+    preprocessor = build_preprocessor(features, input_data, output_data, cv=cv)
+    preprocessor = preprocessor.fit(input_data, output_data)
+
+    return preprocessor.feature_names_in_[
+        preprocessor.steps[-1][1].get_support()
+    ]
 
 
 conf = fire.Fire(MinimalConf)

@@ -21,6 +21,7 @@ from .config_options import (
     L1EREG,
     L1IREG,
     L1REG_IO,
+    L2REG_IO,
     MEDIAN_REG,
     ODREG,
     OEREG,
@@ -109,6 +110,9 @@ def loss_fn(
         L1IREG: model.l1_inflate_reg(scale=conf["l1reg_inflate"]),
         L1REG_IO: model.l1reg_inflater_output(
             x=input_data, scale=conf["l1reg_inflater_output"]
+        ),
+        L2REG_IO: model.l2reg_inflater_output(
+            x=input_data, scale=conf["l2reg_inflater_output"]
         ),
         MEDIAN_REG: model.constrain_median(
             x=median_init_arr, scale=conf["median_reg"]
@@ -283,6 +287,7 @@ def train(
             wandb.log(
                 {
                     "loss": loss_train,
+                    "learning_rate": opt_state.hyperparams["learning_rate"],
                 },
                 step=epoch,
             )

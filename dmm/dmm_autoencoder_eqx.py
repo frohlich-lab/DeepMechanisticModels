@@ -452,6 +452,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # Introduced 1e-6 multiplier to investigate lower regularisation strengths without formatting issues
         return scale * 1e-6 * jnp.sum(jnp.abs(jax.vmap(self)(x)["inflated"]))
 
+    def l2reg_inflater_output(self, x: Array, scale: float = 1.0):
+        """
+        L2 regularization of inflater output - number of cell-specific deviations/log fold-changes.
+        """
+        # Introduced 1e-6 multiplier to investigate lower regularisation strengths without formatting issues
+        return scale * 1e-6 * jnp.linalg.norm(jax.vmap(self)(x)["inflated"], 2)
+
     def reconstruction_loss(
         self,
         x: Array,  # TODO @GiacomoFabrini is this ok?
