@@ -21,8 +21,9 @@ from optax import (
     Schedule,
     adam,
     adamw,
+    constant_schedule,
     inject_hyperparams,
-    join_schedules,
+    piecewise_interpolate_schedule,
     sgdr_schedule,
 )
 from pypesto.C import MODE_RES, RDATAS, ModeType
@@ -54,54 +55,40 @@ def get_scheduler(
     """
 
     if conf["use_simple_linear_schedule"]:
-        # Special case: if inflater_output_reg_epoch aligns with warmup period of overall training -> single schedule
-        if conf["inflater_output_reg_epoch"] == int(
-            n_epoch * conf["warmup_fct"]
+        # Bypass for constant schedule if needed
+        if (
+            conf["lrate_decay"] == 1
+            and conf["lrate_span"] == 1
+            and conf["warmup_fct"] == 0
         ):
-            schedule = {
-                "init_value": conf["max_lrate"] / conf["lrate_span"],
-                "peak_value": conf["max_lrate"],
-                "warmup_steps": int(n_epoch * conf["warmup_fct"]),
-                "decay_steps": n_epoch,
-                "end_value": conf["max_lrate"]
-                * conf["lrate_decay"] ** n_epoch,
+            return constant_schedule(conf["max_lrate"])
+
+        assert (
+            conf["lrate_span"] >= 1
+        ), "lrate_span must be greater than or equal to 1!"
+        assert (
+            conf["lrate_decay"] >= 0
+        ), "lrate_decay must be greater than or equal to 0!"
+        assert (
+            conf["warmup_fct"] >= 0
+        ), "warmup_fct must be greater than or equal to 0!"
+        assert conf["warmup_fct"] < 1, "warmup_fct must be less than 1!"
+
+        # Handle warmup/no warmup
+        if conf["warmup_fct"] > 0:
+            boundaries_and_scales = {
+                int(conf["warmup_fct"] * n_epoch): conf["lrate_span"],
+                n_epoch - 1: conf["lrate_decay"],
             }
-            return sgdr_schedule([schedule])
         else:
-            schedules = [
-                {
-                    "init_value": init_value,  # before warm-up / matching end of l1reg_inflater_output stage
-                    "peak_value": conf["max_lrate"],  # after warm-up
-                    "warmup_steps": int(num_epoch * conf["warmup_fct"]),
-                    "decay_steps": num_epoch,  # n_epoch
-                    "end_value": conf["max_lrate"]
-                    * conf["lrate_decay"] ** num_epoch,  # after decay
-                }  # single linear schedule, but restarts after dropping l1reg_inflater_output
-                for num_epoch, init_value in zip(
-                    [
-                        conf["inflater_output_reg_epoch"],
-                        n_epoch - conf["inflater_output_reg_epoch"],
-                    ],
-                    [
-                        conf["max_lrate"] / conf["lrate_span"],
-                        conf["max_lrate"]
-                        * conf["lrate_decay"]
-                        ** conf["inflater_output_reg_epoch"],
-                    ],
-                )
-            ]
-            # if conf["inflater_output_reg_epoch"] = n_epoch, drop last schedule but keep list format
-            if conf["inflater_output_reg_epoch"] == n_epoch:
-                del schedules[-1]
-                return sgdr_schedule(schedules)
-            else:
-                # Apply schedules sequentially (otherwise optax assumes they both start at epoch 0)
-                return join_schedules(
-                    schedules=[
-                        sgdr_schedule([schedule]) for schedule in schedules
-                    ],
-                    boundaries=[conf["inflater_output_reg_epoch"]],
-                )
+            boundaries_and_scales = {
+                n_epoch - 1: conf["lrate_decay"],
+            }
+        return piecewise_interpolate_schedule(
+            interpolate_type="linear",
+            init_value=conf["max_lrate"] / conf["lrate_span"],
+            boundaries_and_scales=boundaries_and_scales,
+        )
     else:
         # Cosine annealing
         epochs_per_schedule = np.array(
