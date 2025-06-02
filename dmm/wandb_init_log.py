@@ -2,21 +2,33 @@ import equinox as eqx
 import git
 import jax.numpy as jnp
 import numpy as np
+from jax import vmap
+
 import wandb
 
-from .config_options import (Conf, EarlyStoppingParams,
-                             L1EREG, OEREG, L1DREG, ODREG, L1IREG, OIREG, L1REG_IO, RECON_LOSS, SYMM_LOSS, MEDIAN_REG)
+from .config_options import (
+    IO_SPARSITY,
+    L1DREG,
+    L1EREG,
+    L1IREG,
+    L1REG_IO,
+    MEDIAN_REG,
+    ODREG,
+    OEREG,
+    OIREG,
+    RECON_LOSS,
+    SYMM_LOSS,
+    Conf,
+    EarlyStoppingParams,
+)
 from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
-from functools import partial
-from jax import vmap
-from typing import Optional
 
 
 def init_wandb(
-        model: DeepMechanisticModel,
-        conf: Conf,
-        early_stopping_params: EarlyStoppingParams,
+    model: DeepMechanisticModel,
+    conf: Conf,
+    early_stopping_params: EarlyStoppingParams,
 ):
     """
     Initialise W&B run. Run name = chosen hyperparameters in configuration string representation.
@@ -49,14 +61,20 @@ def init_wandb(
         # v21: force selection of pERBB2 features in cytof_init + n_hidde=3 for all contexts
         # v22: new CV split (cHCC2185 -> cUACC3199), new feature selection (per_cv vs across_cv)
         # v23: new CV split, per_cv selection, no l1reg inflater or sparsity, trying n_hidden, with/without frozen medians
-        project=f"DeepMechanisticModels.v23.{conf.data}.{conf.model}",
+        project=f"DeepMechanisticModels.v24.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
-            "patience": early_stopping_params.patience if conf.use_early_stopping else None,
-            "min_improvement": early_stopping_params.min_improvement if conf.use_early_stopping else None,
-            "scheduler": "linear" if conf.use_simple_linear_schedule else "custom",
+            "patience": early_stopping_params.patience
+            if conf.use_early_stopping
+            else None,
+            "min_improvement": early_stopping_params.min_improvement
+            if conf.use_early_stopping
+            else None,
+            "scheduler": "linear"
+            if conf.use_simple_linear_schedule
+            else "custom",
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
@@ -67,11 +85,13 @@ def init_wandb(
         tags=[
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
-            "linear_benchmark" if (conf.linear_benchmark and conf.depth == 0) else "not_benchmark",
+            "linear_benchmark"
+            if (conf.linear_benchmark and conf.depth == 0)
+            else "not_benchmark",
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
-            conf.date_tag  # label experiment with date of experiment start
+            conf.date_tag,  # label experiment with date of experiment start
         ],
-        mode="online"  # to run more jobs simultaneously on the cluster
+        mode="online",  # to run more jobs simultaneously on the cluster
     )
 
     # Define W&B metrics
@@ -126,23 +146,28 @@ def init_wandb(
 
     # Iterate over the modules to define metrics based on the presence of layers and biases
     for module, model_module in model_modules.items():
-        num_layers = len(model_module.layers)  # Dynamically get the number of layers
+        num_layers = len(
+            model_module.layers
+        )  # Dynamically get the number of layers
         for layer_index in range(num_layers):
             # Check for weights; assume weights always exist
-            for val_type in ['vals', 'grads']:
+            for val_type in ["vals", "grads"]:
                 metric_name = f"{module}.layer{layer_index}.w_{val_type}"
                 wandb.define_metric(metric_name)
 
             # Check if bias exists and is not None before defining bias metrics
-            if hasattr(model_module.layers[layer_index], 'bias') and model_module.layers[layer_index].bias is not None:
-                for val_type in ['vals', 'grads']:
+            if (
+                hasattr(model_module.layers[layer_index], "bias")
+                and model_module.layers[layer_index].bias is not None
+            ):
+                for val_type in ["vals", "grads"]:
                     metric_name = f"{module}.layer{layer_index}.b_{val_type}"
                     wandb.define_metric(metric_name)
 
 
 def log_model_stats(
-        model: DeepMechanisticModel,
-        grad: DeepMechanisticModel,
+    model: DeepMechanisticModel,
+    grad: DeepMechanisticModel,
 ):
     """
     Log parameter values (vals) and grads (grads) to wandb.
@@ -155,7 +180,8 @@ def log_model_stats(
         "encoder": model.deep_encoder,
         "inflater": model.deep_inflater,
     }
-    grad_modules = {"encoder": grad.deep_encoder,
+    grad_modules = {
+        "encoder": grad.deep_encoder,
         "inflater": grad.deep_inflater,
     }
     if model.reconstruct:
@@ -166,9 +192,12 @@ def log_model_stats(
         key: [
             (par_layer, grad_layer)
             for par_layer, grad_layer in zip(
-                model_module.layers, grad_modules[key].layers,
+                model_module.layers,
+                grad_modules[key].layers,
             )
-            if isinstance(par_layer, (eqx.nn.Linear, CustomInitLinear))  # Check for both Linear and CustomInitLinear
+            if isinstance(
+                par_layer, (eqx.nn.Linear, CustomInitLinear)
+            )  # Check for both Linear and CustomInitLinear
         ]
         for key, model_module in model_modules.items()
     }
@@ -179,18 +208,28 @@ def log_model_stats(
             # Handle weights
             weight_vals = par_layer.weight.ravel()
             grad_weight_vals = grad_layer.weight.ravel()
-            layer_stats[f'{module}.layer{ilayer}.w_vals'] = wandb.Histogram(list(weight_vals))
-            layer_stats[f'{module}.layer{ilayer}.w_grads'] = wandb.Histogram(
-                np.log10(np.abs(np.array(grad_weight_vals[grad_weight_vals != 0])))
+            layer_stats[f"{module}.layer{ilayer}.w_vals"] = wandb.Histogram(
+                list(weight_vals)
+            )
+            layer_stats[f"{module}.layer{ilayer}.w_grads"] = wandb.Histogram(
+                np.log10(
+                    np.abs(np.array(grad_weight_vals[grad_weight_vals != 0]))
+                )
             )
 
             # Handle biases, if they exist
-            if hasattr(par_layer, 'bias') and par_layer.bias is not None:
+            if hasattr(par_layer, "bias") and par_layer.bias is not None:
                 bias_vals = par_layer.bias.ravel()
                 grad_bias_vals = grad_layer.bias.ravel()
-                layer_stats[f'{module}.layer{ilayer}.b_vals'] = wandb.Histogram(list(bias_vals))
-                layer_stats[f'{module}.layer{ilayer}.b_grads'] = wandb.Histogram(
-                    np.log10(np.abs(np.array(grad_bias_vals[grad_bias_vals != 0])))
+                layer_stats[
+                    f"{module}.layer{ilayer}.b_vals"
+                ] = wandb.Histogram(list(bias_vals))
+                layer_stats[
+                    f"{module}.layer{ilayer}.b_grads"
+                ] = wandb.Histogram(
+                    np.log10(
+                        np.abs(np.array(grad_bias_vals[grad_bias_vals != 0]))
+                    )
                 )
 
     # First approach: two plots (value, grad) per parameter, but hists do not make much sense in that case
@@ -215,16 +254,20 @@ def log_model_stats(
 
     # Second approach: log values and grads altogether (2 histograms overall)
     kin_params_stats = {
-        f'global_kin_params.{value_label}': wandb.Histogram(
+        f"global_kin_params.{value_label}": wandb.Histogram(
             np.log10(np.abs(np.array(par_vals[par_vals != 0])))
         )
-        if value_label == 'grads'
+        if value_label == "grads"
         else wandb.Histogram(par_vals)
         for value_label, par_vals in zip(
-            ('vals', 'grads'),
+            ("vals", "grads"),
             (
-                np.array(model.kin_params_combiner.learned_global_kin_params).ravel(),
-                np.array(grad.kin_params_combiner.learned_global_kin_params).ravel()
+                np.array(
+                    model.kin_params_combiner.learned_global_kin_params
+                ).ravel(),
+                np.array(
+                    grad.kin_params_combiner.learned_global_kin_params
+                ).ravel(),
             ),
         )
     }
@@ -235,9 +278,9 @@ def log_model_stats(
 
 
 def log_param_norms(
-        model: DeepMechanisticModel,
-        input_data: jnp.ndarray,
-        epoch: int,
+    model: DeepMechanisticModel,
+    input_data: jnp.ndarray,
+    epoch: int,
 ):
     par_dev = vmap(model)(input_data)["inflated"]
     par_medians = model.kin_params_combiner.learned_global_kin_params
@@ -253,79 +296,26 @@ def log_param_norms(
 
 
 def log_extra_loss_terms(
-        model: DeepMechanisticModel,
-        conf: dict,
-        input_data: jnp.ndarray,
-        epoch: int,
-        median_init_arr: Optional[jnp.ndarray] = None,
+    model: DeepMechanisticModel,
+    reg: dict,
+    epoch: int,
 ):
     """
     Function to log extra loss terms (not fval nor loss itself) to W&B: regularisation terms, reconstruction loss.
 
     :param model:
         DeepMechanisticModel instance.
-    :param conf:
-        configuration dictionary.
-    :param input_data:
-        data to compute reconstruction loss on.
+    :param reg:
+        dictionary of regularisation terms
     :param epoch:
         training iteration/epoch.
-    :param median_init_arr:
-        array of median initialisation values (Optional, only DMM training).
 
     :return:
         n/a (simply logs to W&B).
     """
-    # Define regularisation functions and labels
-    reg_funs = [
-        model.orth_encode_reg,
-        model.orth_inflate_reg,
-    ]
-    log_labels = [OEREG, OIREG]
-    hp_names = [OEREG, OIREG]
-    # Add extra regularisation terms
-    reg_funs.extend(
-        [
-            model.l1_encode_reg,
-            model.l1_inflate_reg,
-        ]
-    )
-    log_labels.extend([L1EREG, L1IREG, MEDIAN_REG])
-    hp_names.extend([L1EREG, L1IREG, MEDIAN_REG])
-    # Add epoch-dependent inflater output regularisation
-    if epoch < conf["inflater_output_reg_epoch"]:
-        reg_funs.extend([partial(model.l1reg_inflater_output, x=input_data),])
-        log_labels.extend([L1REG_IO,])
-        hp_names.extend([L1REG_IO, ])
-
-    if median_init_arr is not None:
-        reg_funs.append(
-            partial(model.constrain_median, x=median_init_arr)
-        )
-        log_labels.append(MEDIAN_REG)
-        hp_names.append(MEDIAN_REG)
-
-    # Add extra terms if the DMM has a decoder head
-    if model.reconstruct:
-        reg_funs.extend([model.orth_decode_reg, model.l1_decode_reg])
-        log_labels.extend([ODREG, L1DREG])
-        hp_names.extend([OEREG, L1EREG])  # scales of decoder reg match encoder!
-        # and log additional decoder-related loss terms (reconstruction and symmetry loss)
-        wandb.log(
-            {
-                # for reconstruction loss: log validation loss
-                RECON_LOSS: model.reconstruction_loss(
-                    x=input_data,
-                    scale=conf[RECON_LOSS],
-                ),
-                SYMM_LOSS: model.symmetry_loss(scale=conf[SYMM_LOSS])
-            },
-            step=epoch,
-        )
-
     # Log metrics defined above
-    for (reg_fun, log_label, hp_name) in zip(reg_funs, log_labels, hp_names):
-        if conf[hp_name] > 0:
-            # Simply compute the value of the function
-            value_reg = reg_fun(scale=conf[hp_name])
-            wandb.log({log_label: value_reg}, step=epoch)
+    for key, val in reg.items():
+        if val != 0:
+            wandb.log({key: val}, step=epoch)
+
+    wandb.log({IO_SPARSITY: np.sum(model.sparsity_binary_mask)}, step=epoch)

@@ -35,18 +35,25 @@ def get_selected_features(
     features_all: list,
     cv=None,
 ):
-    # Build and fit per-split preprocessor on training data only
-    preprocessor = build_preprocessor(features, input_data, output_data, cv=cv)
-    preprocessor = preprocessor.fit(input_data, output_data)
-
     if features == "all":
-        selected_features = features_all
+        return features_all
+    if features.startswith("HVG"):
+        # Build and fit per-split preprocessor on training data only
+        n_features = int(features.replace("HVG", ""))
+        selector = VarianceThreshold(
+            threshold=sorted(np.nanvar(input_data, axis=0), reverse=True)[
+                min(n_features, input_data.shape[1] - 1)
+            ]
+        )
+        selector = selector.fit(input_data)
     else:
+        preprocessor = build_preprocessor(
+            features, input_data, output_data, cv=cv
+        )
+        preprocessor = preprocessor.fit(input_data, output_data)
         selector = preprocessor.steps[-1][1]
-        selected_features = preprocessor.feature_names_in_[
-            selector.get_support()
-        ]
-    return selected_features
+
+    return selector.feature_names_in_[selector.get_support()]
 
 
 conf = fire.Fire(MinimalConf)
@@ -181,21 +188,6 @@ for context in conf.context.split("+"):
         selected_features_dict = {
             split: selected_features for split in sorted(SPLITS)
         }
-    elif conf.features_selection.startswith("variance"):
-        selected_features_dict = {}
-        for split in sorted(SPLITS):
-            data = inputs_dict[split]["train"]
-            n_features = int(conf.features_selection.replace("variance", ""))
-            selector = VarianceThreshold(
-                threshold=sorted(np.nanvar(data, axis=0), reverse=True)[
-                    n_features
-                ]
-            )
-            selector = selector.fit(data)
-            selected_features_dict[split] = data.columns[
-                selector.get_support()
-            ]
-            assert len(selected_features_dict[split]) == n_features
 
     elif conf.features_selection == "per_cv":
         selected_features_dict = {}

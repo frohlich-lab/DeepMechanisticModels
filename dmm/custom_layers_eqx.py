@@ -1,10 +1,9 @@
+from typing import Literal, Optional, Union
+
 import equinox as eqx
 import jax.nn.initializers as initializers
 import jax.random as jr
-
 from jaxtyping import Array
-from typing import Optional, Literal, Union
-
 
 # Dictionary mapping initialization strategies to JAX initializers (or potentially custom functions)
 init_fn = {
@@ -14,7 +13,10 @@ init_fn = {
     "LU": initializers.lecun_uniform(),
     "XN": initializers.glorot_normal(),
     "XU": initializers.glorot_uniform(),
-    "custom": initializers.variance_scaling(scale=0.1, mode="fan_avg", distribution="uniform"),
+    "custom": initializers.variance_scaling(
+        scale=1.0, mode="fan_avg", distribution="uniform"
+    ),
+    "zeros": initializers.zeros,
 }
 
 
@@ -27,13 +29,13 @@ class CustomInitLinear(eqx.nn.Linear):
     use_bias: bool = eqx.static_field()
 
     def __init__(
-            self,
-            in_features,  # again, follows the same notation as eqx.nn.Linear
-            out_features,
-            key,
-            weight_init,
-            bias_init,
-            use_bias=False,  # default: no bias
+        self,
+        in_features,  # again, follows the same notation as eqx.nn.Linear
+        out_features,
+        key,
+        weight_init,
+        bias_init,
+        use_bias=False,  # default: no bias
     ):
         super().__init__(
             in_features=in_features,
@@ -43,11 +45,9 @@ class CustomInitLinear(eqx.nn.Linear):
         )
 
         weight_key, bias_key = jr.split(key)
-        self.weight = weight_init(
-            weight_key,
-            (out_features, in_features)
+        self.weight = weight_init(weight_key, (out_features, in_features))
+        self.bias = (
+            bias_init(bias_key, (out_features, 1)).squeeze()
+            if self.use_bias
+            else None
         )
-        self.bias = bias_init(
-            bias_key,
-            (out_features, 1)
-        ).squeeze() if self.use_bias else None

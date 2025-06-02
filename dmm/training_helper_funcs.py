@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import petab.v1 as petab
 import pypesto
 import seaborn as sns
@@ -53,13 +54,16 @@ def get_scheduler(
 
     if conf["use_simple_linear_schedule"]:
         # Special case: if inflater_output_reg_epoch aligns with warmup period of overall training -> single schedule
-        if conf["inflater_output_reg_epoch"] == int(n_epoch * conf["warmup_fct"]):
+        if conf["inflater_output_reg_epoch"] == int(
+            n_epoch * conf["warmup_fct"]
+        ):
             schedule = {
                 "init_value": conf["max_lrate"] / conf["lrate_span"],
                 "peak_value": conf["max_lrate"],
                 "warmup_steps": int(n_epoch * conf["warmup_fct"]),
                 "decay_steps": n_epoch,
-                "end_value": conf["max_lrate"] * conf["lrate_decay"] ** n_epoch,
+                "end_value": conf["max_lrate"]
+                * conf["lrate_decay"] ** n_epoch,
             }
             return sgdr_schedule([schedule])
         else:
@@ -69,7 +73,8 @@ def get_scheduler(
                     "peak_value": conf["max_lrate"],  # after warm-up
                     "warmup_steps": int(num_epoch * conf["warmup_fct"]),
                     "decay_steps": num_epoch,  # n_epoch
-                    "end_value": conf["max_lrate"] * conf["lrate_decay"] ** num_epoch,  # after decay
+                    "end_value": conf["max_lrate"]
+                    * conf["lrate_decay"] ** num_epoch,  # after decay
                 }  # single linear schedule, but restarts after dropping l1reg_inflater_output
                 for num_epoch, init_value in zip(
                     [
@@ -78,7 +83,9 @@ def get_scheduler(
                     ],
                     [
                         conf["max_lrate"] / conf["lrate_span"],
-                        conf["max_lrate"] * conf["lrate_decay"] ** conf["inflater_output_reg_epoch"],
+                        conf["max_lrate"]
+                        * conf["lrate_decay"]
+                        ** conf["inflater_output_reg_epoch"],
                     ],
                 )
             ]
@@ -108,7 +115,8 @@ def get_scheduler(
                 "init_value": conf["max_lrate"]
                 / conf["lrate_span"]
                 * conf["lrate_decay"] ** i_schedule,
-                "peak_value": conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                "peak_value": conf["max_lrate"]
+                * conf["lrate_decay"] ** i_schedule,
                 "warmup_steps": int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
@@ -309,7 +317,7 @@ class Chi2Objective(pypesto.objective.Objective):
             x, sensi_orders, mode, return_dict=True, **kwargs
         )
         ndata = sum(
-            sum(np.not_equal(r[pypesto.C.RES],0.0))
+            sum(np.not_equal(r[pypesto.C.RES], 0.0))
             for r in res[RDATAS]
             if r.status == AMICI_SUCCESS
         )
@@ -319,7 +327,9 @@ class Chi2Objective(pypesto.objective.Objective):
             mse = sum(
                 r["chi2"] for r in res[RDATAS] if r.status == AMICI_SUCCESS
             ) / max(ndata, 1)
-            if not all(r.status == AMICI_SUCCESS for r in res[RDATAS]):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
+            if not all(
+                r.status == AMICI_SUCCESS for r in res[RDATAS]
+            ):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
                 mse = np.inf
             ret[pypesto.C.FVAL] = mse
         if 1 in sensi_orders:
@@ -389,7 +399,12 @@ def model_output_to_petab_input_frozen_medians(
     pred = vmap(model)(input_data)["inflated"]
     # Concatenate FROZEN global kinetic parameters with predicted deviations
     augmented_pred = jnp.concatenate(
-        [jax.lax.stop_gradient(model.kin_params_combiner.learned_global_kin_params), pred.flatten()]
+        [
+            jax.lax.stop_gradient(
+                model.kin_params_combiner.learned_global_kin_params
+            ),
+            pred.flatten(),
+        ]
     )
     return augmented_pred
 
@@ -583,11 +598,49 @@ def rmse(pp, model: DeepMechanisticModel, input_data):
         return np.sqrt(
             np.mean(
                 np.square(
-                    (simulation_df[petab.SIMULATION]
-                    - petab_problem.measurement_df[petab.MEASUREMENT])/simulation_df[petab.NOISE_PARAMETERS]
+                    (
+                        simulation_df[petab.SIMULATION]
+                        - petab_problem.measurement_df[petab.MEASUREMENT]
+                    )
+                    / simulation_df[petab.NOISE_PARAMETERS]
                 )
             )
         )
+    except Exception as e:
+        print(e)
+        return np.inf
+
+
+def rmse_sample_stat(pp, model: DeepMechanisticModel, input_data):
+    try:
+        simulation_df, petab_problem = compute_simulation_from_model(
+            pp=pp,
+            model=model,
+            input_data=input_data,
+            return_petab_problem=True,
+        )
+        residuals = (
+            simulation_df[petab.SIMULATION]
+            - petab_problem.measurement_df[petab.MEASUREMENT]
+        ) / simulation_df[petab.NOISE_PARAMETERS]
+        df = pd.DataFrame(
+            residuals.values,
+            index=simulation_df.index,
+            columns=["residuals"],
+        )
+        df["sample"] = simulation_df[petab.PREEQUILIBRATION_CONDITION_ID]
+        df_agg = df.groupby("sample").agg(
+            sample_residuals=(
+                "residuals",
+                lambda x: np.sqrt(np.mean(np.square(x))),
+            )
+        )
+        sm = df_agg["sample_residuals"].mean()
+        sv = df_agg["sample_residuals"].var()
+        ss = (
+            df_agg["sample_residuals"].max() - df_agg["sample_residuals"].min()
+        )
+        return sm, sv, ss
     except Exception as e:
         print(e)
         return np.inf
