@@ -15,12 +15,12 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    ("cytof_init", "RFE5"),
+    # ("cytof_init", "RFE5"),
     ("cytof_init", "RFE10"),
-    ("cytof_init", "RFE15"),
-    ("cytof_init", "RFE20"),
+    # ("cytof_init", "RFE15"),
+    # ("cytof_init", "RFE20"),
     ("cytof_init", "RFE30"),
-    ("cytof_init", "RFE40"),
+    # ("cytof_init", "RFE40"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "all"),
@@ -28,23 +28,23 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    ("proteomics", "RFE5"),
+    # ("proteomics", "RFE5"),
     ("proteomics", "RFE10"),
-    ("proteomics", "RFE15"),
+    # ("proteomics", "RFE15"),
     ("proteomics", "RFE20"),
-    ("proteomics", "RFE30"),
-    ("proteomics", "RFE40"),
+    # ("proteomics", "RFE30"),
+    # ("proteomics", "RFE40"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
-    ("transcriptomics", "RFE5"),
+    # ("transcriptomics", "RFE5"),
     ("transcriptomics", "RFE10"),
-    ("transcriptomics", "RFE15"),
+    # ("transcriptomics", "RFE15"),
     ("transcriptomics", "RFE20"),
-    ("transcriptomics", "RFE30"),
-    ("transcriptomics", "RFE40"),
+    # ("transcriptomics", "RFE30"),
+    # ("transcriptomics", "RFE40"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
 )
@@ -62,10 +62,10 @@ FEATURES_TRANSFORM = {
 
 # Cross-validation splits
 SPLITS = {
-    # "0of5",
-    # "1of5",
-    # "2of5",
-    # "3of5",
+    "0of5",
+    "1of5",
+    "2of5",
+    "3of5",
     "4of5",
 }
 
