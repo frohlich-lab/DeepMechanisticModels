@@ -17,7 +17,9 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "sequential"),
     ("cytof_init", "RFE5"),
     ("cytof_init", "RFE10"),
+    ("cytof_init", "RFE15"),
     ("cytof_init", "RFE20"),
+    ("cytof_init", "RFE30"),
     ("cytof_init", "RFE40"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
@@ -28,7 +30,9 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "sequential"),
     ("proteomics", "RFE5"),
     ("proteomics", "RFE10"),
+    ("proteomics", "RFE15"),
     ("proteomics", "RFE20"),
+    ("proteomics", "RFE30"),
     ("proteomics", "RFE40"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
@@ -37,7 +41,9 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "sequential"),
     ("transcriptomics", "RFE5"),
     ("transcriptomics", "RFE10"),
+    ("transcriptomics", "RFE15"),
     ("transcriptomics", "RFE20"),
+    ("transcriptomics", "RFE30"),
     ("transcriptomics", "RFE40"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
@@ -119,7 +125,7 @@ NETWORK_LAYOUT = {
         # (4, "False"),
         # (5, "False"),
     ),  # 0-4 hidden layers, no linear benchmark
-    "central_value": (2, "False"),  # 2 hidden layers, no linear benchmark
+    "central_value": (0, "False"),  # 2 hidden layers, no linear benchmark
 }
 
 # NETWORK_LAYOUT = (
@@ -459,7 +465,7 @@ MIN_IMPROVEMENT = 0
 RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 1000
+N_EPOCHS = 500
 PRETRAIN_N_EPOCHS = 0
 
 # Type of run
