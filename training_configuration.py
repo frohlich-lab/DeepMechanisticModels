@@ -327,10 +327,10 @@ ZETAS = {"range": (0,), "central_value": 0}
 # ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100), 'central_value': 0}
 ETAS = {"range": (0,), "central_value": 0}
 
-# Epoch at which to enable OMEGA regularisation (l1reg_inflater_output)
+# Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {"range": (1000,), "central_value": 1000}
+INFLATER_OUTPUT_REG_EPOCHS = {"range": (1000, 200), "central_value": 200}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
