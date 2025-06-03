@@ -465,7 +465,7 @@ MIN_IMPROVEMENT = 0
 RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 500
+N_EPOCHS = 1000
 PRETRAIN_N_EPOCHS = 0
 
 # Type of run
