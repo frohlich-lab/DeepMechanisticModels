@@ -349,7 +349,7 @@ def train(
 
             pars = jax.vmap(model)(input_features_train)["inflated"]
             parstd = jnp.std(pars, axis=0)
-            parmean = jnp.mean(pars, axis=0)
+            parmean = jnp.abs(jnp.mean(pars, axis=0))
             log_parstd = jnp.log10(parstd[parstd > 0])
             log_parmean = jnp.log10(parmean[parmean > 0])
 

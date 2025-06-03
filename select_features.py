@@ -4,9 +4,12 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
+from sklearn.ensemble import RandomForestRegressor
 from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import KNNImputer
 from sklearn.model_selection import PredefinedSplit
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
 from dmm.feature_selection import (
@@ -44,6 +47,7 @@ def get_selected_features(
             means = np.nanmean(input_data, axis=0)
             threshold = np.percentile(means, 20)
             input_data = input_data.loc[:, means >= threshold]
+            input_data.dropna(axis=1, how="all", inplace=True)
 
         # Build and fit per-split preprocessor on training data only
         n_features = int(features.replace("HVG", ""))
@@ -54,6 +58,27 @@ def get_selected_features(
         )
         selector = selector.fit(input_data)
         return selector.feature_names_in_[selector.get_support()]
+    elif features.startswith("RFE"):
+        n_features = int(features.replace("RFE", ""))
+        pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("impute", KNNImputer()),
+                ("rf", RandomForestRegressor()),
+            ]
+        )
+        while input_data.shape[1] * 0.8 > n_features:
+            pipeline.fit(input_data, output_data)
+            importances = pipeline.named_steps["rf"].feature_importances_
+            indices = np.argsort(importances)[::-1][
+                : int(np.ceil(len(importances) * 0.8))
+            ]
+            input_data = input_data.iloc[:, indices]
+        # Fit the final model with the selected features
+        pipeline.fit(input_data, output_data)
+        importances = pipeline.named_steps["rf"].feature_importances_
+        indices = np.argsort(importances)[::-1][:n_features]
+        return input_data.columns[indices]
 
     preprocessor = build_preprocessor(features, input_data, output_data, cv=cv)
     preprocessor = preprocessor.fit(input_data, output_data)
