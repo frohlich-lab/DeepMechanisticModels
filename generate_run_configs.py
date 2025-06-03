@@ -1,29 +1,63 @@
 import itertools as itt
+from typing import Union
+
 import numpy as np
 import pandas as pd
 
 from training_configuration import (
-    CONTEXTS_FEATURES, FEATURES_TRANSFORM, FEATURES_SELECTION,
-    SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
-    LATENT_DIMS, NN_STRUCTURE_MULTIPLIER, NETWORK_LAYOUT, USE_BIAS, LAST_LAYER_ACTIVATION,
-    NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-    # Regularisation
-    ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS, OMEGAS, EPSILONS, ZETAS, ETAS, SPARSE_THRESH_PERCS,
+    ACTIVATION_FNS,
+    ALPHAS,
+    BETAS,
+    CONTEXTS_FEATURES,
+    DELTAS,
+    EPSILONS,
+    ETAS,
+    FEATURES_SELECTION,
+    FEATURES_TRANSFORM,
+    FREEZE_MEDIANS,
+    GAMMAS,
+    HP_RUN_MODE,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
-    # Learning rate scheduling
-    MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS, OPT_STEPS, OPT_MULT,
-    WEIGHT_DECAY, MOMENTUM,
+    LAST_LAYER_ACTIVATION,
+    LATENT_DIMS,
+    LEARNING_RATE_DECAYS,
+    LEARNING_RATE_SPANS,
     LINEAR_SCHEDULE,
+    # Learning rate scheduling
+    MAX_LEARNING_RATES,
+    MEDIAN_INIT,
+    MOMENTUM,
+    N_EPOCHS,
+    NETWORK_LAYOUT,
+    NN_INIT_FN,
+    NN_STRUCTURE_MULTIPLIER,
+    OMEGAS,
+    OPT_MULT,
+    OPT_STEPS,
+    OPTIMISERS,
+    # Regularisation
+    ORTH_REG_STRATEGIES,
+    PRETRAIN,
+    RECONSTRUCT,
+    REFINE_HPS,
+    SPARSE_THRESH_PERCS,
+    SPLITS,
+    THETAS,
+    USE_BIAS,
     # OTHER OPTIONS
     USE_EARLY_STOP,
-    HP_RUN_MODE, REFINE_HPS,
-    N_EPOCHS,
+    WARMUP_FCTS,
+    WEIGHT_DECAY,
+    ZETAS,
 )
-from typing import Union
 
 
-def format_floats(run_configs: list[dict], cols_to_check: list, precision: Union[int, str] = "adaptive"):
+def format_floats(
+    run_configs: list[dict],
+    cols_to_check: list,
+    precision: Union[int, str] = "adaptive",
+):
     def format_string(precision):
         return "{:." + str(precision) + "f}"
 
@@ -42,17 +76,14 @@ def format_floats(run_configs: list[dict], cols_to_check: list, precision: Union
                         format_prefix = format_string(oom)
                         config[col] = format_prefix.format(config[col])
                     else:
-                        config[col] = str(config[col])  # regular values, e.g. 1, 10, 100
+                        config[col] = str(
+                            config[col]
+                        )  # regular values, e.g. 1, 10, 100
     return run_configs
 
 
-
 def make_configs_unique(run_configs: list[dict]) -> list[dict]:
-    return [
-        dict(t) for t in set(
-            tuple(d.items()) for d in run_configs
-        )
-    ]
+    return [dict(t) for t in {tuple(d.items()) for d in run_configs}]
 
 
 def prune_config(run_config: dict):
@@ -63,20 +94,30 @@ def prune_config(run_config: dict):
     if run_config["optimiser"] == "adamw_sf":
         # remove schedule hyperparams when using schedule-free
         # 0 is not an otherwise valid value (used for regressors and pretraining baselines)
-        hps_to_prune.extend(["lrate_span", "lrate_decay", "opt_steps", "opt_mult"])
-        run_config["use_simple_linear_schedule"] = False  # also remove linear schedule
+        hps_to_prune.extend(
+            ["lrate_span", "lrate_decay", "opt_steps", "opt_mult"]
+        )
+        run_config[
+            "use_simple_linear_schedule"
+        ] = False  # also remove linear schedule
         prune = True
     elif run_config["use_simple_linear_schedule"]:  # only with adam or adamw
-        hps_to_prune.extend(["opt_steps", "opt_mult", "momentum"])  # use default momentum value
+        hps_to_prune.extend(
+            ["opt_steps", "opt_mult", "momentum"]
+        )  # use default momentum value
         if run_config["optimiser"] == "adam":
-            hps_to_prune.append("weight_decay")  # no weight decay for regular Adam, but keep it for AdamW
+            hps_to_prune.append(
+                "weight_decay"
+            )  # no weight decay for regular Adam, but keep it for AdamW
         prune = True
 
     # Network structure - linear benchmark
-    if run_config["linear_benchmark"] == 'True':
+    if run_config["linear_benchmark"] == "True":
         # remove network layout hyperparams when using linear benchmark
         hps_to_prune.extend(["nn_structure_multiplier", "depth"])
-        run_config["last_layer_activation"] = False  # also remove non-linearities
+        run_config[
+            "last_layer_activation"
+        ] = False  # also remove non-linearities
         prune = True
 
     # Reconstruction/decoder head
@@ -98,7 +139,6 @@ def prune_config(run_config: dict):
 
 
 def generate_linear_scan(STARTS: list[str]):
-
     hyperparameters = {
         "n_hidden": LATENT_DIMS,
         "network_layout": NETWORK_LAYOUT,
@@ -107,6 +147,7 @@ def generate_linear_scan(STARTS: list[str]):
         "l1reg_encode": GAMMAS,
         "oreg_encode": DELTAS,
         "l1reg_inflater_output": OMEGAS,
+        "l2reg_inflater_output": THETAS,  # same as l1reg_inflater_output
         "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
         "sparse_threshold_perc": SPARSE_THRESH_PERCS,
         "recon_loss": EPSILONS,
@@ -123,12 +164,14 @@ def generate_linear_scan(STARTS: list[str]):
     }
 
     # Check that all hyperparameter options are dicts (central value, range)
-    if not all(isinstance(hyperparam, dict) for hyperparam in hyperparameters.values()):
+    if not all(
+        isinstance(hyperparam, dict) for hyperparam in hyperparameters.values()
+    ):
         raise TypeError("Inconsistent typing for linear scans!")
 
     # Get central values
     central_values = {
-        hyperparam: hyperparameters[hyperparam]['central_value']
+        hyperparam: hyperparameters[hyperparam]["central_value"]
         for hyperparam in hyperparameters.keys()
     }
 
@@ -158,22 +201,52 @@ def generate_linear_scan(STARTS: list[str]):
             "job": job,
         }
         for hyperparam, details in hyperparameters.items()
-        for hp_value in details['range']
+        for hp_value in details["range"]
         for (
-            (context, features), features_selection, features_transform, split, pretrain, median_init, freeze_medians,
-            use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
-            orth_reg_strategy, use_simple_linear_schedule, use_early_stopping, job
+            (context, features),
+            features_selection,
+            features_transform,
+            split,
+            pretrain,
+            median_init,
+            freeze_medians,
+            use_layer_bias,
+            last_layer_activation,
+            nn_init_fn,
+            reconstruct,
+            activation_fn_name,
+            optimiser,
+            orth_reg_strategy,
+            use_simple_linear_schedule,
+            use_early_stopping,
+            job,
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
-            USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-            ORTH_REG_STRATEGIES, LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
+            CONTEXTS_FEATURES,
+            FEATURES_SELECTION,
+            FEATURES_TRANSFORM,
+            SPLITS,
+            PRETRAIN,
+            MEDIAN_INIT,
+            FREEZE_MEDIANS,
+            USE_BIAS,
+            LAST_LAYER_ACTIVATION,
+            NN_INIT_FN,
+            RECONSTRUCT,
+            ACTIVATION_FNS,
+            OPTIMISERS,
+            ORTH_REG_STRATEGIES,
+            LINEAR_SCHEDULE,
+            USE_EARLY_STOP,
+            STARTS,
         )
     ]
 
     # Unpack network layout into depth and linear_benchmark + drop the original network_layout key
     for linear_scan_config in linear_scan_configs:
         linear_scan_config["depth"] = linear_scan_config["network_layout"][0]
-        linear_scan_config["linear_benchmark"] = linear_scan_config["network_layout"][1]
+        linear_scan_config["linear_benchmark"] = linear_scan_config[
+            "network_layout"
+        ][1]
         linear_scan_config.pop("network_layout")
         prune_config(linear_scan_config)
 
@@ -215,7 +288,9 @@ def generate_grid_search(STARTS: list[str]):
     }
 
     # Check hyperparameter options are not set up for linear scans by mistake
-    if any(isinstance(hyperparam, dict) for hyperparam in hyperparameters.values()):
+    if any(
+        isinstance(hyperparam, dict) for hyperparam in hyperparameters.values()
+    ):
         raise TypeError("Inconsistent typing for grid search!")
 
     grid_search_configs = [
@@ -229,7 +304,7 @@ def generate_grid_search(STARTS: list[str]):
             "median_init": median_init,
             "freeze_medians": freeze_medians,
             "n_hidden": n_hidden,
-            "nn_structure_multiplier": NN_STRUCTURE_MULTIPLIER,   # fixed
+            "nn_structure_multiplier": NN_STRUCTURE_MULTIPLIER,  # fixed
             "network_layout": network_layout,
             "use_layer_bias": use_layer_bias,
             "last_layer_activation": last_layer_activation,
@@ -261,33 +336,89 @@ def generate_grid_search(STARTS: list[str]):
             "job": job,
         }
         for (
-            (context, features), features_selection, features_transform, split, pretrain, median_init, freeze_medians,
-            n_hidden, network_layout,
-            use_layer_bias, last_layer_activation, nn_init_fn, reconstruct, activation_fn_name, optimiser,
-            orth_reg_strategy, l1reg_inflate, oreg_inflate, l1reg_encode, oreg_encode,
-            l1reg_inflater_output, recon_loss, symm_reg, median_reg,
-            inflater_output_reg_epoch, sparse_threshold_perc,
-            max_lrate, lrate_span, lrate_decay, warmup_fct,
-            opt_steps, opt_mult,
-            weight_decay, momentum,
-            use_simple_linear_schedule, use_early_stopping, job
+            (context, features),
+            features_selection,
+            features_transform,
+            split,
+            pretrain,
+            median_init,
+            freeze_medians,
+            n_hidden,
+            network_layout,
+            use_layer_bias,
+            last_layer_activation,
+            nn_init_fn,
+            reconstruct,
+            activation_fn_name,
+            optimiser,
+            orth_reg_strategy,
+            l1reg_inflate,
+            oreg_inflate,
+            l1reg_encode,
+            oreg_encode,
+            l1reg_inflater_output,
+            recon_loss,
+            symm_reg,
+            median_reg,
+            inflater_output_reg_epoch,
+            sparse_threshold_perc,
+            max_lrate,
+            lrate_span,
+            lrate_decay,
+            warmup_fct,
+            opt_steps,
+            opt_mult,
+            weight_decay,
+            momentum,
+            use_simple_linear_schedule,
+            use_early_stopping,
+            job,
         ) in itt.product(
-            CONTEXTS_FEATURES, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, PRETRAIN, MEDIAN_INIT, FREEZE_MEDIANS,
-            LATENT_DIMS, NETWORK_LAYOUT,
-            USE_BIAS, LAST_LAYER_ACTIVATION, NN_INIT_FN, RECONSTRUCT, ACTIVATION_FNS, OPTIMISERS,
-            ORTH_REG_STRATEGIES, ALPHAS, BETAS, GAMMAS, DELTAS,
-            OMEGAS, EPSILONS, ZETAS, ETAS,
-            INFLATER_OUTPUT_REG_EPOCHS, SPARSE_THRESH_PERCS,
-            MAX_LEARNING_RATES, LEARNING_RATE_SPANS, LEARNING_RATE_DECAYS, WARMUP_FCTS,
-            OPT_STEPS, OPT_MULT,
-            WEIGHT_DECAY, MOMENTUM,
-            LINEAR_SCHEDULE, USE_EARLY_STOP, STARTS
+            CONTEXTS_FEATURES,
+            FEATURES_SELECTION,
+            FEATURES_TRANSFORM,
+            SPLITS,
+            PRETRAIN,
+            MEDIAN_INIT,
+            FREEZE_MEDIANS,
+            LATENT_DIMS,
+            NETWORK_LAYOUT,
+            USE_BIAS,
+            LAST_LAYER_ACTIVATION,
+            NN_INIT_FN,
+            RECONSTRUCT,
+            ACTIVATION_FNS,
+            OPTIMISERS,
+            ORTH_REG_STRATEGIES,
+            ALPHAS,
+            BETAS,
+            GAMMAS,
+            DELTAS,
+            OMEGAS,
+            EPSILONS,
+            ZETAS,
+            ETAS,
+            INFLATER_OUTPUT_REG_EPOCHS,
+            SPARSE_THRESH_PERCS,
+            MAX_LEARNING_RATES,
+            LEARNING_RATE_SPANS,
+            LEARNING_RATE_DECAYS,
+            WARMUP_FCTS,
+            OPT_STEPS,
+            OPT_MULT,
+            WEIGHT_DECAY,
+            MOMENTUM,
+            LINEAR_SCHEDULE,
+            USE_EARLY_STOP,
+            STARTS,
         )
     ]
     # Unpack network layout into depth and linear_benchmark + drop network_layout key
     for grid_search_config in grid_search_configs:
         grid_search_config["depth"] = grid_search_config["network_layout"][0]
-        grid_search_config["linear_benchmark"] = grid_search_config["network_layout"][1]
+        grid_search_config["linear_benchmark"] = grid_search_config[
+            "network_layout"
+        ][1]
         grid_search_config.pop("network_layout")
         prune_config(grid_search_config)
 
@@ -304,31 +435,44 @@ def generate_grid_search(STARTS: list[str]):
     return unique_grid_search_configs
 
 
-def generate_refined_tuning_configs(STARTS: list[str], filepath: str, hps_to_tune: dict):
+def generate_refined_tuning_configs(
+    STARTS: list[str], filepath: str, hps_to_tune: dict
+):
     if not isinstance(hps_to_tune, dict):
-        raise TypeError("Hyperparameters to tune must be specified as a dictionary!")
+        raise TypeError(
+            "Hyperparameters to tune must be specified as a dictionary!"
+        )
     df = pd.read_csv(filepath)
     # Subset to test/val (want to refine runs that perform best on unseen data)
     # and drop unnecessary columns + early-stopping (to override it)
-    cols_to_drop = list(hps_to_tune.keys()) + ['Unnamed: 0', 'dataset', 'rmse mean', 'rmse std']
-    cols_to_drop = [
-        col for col in cols_to_drop if col in df.columns
+    cols_to_drop = list(hps_to_tune.keys()) + [
+        "Unnamed: 0",
+        "dataset",
+        "rmse mean",
+        "rmse std",
     ]
-    df_sub = df[df["dataset"] == "test"].drop(
-        columns=cols_to_drop
-    )
+    cols_to_drop = [col for col in cols_to_drop if col in df.columns]
+    df_sub = df[df["dataset"] == "test"].drop(columns=cols_to_drop)
     # Make sure these columns are integers
-    for column in ["n_hidden", "nn_structure_multiplier", "depth", "opt_steps", "opt_mult"]:
-        if column in df_sub.columns:  # might be one of the hps to tune - might have been dropped!
+    for column in [
+        "n_hidden",
+        "nn_structure_multiplier",
+        "depth",
+        "opt_steps",
+        "opt_mult",
+    ]:
+        if (
+            column in df_sub.columns
+        ):  # might be one of the hps to tune - might have been dropped!
             df_sub[column] = df_sub[column].astype(int)
     # Transform to dictionary
-    config_dict = df_sub.to_dict(orient='records')
+    config_dict = df_sub.to_dict(orient="records")
     # Prepare the refined hyperparameter tuning options
     hps_combinations = list(itt.product(*hps_to_tune.values()))
     # Initialise list of hyperparameter configurations
     refined_tuning_configs = []
     for config, job, split, hp_combo in itt.product(
-            config_dict, STARTS, SPLITS, hps_combinations
+        config_dict, STARTS, SPLITS, hps_combinations
     ):
         # Combine best performing configs with possible choices of hyperparameters
         refined_config = {**config, "samples": split, "job": job}
@@ -338,7 +482,9 @@ def generate_refined_tuning_configs(STARTS: list[str], filepath: str, hps_to_tun
     return refined_tuning_configs
 
 
-def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = None):
+def generate_run_configs(
+    n_starts: int, hp_run_mode: str, refine_hps: dict = None
+):
     STARTS = [str(i) for i in range(n_starts)]
     if hp_run_mode == "linear_scans":
         return generate_linear_scan(STARTS=STARTS)
@@ -347,8 +493,12 @@ def generate_run_configs(n_starts: int, hp_run_mode: str, refine_hps: dict = Non
     elif hp_run_mode == "refined_tuning":
         filepath = "EGFR_MAPK.dream_cytof.top_10_best_dmm.csv"  # TODO @GiacomoFabrini - do not hardcode this!
         if refine_hps is None:
-            raise ValueError("Hyperparameters to tune must be specified! refine_hps cannot be None!")
-        return generate_refined_tuning_configs(STARTS=STARTS, filepath=filepath, hps_to_tune=refine_hps)
+            raise ValueError(
+                "Hyperparameters to tune must be specified! refine_hps cannot be None!"
+            )
+        return generate_refined_tuning_configs(
+            STARTS=STARTS, filepath=filepath, hps_to_tune=refine_hps
+        )
     else:
         raise ValueError(f"Invalid run mode: {hp_run_mode}")
 

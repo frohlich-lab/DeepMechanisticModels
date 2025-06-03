@@ -13,20 +13,32 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
-    ("cytof_init", "elastic"),
+    # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
+    ("cytof_init", "RFE5"),
+    ("cytof_init", "RFE10"),
+    ("cytof_init", "RFE20"),
+    ("cytof_init", "RFE40"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "all"),
     # ("proteomics", "rfe"),
     # ("proteomics", "lasso"),
-    ("proteomics", "elastic"),
+    # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
+    ("proteomics", "RFE5"),
+    ("proteomics", "RFE10"),
+    ("proteomics", "RFE20"),
+    ("proteomics", "RFE40"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
-    ("transcriptomics", "elastic"),
+    # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
+    ("transcriptomics", "RFE5"),
+    ("transcriptomics", "RFE10"),
+    ("transcriptomics", "RFE20"),
+    ("transcriptomics", "RFE40"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
 )
@@ -44,10 +56,10 @@ FEATURES_TRANSFORM = {
 
 # Cross-validation splits
 SPLITS = {
-    "0of5",
-    "1of5",
-    "2of5",
-    "3of5",
+    # "0of5",
+    # "1of5",
+    # "2of5",
+    # "3of5",
     "4of5",
 }
 
@@ -63,7 +75,7 @@ MEDIAN_INIT = {
 
 # Train/freeze median kinetic parameters
 FREEZE_MEDIANS = {
-    True,
+    # True,
     False,
 }
 
@@ -85,13 +97,13 @@ FREEZE_MEDIANS = {
 LATENT_DIMS = {
     "range": (
         2,
-        3,
+        # 3,
         # 4,
         # 6,
         # 8,
-        10,
+        # 10,
     ),
-    "central_value": 3,
+    "central_value": 2,
 }
 
 # Network Layout/Architecture
@@ -100,9 +112,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 # Define network layouts for linear scans in modular fashion
 NETWORK_LAYOUT = {
     "range": (
-        # (0, "False"),
+        (0, "False"),
         # (1, "False"),
-        (2, "False"),
+        # (2, "False"),
         # (3, "False"),
         # (4, "False"),
         # (5, "False"),
@@ -164,8 +176,8 @@ ACTIVATION_FNS = (
 
 # optimiser to use
 OPTIMISERS = {
-    # "adam",
-    "adamw",
+    "adam",
+    # "adamw",
 }
 
 
@@ -282,7 +294,10 @@ DELTAS = {
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {"range": (0,), "central_value": 0}
+OMEGAS = {"range": (1e3,), "central_value": 1e3}
+
+# THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
+THETAS = {"range": (1e4,), "central_value": 1e4}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -314,7 +329,7 @@ INFLATER_OUTPUT_REG_EPOCHS = {"range": (1000,), "central_value": 1000}
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {"range": (100,), "central_value": 100}
+SPARSE_THRESH_PERCS = {"range": ("gmm",), "central_value": "gmm"}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 # MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
@@ -327,10 +342,10 @@ SPARSE_THRESH_PERCS = {"range": (100,), "central_value": 100}
 MAX_LEARNING_RATES = {
     "range": (
         # 1e-3,
-        5e-3,
-        # 1e-2,
+        # 5e-3,
+        1e-2,
     ),
-    "central_value": 5e-3,
+    "central_value": 1e-2,
 }  # increased central value by one OOM
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
@@ -341,7 +356,7 @@ MAX_LEARNING_RATES = {
 #     # 1e3,
 # }
 # Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {"range": (1e1,), "central_value": 1e1}
+LEARNING_RATE_SPANS = {"range": (1e0,), "central_value": 1e0}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 # LEARNING_RATE_DECAYS = {
@@ -353,10 +368,10 @@ LEARNING_RATE_SPANS = {"range": (1e1,), "central_value": 1e1}
 # Linear scan range for lrate_decay
 LEARNING_RATE_DECAYS = {
     "range": (
-        # 0.9**0,
-        0.9**1,
+        0.9**0,
+        # 0.9**1,
     ),
-    "central_value": 0.9**1,
+    "central_value": 0.9**0,
 }
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
@@ -369,7 +384,7 @@ LEARNING_RATE_DECAYS = {
 #     # 1e-3,
 # }
 # Linear scan range for warmup_fct
-WARMUP_FCTS = {"range": (0.1,), "central_value": 0.1}
+WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
 # OPT_STEPS = {
@@ -395,10 +410,11 @@ OPT_MULT = {"range": (1, 2, 5, 10), "central_value": 2}
 # }
 WEIGHT_DECAY = {
     "range": (
+        0.0,
         # 1e-2,
-        1e-4,
+        # 1e-4,
     ),
-    "central_value": 1e-4,
+    "central_value": 0.0,
 }
 
 # Momentum for AdamW / schedule-free AdamW
