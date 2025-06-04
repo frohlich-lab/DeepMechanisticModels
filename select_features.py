@@ -5,8 +5,8 @@ import fire
 import numpy as np
 import pandas as pd
 from sklearn.ensemble import RandomForestRegressor
-from sklearn.feature_selection import VarianceThreshold
 from sklearn.impute import KNNImputer
+from sklearn.inspection import permutation_importance
 from sklearn.model_selection import PredefinedSplit
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
@@ -30,6 +30,36 @@ class MinimalConf(dict):
     features_selection: str
 
 
+def get_feature_importances(model, X, y, method="auto"):
+    """
+    Get feature importances for RandomForest or ElasticNet/LogisticRegression models.
+
+    Parameters:
+    - model: fitted sklearn model
+    - method: 'auto', 'coef', 'tree', 'permutation'
+    - X: input features (optional, needed for permutation importance)
+    - y: target variable (optional, needed for permutation importance)
+
+    Returns:
+    - feature_importances: np.ndarray of shape (n_features,)
+    """
+    if method == "tree":
+        return model.named_steps["regressor"].feature_importances_
+
+    elif method == "permute":
+        if X is None or y is None:
+            raise ValueError(
+                "X and y must be provided for permutation importance."
+            )
+        result = permutation_importance(
+            model, X, y, n_repeats=10, random_state=42
+        )
+        return result.importances_mean
+
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+
 def get_selected_features(
     input_data,
     output_data,
@@ -41,42 +71,56 @@ def get_selected_features(
     if features == "all":
         return features_all
 
-    if features.startswith("HVG"):
-        if context in ["proteomics", "transcriptomics"]:
+    elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
+        reduce_factor = 0.80
+        # drop nans
+        input_data = input_data.dropna(axis=1, how="any")
+        if features.startswith("HVG") and context in [
+            "proteomics",
+            "transcriptomics",
+        ]:
             # remove 20% of features with lowest mean:
-            means = np.nanmean(input_data, axis=0)
+            means = np.mean(input_data, axis=0)
             threshold = np.percentile(means, 20)
             input_data = input_data.loc[:, means >= threshold]
-            input_data.dropna(axis=1, how="all", inplace=True)
+            var_threshold = sorted(
+                np.nanvar(input_data, axis=0), reverse=True
+            )[500]
+            input_data = input_data.loc[
+                :, np.nanvar(input_data, axis=0) >= var_threshold
+            ]
 
-        # Build and fit per-split preprocessor on training data only
-        n_features = int(features.replace("HVG", ""))
-        selector = VarianceThreshold(
-            threshold=sorted(np.nanvar(input_data, axis=0), reverse=True)[
-                min(n_features, input_data.shape[1] - 1)
-            ]
+        n_features = int(features.split("_")[1])
+        method = features.split("_")[2]
+        random_state = 42  # For reproducibility
+        estimator = RandomForestRegressor(
+            random_state=random_state,
+            max_features=reduce_factor,
         )
-        selector = selector.fit(input_data)
-        return selector.feature_names_in_[selector.get_support()]
-    elif features.startswith("RFE"):
-        n_features = int(features.replace("RFE", ""))
         pipeline = Pipeline(
-            [
-                ("scaler", StandardScaler()),
-                ("impute", KNNImputer()),
-                ("rf", RandomForestRegressor()),
-            ]
+            [("scaler", StandardScaler()), ("regressor", estimator)]
         )
-        while input_data.shape[1] * 0.8 > n_features:
-            pipeline.fit(input_data, output_data)
-            importances = pipeline.named_steps["rf"].feature_importances_
-            indices = np.argsort(importances)[::-1][
-                : int(np.ceil(len(importances) * 0.8))
-            ]
+        while input_data.shape[1] * reduce_factor > n_features:
+            pipeline = pipeline.fit(input_data, output_data)
+            y_pred = pipeline.predict(input_data)
+            rmse = np.sqrt(np.mean(np.square(output_data.values - y_pred)))
+            importances = get_feature_importances(
+                pipeline, input_data, output_data, method=method
+            )
+
+            n_features_target = int(np.ceil(len(importances) * reduce_factor))
+            if n_features_target == input_data.shape[1]:
+                n_features_target -= 1  # reduce by at least one feature
+            indices = np.argsort(importances)[::-1][:n_features_target]
             input_data = input_data.iloc[:, indices]
+            print(
+                f"Reduced features to: {input_data.shape[1]:>5} ({rmse:.2f})",
+            )
         # Fit the final model with the selected features
-        pipeline.fit(input_data, output_data)
-        importances = pipeline.named_steps["rf"].feature_importances_
+        pipeline = pipeline.fit(input_data, output_data)
+        importances = get_feature_importances(
+            pipeline, input_data, output_data, method=method
+        )
         indices = np.argsort(importances)[::-1][:n_features]
         return input_data.columns[indices]
 
