@@ -1,4 +1,3 @@
-import os
 from dataclasses import replace
 from pathlib import Path
 from typing import Dict, List, Tuple, Union
@@ -10,7 +9,6 @@ import joblib
 import numpy as np
 import pandas as pd
 import pypesto
-import scipy.linalg as la
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 from sklearn.pipeline import Pipeline
@@ -123,21 +121,6 @@ def process_features(
             get_features(features_filepath=filepath, datasets=datasets)
             for filepath in features_filepath
         ]
-        if conf.features_transform == "pca":
-            pipelines = [
-                joblib.load(filepath) if os.path.exists(filepath) else None
-                for filepath in pipeline_filepath
-            ]
-            features = [
-                pca_transform_features(
-                    features=subfeatures,
-                    pipeline_filepath=subpipeline_filepath,
-                    pipeline=pipeline,
-                )
-                for subfeatures, subpipeline_filepath, pipeline in zip(
-                    features, pipeline_filepath, pipelines
-                )
-            ]
         if mode == "concatenate":
             features = {
                 feature_dataset: pd.concat(
@@ -152,18 +135,7 @@ def process_features(
         features = get_features(
             features_filepath=features_filepath, datasets=datasets
         )
-
-        if conf.features_transform == "pca":
-            # Check whether pipeline has already been trained. If so, load it. If not, train it.
-            if os.path.exists(pipeline_filepath):
-                pipeline = joblib.load(pipeline_filepath)
-            else:
-                pipeline = None
-            features = pca_transform_features(
-                features, pipeline_filepath, pipeline
-            )
-        else:
-            features = impute_features(features)
+        features = impute_features(features)
     return features
 
 
@@ -406,146 +378,6 @@ def subset_features(
 
     input_features = features.loc[petab_samples, :].values
     return input_features
-
-
-def linear_nn_init(
-    conf: Conf,
-    model: DeepMechanisticModel,
-    per_sample_parameter_file: str,
-    avg_model_parameter_file: str,
-    features: Dict[str, np.ndarray],
-    dataset: str,
-    median_params_method: str,
-):
-    # Check that encoder, inflater (and potentially decoder) all have a single layer
-    # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
-    if (len(model.deep_encoder.layers) > 1) or (
-        len(model.deep_inflater.layers) > 1
-    ):
-        raise ValueError(
-            "Both encoder and inflater must be single linear layers for linear initialisation!"
-        )
-
-    if conf.features_transform == "pca":
-        # Features have already been PCA-transformed, just need to subset
-        features_pca = features[dataset][:, : model.n_latent]
-        # Initialise with all zeros
-        new_encoder_weights = jnp.zeros_like(
-            model.deep_encoder.layers[0].weight
-        )
-        # and replace upper model.n_latent * model.n_latent block with identity matrix of size model.n_latent
-        new_encoder_weights = new_encoder_weights.at[
-            : model.n_latent, : model.n_latent
-        ].set(jnp.eye(model.n_latent))
-    else:
-        # Features are pristine
-        try:
-            # fit PCA to training features
-            pca = PCA(n_components=model.n_latent).fit(features["train"])
-        except KeyError as e:
-            # "train" key not found in the features dictionary
-            raise ValueError(
-                "Training features not found in features dictionary - PCA cannot be fitted!"
-            ) from e
-        except Exception as e:
-            # any other exceptions that might occur during fitting
-            raise RuntimeError(
-                f"An error occurred while fitting the pipeline: {e}"
-            ) from e
-
-        features_pca = pca.transform(features[dataset])
-        # Compute new encoder weights with PCA components -- PREVIOUS SOLUTION
-        # This will NOT produce the first n_hidden/model.n_latent PCA-transformed features as embedding
-        # new_encoder_weights = jnp.array(
-        #     pca.components_.T.flatten()
-        # ).reshape(model.deep_encoder.layers[0].weight.shape)
-        # APPROACH 1: last squares solution
-        # new_encoder_weights = jnp.array(
-        #     la.lstsq(
-        #         features[dataset],
-        #         features_pca[:, :model.n_latent],
-        #     )[0].flatten()
-        # ).reshape(model.deep_encoder.layers[0].weight.shape)
-        # APPROACH 2: pinv -- lower numerical discrepancy between actual computed embedding, i.e.
-        # `jax.vmap(model.deep_encoder)(features[dataset])` and target `features_pca`
-        new_encoder_weights = jnp.dot(
-            jnp.linalg.pinv(features[dataset]),  # pseudo-inverse
-            features_pca,
-        ).T
-
-    model = eqx.tree_at(
-        lambda m: m.deep_encoder.layers[
-            0
-        ].weight,  # fetch weights from single layer of encoder
-        model,
-        new_encoder_weights,
-    )
-    if conf.use_layer_bias:
-        model = eqx.tree_at(
-            lambda m: m.deep_encoder.layers[
-                0
-            ].bias,  # fetch bias from single linear layer
-            model,
-            jnp.zeros_like(
-                model.deep_encoder.layers[0].bias
-            ),  # and set it to zero
-        )
-
-    # Compute target for least square initialisation of inflater weights:
-    # kinetic parameter deviation around the median
-    _, par_deviations = get_kin_params_median_deviation(
-        model=model,
-        parameter_filepath=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=median_params_method,
-        return_full_combo=False,
-    )
-
-    inputs = [
-        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
-        for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX)
-        and p.endswith(par_deviations.index[0])
-    ]
-    # Overwrite inflater weights with least squares solution
-    new_inflater_weights = jnp.array(
-        la.lstsq(
-            features_pca,  # initialisation should ensure correct number of columns (i.e. model.n_latent)
-            par_deviations[inputs].values,
-        )[0].flatten()
-    ).reshape(model.deep_inflater.layers[0].weight.shape)
-
-    model = eqx.tree_at(
-        lambda m: m.deep_inflater.layers[0].weight, model, new_inflater_weights
-    )
-    if conf.use_layer_bias:
-        model = eqx.tree_at(
-            lambda m: m.deep_inflater.layers[0].bias,
-            model,
-            jnp.zeros_like(model.deep_inflater.layers[0].bias),
-        )
-    # Overwrite decoder weights with inverse of encoder weights
-    if conf.reconstruct:
-        # initialise the decoder with the transpose of the encoder weights
-        new_decoder_weights = new_encoder_weights.T
-        if (
-            new_decoder_weights.shape
-            != model.deep_decoder.layers[0].weight.shape
-        ):
-            raise ValueError("Incorrect shape of new decoder weights!")
-        model = eqx.tree_at(
-            lambda m: m.deep_decoder.layers[0].weight,
-            model,
-            new_decoder_weights,
-        )
-        if conf.use_layer_bias:
-            model = eqx.tree_at(
-                lambda m: m.deep_decoder.layers[0].bias,
-                model,
-                jnp.zeros_like(model.deep_decoder.layers[0].bias),
-            )
-    return model
 
 
 def init_global_kin_params_combiner(
