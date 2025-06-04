@@ -197,9 +197,13 @@ def train(
         # At inflater_output_reg_epoch, update sparsity mask in the model inflated output and lift inflater output
         # regularisation to fine-tune only above threshold param dev
         if epoch == conf["inflater_output_reg_epoch"]:
-            model = model.update_sparsity_binary_mask(
+            model = model.update_output_sparsity_binary_mask(
                 x=input_features_train,
                 threshold_perc=conf["sparse_threshold_perc"]
+            )
+            # TODO - fix this update draft, depends on inputs needed to update input binary mask
+            model = model.update_input_sparsity_binary_mask(
+                x=input_features_train,
             )
         next_model, model, opt_state, loss_train, fval, grads = make_step(
             model=model,
