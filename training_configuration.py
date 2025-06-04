@@ -19,7 +19,7 @@ CONTEXTS_FEATURES = (
     ("cytof_init", "RFE10"),
     # ("cytof_init", "RFE15"),
     # ("cytof_init", "RFE20"),
-    ("cytof_init", "RFE30"),
+    # ("cytof_init", "RFE30"),
     # ("cytof_init", "RFE40"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
@@ -29,7 +29,7 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
     # ("proteomics", "RFE5"),
-    ("proteomics", "RFE10"),
+    # ("proteomics", "RFE10"),
     # ("proteomics", "RFE15"),
     ("proteomics", "RFE20"),
     # ("proteomics", "RFE30"),
@@ -40,7 +40,7 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
     # ("transcriptomics", "RFE5"),
-    ("transcriptomics", "RFE10"),
+    # ("transcriptomics", "RFE10"),
     # ("transcriptomics", "RFE15"),
     ("transcriptomics", "RFE20"),
     # ("transcriptomics", "RFE30"),
@@ -330,7 +330,7 @@ ETAS = {"range": (0,), "central_value": 0}
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {"range": (100), "central_value": 100}
+INFLATER_OUTPUT_REG_EPOCHS = {"range": (100,), "central_value": 100}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
