@@ -62,10 +62,10 @@ FEATURES_TRANSFORM = {
 
 # Cross-validation splits
 SPLITS = {
-    "0of5",
-    "1of5",
-    "2of5",
-    "3of5",
+    # "0of5",
+    # "1of5",
+    # "2of5",
+    # "3of5",
     "4of5",
 }
 
@@ -300,10 +300,10 @@ DELTAS = {
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {"range": (1e3,), "central_value": 1e3}
+OMEGAS = {"range": (1e1, 1e2, 1e3, 1e4), "central_value": 1e3}
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
-THETAS = {"range": (1e4,), "central_value": 1e4}
+THETAS = {"range": (1e2, 1e3, 1e4, 1e5, 1e6), "central_value": 1e4}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -330,7 +330,7 @@ ETAS = {"range": (0,), "central_value": 0}
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {"range": (1000, 100), "central_value": 100}
+INFLATER_OUTPUT_REG_EPOCHS = {"range": (100), "central_value": 100}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
