@@ -15,12 +15,11 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    # ("cytof_init", "RFE5"),
-    ("cytof_init", "RFE10"),
-    # ("cytof_init", "RFE15"),
-    # ("cytof_init", "RFE20"),
-    # ("cytof_init", "RFE30"),
-    # ("cytof_init", "RFE40"),
+    ("cytof_init", "RFE_5_permute"),
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_10_tree"),
+    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init", "RFE_20_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "all"),
@@ -28,37 +27,26 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    # ("proteomics", "RFE5"),
-    # ("proteomics", "RFE10"),
-    # ("proteomics", "RFE15"),
-    ("proteomics", "RFE20"),
-    # ("proteomics", "RFE30"),
-    # ("proteomics", "RFE40"),
+    ("proteomics", "HVGRFE_5_permute"),
+    ("proteomics", "HVGRFE_10_permute"),
+    ("proteomics", "HVGRFE_10_tree"),
+    ("proteomics", "RFE_10_tree"),
+    ("proteomics", "HVGRFE_15_permute"),
+    ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
-    # ("transcriptomics", "RFE5"),
-    # ("transcriptomics", "RFE10"),
-    # ("transcriptomics", "RFE15"),
-    ("transcriptomics", "RFE20"),
-    # ("transcriptomics", "RFE30"),
-    # ("transcriptomics", "RFE40"),
+    ("transcriptomics", "HVGRFE_5_permute"),
+    ("transcriptomics", "HVGRFE_10_permute"),
+    ("transcriptomics", "HVGRFE_10_tree"),
+    ("transcriptomics", "RFE_10_tree"),
+    ("transcriptomics", "HVGRFE_15_permute"),
+    ("transcriptomics", "HVGRFE_20_permute"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
 )
-
-FEATURES_SELECTION = {
-    "per_cv",  # one round of feature selection per CV split
-    # "across_cv",  # single round of feature selection across all CV splits
-}
-
-# input features transformation (e.g. PCA) -- keeps 95% variance components, uses whitening
-FEATURES_TRANSFORM = {
-    # "pca",
-    "None",
-}
 
 # Cross-validation splits
 SPLITS = {
@@ -300,10 +288,10 @@ DELTAS = {
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {"range": (1e1, 1e2, 1e3, 1e4), "central_value": 1e3}
+OMEGAS = {"range": (250, 500, 1_000, 2_000), "central_value": 1_000}
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
-THETAS = {"range": (1e2, 1e3, 1e4, 1e5, 1e6), "central_value": 1e4}
+THETAS = {"range": (2_500, 5_000, 10_000, 20_000), "central_value": 10_000}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
@@ -465,7 +453,7 @@ MIN_IMPROVEMENT = 0
 RETURN_STAT_TESTS = False
 
 # Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 1000
+N_EPOCHS = 500
 PRETRAIN_N_EPOCHS = 0
 
 # Type of run

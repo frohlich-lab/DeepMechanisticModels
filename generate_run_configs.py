@@ -12,8 +12,6 @@ from training_configuration import (
     DELTAS,
     EPSILONS,
     ETAS,
-    FEATURES_SELECTION,
-    FEATURES_TRANSFORM,
     FREEZE_MEDIANS,
     GAMMAS,
     HP_RUN_MODE,
@@ -182,8 +180,6 @@ def generate_linear_scan(STARTS: list[str]):
             hyperparam: hp_value,  # specific hyperparameter is varied within its range
             "context": context,
             "features": features,
-            "features_selection": features_selection,
-            "features_transform": features_transform,
             "samples": split,
             "pretrain": pretrain,
             "median_init": median_init,
@@ -204,8 +200,6 @@ def generate_linear_scan(STARTS: list[str]):
         for hp_value in details["range"]
         for (
             (context, features),
-            features_selection,
-            features_transform,
             split,
             pretrain,
             median_init,
@@ -222,8 +216,6 @@ def generate_linear_scan(STARTS: list[str]):
             job,
         ) in itt.product(
             CONTEXTS_FEATURES,
-            FEATURES_SELECTION,
-            FEATURES_TRANSFORM,
             SPLITS,
             PRETRAIN,
             MEDIAN_INIT,
@@ -297,8 +289,6 @@ def generate_grid_search(STARTS: list[str]):
         {
             "context": context,
             "features": features,
-            "features_selection": features_selection,
-            "features_transform": features_transform,
             "samples": split,
             "pretrain": pretrain,
             "median_init": median_init,
@@ -337,8 +327,6 @@ def generate_grid_search(STARTS: list[str]):
         }
         for (
             (context, features),
-            features_selection,
-            features_transform,
             split,
             pretrain,
             median_init,
@@ -375,8 +363,6 @@ def generate_grid_search(STARTS: list[str]):
             job,
         ) in itt.product(
             CONTEXTS_FEATURES,
-            FEATURES_SELECTION,
-            FEATURES_TRANSFORM,
             SPLITS,
             PRETRAIN,
             MEDIAN_INIT,

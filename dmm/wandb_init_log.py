@@ -85,9 +85,6 @@ def init_wandb(
         tags=[
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
-            "linear_benchmark"
-            if (conf.linear_benchmark and conf.depth == 0)
-            else "not_benchmark",
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag,  # label experiment with date of experiment start
         ],

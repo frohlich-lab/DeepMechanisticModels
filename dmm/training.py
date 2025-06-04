@@ -233,7 +233,7 @@ def train(
 
     # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
     log_epochs = generate_log_epochs(
-        n_epoch=n_epoch, num_samples=100, min_dist=5
+        n_epoch=n_epoch, num_samples=20, min_dist=10
     )  # same min_dist as before
 
     # Get median_init_arr for median regularisation

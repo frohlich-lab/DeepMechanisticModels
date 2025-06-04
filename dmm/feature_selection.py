@@ -4,9 +4,7 @@ import numpy as np
 import pandas as pd
 import petab.v1 as petab
 from sklearn.cross_decomposition import CCA, PLSRegression
-from sklearn.decomposition import PCA, SparsePCA
 from sklearn.feature_selection import (
-    RFECV,
     SelectFromModel,
     SequentialFeatureSelector,
 )
@@ -371,54 +369,7 @@ def build_preprocessor(
 
     cv = get_cv()
 
-    if preprocess.startswith(("pca", "spca")):
-        # Need to keep this computation of n_pca for SparsePCA (does not accept float as percentage of variance)
-        inputs = Pipeline(steps).fit_transform(input_data)
-        var_expl = (
-            PCA(n_components=input_data.shape[0])
-            .fit(inputs)
-            .explained_variance_ratio_
-        )
-        n_pca = np.nonzero(np.cumsum(var_expl) > 0.95)[0][0] + 1
-        if preprocess.startswith("spca"):
-            pipe = Pipeline(
-                steps
-                + [
-                    ("spca", SparsePCA(n_components=n_pca)),
-                    ("reg", LinearRegression()),
-                ]
-            )
-            grid = GridSearchCV(
-                pipe,
-                param_grid={"spca__alpha": np.logspace(-3, 3, 7)},
-                cv=cv,
-                scoring="neg_mean_squared_error",
-            )
-            grid.fit(input_data, output_data)
-            steps.append(
-                (
-                    "pca",
-                    SparsePCA(
-                        n_components=n_pca,
-                        alpha=grid.best_params_["spca__alpha"],
-                    ),
-                )
-            )
-        else:
-            steps.append(("pca", PCA(n_components=n_pca)))
-    elif preprocess == "rfe":
-        steps.append(
-            (
-                "selector",
-                RFECV(
-                    estimator=LinearRegression(),
-                    min_features_to_select=100,
-                    step=0.005,
-                    cv=cv,
-                ),
-            )
-        )
-    elif preprocess == "elastic":
+    if preprocess == "elastic":
         steps.append(
             (
                 "selector",

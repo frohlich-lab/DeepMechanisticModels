@@ -10,13 +10,13 @@ from common import (
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
     EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
-    MEASUREMENTS_FILE_RW, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
+    MEASUREMENTS_FILE, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
     CONTEXT_SET, FEATURES_SET, SafeDict
 )
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    PATHWAYS, DATASETS, FEATURES_SELECTION, FEATURES_TRANSFORM, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
 )
 
 basedir = Path(os.getcwd())
@@ -25,7 +25,7 @@ mencoder_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
 
 # Get config arguments from CLI
-N_STARTS = int(config.get("num_starts", "10"))
+N_STARTS = int(config.get("num_starts", "5"))
 STARTS = [str(i) for i in range(N_STARTS)]
 
 DATE_TAG = str(datetime.date.today())
@@ -135,54 +135,20 @@ rule pretrain_average_model:
             for arg in ('model', 'data', 'samples')
         )
 
-
-rule reweight_data:
-    input:
-        script='reweight_data.py',
-        pretraining_code=mencoder_dir / 'pretraining.py',
-        model=rules.compile_mechanistic_model.output.model,
-        data=rules.process_data.output.datafiles,
-        pretrain_per_sample=per_sample_pretraining_train
-    output:
-        data=MEASUREMENTS_FILE_RW
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+',
-        samples='[0-9]+of[0-9]+'
-    resources:
-        mem="2GB",  # OOM killed on cluster
-        runtime="1h",
-        nodes=1,
-        threads=1
-    shell:
-        'python3 {input.script} ' + ' '.join(
-            f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'samples')
-        )
-
-
 rule select_features:
     input:
         script='select_features.py',
-        data=expand(
-             rules.process_data.output.datafiles,
-                model='{model}', data='{data}',
-         ),
-        data_rw=expand(
-             rules.reweight_data.output.data,
-                model='{model}', data='{data}', samples=SPLITS,
-         )
+        data=MEASUREMENTS_FILE,
     output:
         data=[
-            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset, samples=samples))
-            for dataset, samples in itt.product(['train', 'val'], SPLITS)
+            FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset))
+            for dataset in ['train', 'val']
         ]
     wildcard_constraints:
         model='\w+',
         data='[\w\.]+',
         context='\w+',
         features = '\w+',
-        features_selection= '\w+'
     resources:
         mem="4GB",
         runtime="10h",
@@ -191,18 +157,15 @@ rule select_features:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in ('model', 'data', 'context', 'features', 'features_selection')
+            for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
 # TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
 rule estimate_parameters:
     input:
         script = 'train.py',
-        # encoder = mencoder_dir / 'encoder.py',
         training = mencoder_dir / 'training.py',
-        # autoencoder = mencoder_dir / 'autoencoder.py',
-        data=rules.process_data.output.datafiles,
-        data_rw=rules.reweight_data.output.data,
+        data=MEASUREMENTS_FILE,
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
         pretrain_per_sample=per_sample_pretraining_train,
@@ -227,7 +190,6 @@ rule estimate_parameters:
         n_hidden = '[0-9]+',
         nn_structure_multiplier = '[0-9]+',
         depth = '[0-9]+',
-        linear_benchmark = 'True|False',
         use_layer_bias = 'True|False',
         last_layer_activation = 'True|False',
         nn_init_fn = '\w+',
@@ -256,7 +218,7 @@ rule estimate_parameters:
         use_simple_linear_schedule = 'True|False',
         use_early_stopping = 'True|False',
         job = '[0-9]+'
-    retries: 1
+    retries: 3
     resources:
         mem="4GB",
         # disk="2GB",
@@ -269,9 +231,9 @@ rule estimate_parameters:
             f'--{arg}={{wildcards.{arg}}}'
             for arg in (
                 'model', 'data', 'samples', 'pretrain',
-                'context', 'features', 'features_selection', 'features_transform',
+                'context', 'features',
                 'median_init', 'freeze_medians',
-                'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
+                'n_hidden', 'nn_structure_multiplier', 'depth',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
@@ -282,37 +244,7 @@ rule estimate_parameters:
                 'use_simple_linear_schedule', 'use_early_stopping',
                 'job',
             )
-        ) + ' --threads={threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
-
-# rule collect_estimation_results:
-#     input:
-#         script='collect_estimation.py',
-#         trace=[
-#             TRAINING_OUTFILE_RESULTS.format_map(SafeDict(job=job))
-#             for job in STARTS
-#         ]
-#     output:
-#         result=COLLECTED_TRAINING_RESULTS
-#     wildcard_constraints:
-#         model='\w+',
-#         data='[\w\.]+',
-#         context='\w+',
-#         n_hidden='[0-9]+',
-#         job='[0-9]+',
-#         samples='[0-9]+_[0-9]+',
-#         l1reg_inflate='[0-9\.]+',
-#     resources:
-#         mem="8GB",
-#         runtime="1h",
-#         nodes=1,
-#         threads=1,
-#     shell:
-#         'python3 {input.script} ' + ' '.join(
-#             f'--{arg}={{wildcards.{arg}}}'
-#             for arg in ('model', 'data', 'context', 'samples', 'n_hidden', 'orth_reg_strategy',
-#                         'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode',
-#                         'features')
-#         ) + ' --n_starts={N_STARTS}'
+        ) + ' --threads={resources.threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
 
 rule evaluate_training:
     input:
@@ -335,14 +267,11 @@ rule evaluate_training:
         pretrain='True|False',
         context='\w+',
         features='\w+',
-        features_selection='\w+',
-        features_transform='\w+',
         median_init='\w+',
         freeze_medians='True|False',
         n_hidden='[0-9]+',
         nn_structure_multiplier='[0-9]+',
         depth='[0-9]+',
-        linear_benchmark='True|False',
         use_layer_bias='True|False',
         last_layer_activation='True|False',
         nn_init_fn='\w+',
@@ -383,9 +312,9 @@ rule evaluate_training:
             for arg in (
                 'model', 'data',
                 'samples', 'pretrain',
-                'context', 'features', 'features_selection', 'features_transform',
+                'context', 'features',
                 'median_init', 'freeze_medians',
-                'n_hidden', 'nn_structure_multiplier', 'depth', 'linear_benchmark',
+                'n_hidden', 'nn_structure_multiplier', 'depth',
                 'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
                 'reconstruct', 'activation_fn_name', 'optimiser',
                 'orth_reg_strategy',
@@ -433,8 +362,6 @@ rule evaluate_regressors:
              rules.select_features.output.data,
                 model='{model}', data='{data}', samples='{samples}',
                 features='{features}',
-                features_selection='{features_selection}',
-                features_transform='{features_transform}',
                 context=CONTEXT_SET,
          )  # wait for feature selection (which requires download and processing)
     output:
@@ -457,8 +384,6 @@ rule evaluate_regressors:
         data=r'[\w\.]+',
         samples='[0-9]+of[0-9]+',
         features='\w+',
-        features_selection='\w+',
-        features_transform='\w+'
     retries: 1
     resources:
         mem="8GB",
@@ -468,7 +393,7 @@ rule evaluate_regressors:
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model', 'data', 'samples', 'features', 'features_selection', 'features_transform')
+        for arg in ('model', 'data', 'samples', 'features')
         )
 
 
@@ -494,7 +419,7 @@ rule evaluate_all:
         ) + expand(
             rules.evaluate_regressors.output.csv,
             model='{model}',data='{data}', samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET, features_selection=FEATURES_SELECTION, features_transform=FEATURES_TRANSFORM,
+            features=FEATURES_SET,
         )
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         # plot=[
@@ -550,7 +475,7 @@ rule evaluate_baselines:
          ) + expand(
             rules.evaluate_regressors.output.csv,
             model=PATHWAYS, data=DATASETS, samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET, features_selection=FEATURES_SELECTION, features_transform=FEATURES_TRANSFORM,
+            features=FEATURES_SET,
          )
 
 

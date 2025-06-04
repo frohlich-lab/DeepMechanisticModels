@@ -8,9 +8,6 @@ class Conf(dict):
     data: str
     context: str = None
     features: str = None
-    features_selection: str = None
-    # Transform input features via standard scaling and PCA
-    features_transform: str = None
     samples: str = None
     pretrain: bool = False
     sample: str = None
@@ -22,7 +19,6 @@ class Conf(dict):
     n_hidden: int = 0
     nn_structure_multiplier: int = 0
     depth: int = 0
-    linear_benchmark: bool = False
     use_layer_bias: List[bool] = False
     last_layer_activation: bool = False
     nn_init_fn: str = "None"
