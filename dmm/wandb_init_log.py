@@ -12,6 +12,7 @@ from .config_options import (
     L1EREG,
     L1IREG,
     L1REG_IO,
+    L2REG_IO,
     MEDIAN_REG,
     ODREG,
     OEREG,
@@ -95,46 +96,46 @@ def init_wandb(
 
     # Define W&B metrics
     metrics = {
-        "loss": "min",
-        "fval_train": "min",
-        "fval_val": "min",
-        "integration_error": None,
-        "max_abs_par_dev": "min",  # max absolute value of parameter deviation
-        "par_dev_frob_norm": "min",  # 2-norm of parameter deviation
-        "max_abs_par_median": "min",  # max absolute value of parameter median
-        "par_median_frob_norm": "min",  # 2-norm of parameter median
+        metric: "last"
+        for metric in [
+            "loss",
+            "fval_train",
+            "fval_val",
+            "rmse_test",
+            "rmse_val",
+            "max_abs_par_dev",
+            "par_dev_frob_norm",
+            "max_abs_par_median",
+            "par_median_frob_norm",
+        ]
     }
+
     # common metrics - orthogonal regularisation + patience_counter
-    for metric in ["rmse_train", "rmse_val", OEREG, OIREG]:
+    for metric in [OEREG, OIREG]:
         metrics[metric] = "min"
-    metrics["patience_counter"] = None
-    metrics["start_rmse_val"] = None
-    metrics["final_rmse_val"] = None
+    metrics["patience_counter"] = "none"
+    metrics["start_rmse_val"] = "none"
+    metrics["final_rmse_val"] = "none"
+    metrics["integration_error"] = "none"
     # optional metrics depending on the presence of decoder head
     if model.reconstruct:
-        metrics[RECON_LOSS] = "min"
-        metrics[SYMM_LOSS] = "min"
-        metrics[ODREG] = "min"
+        metrics[RECON_LOSS] = "last"
+        metrics[SYMM_LOSS] = "last"
 
     reg_metrics = {
-        L1EREG: "min",
-        L1IREG: "min",
-        L1REG_IO: "min",
-        MEDIAN_REG: "min",
+        metric: "last"
+        for metric in [L1EREG, L1IREG, L1REG_IO, L2REG_IO, MEDIAN_REG]
     }
     # Add decoder regularisation terms if the model has a decoder head
     if model.reconstruct:
-        reg_metrics[L1DREG] = "min"
+        reg_metrics[L1DREG] = "last"
+        reg_metrics[ODREG] = "last"
 
     # Get final metrics
     metrics = {**metrics, **reg_metrics}
 
-    for metric in metrics.keys():
-        # if metric summary not specified
-        if metrics[metric] is None:
-            wandb.define_metric(metric)
-        else:
-            wandb.define_metric(metric, summary=metrics[metric])
+    for metric, summary in metrics.items():
+        wandb.define_metric(metric, summary=summary)
 
     model_modules = {
         "encoder": model.deep_encoder,

@@ -26,7 +26,7 @@ class MinimalConf(dict):
     data: str
     context: str
     features: str
-    sample: str
+    samples: str
 
 
 def get_feature_importances(model, X, y, method="auto"):
@@ -135,7 +135,7 @@ conf = fire.Fire(MinimalConf)
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
-if (conf.context == "MOSA") and ("4of5" == conf.sample):
+if (conf.context == "MOSA") and ("4of5" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
@@ -158,25 +158,25 @@ for context in conf.context.split("+"):
 
     if subconf.context == "MOSA":
         input_train, input_val, features_all = preprocess_mosa_latent(
-            subconf, samples_train[conf.sample], samples_val[conf.sample]
+            subconf, samples_train[conf.samples], samples_val[conf.samples]
         )
     else:
         input_train, features_all = load_data(
             contextualization=context,
-            samples=samples_train[conf.sample],
+            samples=samples_train[conf.samples],
             features=None,
             **petab_base_files,
         )
         input_val, _ = load_data(
             contextualization=context,
-            samples=samples_val[conf.sample],
+            samples=samples_val[conf.samples],
             features=features_all,
             **petab_base_files,
         )
 
     output_train, features_output_train = load_data(
         contextualization="cytof_dynamic",
-        samples=samples_train[conf.sample],
+        samples=samples_train[conf.samples],
         features=None,
         **petab_base_files,
     )
@@ -197,7 +197,7 @@ for context in conf.context.split("+"):
         cv=None,
     )
     print(
-        f"Selected {len(selected_features)} features for split {conf.sample} for {subconf.context}: {selected_features}"
+        f"Selected {len(selected_features)} features for split {conf.samples} for {subconf.context}: {selected_features}"
     )
 
     # Transform and save per split
@@ -208,11 +208,11 @@ for context in conf.context.split("+"):
 
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
-            dict(**subconf.__dict__, dataset=dataset, samples=conf.sample)
+            dict(**subconf.__dict__, dataset=dataset)
         )
         Path(outfile).parent.mkdir(exist_ok=True, parents=True)
         print(
-            f"Preprocessing {dataset} data for split {conf.sample} to {outfile}"
+            f"Preprocessing {dataset} data for split {conf.samples} to {outfile}"
         )
         df_inputs = pd.DataFrame(
             inputs[selected_features].values,
