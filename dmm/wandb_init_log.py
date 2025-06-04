@@ -61,7 +61,9 @@ def init_wandb(
         # v21: force selection of pERBB2 features in cytof_init + n_hidde=3 for all contexts
         # v22: new CV split (cHCC2185 -> cUACC3199), new feature selection (per_cv vs across_cv)
         # v23: new CV split, per_cv selection, no l1reg inflater or sparsity, trying n_hidden, with/without frozen medians
-        project=f"DeepMechanisticModels.v24.{conf.data}.{conf.model}",
+        # v24: new feature selection, reduce depth to 0, explore l1reg_inflater_output, sparsity, l2reg_inflater_output, feature selection, constant schedule
+        # v25: new feature selection
+        project=f"DeepMechanisticModels.v25.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
