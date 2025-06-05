@@ -15,11 +15,11 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
-    ("cytof_init", "RFE_5_permute"),
+    # ("cytof_init", "RFE_5_permute"),
     ("cytof_init", "RFE_10_permute"),
-    ("cytof_init", "RFE_10_tree"),
-    ("cytof_init", "RFE_15_permute"),
-    ("cytof_init", "RFE_20_permute"),
+    # ("cytof_init", "RFE_10_tree"),
+    # ("cytof_init", "RFE_15_permute"),
+    # ("cytof_init", "RFE_20_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "all"),
@@ -27,21 +27,21 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "lasso"),
     # ("proteomics", "elastic"),
     # ("proteomics", "sequential"),
-    ("proteomics", "HVGRFE_5_permute"),
-    ("proteomics", "HVGRFE_10_permute"),
-    ("proteomics", "HVGRFE_10_tree"),
-    ("proteomics", "RFE_10_tree"),
-    ("proteomics", "HVGRFE_15_permute"),
+    # ("proteomics", "HVGRFE_5_permute"),
+    # ("proteomics", "HVGRFE_10_permute"),
+    # ("proteomics", "HVGRFE_10_tree"),
+    # ("proteomics", "RFE_10_tree"),
+    # ("proteomics", "HVGRFE_15_permute"),
     ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
     # ("transcriptomics", "elastic"),
     # ("transcriptomics", "sequential"),
-    ("transcriptomics", "HVGRFE_5_permute"),
-    ("transcriptomics", "HVGRFE_10_permute"),
-    ("transcriptomics", "HVGRFE_10_tree"),
-    ("transcriptomics", "RFE_10_tree"),
+    # ("transcriptomics", "HVGRFE_5_permute"),
+    # ("transcriptomics", "HVGRFE_10_permute"),
+    # ("transcriptomics", "HVGRFE_10_tree"),
+    # ("transcriptomics", "RFE_10_tree"),
     ("transcriptomics", "HVGRFE_15_permute"),
     ("transcriptomics", "HVGRFE_20_permute"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
@@ -50,10 +50,10 @@ CONTEXTS_FEATURES = (
 
 # Cross-validation splits
 SPLITS = {
-    # "0of5",
-    # "1of5",
-    # "2of5",
-    # "3of5",
+    "0of5",
+    "1of5",
+    "2of5",
+    "3of5",
     "4of5",
 }
 
@@ -288,10 +288,16 @@ DELTAS = {
 # OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-OMEGAS = {"range": (250, 500, 1_000, 2_000), "central_value": 1_000}
+OMEGAS = {
+    "range": (62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "central_value": 1_000,
+}
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
-THETAS = {"range": (2_500, 5_000, 10_000, 20_000), "central_value": 10_000}
+THETAS = {
+    "range": (625, 1_250, 2_500, 5_000, 10_000, 20_000, 40_000, 80_000),
+    "central_value": 10_000,
+}
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 # EPSILONS = (
