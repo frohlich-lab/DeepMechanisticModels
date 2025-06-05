@@ -295,8 +295,8 @@ OMEGAS = {
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (625, 1_250, 2_500, 5_000, 10_000, 20_000, 40_000, 80_000),
-    "central_value": 10_000,
+    "range": (0, 625, 1_250, 2_500, 5_000, 10_000, 20_000, 40_000, 80_000),
+    "central_value": 0,
 }
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
