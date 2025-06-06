@@ -1,3 +1,5 @@
+from typing import Dict
+
 import numpy as np
 import pandas as pd
 import pypesto
@@ -6,7 +8,6 @@ import scipy.linalg as la
 from common import (
     CONDITIONS_FILE,
     MEASUREMENTS_FILE,
-    MEASUREMENTS_FILE_RW,
     MODEL_FEATURE_PREFIX,
     OBSERVABLES_FILE,
     PER_SAMPLE_OUTFILE_PARS,
@@ -14,12 +15,9 @@ from common import (
 from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
-from typing import Dict
 
 
-def load_petab_base_files(
-    conf: Conf, reweight=False
-) -> Dict[str, pd.DataFrame]:
+def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
     return {
         label: pd.read_csv(
             file.format(**conf.__dict__),
@@ -27,10 +25,7 @@ def load_petab_base_files(
             sep="\t",
         )
         for label, file in (
-            (
-                "measurement_table",
-                MEASUREMENTS_FILE_RW if reweight else MEASUREMENTS_FILE,
-            ),
+            ("measurement_table", MEASUREMENTS_FILE),
             ("condition_table", CONDITIONS_FILE),
             ("observable_table", OBSERVABLES_FILE),
         )
@@ -101,7 +96,7 @@ def generate_startpoint(
     for sample in model.sample_names:
         df = pd.read_csv(
             PER_SAMPLE_OUTFILE_PARS.format(
-                **{**conf.__dict__, **dict(sample=sample)}
+                **{**conf.__dict__, "sample": sample}
             ),
             index_col=[0],
         )
@@ -154,7 +149,8 @@ def generate_startpoint(
     inputs = [
         "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
         for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_combo.index[0])
+        if p.startswith(MODEL_FEATURE_PREFIX)
+        and p.endswith(par_combo.index[0])
     ]
 
     # Background: Kunin et al. 2019, arXiv:1901.08168 [cs.LG]

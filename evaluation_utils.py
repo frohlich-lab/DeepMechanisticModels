@@ -1,44 +1,52 @@
 import itertools as itt
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
+
 import jax.numpy as jnp
 import numpy as np
-import os
 import pandas as pd
 import petab.v1 as petab
-
 from amici.petab_objective import rdatas_to_simulation_df
+from jax import vmap
+from scipy.sparse.csgraph import connected_components
+from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.metrics import silhouette_samples, silhouette_score
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.neighbors import kneighbors_graph
+from sklearn.preprocessing import StandardScaler
+
 from common import (
-    default_attributes,
-    evaluations_dir,
-    hardest_cell_lines,
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
     REGRESSION_MODES,
     TRAINED_BEST_MODELS,
     Wildcards,
+    default_attributes,
+    evaluations_dir,
+    hardest_cell_lines,
     test_samples,
     training_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.config_options import Conf
 from dmm.dmm_autoencoder_eqx import DeepMechanisticModel
-from dmm.initialisation import get_features, pca_transform_features, impute_features
+from dmm.initialisation import (
+    get_features,
+    impute_features,
+)
 from dmm.petab_subproblem import load_petab
-from dmm.pretraining import generate_average_pretraining_problem, generate_per_sample_pretraining_problems
+from dmm.pretraining import (
+    generate_average_pretraining_problem,
+    generate_per_sample_pretraining_problems,
+)
 from dmm.training_helper_funcs import create_pypesto_problem
-from evaluation_plotting import random_forest_importance_plot, plot_rmse_val_cell_lines
-from jax import vmap
-from joblib import load
-from pathlib import Path
-from scipy.sparse.csgraph import connected_components
-from sklearn.decomposition import PCA
-from sklearn.ensemble import RandomForestRegressor
-from sklearn.metrics import silhouette_score, silhouette_samples
-from sklearn.metrics.pairwise import cosine_similarity
-from sklearn.neighbors import kneighbors_graph
-from sklearn.preprocessing import StandardScaler
+from evaluation_plotting import (
+    plot_rmse_val_cell_lines,
+    random_forest_importance_plot,
+)
 from stat_test import statistical_significance_test
 from training_configuration import HP_RUN_MODE, N_ENSEMBLE_MEMBERS, SPLITS
-from typing import Dict, List, Tuple, Any, Union
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -55,21 +63,24 @@ def get_measurements_and_obervables(conf: Conf):
 
 
 def load_model_and_obj(
-        conf: Conf, petab_base_files: Dict[str, pd.DataFrame], dataset: str, num_ensemble_members: int
+    conf: Conf,
+    petab_base_files: Dict[str, pd.DataFrame],
+    dataset: str,
+    num_ensemble_members: int,
 ) -> tuple[list[DeepMechanisticModel], Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
     # Define filepaths for serialized models -- need to be formatted for ensemble_id
     trained_model_file = TRAINED_BEST_MODELS.format(
-        **{**conf.__dict__, **dict(ensemble_id="{ensemble_id}")}
+        **{**conf.__dict__, **{"ensemble_id": "{ensemble_id}"}}
     )
 
     models = []
-    for ensemble_id in range(
-            min(num_ensemble_members, N_ENSEMBLE_MEMBERS)
-    ):
-        ensemble_member_file = Path(trained_model_file.format(ensemble_id=ensemble_id))
+    for ensemble_id in range(min(num_ensemble_members, N_ENSEMBLE_MEMBERS)):
+        ensemble_member_file = Path(
+            trained_model_file.format(ensemble_id=ensemble_id)
+        )
 
         # Load ensemble member model
         model = DeepMechanisticModel.load(
@@ -87,11 +98,11 @@ def load_model_and_obj(
 
 
 def process_per_sample_pretrain(
-        sample: str,
-        problem,
-        conf: Conf,
-        indir,
-        petab_base_files: Dict[str, pd.DataFrame]
+    sample: str,
+    problem,
+    conf: Conf,
+    indir,
+    petab_base_files: Dict[str, pd.DataFrame],
 ):
     rfile = indir / f"{sample}.csv"
     if not rfile.exists():
@@ -134,10 +145,10 @@ def process_per_sample_pretrain(
 
 
 def simulate_avg_model(
-        conf: Conf,
-        indir,
-        petab_base_files: Dict[str, pd.DataFrame],
-        dataset: str,
+    conf: Conf,
+    indir,
+    petab_base_files: Dict[str, pd.DataFrame],
+    dataset: str,
 ) -> pd.DataFrame:
     problem = CytofProblem(conf.model)
     rfile = indir / f"model_average_{conf.samples}.csv"
@@ -162,7 +173,7 @@ def simulate_avg_model(
 
     ress = []
     fvals = []
-    for ipar in range(len(df)):
+    for _ipar in range(len(df)):
         x = problem_sample.get_reduced_vector(
             df.values[0, :], problem_sample.x_free_indices
         )
@@ -180,10 +191,7 @@ def simulate_avg_model(
 
 
 def process_avg_model_simulation(
-        avg_model: pd.DataFrame,
-        df_meas: pd.DataFrame,
-        dataset: str,
-        samples: dict
+    avg_model: pd.DataFrame, df_meas: pd.DataFrame, dataset: str, samples: dict
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     avg_model[petab.SIMULATION_CONDITION_ID] = df_meas[
         petab.SIMULATION_CONDITION_ID
@@ -201,12 +209,12 @@ def process_avg_model_simulation(
 
 
 def get_embedding_and_params_df(
-        dmm_model: DeepMechanisticModel,
-        input_features: Union[np.ndarray, jnp.ndarray],
-        context: str,
-        split: str,
-        dataset: str,
-        job: int,
+    dmm_model: DeepMechanisticModel,
+    input_features: Union[np.ndarray, jnp.ndarray],
+    context: str,
+    split: str,
+    dataset: str,
+    job: int,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
     temp_latent_embeddings = vmap(dmm_model.deep_encoder)(input_features)
@@ -220,7 +228,8 @@ def get_embedding_and_params_df(
 
     # Get cell-line specific kinetic parameter names for dataframe column names
     specific_param_names = [
-        param.replace("MED_", "") for param in dmm_model.pypesto_subproblem.x_names
+        param.replace("MED_", "")
+        for param in dmm_model.pypesto_subproblem.x_names
         if "MED" in param
     ]
 
@@ -228,13 +237,12 @@ def get_embedding_and_params_df(
     param_deviations_df = pd.DataFrame(
         {
             "cell_line": dmm_model.sample_name_list,
-            **{
-                key: value
-                for key, value in zip(
+            **dict(
+                zip(
                     specific_param_names,
-                    vmap(dmm_model)(input_features)["inflated"].T
+                    vmap(dmm_model)(input_features)["inflated"].T,
                 )
-            },
+            ),
         }
     ).assign(context=context, samples=split, dataset=dataset, job=job)
 
@@ -242,14 +250,17 @@ def get_embedding_and_params_df(
     params_df = pd.DataFrame(
         {
             "cell_line": dmm_model.sample_name_list,
-            **{
-                key: value
-                for key, value in zip(
+            **dict(
+                zip(
                     specific_param_names,
-                    (vmap(dmm_model)(input_features)["inflated"] +
-                     dmm_model.kin_params_combiner.learned_global_kin_params[:len(specific_param_names)]).T
+                    (
+                        vmap(dmm_model)(input_features)["inflated"]
+                        + dmm_model.kin_params_combiner.learned_global_kin_params[
+                            : len(specific_param_names)
+                        ]
+                    ).T,
                 )
-            },
+            ),
         }
     ).assign(context=context, samples=split, dataset=dataset, job=job)
     return latent_embeddings_df, param_deviations_df, params_df
@@ -284,7 +295,8 @@ def pca_latent_embeddings(
     for samples, sub_df in le_df.groupby("samples"):
         # Remove "job" key from each dictionary
         unique_configs = {
-            frozenset({k: v for k, v in d.items() if k != 'job'}.items()) for d in hyperparam_configs[samples]
+            frozenset({k: v for k, v in d.items() if k != "job"}.items())
+            for d in hyperparam_configs[samples]
         }
 
         # Convert back to list of dicts
@@ -292,28 +304,45 @@ def pca_latent_embeddings(
         for config in unique_configs:
             # Apply filtering using a vectorized mask
             mask = np.all(
-                [sub_df[key] == value for key, value in config.items() if key != "job"],  # keep all multistarts
-                axis=0
+                [
+                    sub_df[key] == value
+                    for key, value in config.items()
+                    if key != "job"
+                ],  # keep all multistarts
+                axis=0,
             )
             filtered_df = sub_df[mask].copy()
-            dataset_mapping = (filtered_df[["cell_line", "dataset"]]
-                               .iloc[:filtered_df.cell_line.nunique()]
-                               .set_index("cell_line").to_dict())
+            dataset_mapping = (
+                filtered_df[["cell_line", "dataset"]]
+                .iloc[: filtered_df.cell_line.nunique()]
+                .set_index("cell_line")
+                .to_dict()
+            )
 
             # Check filtered_df is not empty - if empty, skip
             if filtered_df.empty:
                 continue
 
             # Get latent embeddings
-            les = filtered_df[["cell_line", "L1", "L2", "job"]].set_index("cell_line")
-            les_pivot = les.set_index('job', append=True).unstack('job')
-            les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
+            les = filtered_df[["cell_line", "L1", "L2", "job"]].set_index(
+                "cell_line"
+            )
+            les_pivot = les.set_index("job", append=True).unstack("job")
+            les_pivot.columns = [
+                f"{col[0]}_{col[1]}" for col in les_pivot.columns
+            ]
 
             all_job_les = les_pivot.values
 
             # Center and scale if necessary
-            if center != "auto":  # auto: centering automatically performed by PCA
-                all_job_les -= all_job_les.mean(axis=0) if center_method == "mean" else np.median(all_job_les, axis=0)
+            if (
+                center != "auto"
+            ):  # auto: centering automatically performed by PCA
+                all_job_les -= (
+                    all_job_les.mean(axis=0)
+                    if center_method == "mean"
+                    else np.median(all_job_les, axis=0)
+                )
             if scale:
                 all_job_les = StandardScaler().fit_transform(all_job_les)
             # Get 2D PCA to try and remove potential rotations between multistart embeddings
@@ -321,25 +350,23 @@ def pca_latent_embeddings(
             les_pca = pca.fit_transform(all_job_les)
             # Append to growing list of processed DataFrames
             temp_df = pd.DataFrame(
-                    index=les_pivot.index,
-                    data=les_pca,
-                    columns=["L1", "L2"]
-                ).assign(
-                    **{key: value for key, value in config.items() if key!="job"},
-                    variance_explained=pca.explained_variance_ratio_.sum()  # keep info on explained variance to compare across regularisation strengths
-                )
-            temp_df["dataset"] = temp_df.index.map(dataset_mapping["dataset"])
-            pca_dfs.append(
-                temp_df
+                index=les_pivot.index, data=les_pca, columns=["L1", "L2"]
+            ).assign(
+                **{
+                    key: value for key, value in config.items() if key != "job"
+                },
+                variance_explained=pca.explained_variance_ratio_.sum(),  # keep info on explained variance to compare across regularisation strengths
             )
+            temp_df["dataset"] = temp_df.index.map(dataset_mapping["dataset"])
+            pca_dfs.append(temp_df)
 
     # Concatenate all processed DataFrames
     return pd.concat(pca_dfs)
 
 
 def cosine_similarity_embeddings(
-        pca_le_df: pd.DataFrame,
-        hyperparam_configs: dict,
+    pca_le_df: pd.DataFrame,
+    hyperparam_configs: dict,
 ) -> pd.DataFrame:
     # # Pairwise comparison within same configuration, different multistarts/jobs
     # job_results_dfs = []
@@ -385,43 +412,68 @@ def cosine_similarity_embeddings(
     val_pca_le_df = pca_le_df.copy()
     if "cell_line" not in val_pca_le_df.columns:
         val_pca_le_df.reset_index(inplace=True)
-    val_pca_le_df = val_pca_le_df[val_pca_le_df.cell_line.isin(hardest_cell_lines)]
+    val_pca_le_df = val_pca_le_df[
+        val_pca_le_df.cell_line.isin(hardest_cell_lines)
+    ]
     # Step 2: Find cell lines that appear in both train and test datasets
     # TODO @GiacomoFabrini replace with subsetting to hardest_cell_lines corresponding to investigated CV-splits -- easier!
     valid_cell_lines = (
-        val_pca_le_df.groupby('cell_line')['dataset']
-        .apply(lambda x: set(x) == {'train', 'test'})
+        val_pca_le_df.groupby("cell_line")["dataset"]
+        .apply(lambda x: set(x) == {"train", "test"})
         .loc[lambda x: x]  # Keep only True values
         .index
     )
     if valid_cell_lines.empty:
         return pd.DataFrame()
     # Step 3: Keep only rows where cell_line is in valid_cell_lines
-    val_pca_le_df = val_pca_le_df[val_pca_le_df.cell_line.isin(valid_cell_lines)]
+    val_pca_le_df = val_pca_le_df[
+        val_pca_le_df.cell_line.isin(valid_cell_lines)
+    ]
     # Step 4: For each configuration and cell-line, compute cosine similarities between the CV split where
     # the cell-line is in validation and those where it is in training and average
     cosine_results = []
 
     # TODO if analysing top_n (top_10) different CV splits (and dataset) will not have consistent job numbering -- cannot order by jobs and rather have to compute all similarities
     # Group by configuration, job, and cell_line to process each group separately
-    group_cols = [col for col in val_pca_le_df.columns if col not in ['L1', 'L2', 'samples', 'dataset', 'job', 'variance_explained']]
+    group_cols = [
+        col
+        for col in val_pca_le_df.columns
+        if col
+        not in ["L1", "L2", "samples", "dataset", "job", "variance_explained"]
+    ]
     for (group_params), group in val_pca_le_df.groupby(group_cols):
         # Split into train and test subsets
-        train_subset = group[group['dataset'] == 'train'][["L1", "L2"]].values
-        test_subset = group[group['dataset'] == 'test'][["L1", "L2"]].values
+        train_subset = group[group["dataset"] == "train"][["L1", "L2"]].values
+        test_subset = group[group["dataset"] == "test"][["L1", "L2"]].values
         # Compute cosine similarity between train and test subsets
         similarity = cosine_similarity(train_subset, test_subset).mean()
         # Store the result
-        cosine_results.append({**dict(zip(group_cols, group_params)), 'cosine_similarity': similarity})
+        cosine_results.append(
+            {
+                **dict(zip(group_cols, group_params)),
+                "cosine_similarity": similarity,
+            }
+        )
 
     # Step 5: create dataframe where each configuration has associated mean + list of CV split cosine similarities
-    cosine_df = pd.DataFrame(cosine_results).sort_values(by="cell_line") # ensure consistent ordering of CV splits
+    cosine_df = pd.DataFrame(cosine_results).sort_values(
+        by="cell_line"
+    )  # ensure consistent ordering of CV splits
     # Group by config and job to compute the mean cosine similarity across cell lines
     cosine_summary_df = (
-        cosine_df.groupby([col for col in group_cols if col != "cell_line"])['cosine_similarity']
-        .agg(['mean', list])  # Compute mean and keep list of all cosine similarities
+        cosine_df.groupby([col for col in group_cols if col != "cell_line"])[
+            "cosine_similarity"
+        ]
+        .agg(
+            ["mean", list]
+        )  # Compute mean and keep list of all cosine similarities
         .reset_index()
-        .rename(columns={'mean': 'mean_cosine_similarity', 'list': 'cv_split_cosine_similarities'})
+        .rename(
+            columns={
+                "mean": "mean_cosine_similarity",
+                "list": "cv_split_cosine_similarities",
+            }
+        )
         # .sort_values(by=["job"])  # ensures consistent ordering of jobs prior to operation below, not needed for top10
     )
     # REMOVED LAST STEP AS IT IS NOT NECESSARY WHEN ANALYSING TOP 10 JOBS (UNPAIRED)
@@ -441,13 +493,17 @@ def cosine_similarity_embeddings(
 
 
 def silhouette_embeddings(
-        pca_le_df: pd.DataFrame,
-        hyperparam_configs: dict,
+    pca_le_df: pd.DataFrame,
+    hyperparam_configs: dict,
 ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]]:
     # Obtain unique subconfigurations (excluding job & CV-split info)
     config_dfs = []
     for samples in hyperparam_configs.keys():
-        config_dfs.append(pd.DataFrame(hyperparam_configs[samples]).drop(columns=["job", "samples"]).drop_duplicates())
+        config_dfs.append(
+            pd.DataFrame(hyperparam_configs[samples])
+            .drop(columns=["job", "samples"])
+            .drop_duplicates()
+        )
     config_df = pd.concat(config_dfs, ignore_index=True).drop_duplicates()
     subconfigs = config_df.to_dict(orient="records")
 
@@ -485,7 +541,7 @@ def silhouette_embeddings(
             # Apply filtering using a vectorized mask
             mask = np.all(
                 [sub_df[key] == value for key, value in subconfig.items()],
-                axis=0
+                axis=0,
             )
             if sub_df[mask].empty:
                 continue  # skip missing subconfigs
@@ -504,9 +560,15 @@ def silhouette_embeddings(
             cv_results.append(
                 pd.DataFrame([subconfig]).assign(
                     cell_line=cell_line,
-                    mean_silhouette_score=silhouette_score(embeddings, dataset_labels),
-                    stddev_silhouette_score=np.std(silhouette_samples(embeddings, dataset_labels)),
-                    all_scores=[silhouette_samples(embeddings, dataset_labels)]
+                    mean_silhouette_score=silhouette_score(
+                        embeddings, dataset_labels
+                    ),
+                    stddev_silhouette_score=np.std(
+                        silhouette_samples(embeddings, dataset_labels)
+                    ),
+                    all_scores=[
+                        silhouette_samples(embeddings, dataset_labels)
+                    ],
                 )
             )
     return (
@@ -517,15 +579,21 @@ def silhouette_embeddings(
 
 
 def connectivity_score(
-        pca_le_df: pd.DataFrame,
-        hyperparam_configs: dict,
+    pca_le_df: pd.DataFrame,
+    hyperparam_configs: dict,
 ) -> Union[pd.DataFrame, tuple[pd.DataFrame, pd.DataFrame]]:
     # Obtain unique subconfigurations (excluding job & CV-split info)
     config_dfs = [
-        pd.DataFrame(hyperparam_configs[samples]).drop(columns=["job", "samples"]).drop_duplicates()
+        pd.DataFrame(hyperparam_configs[samples])
+        .drop(columns=["job", "samples"])
+        .drop_duplicates()
         for samples in hyperparam_configs.keys()
     ]
-    subconfigs = pd.concat(config_dfs, ignore_index=True).drop_duplicates().to_dict(orient="records")
+    subconfigs = (
+        pd.concat(config_dfs, ignore_index=True)
+        .drop_duplicates()
+        .to_dict(orient="records")
+    )
 
     # job_results = []
     cv_results = []
@@ -533,40 +601,52 @@ def connectivity_score(
         # Apply filtering using a vectorized mask
         mask = np.all(
             [pca_le_df[key] == value for key, value in subconfig.items()],
-            axis=0
+            axis=0,
         )
-        for cell_line in pca_le_df[mask][pca_le_df[mask].dataset == "test"].cell_line.unique():
+        for cell_line in pca_le_df[mask][
+            pca_le_df[mask].dataset == "test"
+        ].cell_line.unique():
             sub_df = pca_le_df[mask & (pca_le_df.cell_line == cell_line)]
             for attribute, num_neighbours, results in zip(
-                    [
-                        # "job",
-                        "samples"
-                    ], [
-                        # sub_df.samples.nunique(),
-                        10,  # number of top multistarts per configuration
-                    ], [
-                        # job_results,
-                        cv_results
-                    ]
+                [
+                    # "job",
+                    "samples"
+                ],
+                [
+                    # sub_df.samples.nunique(),
+                    10,  # number of top multistarts per configuration
+                ],
+                [
+                    # job_results,
+                    cv_results
+                ],
             ):
                 # Build KNN graph on whole configuration set based on embeddings (L1, L2)
                 knn_graph = kneighbors_graph(
                     sub_df[["L1", "L2"]],
                     n_neighbors=num_neighbours,  # having trouble finding a good value for this! Intuitively, I would choose num_samples for job-wise, and num_jobs for split-wise
-                    mode='connectivity'
+                    mode="connectivity",
                 )
                 for attribute_value in sub_df[attribute].unique():
                     # Extract job/CV-split specific subgraph
                     attribute_mask = sub_df[attribute] == attribute_value
                     knn_subgraph = knn_graph[attribute_mask][:, attribute_mask]
                     # Get largest connected component size
-                    n_components, labels = connected_components(knn_subgraph, directed=False)
+                    n_components, labels = connected_components(
+                        knn_subgraph, directed=False
+                    )
                     largest_component_size = np.max(np.bincount(labels))
                     # Compute connectivity score
-                    connectivity_score = largest_component_size/np.sum(attribute_mask)
+                    connectivity_score = largest_component_size / np.sum(
+                        attribute_mask
+                    )
                     results.append(
                         pd.DataFrame([subconfig]).assign(
-                            **{"cell_line": cell_line, f"{attribute}": attribute_value, "connectivity_score": connectivity_score}
+                            **{
+                                "cell_line": cell_line,
+                                f"{attribute}": attribute_value,
+                                "connectivity_score": connectivity_score,
+                            }
                         )
                     )
 
@@ -576,7 +656,9 @@ def connectivity_score(
     )
 
 
-def train_rf_features_to_rmse(dmm_results: pd.DataFrame, conf, num_top_features: int = 10):
+def train_rf_features_to_rmse(
+    dmm_results: pd.DataFrame, conf, num_top_features: int = 10
+):
     # Drop Infs & NaNs (incompatible with RandomForestRegressor)
     dmm_results = dmm_results.replace([np.inf, -np.inf], np.nan).dropna()
     # Get targets
@@ -595,8 +677,12 @@ def train_rf_features_to_rmse(dmm_results: pd.DataFrame, conf, num_top_features:
     results_dfs = {
         dataset: pd.DataFrame(
             {
-                "importances":regressor.feature_importances_[regressor.feature_importances_.argsort()][::-1][:num_top_features],
-                "features": reg_features.columns[regressor.feature_importances_.argsort()][::-1][:num_top_features],
+                "importances": regressor.feature_importances_[
+                    regressor.feature_importances_.argsort()
+                ][::-1][:num_top_features],
+                "features": reg_features.columns[
+                    regressor.feature_importances_.argsort()
+                ][::-1][:num_top_features],
             }
         )
         for dataset, regressor in zip(["train", "val"], [rfr_train, rfr_val])
@@ -605,65 +691,88 @@ def train_rf_features_to_rmse(dmm_results: pd.DataFrame, conf, num_top_features:
 
 
 def convert_dataframe_dtypes(df: pd.DataFrame):
-    cols = ["n_hidden", "depth", "nn_structure_multiplier",
-            "inflater_output_reg_epoch",
-            "opt_steps", "opt_mult",
-            "job"]
+    cols = [
+        "n_hidden",
+        "depth",
+        "nn_structure_multiplier",
+        "inflater_output_reg_epoch",
+        "opt_steps",
+        "opt_mult",
+        "job",
+    ]
     for col in cols:
-        df[col] = pd.to_numeric(df[col], downcast='integer')
-    additional_cols = ["l1reg_encode", "oreg_encode",  # encoder
-            "l1reg_inflate", "oreg_inflate", "l1reg_inflater_output", # inflater
-            "recon_loss", "symm_reg",  # decoder / reconstruction
-            "median_reg",  # kinetic params median regularisation
-            "opt_steps", "opt_mult", "momentum"  # parameters that can be pruned by generate_run_configs
+        df[col] = pd.to_numeric(df[col], downcast="integer")
+    additional_cols = [
+        "l1reg_encode",
+        "oreg_encode",  # encoder
+        "l1reg_inflate",
+        "oreg_inflate",
+        "l1reg_inflater_output",  # inflater
+        "recon_loss",
+        "symm_reg",  # decoder / reconstruction
+        "median_reg",  # kinetic params median regularisation
+        "opt_steps",
+        "opt_mult",
+        "momentum",  # parameters that can be pruned by generate_run_configs
     ]
     for col in additional_cols:
         if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
-            df[col] = pd.to_numeric(df[col], downcast='integer')
+            df[col] = pd.to_numeric(df[col], downcast="integer")
         else:
             df[col] = df[col].astype("float")
-    for col in ["pretrain", "linear_benchmark", "use_layer_bias", "last_layer_activation"]:
+    for col in [
+        "pretrain",
+        "use_layer_bias",
+        "last_layer_activation",
+    ]:
         df[col] = df[col].astype(str)
-    for col in ["reconstruct", "use_simple_linear_schedule", "use_early_stopping"]:
+    for col in [
+        "reconstruct",
+        "use_simple_linear_schedule",
+        "use_early_stopping",
+    ]:
         df[col] = df[col].astype(bool)
     return df
 
 
 def get_best_regressor(
-        dataframe: pd.DataFrame,
-        group_attributes: List,
-        target_attribute='rmse',
+    dataframe: pd.DataFrame,
+    group_attributes: List,
+    target_attribute="rmse",
 ) -> pd.DataFrame:
     """
     Returns a pd.DataFrame with the best performing regressor on each context (cytof_init, proteomics,
     transcriptomics) / dataset (train/val) pair.
     """
-    min_rmse = dataframe.reset_index().groupby(
-        group_attributes
-    )[target_attribute].min().reset_index()
+    min_rmse = (
+        dataframe.reset_index()
+        .groupby(group_attributes)[target_attribute]
+        .min()
+        .reset_index()
+    )
     best_regressor_df = dataframe.merge(
         min_rmse[["context", "dataset", target_attribute]],
-        on=['context', 'dataset', target_attribute]
+        on=["context", "dataset", target_attribute],
     )
     return best_regressor_df
 
 
 def aggregate_and_log(
-        df: pd.DataFrame,
-        conf: Conf,
-        top_reg_param: str,
-        return_stat_tests: bool,
-        num_best: int = 10
+    df: pd.DataFrame,
+    conf: Conf,
+    top_reg_param: str,
+    return_stat_tests: bool,
+    num_best: int = 10,
 ):
     # Define aggregation groups for DMM and refs
     gbs_dmm = ["dataset", "ref"] + default_attributes
     gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
     gbs_refs = ["dataset", "context", "samples", "ref"]
-    # Replace missing values in features_transform (None instead of nan)
-    df["features_transform"] = df["features_transform"].replace(np.nan, "None")
 
     temp_dfs = []
-    for ref_subset, group_cols in zip(["DMM", "DMM_CL", "refs"], [gbs_dmm, gbs_dmm_cl, gbs_refs]):
+    for ref_subset, group_cols in zip(
+        ["DMM", "DMM_CL", "refs"], [gbs_dmm, gbs_dmm_cl, gbs_refs]
+    ):
         if ref_subset != "DMM_CL":
             if ref_subset == "DMM":
                 subset_df = df[df.ref == "DMM"]
@@ -703,21 +812,34 @@ def aggregate_and_log(
         # Prepare statistical test dataframe
         # Create pivot table for statistical testing
         cols = [
-            'dataset', 'context', 'features', 'ref',
-            'n_hidden', 'orth_reg_strategy',
-            'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode'
+            "dataset",
+            "context",
+            "features",
+            "ref",
+            "n_hidden",
+            "orth_reg_strategy",
+            "l1reg_inflate",
+            "oreg_inflate",
+            "l1reg_encode",
+            "oreg_encode",
         ]
         # pivot table and create one column per cross-validation split and multistart/job
-        pivot_data = data.pivot_table(index=cols, columns=['samples', 'job'], values='rmse')
+        pivot_data = data.pivot_table(
+            index=cols, columns=["samples", "job"], values="rmse"
+        )
         pivot_data = pivot_data.reset_index()
         # Create list of the MultiIndex RMSE columns created above
-        JOBS = tuple([i for i in range(conf.n_starts)])
-        multiindex_rmse_cols = [(sample, job) for sample in SPLITS for job in JOBS]
+        JOBS = tuple(range(conf.n_starts))
+        multiindex_rmse_cols = [
+            (sample, job) for sample in SPLITS for job in JOBS
+        ]
         # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns
-        pivot_data['rmse_list'] = pivot_data.apply(lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
-                                                   axis=1)
+        pivot_data["rmse_list"] = pivot_data.apply(
+            lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
+            axis=1,
+        )
         # Add the newly created column to the list of columns to be kept (cols)
-        cols += ['rmse_list']
+        cols += ["rmse_list"]
         # Subset the pivot table and reduce MultiIndex back to single-level index
         data_stat_tests = pivot_data[cols]
         data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
@@ -728,47 +850,63 @@ def aggregate_and_log(
     # Get the best regressor for each context/dataset pair
     best_regressors = get_best_regressor(
         dataframe=data[data.ref.isin(REGRESSION_MODES)],
-        group_attributes=['dataset', 'context'],
-        target_attribute='rmse',
+        group_attributes=["dataset", "context"],
+        target_attribute="rmse",
     )
     print("Computed best regressor for each context/dataset pair.")
 
     # Combine train/val RMSE results for regressors and baselines
     nodmm_results = {
-        dataset: (data[(data.dataset == dataset) & (~data.ref.isin(['DMM']))]
-                  .drop(columns=['dataset']))
-        for dataset in ['train', 'test']
+        dataset: (
+            data[(data.dataset == dataset) & (~data.ref.isin(["DMM"]))].drop(
+                columns=["dataset"]
+            )
+        )
+        for dataset in ["train", "test"]
     }
     unified_nodmm_results = pd.merge(
-        nodmm_results['train'],
-        nodmm_results['test'],
+        nodmm_results["train"],
+        nodmm_results["test"],
         how="inner",
-        on=list(data.columns.difference(['rmse', 'dataset'])),
-        suffixes=('_train', '_test')
+        on=list(data.columns.difference(["rmse", "dataset"])),
+        suffixes=("_train", "_test"),
     )
-    unified_baselines = unified_nodmm_results[unified_nodmm_results.ref.isin(["avg_model", "sample"])]
+    unified_baselines = unified_nodmm_results[
+        unified_nodmm_results.ref.isin(["avg_model", "sample"])
+    ]
     unified_baselines["model"] = unified_baselines["ref"]
-    unified_regressors = unified_nodmm_results[unified_nodmm_results.ref.isin(REGRESSION_MODES)]
+    unified_regressors = unified_nodmm_results[
+        unified_nodmm_results.ref.isin(REGRESSION_MODES)
+    ]
     unified_best_regressors = unified_regressors.merge(
-        best_regressors[best_regressors.dataset == "train"][['context', 'ref']],  # keep regressors that perform best on training set (same as DMM)
+        best_regressors[best_regressors.dataset == "train"][
+            ["context", "ref"]
+        ],  # keep regressors that perform best on training set (same as DMM)
         how="inner",
-        on=['context', 'ref']
+        on=["context", "ref"],
     )
-    unified_best_regressors["model"] = unified_best_regressors["ref"] + unified_best_regressors["context"]
-    unified_nodmm_results = pd.concat([unified_baselines, unified_best_regressors])
+    unified_best_regressors["model"] = (
+        unified_best_regressors["ref"] + unified_best_regressors["context"]
+    )
+    unified_nodmm_results = pd.concat(
+        [unified_baselines, unified_best_regressors]
+    )
 
     # Combine train/val RMSE results for DMMs
     dmm_results = {
-        dataset: (data[(data.dataset == dataset) & (data.ref == 'DMM')]
-                  .drop(columns=['ref', 'dataset']))
-        for dataset in ['train', 'test']
+        dataset: (
+            data[(data.dataset == dataset) & (data.ref == "DMM")].drop(
+                columns=["ref", "dataset"]
+            )
+        )
+        for dataset in ["train", "test"]
     }
     unified_dmm_results = pd.merge(
-        dmm_results['train'],
-        dmm_results['test'],
+        dmm_results["train"],
+        dmm_results["test"],
         how="inner",
-        on=list(data.columns.difference(['rmse', 'dataset', 'ref'])),
-        suffixes=('_train', '_test')
+        on=list(data.columns.difference(["rmse", "dataset", "ref"])),
+        suffixes=("_train", "_test"),
     )
     unified_dmm_results.to_csv(
         evaluations_dir
@@ -779,17 +917,21 @@ def aggregate_and_log(
     print("Finished saving unified (train/test) DMM RMSE results.")
 
     # Restrict DMM results to top 10 jobs for each configuration according to training performance
-    config_cols = [attribute for attribute in gbs_dmm if attribute not in ["ref", "job", "dataset"]]
-    top_n_dmm_train = unified_dmm_results.groupby(config_cols).apply(
-        lambda x: x.nsmallest(num_best, "rmse_train")
-    ).reset_index(drop=True)
+    config_cols = [
+        attribute
+        for attribute in gbs_dmm
+        if attribute not in ["ref", "job", "dataset"]
+    ]
+    top_n_dmm_train = (
+        unified_dmm_results.groupby(config_cols)
+        .apply(lambda x: x.nsmallest(num_best, "rmse_train"))
+        .reset_index(drop=True)
+    )
     # Ensure same dtypes as original dataframe
     top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
     # Subset results at the cell-line granularity
     top_n_results_by_cl = convert_dataframe_dtypes(dmm_by_cl).merge(
-        top_n_dmm_train,
-        how='inner',
-        on=default_attributes
+        top_n_dmm_train, how="inner", on=default_attributes
     )[dmm_by_cl.columns]
     # Plot and store
     plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
@@ -800,20 +942,30 @@ def aggregate_and_log(
         / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test_by_cl_top10train.csv"
     )
     # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
-    top_n_dmm_train_cv = top_n_dmm_train.groupby(config_cols).agg(rmse_test_agg=("rmse_test", "mean")).reset_index()
+    top_n_dmm_train_cv = (
+        top_n_dmm_train.groupby(config_cols)
+        .agg(rmse_test_agg=("rmse_test", "mean"))
+        .reset_index()
+    )
 
     for cvsplit_label in ["MOSAsplits", "allsplits"]:
         if cvsplit_label == "MOSAsplits":
-            sub_df = top_n_dmm_train_cv[top_n_dmm_train_cv.samples.isin([f"{i}of5" for i in range(4)])]
+            sub_df = top_n_dmm_train_cv[
+                top_n_dmm_train_cv.samples.isin([f"{i}of5" for i in range(4)])
+            ]
         else:
             sub_df = top_n_dmm_train_cv
-        best_configs_dmm = (sub_df
-                            .groupby([col for col in config_cols if col != "samples"])
-                            .agg(
-                                mean_rmse_test = ("rmse_test_agg", "mean"),
-                                rmse_test_list = ("rmse_test_agg", lambda x: list(x)))
-                            .reset_index().sort_values(by="mean_rmse_test", ascending=True)
-                            .groupby("context").head(1))
+        best_configs_dmm = (
+            sub_df.groupby([col for col in config_cols if col != "samples"])
+            .agg(
+                mean_rmse_test=("rmse_test_agg", "mean"),
+                rmse_test_list=("rmse_test_agg", lambda x: list(x)),
+            )
+            .reset_index()
+            .sort_values(by="mean_rmse_test", ascending=True)
+            .groupby("context")
+            .head(1)
+        )
         best_configs_dmm.to_csv(
             evaluations_dir
             / f"{conf.model}"
@@ -822,15 +974,27 @@ def aggregate_and_log(
         )
 
         # Get the top 10 jobs corresponding to best validation config
-        best_configs_dmm_jobs = top_n_dmm_train.merge(
-            best_configs_dmm,
-            on=[col for col in best_configs_dmm.columns if col not in ["mean_rmse_test", "rmse_test_list"]]
-        ).drop(columns=["mean_rmse_test", "rmse_test_list"]).assign(ref="DMM")
+        best_configs_dmm_jobs = (
+            top_n_dmm_train.merge(
+                best_configs_dmm,
+                on=[
+                    col
+                    for col in best_configs_dmm.columns
+                    if col not in ["mean_rmse_test", "rmse_test_list"]
+                ],
+            )
+            .drop(columns=["mean_rmse_test", "rmse_test_list"])
+            .assign(ref="DMM")
+        )
 
-        best_configs_dmm_jobs["model"] = best_configs_dmm_jobs["ref"] + best_configs_dmm_jobs["context"]
+        best_configs_dmm_jobs["model"] = (
+            best_configs_dmm_jobs["ref"] + best_configs_dmm_jobs["context"]
+        )
         if cvsplit_label == "MOSAsplits":
             best_configs_dmm_jobs = best_configs_dmm_jobs[
-                best_configs_dmm_jobs.samples.isin([f"{i}of5" for i in range(4)])
+                best_configs_dmm_jobs.samples.isin(
+                    [f"{i}of5" for i in range(4)]
+                )
             ]
         barplot_df = pd.concat([unified_nodmm_results, best_configs_dmm_jobs])
         barplot_df.to_csv(
@@ -888,35 +1052,57 @@ def aggregate_and_log(
     #     raise ValueError(f"Error syncing wandb directory: {e}")
 
     if return_stat_tests:
-        return data, stat_test_res_df, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results
+        return (
+            data,
+            stat_test_res_df,
+            top_n_dmm_train,
+            best_configs_dmm_jobs,
+            best_regressors,
+            unified_dmm_results,
+        )
     else:
-        return data, top_n_dmm_train, best_configs_dmm_jobs, best_regressors, unified_dmm_results
+        return (
+            data,
+            top_n_dmm_train,
+            best_configs_dmm_jobs,
+            best_regressors,
+            unified_dmm_results,
+        )
 
 
 def compute_deviation_ratio(
-        param_dev_df: pd.DataFrame,
-        param_cols: list,
-        reg_param: str
+    param_dev_df: pd.DataFrame, param_cols: list, reg_param: str
 ):
-    val_param_dev = param_dev_df[param_dev_df.cell_line.isin(hardest_cell_lines)]
+    val_param_dev = param_dev_df[
+        param_dev_df.cell_line.isin(hardest_cell_lines)
+    ]
 
     def compute_stats(group):
-        return pd.Series({
-            'mean': group[param_cols].mean().mean(),
-            'median': group[param_cols].median().median(),
-            'min': group[param_cols].min().min(),
-            'max': group[param_cols].max().max()
-        })
+        return pd.Series(
+            {
+                "mean": group[param_cols].mean().mean(),
+                "median": group[param_cols].median().median(),
+                "min": group[param_cols].min().min(),
+                "max": group[param_cols].max().max(),
+            }
+        )
 
-    stats_df = val_param_dev.groupby(
-        ['cell_line', reg_param, 'samples']
-    ).apply(compute_stats).reset_index()
+    stats_df = (
+        val_param_dev.groupby(["cell_line", reg_param, "samples"])
+        .apply(compute_stats)
+        .reset_index()
+    )
     stats_df["range"] = stats_df["max"] - stats_df["min"]
 
     results_dfs = []
-    for samples, reg_param_val in itt.product(stats_df.samples.unique(), stats_df[reg_param].unique()):
-        val_cell_line = hardest_cell_lines[int(samples.split('of')[0])]
-        subset_df = stats_df[(stats_df.samples == samples) & (stats_df[reg_param] == reg_param_val)]
+    for samples, reg_param_val in itt.product(
+        stats_df.samples.unique(), stats_df[reg_param].unique()
+    ):
+        val_cell_line = hardest_cell_lines[int(samples.split("of")[0])]
+        subset_df = stats_df[
+            (stats_df.samples == samples)
+            & (stats_df[reg_param] == reg_param_val)
+        ]
         val_cell = subset_df[subset_df.cell_line == val_cell_line]
         train_cells = subset_df[subset_df.cell_line != val_cell_line]
         average_range = train_cells["range"].mean()
@@ -926,7 +1112,9 @@ def compute_deviation_ratio(
                     "cell_line": [val_cell["cell_line"].values[0]],
                     "samples": [samples],
                     reg_param: [reg_param_val],
-                    "deviation_ratio": [val_cell["range"].values[0]/average_range]
+                    "deviation_ratio": [
+                        val_cell["range"].values[0] / average_range
+                    ],
                 }
             )
         )
@@ -935,51 +1123,41 @@ def compute_deviation_ratio(
 
 
 def add_annotations(
-        df: pd.DataFrame,
-        brca_annot_df: pd.DataFrame,
-        subtypes_pam50: dict,
-        subtypes_lb: dict,
-        subtypes_hr: dict,
-        subtypes_her2: dict,
+    df: pd.DataFrame,
+    brca_annot_df: pd.DataFrame,
+    subtypes_pam50: dict,
+    subtypes_lb: dict,
+    subtypes_hr: dict,
+    subtypes_her2: dict,
 ) -> pd.DataFrame:
     annotated_df = df.copy()
     annotated_df = annotated_df.merge(
-        brca_annot_df.reset_index()[["cell_line", "Site", "MS_Status", "Disease"]],
-        on="cell_line"
+        brca_annot_df.reset_index()[
+            ["cell_line", "Site", "MS_Status", "Disease"]
+        ],
+        on="cell_line",
     )
     for col_name, subtypes_dict in zip(
-        ["PAM50", "LB", "HR_Status", "HER2_Status"], [subtypes_pam50, subtypes_lb, subtypes_hr, subtypes_her2]
+        ["PAM50", "LB", "HR_Status", "HER2_Status"],
+        [subtypes_pam50, subtypes_lb, subtypes_hr, subtypes_her2],
     ):
         annotated_df[col_name] = annotated_df.cell_line.map(subtypes_dict)
     return annotated_df
 
 
 def load_and_transform_features(
-        conf: Conf,
-        dataset: str,
-        features_filepath,
-        feature_transform_pipeline_filepath
+    conf: Conf,
+    dataset: str,
+    features_filepath,
+    feature_transform_pipeline_filepath,
 ) -> np.ndarray:
     features = get_features(
-        features_filepath=features_filepath,
-        datasets=['train', 'val']
+        features_filepath=features_filepath, datasets=["train", "val"]
     )
-    if conf.features_transform == "pca":
-        # Load pre-trained pipeline if it exists
-        if os.path.exists(feature_transform_pipeline_filepath):
-            pipeline = load(feature_transform_pipeline_filepath)
-        else:
-            pipeline = None
-        features = pca_transform_features(
-            features=features,
-            pipeline_filepath=feature_transform_pipeline_filepath,
-            pipeline=pipeline,
-        )
-    else:
-        features = impute_features(features)
-    if dataset == 'train':
-        features_dataset = 'train'
-    elif dataset == 'test':
-        features_dataset = 'val'
+    features = impute_features(features)
+    if dataset == "train":
+        features_dataset = "train"
+    elif dataset == "test":
+        features_dataset = "val"
     # TODO @GiacomoFabrini - will need to change this when we resolve 'val' vs 'test' ambiguity
     return features[features_dataset].values

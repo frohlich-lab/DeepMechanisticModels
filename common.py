@@ -1,25 +1,26 @@
-import numpy as np
 import os
-
 from collections import namedtuple
+from pathlib import Path
+from typing import List
+
+import numpy as np
+
 from cytof import get_samples
 from dmm.config_options import default_attributes
-from pathlib import Path
 from training_configuration import CONTEXTS_FEATURES
-from typing import List
 
 
 # moved from Snakefile
 class SafeDict(dict):
     def __missing__(self, key):
-        return '{' + key + '}'
+        return "{" + key + "}"
 
 
 # Get the DEBUG environment variable
-debug_mode = os.getenv('DEBUG', 'false').lower() in ['true', '1', 'yes']
+debug_mode = os.getenv("DEBUG", "false").lower() in ["true", "1", "yes"]
 
-CONTEXT_SET = sorted(list(set([context for context, _ in CONTEXTS_FEATURES])))
-FEATURES_SET = sorted(list(set([features for _, features in CONTEXTS_FEATURES])))
+CONTEXT_SET = sorted({context for context, _ in CONTEXTS_FEATURES})
+FEATURES_SET = sorted({features for _, features in CONTEXTS_FEATURES})
 
 MODEL_FEATURE_PREFIX = "INPUT_"
 
@@ -48,7 +49,7 @@ FEATURES_OUTFILE = str(
     / (
         "__".join(
             {
-                x: f"{{{x}}}" for x in ["context", "samples", "features", "features_selection"]
+                x: f"{{{x}}}" for x in ["context", "samples", "features"]
             }.values()
         )
         + ".csv"
@@ -59,13 +60,10 @@ FEATURES_PIPELINE = str(
     features_dir
     / "{model}"
     / "{data}"
-    / "{context}__{samples}__{features}__{features_selection}__trained_pca_pipeline.joblib"
+    / "{context}__{samples}__{features}__trained_pca_pipeline.joblib"
 )
 
-defaults = {
-    x: f"{{{x}}}"
-    for x in default_attributes
-}
+defaults = {x: f"{{{x}}}" for x in default_attributes}
 
 tpl_results_file = "__".join(defaults.values())
 
@@ -79,11 +77,17 @@ PRETRAINED_BEST_MODELS = str(
 
 # TODO @GiacomoFabrini check this works and replace how this is handled everywhere!
 TRAINED_BEST_MODELS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_bm_{ensemble_id}.eqx")
+    results_dir
+    / "{model}"
+    / "{data}"
+    / (tpl_results_file + "_bm_{ensemble_id}.eqx")
 )
 
 TRAINED_MODEL_WEIGHT_PLOTS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_weight_plot.png")
+    results_dir
+    / "{model}"
+    / "{data}"
+    / (tpl_results_file + "_weight_plot.png")
 )
 
 COLLECTED_TRAINING_RESULTS = str(
@@ -116,13 +120,12 @@ tpl_regressor = str(
     / "{data}"
     / (
         "__".join(
-            f"{{{x}}}" for x in [
+            f"{{{x}}}"
+            for x in [
                 "context",
                 "samples",
                 "mode",
                 "features",
-                "features_selection",
-                "features_transform",
             ]
         )
     )
@@ -173,9 +176,12 @@ EVALUATION_PARAMETER_DEVIATIONS = str(
 
 EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
-EVALUATE_ALL_CSVS = str(evaluations_dir / "{model}" / "{data}" / "{filename}.csv")
+EVALUATE_ALL_CSVS = str(
+    evaluations_dir / "{model}" / "{data}" / "{filename}.csv"
+)
 
-hardest_cell_lines = ['cMCF7', 'cBT20', 'cHCC1500', 'cEVSAT', 'cUACC3199']
+hardest_cell_lines = ["cMCF7", "cBT20", "cHCC1500", "cEVSAT", "cUACC3199"]
+
 
 def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
@@ -183,10 +189,16 @@ def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     if mode != "leave_one_out":
         splits = np.array_split(np.asarray(samples), int(n_splits))
         return list(
-            np.concatenate([s for i, s in enumerate(splits) if i != int(split)])
+            np.concatenate(
+                [s for i, s in enumerate(splits) if i != int(split)]
+            )
         )
     else:
-        return [sample for sample in samples if sample != hardest_cell_lines[int(split)]]
+        return [
+            sample
+            for sample in samples
+            if sample != hardest_cell_lines[int(split)]
+        ]
 
 
 def test_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
@@ -215,6 +227,7 @@ def per_sample_pretraining_test(wildcards) -> List[str]:
         )
         for sample in test_samples(wildcards)
     ]
+
 
 # Does not appear to be used?!
 # def select_values(data, num_selected: int):
@@ -252,7 +265,7 @@ subtypes_tognetti = {
     "cBT549": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
     "cCAL148": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
     "cCAL51": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
-    "cCAL851":  {"PAM50": "Basal", "Luminal/Basal": "Basal"},
+    "cCAL851": {"PAM50": "Basal", "Luminal/Basal": "Basal"},
     "cDU4475": {"PAM50": "Other", "Luminal/Basal": "Basal"},
     "cEFM192A": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
     "cEVSAT": {"PAM50": "HER2", "Luminal/Basal": "Luminal"},
@@ -306,13 +319,56 @@ subtypes_tognetti = {
 
 # From https://bmcmedgenomics.biomedcentral.com/articles/10.1186/1755-8794-5-44, Figure 1
 pam50_genelist = [
-    "FGFR4", "ERBB2", "GRB7", "BLVRA", "BAG1", "BCL2", "CXXC5", "ESR1",
-    "GPR160", "FOXA1", "MLPH", "NAT1", "SLC39A6", "MAPT", "PGR", "MDM2",
-    "TMEM45B", "MMP11", "ACTR3B", "CDC6", "CCNE1", "EXO1", "CDCA1", "KNTC2",
-    "BIRC5", "CENPF", "ANLN", "CDC20", "CCNB1", "CEP55", "MYBL2", "MKI67",
-    "UBE2C", "RRM2", "KIF2C", "MELK", "TYMS", "PTTG1", "ORC6L", "UBE2T",
-    "CDH3", "EGFR", "KRT17", "KRT14", "KRT5", "FOXC1", "MIA", "SFRP1",
-    "PHGDH", "MYC"
+    "FGFR4",
+    "ERBB2",
+    "GRB7",
+    "BLVRA",
+    "BAG1",
+    "BCL2",
+    "CXXC5",
+    "ESR1",
+    "GPR160",
+    "FOXA1",
+    "MLPH",
+    "NAT1",
+    "SLC39A6",
+    "MAPT",
+    "PGR",
+    "MDM2",
+    "TMEM45B",
+    "MMP11",
+    "ACTR3B",
+    "CDC6",
+    "CCNE1",
+    "EXO1",
+    "CDCA1",
+    "KNTC2",
+    "BIRC5",
+    "CENPF",
+    "ANLN",
+    "CDC20",
+    "CCNB1",
+    "CEP55",
+    "MYBL2",
+    "MKI67",
+    "UBE2C",
+    "RRM2",
+    "KIF2C",
+    "MELK",
+    "TYMS",
+    "PTTG1",
+    "ORC6L",
+    "UBE2T",
+    "CDH3",
+    "EGFR",
+    "KRT17",
+    "KRT14",
+    "KRT5",
+    "FOXC1",
+    "MIA",
+    "SFRP1",
+    "PHGDH",
+    "MYC",
 ]
 
 REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]

@@ -1,43 +1,60 @@
-import fire
+from pathlib import Path
+from time import sleep
 
-from common import (FEATURES_OUTFILE, FEATURES_PIPELINE,  # TRAINING_OUTFILE_RESULTS,
-                    TRAINED_BEST_MODELS, PRETRAINED_BEST_MODELS, PER_SAMPLE_OUTFILE_PARS, debug_mode)
+import fire
+import numpy as np
+from jax import config
+
+from common import (  # TRAINING_OUTFILE_RESULTS,
+    FEATURES_OUTFILE,
+    FEATURES_PIPELINE,
+    PER_SAMPLE_OUTFILE_PARS,
+    PRETRAINED_BEST_MODELS,
+    TRAINED_BEST_MODELS,
+    debug_mode,
+)
+
 # from cytof.problem import CytofProblem
 from dmm.config_options import Conf, EarlyStoppingParams
-from dmm.initialisation import (linear_nn_init,
-                                init_global_kin_params_combiner,
-                                process_features_and_setup_models,
-                                subset_features,
-                                get_features_and_pipeline_filepaths)
-from dmm.training import train
-from dmm.training_helper_funcs import (
-    # check_best_model,
-    create_pypesto_problem
+from dmm.initialisation import (
+    get_features_and_pipeline_filepaths,
+    init_global_kin_params_combiner,
+    process_features_and_setup_models,
+    subset_features,
 )
+from dmm.training import train
+from dmm.training_helper_funcs import create_pypesto_problem
 from dmm.wandb_init_log import init_wandb
-from jax import config
-from pathlib import Path
-# from sklearn.model_selection import train_test_split
-from training_configuration import PATIENCE, MIN_IMPROVEMENT, N_EPOCHS, N_ENSEMBLE_MEMBERS
+from training_configuration import (
+    MIN_IMPROVEMENT,
+    N_ENSEMBLE_MEMBERS,
+    N_EPOCHS,
+    PATIENCE,
+)
 from util import load_petab_base_files
 
+# wait up to 1 minute to avoid filestream limits with wandb
+sleep(np.random.randint(0, 60))
 
 conf = fire.Fire(Conf)
 
 per_sample_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
-    **{**conf.__dict__, **dict(sample="{sample}")}
+    **{**conf.__dict__, "sample": "{sample}"}
 )
 avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
-    **{**conf.__dict__, **dict(sample=f"model_average_{conf.samples}")}
+    **{**conf.__dict__, "sample": f"model_average_{conf.samples}"}
 )
 # results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 model_file = TRAINED_BEST_MODELS.format(
-    **{**conf.__dict__, **dict(ensemble_id="{ensemble_id}")}
+    **{**conf.__dict__, "ensemble_id": "{ensemble_id}"}
 )
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Get filepaths for features and feature transformation pipeline
-features_filepath, feature_transform_pipeline_filepath = get_features_and_pipeline_filepaths(
+(
+    features_filepath,
+    feature_transform_pipeline_filepath,
+) = get_features_and_pipeline_filepaths(
     conf, FEATURES_OUTFILE, FEATURES_PIPELINE
 )
 
@@ -47,7 +64,11 @@ config.update("jax_enable_x64", True)
 # Get petab_base_files
 petab_base_files = load_petab_base_files(conf=conf)
 # Setup models + load and (potentially) transform input features (e.g. PCA)
-(model_train, model_test), problem, features = process_features_and_setup_models(
+(
+    (model_train, model_test),
+    problem,
+    features,
+) = process_features_and_setup_models(
     conf=conf,
     features_filepath=features_filepath,
     pipeline_filepath=feature_transform_pipeline_filepath,
@@ -71,46 +92,14 @@ early_stopping_params = EarlyStoppingParams(
     min_improvement=MIN_IMPROVEMENT,  # min absolute improvement not to lose patience (i.e. increase patience counter)
 )
 
-# There are three scenarios:
-# 1. No hidden layers, linear_benchmark enabled - PCA/least squares initialisation for encoder/inflater (old approach)
-# 2. No hidden layers, linear_benchmark disabled - pretraining
-# 3. Hidden layers, linear_benchmark enabled - linear benchmark ignored -> pretraining
-if (conf.depth == 0) and conf.linear_benchmark:
-    input_features = {
-        "train": input_features_train,
-        "val": input_features_test
-    }
-    # First perform initialisation of encoder/inflater/decoder weights according to
-    # previous linear benchmark strategy and then initialise KinParamsCombiner module
-    # TODO @GiacomoFabrini: could also just process model_train, as model_test is only needed for its
-    #  model_test.pypesto_subproblem
-    model_train, model_test = (
-        init_global_kin_params_combiner(
-            model=linear_nn_init(
-                conf=conf,
-                model=model,
-                per_sample_parameter_file=per_sample_parameter_file,
-                avg_model_parameter_file=avg_model_parameter_file,
-                features=input_features,
-                dataset=dataset,
-                median_params_method=conf.median_init,
-            ),
-            per_sample_parameter_file=per_sample_parameter_file,
-            avg_model_parameter_file=avg_model_parameter_file,
-            random_seed=conf.job,
-            median_params_method=conf.median_init,
-        )
-        for model, dataset in zip((model_train, model_test), ["train", "val"])
-    )
-else:
-    # Initialise the params of the KinParamsCombiner
-    model_train = init_global_kin_params_combiner(
-        model=model_train,
-        per_sample_parameter_file=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=conf.median_init,
-    )
+# Initialise the params of the KinParamsCombiner
+model_train = init_global_kin_params_combiner(
+    model=model_train,
+    per_sample_parameter_file=per_sample_parameter_file,
+    avg_model_parameter_file=avg_model_parameter_file,
+    random_seed=conf.job,
+    median_params_method=conf.median_init,
+)
 
 # Setup pypesto problems for train/validation
 pypesto_problem_train, pypesto_problem_test = (

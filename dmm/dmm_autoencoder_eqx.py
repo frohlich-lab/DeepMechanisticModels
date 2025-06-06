@@ -1,9 +1,14 @@
+import json
+from pathlib import Path
+from typing import Any, Dict, List, Tuple, Union
+
 import equinox as eqx
 import jax
 import jax.numpy as jnp
-import json
 import pandas as pd
 import pypesto.petab
+from jaxtyping import Array
+from sklearn.mixture import GaussianMixture
 
 from . import MODEL_FEATURE_PREFIX
 from .config_options import ModuleParams
@@ -12,9 +17,6 @@ from .model_utils import generate_layer_sizes
 from .petab_subproblem import load_petab
 from .problem import Problem
 from .two_headed_deep_autoencoder_eqx import TwoHeadedDeepAutoencoder
-from jaxtyping import Array
-from pathlib import Path
-from typing import Any, Dict, List, Tuple, Union
 
 
 def get_reg_exp(orth_reg_strategy):
@@ -28,8 +30,8 @@ def get_reg_exp(orth_reg_strategy):
 
 
 def mse(
-        predictions: Array,
-        targets: Array,
+    predictions: Array,
+    targets: Array,
 ):
     """
     Computes the Mean Squared Error (MSE) between predictions and targets.
@@ -49,8 +51,8 @@ def init_biases(biases, num_layers):
 
 
 def update_module_params_dict(
-        module_params: ModuleParams,
-        new_layer_sizes: List[int],
+    module_params: ModuleParams,
+    new_layer_sizes: List[int],
 ) -> ModuleParams:
     # Initialise biases (in case of None or single value definitions)
     new_layer_biases = init_biases(
@@ -62,7 +64,7 @@ def update_module_params_dict(
         layer_sizes=new_layer_sizes,
         layer_biases=new_layer_biases,
         weight_init_fn=module_params.weight_init_fn,
-        bias_init_fn=module_params.bias_init_fn
+        bias_init_fn=module_params.bias_init_fn,
     )
     return updated_module_params
 
@@ -90,33 +92,32 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     reconstruct: bool = eqx.static_field()
     model_key: Any = eqx.static_field()
 
-
     petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
     pypesto_subproblem: pypesto.Problem = eqx.static_field()
     n_inflated_specific_kin_params: int = eqx.static_field()
     n_global_kin_params: int = eqx.static_field()
 
     def __init__(
-            self,
-            problem: Problem,
-            dataset: str,
-            module_depth: int,
-            module_structure_multiplier: int,
-            use_layer_bias: bool,
-            last_layer_activation: bool,
-            weight_init_fn: str,
-            bias_init_fn: str,
-            key: Any,
-            measurement_table: pd.DataFrame,
-            observable_table: pd.DataFrame,
-            condition_table: pd.DataFrame,
-            sample_name_list: List[str],
-            n_input_features: int,
-            n_latent: int,
-            n_threads: int = 1,
-            orth_reg_strategy: str = "L2",
-            activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
-            reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
+        self,
+        problem: Problem,
+        dataset: str,
+        module_depth: int,
+        module_structure_multiplier: int,
+        use_layer_bias: bool,
+        last_layer_activation: bool,
+        weight_init_fn: str,
+        bias_init_fn: str,
+        key: Any,
+        measurement_table: pd.DataFrame,
+        observable_table: pd.DataFrame,
+        condition_table: pd.DataFrame,
+        sample_name_list: List[str],
+        n_input_features: int,
+        n_latent: int,
+        n_threads: int = 1,
+        orth_reg_strategy: str = "L2",
+        activation_fn_name: str = "relu",  # ReLU = Rectified Linear Unit
+        reconstruct: bool = False,  # default: single head, no decoder (encoder->inflater)
     ):
         """
 
@@ -241,27 +242,32 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         # n_global_kin_params = number of NON cell-line specific parameters (previously n_kin_params)
         self.n_global_kin_params = (
-                self.pypesto_subproblem.dim - self.n_inflated_specific_kin_params * n_samples
+            self.pypesto_subproblem.dim
+            - self.n_inflated_specific_kin_params * n_samples
         )
 
         # Generate layer_sizes for whole modules (input, hidden, output)
         encoder_layer_sizes = [
-            self.n_input_features, *generate_layer_sizes(
+            self.n_input_features,
+            *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
                 max_width=self.n_input_features,  # TODO check whether we need to double (*2) this
                 multiplier=self.module_structure_multiplier,
                 reverse=True,
-            ), self.n_latent
+            ),
+            self.n_latent,
         ]
         inflater_layer_sizes = [
-            self.n_latent, *generate_layer_sizes(
+            self.n_latent,
+            *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
                 max_width=self.n_inflated_specific_kin_params,  # TODO check whether we need to double (*2) this
                 multiplier=self.module_structure_multiplier,
                 reverse=False,
-            ), self.n_inflated_specific_kin_params
+            ),
+            self.n_inflated_specific_kin_params,
         ]
 
         # Define encoder, inflater and decoder parameters
@@ -269,8 +275,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             f"{module}_params": ModuleParams(
                 layer_sizes=layer_sizes,
                 # Propagate use_bias to all layers, but do not use biases at inflater output, i.e. parameter deviations
-                layer_biases=[self.use_layer_bias]*len(layer_sizes) if module != "inflater" \
-                    else [self.use_layer_bias]*(len(layer_sizes)-1) + [False],
+                layer_biases=[self.use_layer_bias] * len(layer_sizes)
+                if module != "inflater"
+                else [self.use_layer_bias] * (len(layer_sizes) - 2) + [False],
                 weight_init_fn=self.weight_init_fn,
                 bias_init_fn=self.bias_init_fn,
                 last_layer_activation=self.last_layer_activation,
@@ -278,14 +285,18 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
-                [encoder_layer_sizes, inflater_layer_sizes, encoder_layer_sizes[::-1]]
+                [
+                    encoder_layer_sizes,
+                    inflater_layer_sizes,
+                    encoder_layer_sizes[::-1],
+                ],
             )
         }
 
         # Instantiate Kinetic Parameters Combiner module
         self.kin_params_combiner = KinParamsCombiner(
-            component_name='kin_params_combiner',
-            n_global_kin_params=self.n_global_kin_params
+            component_name="kin_params_combiner",
+            n_global_kin_params=self.n_global_kin_params,
         )
 
         # Initialise dummy sparsity binary masks with a tuple of ones the same size as input_features / inflater
@@ -309,12 +320,15 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.pypesto_subproblem.objective, n_threads=self.n_threads
         )
 
-
     def __call__(self, x):
         # Call the parent __call__ method to get the original outputs; filter inputs through input_sparsity_binary_mask
-        outputs = super().__call__(x * jnp.array(self.input_sparsity_binary_mask))
+        outputs = super().__call__(
+            x * jnp.array(self.input_sparsity_binary_mask)
+        )
         # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
-        outputs["inflated"] = outputs["inflated"] * jnp.array(self.output_sparsity_binary_mask)
+        outputs["inflated"] = outputs["inflated"] * jnp.array(
+            self.output_sparsity_binary_mask
+        )
         # Finally, introduce soft constrain within ±3 (hardcoded) range through rescaled tanh: a * tanh(x/a), a=3
         outputs["inflated"] = 3 * jnp.tanh(outputs["inflated"] / 3)
         return outputs
@@ -328,18 +342,19 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             lambda model: model.input_sparsity_binary_mask,
             self,
             new_input_sparsity_binary_mask,
-            is_leaf=lambda leaf: type(leaf) is tuple  # is this needed?
+            is_leaf=lambda leaf: type(leaf) is tuple,  # is this needed?
         )
 
-
-    def update_output_sparsity_binary_mask(self, x, threshold_perc: int = 50, round_up: bool = False):
+    def update_output_sparsity_binary_mask(
+        self, x, threshold_perc: str, round_up: bool = False
+    ):
         """
         Update the sparsity binary mask based on the median parameter deviation across samples.
         :param x:
             input data.
         :param threshold_perc:
-            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%, specified as 50,
-            means retaining top 50% most deviating parameters).
+            percentage of the median parameter deviations to retain as cell-line-specific or
+            `gmm` for automatic threshold detection via gaussian mixture model
         :param round_up:
             boolean flag to round up or down when computing the threshold (default: False).
 
@@ -352,107 +367,122 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         # Sort in descending order
         sorted_deviations = jnp.sort(param_dev_stds)[::-1]
 
-        # Compute threshold to keep threshold_perc values and ensure within bounds
-        # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
-        # Considering we want sparsity, I have opted to round down by default - behaviour can be changed via round_up.
-        threshold = sorted_deviations[jnp.clip(
-            int(jnp.floor(len(sorted_deviations) * threshold_perc/100)) - 1 if not round_up else
-            int(jnp.ceil(len(sorted_deviations) * threshold_perc/100)) - 1,
-            0,
-            len(sorted_deviations) - 1
-        )]
+        if threshold_perc == "gmm":
+            gmm = GaussianMixture(
+                n_components=2, random_state=int(self.model_key[0])
+            )
+            gmm = gmm.fit(jnp.log(sorted_deviations.reshape(-1, 1)))
+
+            threshold = jnp.exp(
+                (gmm.means_[0, 0] + gmm.means_[1, 0]) / 2
+            )  # take the mean of the two components
+        else:
+            threshold_perc = float(
+                threshold_perc
+            )  # convert to int if not already
+            # Compute threshold to keep threshold_perc values and ensure within bounds
+            # Given the number of cell-line-specific params is odd, we can choose whether to round up or down
+            # Considering we want sparsity, I have opted to round down by default - behaviour can be changed via round_up.
+            threshold = sorted_deviations[
+                jnp.clip(
+                    int(
+                        jnp.floor(
+                            len(sorted_deviations) * threshold_perc / 100
+                        )
+                    )
+                    - 1
+                    if not round_up
+                    else int(
+                        jnp.ceil(len(sorted_deviations) * threshold_perc / 100)
+                    )
+                    - 1,
+                    0,
+                    len(sorted_deviations) - 1,
+                )
+            ]
 
         # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
-        new_output_sparsity_binary_mask = tuple(jnp.where(
-            param_dev_stds < threshold,
-            0.0,
-            jnp.array(self.output_sparsity_binary_mask)
-        ).tolist())
+        new_output_sparsity_binary_mask = tuple(
+            jnp.where(
+                param_dev_stds < threshold,
+                0.0,
+                jnp.array(self.output_sparsity_binary_mask),
+            ).tolist()
+        )
         return eqx.tree_at(
             lambda model: model.output_sparsity_binary_mask,
             self,
             new_output_sparsity_binary_mask,
-            is_leaf=lambda leaf: type(leaf) is tuple  # is this needed?
+            is_leaf=lambda leaf: type(leaf) is tuple,  # is this needed?
         )
 
-
     def embedding(self, input_data: jnp.ndarray) -> jnp.ndarray:
-        return self(input_data)["inflated"]  # inflated kinetic parameters (global first, cell-line-specific second)
+        return self(
+            input_data
+        )[
+            "inflated"
+        ]  # inflated kinetic parameters (global first, cell-line-specific second)
 
-    def l1_encode_reg(
-            self,
-            scale: float = 1.0
-    ):
+    def l1_encode_reg(self, scale: float = 1.0):
         """
         L1 regularization of deep encoder weights.
         """
         return l1reg(self.deep_encoder, scale)
 
-    def orth_encode_reg(
-            self,
-            scale: float = 1.0
-    ):
+    def orth_encode_reg(self, scale: float = 1.0):
         """
         Orthogonal regularization of deep encoder weights.
         """
-        return orth_reg(self.deep_encoder, self.orth_reg_strategy, "encoder", scale)
+        return orth_reg(
+            self.deep_encoder, self.orth_reg_strategy, "encoder", scale
+        )
 
-    def l1_decode_reg(
-            self,
-            scale: float = 1.0
-    ):
+    def l1_decode_reg(self, scale: float = 1.0):
         """
         L1 regularization of deep decoder weights.
         """
         return l1reg(self.deep_decoder, scale)
 
-    def orth_decode_reg(
-            self,
-            scale: float = 1.0
-    ):
+    def orth_decode_reg(self, scale: float = 1.0):
         """
         Orthogonal regularization of deep encoder weights.
         """
-        return orth_reg(self.deep_decoder, self.orth_reg_strategy, "decoder", scale)
+        return orth_reg(
+            self.deep_decoder, self.orth_reg_strategy, "decoder", scale
+        )
 
-    def l1_inflate_reg(
-            self,
-            scale: float = 1.0
-    ):
+    def l1_inflate_reg(self, scale: float = 1.0):
         """
         L1 regularization of deep inflater weights.
         """
         return l1reg(self.deep_inflater, scale)
 
-    def orth_inflate_reg(
-            self,
-            scale: float = 1.0
-    ):
-
+    def orth_inflate_reg(self, scale: float = 1.0):
         """
         Orthogonal regularization of deep inflater weights.
         """
-        return orth_reg(self.deep_inflater, self.orth_reg_strategy, "inflater", scale)
+        return orth_reg(
+            self.deep_inflater, self.orth_reg_strategy, "inflater", scale
+        )
 
-    def l1reg_inflater_output(
-            self,
-            x: Array,
-            scale: float = 1.0
-    ):
+    def l1reg_inflater_output(self, x: Array, scale: float = 1.0):
         """
         L1 regularization of inflater output - number of cell-specific deviations/log fold-changes.
         """
         # Introduced 1e-6 multiplier to investigate lower regularisation strengths without formatting issues
-        return scale * 1e-6 * jnp.sum(
-            jnp.abs(
-                jax.vmap(self)(x)["inflated"]
-            )
-        )
+        return scale * 1e-6 * jnp.sum(jnp.abs(jax.vmap(self)(x)["inflated"]))
+
+    def l2reg_inflater_output(self, x: Array, scale: float = 1.0):
+        """
+        L2 regularization of inflater output - number of cell-specific deviations/log fold-changes.
+        """
+        # Introduced 1e-6 multiplier to investigate lower regularisation strengths without formatting issues
+        return scale * 1e-6 * jnp.linalg.norm(jax.vmap(self)(x)["inflated"], 2)
 
     def reconstruction_loss(
-            self,
-            x: Array,  # TODO @GiacomoFabrini is this ok?
-            scale: float = 1.0
+        self,
+        x: Array,  # TODO @GiacomoFabrini is this ok?
+        scale: float = 1.0,
     ):
         """
         Reconstruction loss of the autoencoder (in case `self.reconstruct` == True).
@@ -464,10 +494,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         #  Are they on the same scale/order of magnitude as L1 terms if we leave them squared?!
         return scale * mse(predictions=reconstructed_x, targets=x)
 
-    def symmetry_loss(
-            self,
-            scale: float = 1.0
-    ):
+    def symmetry_loss(self, scale: float = 1.0):
         """
         Symmetry loss for the autoencoder (in case `self.reconstruct` == True),
         pushes the decoder weights to be the transposed of the encoder weights.
@@ -476,46 +503,54 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         num_layers = len(self.deep_encoder.layers)
         # Iterate over the encoder and decoder layers
         for encoder_layer, decoder_layer in zip(
-                self.deep_encoder.layers, self.deep_decoder.layers[::-1]  # zip them in reverse order
+            self.deep_encoder.layers,
+            self.deep_decoder.layers[::-1],  # zip them in reverse order
         ):
             # Compute the weight difference for each pair of corresponding layers
             diff = encoder_layer.weight - decoder_layer.weight.T
             # Then compute mean squares differences per layer
             symmetry_reg += jnp.mean(jnp.square(diff))
-        return scale * symmetry_reg/num_layers  # mean across layers - should be on the same order of magnitude as MSE
-
+        return (
+            scale * symmetry_reg / num_layers
+        )  # mean across layers - should be on the same order of magnitude as MSE
 
     def constrain_median(self, x: Array, scale: float = 1.0):
         """
         Constrain median of global parameters to be close to initialisation (avg_model/per_sample), x.
         """
-        return scale * mse(predictions=self.kin_params_combiner.learned_global_kin_params, targets=x)
-
+        return scale * mse(
+            predictions=self.kin_params_combiner.learned_global_kin_params,
+            targets=x,
+        )
 
     # inspired from Fabian's NeuralCoarseGraining
     # see: https://github.com/frohlich-lab/NeuralCoarseGraining/blob/main/ncg/static.py
-    def get_hyperparams(self, samples_list_dict: dict = None) -> dict[str, Union[int, dict]]:
+    def get_hyperparams(
+        self, samples_list_dict: dict = None
+    ) -> dict[str, Union[int, dict]]:
         """
         Get the hyperparameters of the model.
 
         Note: used in model serialisation
         """
         return {
-            'dataset': self.dataset_name,
-            'module_depth': self.module_depth,
-            'module_structure_multiplier': self.module_structure_multiplier,
-            'use_layer_bias': self.use_layer_bias,
-            'last_layer_activation': self.last_layer_activation,
-            'weight_init_fn': self.weight_init_fn,
-            'bias_init_fn': self.bias_init_fn,
-            'sample_name_list': self.sample_name_list if samples_list_dict is None else samples_list_dict,
-            'n_input_features': self.n_input_features,
-            'n_latent': self.n_latent,
-            'n_threads': self.n_threads,
-            'orth_reg_strategy': self.orth_reg_strategy,
-            'activation_fn_name': self.activation_fn_name,
-            'reconstruct': self.reconstruct,
-            'key': self.model_key.tolist()
+            "dataset": self.dataset_name,
+            "module_depth": self.module_depth,
+            "module_structure_multiplier": self.module_structure_multiplier,
+            "use_layer_bias": self.use_layer_bias,
+            "last_layer_activation": self.last_layer_activation,
+            "weight_init_fn": self.weight_init_fn,
+            "bias_init_fn": self.bias_init_fn,
+            "sample_name_list": self.sample_name_list
+            if samples_list_dict is None
+            else samples_list_dict,
+            "n_input_features": self.n_input_features,
+            "n_latent": self.n_latent,
+            "n_threads": self.n_threads,
+            "orth_reg_strategy": self.orth_reg_strategy,
+            "activation_fn_name": self.activation_fn_name,
+            "reconstruct": self.reconstruct,
+            "key": self.model_key.tolist(),
         }
 
     def save(self, filename: Path, samples_list_dict: dict = None) -> None:
@@ -526,21 +561,23 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param samples_list_dict: dictionary of samples list (train/test)
         """
         filename.parent.mkdir(exist_ok=True, parents=True)
-        with Path.open(filename, 'wb') as f:
+        with Path.open(filename, "wb") as f:
             # Save model hyperparameters
-            hyperparam_str = json.dumps(self.get_hyperparams(samples_list_dict))
-            f.write((hyperparam_str + '\n').encode())
+            hyperparam_str = json.dumps(
+                self.get_hyperparams(samples_list_dict)
+            )
+            f.write((hyperparam_str + "\n").encode())
             # Save model parameters (weights, biases)
             eqx.tree_serialise_leaves(f, self)
 
     @classmethod
     def load(
-            cls,
-            filename: Union[Path, str],
-            problem: Problem,  # not serialisable in json
-            dataset: str,
-            petab_base_files: Dict[str, pd.DataFrame],
-    ) -> 'DeepMechanisticModel':
+        cls,
+        filename: Union[Path, str],
+        problem: Problem,  # not serialisable in json
+        dataset: str,
+        petab_base_files: Dict[str, pd.DataFrame],
+    ) -> "DeepMechanisticModel":
         """
         Loads DMM model from a file.
 
@@ -552,17 +589,24 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         # Ensure filename is a Path object
         filename = Path(filename)
-        with Path.open(filename, 'rb') as f:
+        with Path.open(filename, "rb") as f:
             # Load model hyperparameters
             hyperparam_str = f.readline().decode().strip()
             hyperparams = json.loads(hyperparam_str)
             # Handle parameters that require conversion
             # Key: convert back to ArrayImpl with expected dtype
             # TODO @GiacomoFabrini: is this necessary?
-            hyperparams['key'] = jnp.array(hyperparams['key'], dtype=jnp.uint32)
+            hyperparams["key"] = jnp.array(
+                hyperparams["key"], dtype=jnp.uint32
+            )
             # Subset sample_name_list dictionary to corresponding dataset
-            if isinstance(hyperparams['sample_name_list'], dict) and dataset is not None:
-                hyperparams['sample_name_list'] = hyperparams['sample_name_list'][dataset]
+            if (
+                isinstance(hyperparams["sample_name_list"], dict)
+                and dataset is not None
+            ):
+                hyperparams["sample_name_list"] = hyperparams[
+                    "sample_name_list"
+                ][dataset]
             # Make model skeleton
             model = cls(
                 **hyperparams,
@@ -574,28 +618,18 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return model
 
 
-def l1reg(
-    module,
-    scale: float = 1.0
-):
+def l1reg(module, scale: float = 1.0):
     """
     L1 regularization of generic module weights.
     """
     l1reg_loss = 0
     for layer in module.layers:
         w = layer.weight
-        l1reg_loss += scale * jnp.mean(
-            jnp.abs(w)
-        )
+        l1reg_loss += scale * jnp.mean(jnp.abs(w))
     return l1reg_loss / len(module.layers)  # mean across all layers
 
 
-def orth_reg(
-    module,
-    orth_reg_strategy,
-    mode: str,
-    scale: float = 1.0
-):
+def orth_reg(module, orth_reg_strategy, mode: str, scale: float = 1.0):
     """
     Orthogonal regularization of generic module weights.
     """
@@ -615,4 +649,4 @@ def orth_reg(
             oreg_loss += scale * jnp.mean(
                 jnp.abs(m - jnp.diag(jnp.diag(m))) ** reg_exponent
             )
-    return oreg_loss/len(module.layers)  # mean across all layers
+    return oreg_loss / len(module.layers)  # mean across all layers

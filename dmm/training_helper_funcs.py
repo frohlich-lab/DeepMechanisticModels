@@ -6,6 +6,7 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 import petab.v1 as petab
 import pypesto
 import seaborn as sns
@@ -15,12 +16,13 @@ from jax import vmap
 from jax.tree_util import tree_map
 from jaxtyping import Array
 from optax import (
-    constant_schedule,
     GradientTransformationExtraArgs,
     OptState,
     Schedule,
     adam,
     adamw,
+    constant_schedule,
+    inject_hyperparams,
     piecewise_interpolate_schedule,
     sgdr_schedule,
 )
@@ -54,28 +56,38 @@ def get_scheduler(
 
     if conf["use_simple_linear_schedule"]:
         # Bypass for constant schedule if needed
-        if conf["lrate_decay"] == 1 and conf["lrate_span"] == 1 and conf["warmup_fct"] == 0:
+        if (
+            conf["lrate_decay"] == 1
+            and conf["lrate_span"] == 1
+            and conf["warmup_fct"] == 0
+        ):
             return constant_schedule(conf["max_lrate"])
 
-        assert conf["lrate_span"] >= 1, "lrate_span must be greater than or equal to 1!"
-        assert conf["lrate_decay"] >= 0, "lrate_decay must be greater than or equal to 0!"
-        assert conf["warmup_fct"] >= 0, "warmup_fct must be greater than or equal to 0!"
+        assert (
+            conf["lrate_span"] >= 1
+        ), "lrate_span must be greater than or equal to 1!"
+        assert (
+            conf["lrate_decay"] >= 0
+        ), "lrate_decay must be greater than or equal to 0!"
+        assert (
+            conf["warmup_fct"] >= 0
+        ), "warmup_fct must be greater than or equal to 0!"
         assert conf["warmup_fct"] < 1, "warmup_fct must be less than 1!"
 
         # Handle warmup/no warmup
         if conf["warmup_fct"] > 0:
             boundaries_and_scales = {
                 int(conf["warmup_fct"] * n_epoch): conf["lrate_span"],
-                n_epoch-1: conf["lrate_decay"],
+                n_epoch - 1: conf["lrate_decay"],
             }
         else:
             boundaries_and_scales = {
-                n_epoch-1: conf["lrate_decay"],
+                n_epoch - 1: conf["lrate_decay"],
             }
         return piecewise_interpolate_schedule(
             interpolate_type="linear",
-            init_value=conf["max_lrate"]/conf["lrate_span"],
-            boundaries_and_scales=boundaries_and_scales
+            init_value=conf["max_lrate"] / conf["lrate_span"],
+            boundaries_and_scales=boundaries_and_scales,
         )
     else:
         # Cosine annealing
@@ -91,7 +103,8 @@ def get_scheduler(
                 "init_value": conf["max_lrate"]
                 / conf["lrate_span"]
                 * conf["lrate_decay"] ** i_schedule,
-                "peak_value": conf["max_lrate"] * conf["lrate_decay"] ** i_schedule,
+                "peak_value": conf["max_lrate"]
+                * conf["lrate_decay"] ** i_schedule,
                 "warmup_steps": int(
                     (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
                     * conf["warmup_fct"]
@@ -133,7 +146,7 @@ def get_optimiser_and_opt_state(
     # Initialise optimiser and optimiser state
     if conf["optimiser"] == "adam":
         optimiser = adam
-        extra_args = None
+        extra_args = {}
     elif conf["optimiser"] == "adamw":
         optimiser = adamw
         extra_args = {"weight_decay": conf["weight_decay"]}
@@ -150,10 +163,7 @@ def get_optimiser_and_opt_state(
         plt.xlabel("Epoch")
         wandb.log({"Learning Rate Schedule": plt}, step=0)
 
-    if extra_args is not None:
-        opt = optimiser(schedule, **extra_args)
-    else:
-        opt = optimiser(schedule)
+    opt = inject_hyperparams(optimiser)(learning_rate=schedule, **extra_args)
     opt_state = opt.init(diff_model)
     return opt, opt_state
 
@@ -292,7 +302,7 @@ class Chi2Objective(pypesto.objective.Objective):
             x, sensi_orders, mode, return_dict=True, **kwargs
         )
         ndata = sum(
-            sum(np.not_equal(r[pypesto.C.RES],0.0))
+            sum(np.not_equal(r[pypesto.C.RES], 0.0))
             for r in res[RDATAS]
             if r.status == AMICI_SUCCESS
         )
@@ -302,7 +312,9 @@ class Chi2Objective(pypesto.objective.Objective):
             mse = sum(
                 r["chi2"] for r in res[RDATAS] if r.status == AMICI_SUCCESS
             ) / max(ndata, 1)
-            if not all(r.status == AMICI_SUCCESS for r in res[RDATAS]):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
+            if not all(
+                r.status == AMICI_SUCCESS for r in res[RDATAS]
+            ):  # catch failure and set MSE to inf -> loss will be inf -> will be caught by patience counter
                 mse = np.inf
             ret[pypesto.C.FVAL] = mse
         if 1 in sensi_orders:
@@ -372,7 +384,12 @@ def model_output_to_petab_input_frozen_medians(
     pred = vmap(model)(input_data)["inflated"]
     # Concatenate FROZEN global kinetic parameters with predicted deviations
     augmented_pred = jnp.concatenate(
-        [jax.lax.stop_gradient(model.kin_params_combiner.learned_global_kin_params), pred.flatten()]
+        [
+            jax.lax.stop_gradient(
+                model.kin_params_combiner.learned_global_kin_params
+            ),
+            pred.flatten(),
+        ]
     )
     return augmented_pred
 
@@ -566,11 +583,49 @@ def rmse(pp, model: DeepMechanisticModel, input_data):
         return np.sqrt(
             np.mean(
                 np.square(
-                    (simulation_df[petab.SIMULATION]
-                    - petab_problem.measurement_df[petab.MEASUREMENT])/simulation_df[petab.NOISE_PARAMETERS]
+                    (
+                        simulation_df[petab.SIMULATION]
+                        - petab_problem.measurement_df[petab.MEASUREMENT]
+                    )
+                    / simulation_df[petab.NOISE_PARAMETERS]
                 )
             )
         )
+    except Exception as e:
+        print(e)
+        return np.inf
+
+
+def rmse_sample_stat(pp, model: DeepMechanisticModel, input_data):
+    try:
+        simulation_df, petab_problem = compute_simulation_from_model(
+            pp=pp,
+            model=model,
+            input_data=input_data,
+            return_petab_problem=True,
+        )
+        residuals = (
+            simulation_df[petab.SIMULATION]
+            - petab_problem.measurement_df[petab.MEASUREMENT]
+        ) / simulation_df[petab.NOISE_PARAMETERS]
+        df = pd.DataFrame(
+            residuals.values,
+            index=simulation_df.index,
+            columns=["residuals"],
+        )
+        df["sample"] = simulation_df[petab.PREEQUILIBRATION_CONDITION_ID]
+        df_agg = df.groupby("sample").agg(
+            sample_residuals=(
+                "residuals",
+                lambda x: np.sqrt(np.mean(np.square(x))),
+            )
+        )
+        sm = df_agg["sample_residuals"].mean()
+        sv = df_agg["sample_residuals"].var()
+        ss = (
+            df_agg["sample_residuals"].max() - df_agg["sample_residuals"].min()
+        )
+        return sm, sv, ss
     except Exception as e:
         print(e)
         return np.inf

@@ -1,121 +1,136 @@
-import fire
 import itertools as itt
+import os
+from dataclasses import replace
+from pathlib import Path
+
+import fire
 import matplotlib.pyplot as plt
 import numpy as np
-import os
 import pandas as pd
 import seaborn as sns
+from joblib import load
+
 # import subprocess
 # import wandb
-
 from annotation_utils import get_cell_line_cellosaurus_annotations
 from common import (
     CONTEXT_SET,
-    default_attributes,
-    features_dir,
-    evaluations_dir,
+    EVALUATION_EMBEDDING,
+    EVALUATION_FULL_PARAMETERS,
+    EVALUATION_PARAMETER_DEVIATIONS,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
-    EVALUATION_EMBEDDING,
-    EVALUATION_PARAMETER_DEVIATIONS,
-    EVALUATION_FULL_PARAMETERS,
     FEATURES_OUTFILE,
     FEATURES_PIPELINE,
-    fig_dir,
-    hardest_cell_lines,
-    pretrain_dir,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
     REGRESSION_MODES,
-    subtypes_tognetti,
-    training_samples,
-    test_samples,
     Wildcards,
+    default_attributes,
+    evaluations_dir,
+    features_dir,
+    fig_dir,
+    hardest_cell_lines,
+    pretrain_dir,
+    subtypes_tognetti,
+    test_samples,
+    training_samples,
 )
 from cytof.problem import CytofProblem
-from dataclasses import replace
-from dmm.analysis import plot_loss_vs_regularization, simulate_dmm
+from dmm.analysis import simulate_dmm
+
 # from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import get_features_and_pipeline_filepaths
 from dmm.plotting import plot_cross_samples_multiple_simulations
-from evaluation_plotting import (n_hidden_pairwise_heatmap, performance_barplot,
-                                 volcano_hyperparameter_significance,
-                                 plot_latent_embeddings, plot_val_param_dev_spread, plot_parameter_heatmaps,
-                                 plot_mse_param_dev_val_across_splits)
-from evaluation_utils import (add_annotations, aggregate_and_log, convert_dataframe_dtypes,
-                              get_measurements_and_obervables,
-                              load_model_and_obj, load_and_transform_features,
-                              simulate_avg_model,
-                              process_avg_model_simulation,
-                              process_per_sample_pretrain, get_embedding_and_params_df,
-                              pca_latent_embeddings,
-                              cosine_similarity_embeddings, silhouette_embeddings,
-                              train_rf_features_to_rmse,
-                              compute_deviation_ratio)
+from evaluation_plotting import (
+    n_hidden_pairwise_heatmap,
+    performance_barplot,
+    plot_latent_embeddings,
+    plot_mse_param_dev_val_across_splits,
+    plot_parameter_heatmaps,
+    plot_val_param_dev_spread,
+    volcano_hyperparameter_significance,
+)
+from evaluation_utils import (
+    add_annotations,
+    aggregate_and_log,
+    compute_deviation_ratio,
+    convert_dataframe_dtypes,
+    cosine_similarity_embeddings,
+    get_measurements_and_obervables,
+    load_and_transform_features,
+    load_model_and_obj,
+    pca_latent_embeddings,
+    process_avg_model_simulation,
+    process_per_sample_pretrain,
+    silhouette_embeddings,
+    simulate_avg_model,
+)
 from generate_run_configs import generate_run_configs
-from joblib import load
-from pathlib import Path
 from training_configuration import (
-    CONTEXTS_FEATURES, RETURN_STAT_TESTS, HP_RUN_MODE, REFINE_HPS, SPLITS
+    CONTEXTS_FEATURES,
+    HP_RUN_MODE,
+    REFINE_HPS,
+    RETURN_STAT_TESTS,
+    SPLITS,
 )
 from util import load_petab_base_files
 
 
 def process_reference(
-        conf: Conf,
-        samples: str,
-        dataset: str,
-        mode: str,
-        ref_name: str
+    conf: Conf, samples: str, dataset: str, mode: str, ref_name: str
 ) -> pd.DataFrame:
-    print(f'Processing {mode} model for {samples}, {dataset}')
+    print(f"Processing {mode} model for {samples}, {dataset}")
     ref = pd.read_csv(
         EVALUATION_REFERENCE.format(
             **{
                 **conf.__dict__,
-                **dict(
-                    samples=samples,
-                    dataset=dataset,
-                ),
+                "samples": samples,
+                "dataset": dataset,
             },
             mode=mode,
         ),
         index_col=0,
     )
     ref["ref"] = ref_name
-    print(f'Finished processing {mode} model for {samples}, {dataset}')
+    print(f"Finished processing {mode} model for {samples}, {dataset}")
     return ref
 
 
 conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
-JOBS = tuple([i for i in range(conf.n_starts)])
+JOBS = tuple(i for i in range(conf.n_starts))
 
 # Compute subtype dictionaries
 subtypes_pam50, subtypes_lb = (
     {
-        cl: subtypes_tognetti[cl][subtype_scheme] for cl in subtypes_tognetti.keys()
+        cl: subtypes_tognetti[cl][subtype_scheme]
+        for cl in subtypes_tognetti.keys()
     }
     for subtype_scheme in ["PAM50", "Luminal/Basal"]
 )
 subtypes_hr = {
     cl: (
-        "Positive" if subtypes_pam50[cl] in ["LA", "LB"] else
-        "Negative" if subtypes_pam50[cl] in ["HER2", "Basal"] else
-        "Unknown"
+        "Positive"
+        if subtypes_pam50[cl] in ["LA", "LB"]
+        else "Negative"
+        if subtypes_pam50[cl] in ["HER2", "Basal"]
+        else "Unknown"
     )
     for cl in subtypes_pam50.keys()
 }
 
 subtypes_her2 = {
     cl: (
-        "Negative" if subtypes_pam50[cl] in ["LA", "Basal"] else
-        "Positive" if subtypes_pam50[cl] in ["LB", "HER2"] else
-        "Unknown"
+        "Negative"
+        if subtypes_pam50[cl] in ["LA", "Basal"]
+        else "Positive"
+        if subtypes_pam50[cl] in ["LB", "HER2"]
+        else "Unknown"
     )
     for cl in subtypes_pam50.keys()
 }
@@ -128,16 +143,17 @@ hyperparam_configs = generate_run_configs(
 )
 hyperparam_configs = {
     samples: [
-        hyperparam_config for hyperparam_config in hyperparam_configs
-        if hyperparam_config['samples'] == samples
+        hyperparam_config
+        for hyperparam_config in hyperparam_configs
+        if hyperparam_config["samples"] == samples
     ]
     for samples in SPLITS
 }
 
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
-for samples in sorted(list(SPLITS)):
-    for dataset in ["train","test"]:
+for samples in sorted(SPLITS):
+    for dataset in ["train", "test"]:
         # DMM evaluations
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
@@ -146,18 +162,20 @@ for samples in sorted(list(SPLITS)):
                 efile := EVALUATION_TRAINING.format_map(
                     {
                         **hyperparam_configuration,
-                        'model': conf.model,
-                        'data': conf.data,
-                        'dataset': dataset,
-                        'samples': samples
+                        "model": conf.model,
+                        "data": conf.data,
+                        "dataset": dataset,
+                        "samples": samples,
                     }
                 )
             )
         ).assign(
             ref="DMM",  # previously called "meth"
-            dataset=dataset
+            dataset=dataset,
         )
-        print(f'Finished concatenating training evaluations for {samples}, {dataset}')
+        print(
+            f"Finished concatenating training evaluations for {samples}, {dataset}"
+        )
 
         # Loss vs regularization plot -- DISABLED, not useful right now
         # print(f'Starting to plot loss_vs_regularization for {samples}, {dataset}')
@@ -169,30 +187,43 @@ for samples in sorted(list(SPLITS)):
         # concatenate embeddings, parameter deviations and parameters
         temp_results = {}
         for result_type, filepath_format in zip(
-                ["latent_embeddings", "parameter_deviations", "full_parameters"],
-                [EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS]
+            ["latent_embeddings", "parameter_deviations", "full_parameters"],
+            [
+                EVALUATION_EMBEDDING,
+                EVALUATION_PARAMETER_DEVIATIONS,
+                EVALUATION_FULL_PARAMETERS,
+            ],
         ):
             temp_results[result_type] = pd.concat(
-                pd.read_csv(efile, index_col=0).assign(**hyperparam_configuration)
+                pd.read_csv(efile, index_col=0).assign(
+                    **hyperparam_configuration
+                )
                 for hyperparam_configuration in hyperparam_configs[samples]
                 if os.path.exists(
                     efile := filepath_format.format_map(
                         {
                             **hyperparam_configuration,
-                            'model': conf.model,
-                            'data': conf.data,
-                            'dataset': dataset,
-                            'samples': samples
+                            "model": conf.model,
+                            "data": conf.data,
+                            "dataset": dataset,
+                            "samples": samples,
                         }
                     )
                 )
             )
-        print(f'Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}')
+        print(
+            f"Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}"
+        )
 
+        # TODO @GiacomoFabrini - refactor either where regressors/references or dmms save their results and remove replacements below
         # Get references (avg_model, per_sample)
         avg_model, ps = [
-            process_reference(conf, samples, dataset, mode, ref_name)
-            for mode, ref_name in zip(["avg_model", "per_sample"], ["avg_model", "sample"])
+            process_reference(
+                conf, samples, dataset.replace("test", "val"), mode, ref_name
+            )
+            for mode, ref_name in zip(
+                ["avg_model", "per_sample"], ["avg_model", "sample"]
+            )
         ]
 
         # Process regressors - linreg, lasso, elasticnet
@@ -202,11 +233,10 @@ for samples in sorted(list(SPLITS)):
                     EVALUATION_REGRESSOR.format(
                         **{
                             **conf.__dict__,
-                            **dict(
-                                samples=samples,
-                                dataset=dataset,
-                                context=ctxt,
-                            ),
+                            "samples": samples,
+                            "dataset": dataset.replace("test", "val"),
+                            "context": ctxt,
+                            "features": features,
                         },
                         mode=mode,
                     ),
@@ -216,7 +246,7 @@ for samples in sorted(list(SPLITS)):
             ).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
         }
-        print(f'Finished processing regressors for {samples}, {dataset}')
+        print(f"Finished processing regressors for {samples}, {dataset}")
 
         # Removed addition of None hyperparameters - already done before the `process_simulations` step
         avg_ps_dfs = []
@@ -228,9 +258,11 @@ for samples in sorted(list(SPLITS)):
                 ps,
             ]:
                 avg_ps_df = rdf.copy()
-                avg_ps_df = (avg_ps_df
-                             .assign(context=context, samples=samples, dataset=dataset)
-                             .replace(np.nan, "N/A"))  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
+                avg_ps_df = avg_ps_df.assign(
+                    context=context, samples=samples, dataset=dataset
+                ).replace(
+                    np.nan, "N/A"
+                )  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -244,7 +276,9 @@ for samples in sorted(list(SPLITS)):
 
         # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
-        print(f"Finished concatenating training and reference models for {samples}, {dataset}")
+        print(
+            f"Finished concatenating training and reference models for {samples}, {dataset}"
+        )
         dfs.append(dfd)
         le_dfs.append(temp_results["latent_embeddings"])
         param_dev_dfs.append(temp_results["parameter_deviations"])
@@ -252,20 +286,37 @@ for samples in sorted(list(SPLITS)):
         # Cleanup
         del training, avg_ps_dfs, rdf, dfd, temp_results
 
-df = pd.concat(dfs).reset_index()
-le_df, param_dev_df, param_df = [pd.concat(dfs) for dfs in [le_dfs, param_dev_dfs, param_dfs]]
-for results_df in [le_df, param_dev_df, param_df]:
+df = pd.concat(dfs, ignore_index=True)
+del dfs
+
+le_df = pd.concat(le_dfs, ignore_index=True)
+del le_dfs
+
+param_dev_df = pd.concat(param_dev_dfs, ignore_index=True)
+del param_dev_dfs
+
+param_df = pd.concat(param_dfs, ignore_index=True)
+del param_dfs
+
+for results_df in (le_df, param_dev_df, param_df):
     results_df["job"] = results_df["job"].astype(int)
-del dfs, le_dfs, param_dev_dfs, param_dfs
+
 
 # Select reg_param for plotting based on the number of unique investigated values
 reg_params = [
-    "l1reg_inflate", "oreg_inflate",   # inflater
-    "l1reg_encode", "oreg_encode",  # encoder
-    "l1reg_inflater_output", "median_reg", "inflater_output_reg_epoch",  # param dev, param medians
-    "sparse_threshold_perc"
+    "l1reg_inflate",
+    "oreg_inflate",  # inflater
+    "l1reg_encode",
+    "oreg_encode",  # encoder
+    "l1reg_inflater_output",
+    "l2reg_inflater_output", 
+    "median_reg",
+    "inflater_output_reg_epoch",  # param dev, param medians
+    "sparse_threshold_perc",
 ]
-num_unique_regs = [len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params]
+num_unique_regs = [
+    len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params
+]
 reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
 
 # ########################################################################### #
@@ -275,12 +326,29 @@ reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
 # Aggregate data, save CSVs and log W&B artifacts (currently disabled)
 num_best = 10
 aggregated_results = aggregate_and_log(
-    df=df, conf=conf, top_reg_param=reg_param, return_stat_tests=RETURN_STAT_TESTS, num_best=num_best
+    df=df,
+    conf=conf,
+    top_reg_param=reg_param,
+    return_stat_tests=RETURN_STAT_TESTS,
+    num_best=num_best,
 )
 if RETURN_STAT_TESTS:
-    data, stat_test_res_df, top_n_dmm_train, best_hyperparam_dmm, best_regressors, unified_dmm_results = aggregated_results
+    (
+        data,
+        stat_test_res_df,
+        top_n_dmm_train,
+        best_hyperparam_dmm,
+        best_regressors,
+        unified_dmm_results,
+    ) = aggregated_results
 else:
-    data, top_n_dmm_train, best_hyperparam_dmm, best_regressors, unified_dmm_results = aggregated_results
+    (
+        data,
+        top_n_dmm_train,
+        best_hyperparam_dmm,
+        best_regressors,
+        unified_dmm_results,
+    ) = aggregated_results
 
 
 # ########################################################################### #
@@ -298,11 +366,7 @@ else:
 # ########################################################################### #
 # Subset parameter deviation, parameter and latent embeddings to top N=10 jobs
 top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train = [
-    df.merge(
-        top_n_dmm_train,
-        how="inner",
-        on=default_attributes
-    )[df.columns]
+    df.merge(top_n_dmm_train, how="inner", on=default_attributes)[df.columns]
     for df in [param_dev_df, param_df, le_df]
 ]
 
@@ -314,8 +378,13 @@ top_n_pca_le_df_train = pca_latent_embeddings(
 ).reset_index()
 
 for df_to_save, df_label in zip(
-    [top_n_param_dev_df_train, top_n_param_df_train, top_n_le_df_train, top_n_pca_le_df_train],
-    ["param_dev", "param", "le", "pca_le"]
+    [
+        top_n_param_dev_df_train,
+        top_n_param_df_train,
+        top_n_le_df_train,
+        top_n_pca_le_df_train,
+    ],
+    ["param_dev", "param", "le", "pca_le"],
 ):
     df_to_save.to_csv(
         evaluations_dir
@@ -325,7 +394,9 @@ for df_to_save, df_label in zip(
     )
 
 # Get Cellosaurus annotations
-brca_annot_df = get_cell_line_cellosaurus_annotations(file_dir= features_dir / conf.model / conf.data)
+brca_annot_df = get_cell_line_cellosaurus_annotations(
+    file_dir=features_dir / conf.model / conf.data
+)
 for (latent_embedding_df, df_label), which_cells in itt.product(
     zip(
         [
@@ -335,9 +406,9 @@ for (latent_embedding_df, df_label), which_cells in itt.product(
         [
             # "pristine",
             "pca"
-        ]
+        ],
     ),
-        ["all", "val_only"]
+    ["all", "val_only"],
 ):
     # Add Cellosaurus and PAM50/LB annotations
     plotting_df = add_annotations(
@@ -346,14 +417,15 @@ for (latent_embedding_df, df_label), which_cells in itt.product(
         subtypes_pam50,
         subtypes_lb,
         subtypes_hr,
-        subtypes_her2
+        subtypes_her2,
     )
     plot_latent_embeddings(
         le_df=plotting_df,
         df_label=df_label,
         reg_param=reg_param,
         save_path=str(
-            outdir / "{context}.latent_embeddings.{df_label}.{which_cells}.{plot_by}.pdf"
+            outdir
+            / "{context}.latent_embeddings.{df_label}.{which_cells}.{plot_by}.pdf"
         ),
         which_cells=which_cells,
     )
@@ -376,19 +448,27 @@ plt.close()
 # )
 #
 
-data_nodmm = data[data.ref != 'DMM']
+data_nodmm = data[data.ref != "DMM"]
 data_dmm = convert_dataframe_dtypes(data[data.ref == "DMM"])
 
 for barplot_label in ["all", "top_val"]:
     if barplot_label == "all":
         data_top_dmm = data_dmm.merge(
             top_n_dmm_train,
-            on=[col for col in top_n_dmm_train.columns if col not in ["rmse_train", "rmse_test"]]
+            on=[
+                col
+                for col in top_n_dmm_train.columns
+                if col not in ["rmse_train", "rmse_test"]
+            ],
         ).drop(columns=["rmse_train", "rmse_test"])
     else:
         data_top_dmm = data_dmm.merge(
             best_hyperparam_dmm,
-            on=[col for col in best_hyperparam_dmm.columns if col not in ["rmse_train", "rmse_test", "model"]]
+            on=[
+                col
+                for col in best_hyperparam_dmm.columns
+                if col not in ["rmse_train", "rmse_test", "model"]
+            ],
         ).drop(columns=["rmse_train", "rmse_test", "model"])
 
     barplot_df = pd.concat([data_top_dmm, data_nodmm])
@@ -404,7 +484,9 @@ for barplot_label in ["all", "top_val"]:
 # ########################### Embedding Similarity ########################## #
 # ########################################################################### #
 # Cosine-similarity
-cv_cos_sim = cosine_similarity_embeddings(top_n_pca_le_df_train, hyperparam_configs)
+cv_cos_sim = cosine_similarity_embeddings(
+    top_n_pca_le_df_train, hyperparam_configs
+)
 cv_cos_sim.to_csv(
     evaluations_dir
     / f"{conf.model}"
@@ -412,7 +494,9 @@ cv_cos_sim.to_csv(
     / f"{conf.model}.{conf.data}.cosine_sim_cv.csv"
 )
 # Silhouette score
-cv_silhouette = silhouette_embeddings(top_n_pca_le_df_train, hyperparam_configs)
+cv_silhouette = silhouette_embeddings(
+    top_n_pca_le_df_train, hyperparam_configs
+)
 cv_silhouette.to_csv(
     evaluations_dir
     / f"{conf.model}"
@@ -421,14 +505,17 @@ cv_silhouette.to_csv(
 )
 g = sns.FacetGrid(
     cv_silhouette,
-    row="context", row_order=sorted(cv_silhouette.context.unique()),
-    hue="cell_line"
+    row="context",
+    row_order=sorted(cv_silhouette.context.unique()),
+    hue="cell_line",
 )
 g.map_dataframe(sns.scatterplot, x=reg_param, y="mean_silhouette_score")
 plt.tight_layout()
 plt.legend()
 plt.xscale("symlog")
-plt.savefig(fig_dir / conf.model / conf.data / f"mean_silhouette_score_{reg_param}.pdf")
+plt.savefig(
+    fig_dir / conf.model / conf.data / f"mean_silhouette_score_{reg_param}.pdf"
+)
 plt.close()
 print("Computed similarity scores for latent embeddings.")
 
@@ -437,14 +524,16 @@ print("Computed similarity scores for latent embeddings.")
 # ######################### Param Deviation Analysis ######################## #
 # ########################################################################### #
 # List of parameter prefixes
-prefixes = ('EGFR', 'ERK', 'ERBB2', 'MEK', 'iMEK', 'iEGFR')
+prefixes = ("EGFR", "ERK", "ERBB2", "MEK", "iMEK", "iEGFR")
 # Compute ratios between deviations and medians
 param_cols = [col for col in param_df.columns if col.startswith(prefixes)]
 # Choose whether to plot the average of all multistarts or only the top 10 with respect to training performance (rmse_train)
 plot_top_n_train = True
 samples_val = sorted(param_df[param_df.dataset != "train"].cell_line.unique())
 cell_lines = sorted(param_df.cell_line.unique())
-samples_train = [cell_line for cell_line in cell_lines if cell_line not in samples_val]
+samples_train = [
+    cell_line for cell_line in cell_lines if cell_line not in samples_val
+]
 
 # Plot spread of parameter deviations across multistarts for validation cell-lines
 plot_val_param_dev_spread(
@@ -452,7 +541,10 @@ plot_val_param_dev_spread(
     param_cols,
     reg_param,
     reg_params,  # TODO any better way of dynamically defining this?
-    fig_dir / conf.model / conf.data / f"param_dev_boxplot_val_only_{reg_param}.pdf"
+    fig_dir
+    / conf.model
+    / conf.data
+    / f"param_dev_boxplot_val_only_{reg_param}.pdf",
 )
 plt.close("all")
 
@@ -461,20 +553,24 @@ plt.close("all")
 
 for context in CONTEXT_SET:
     for plot_label, parameter_dataframe in zip(
-            ["param", "param_dev"],
-            [
-                top_n_param_df_train if plot_top_n_train else param_df,
-                top_n_param_dev_df_train if plot_top_n_train else param_dev_df
-            ]
+        ["param", "param_dev"],
+        [
+            top_n_param_df_train if plot_top_n_train else param_df,
+            top_n_param_dev_df_train if plot_top_n_train else param_dev_df,
+        ],
     ):
         # Heatmaps VS Regularisation strength
         # Subset to context and compute the median over all jobs
-        group_cols = [col for col in parameter_dataframe.columns if
-                      (not col.startswith(prefixes)) and (col != "job")]
+        group_cols = [
+            col
+            for col in parameter_dataframe.columns
+            if (not col.startswith(prefixes)) and (col != "job")
+        ]
         # # TODO once we reinclude this!
         # group_cols = [col for col in group_cols if col != "sparse_threshold_perc"]
         plot_df = (
-            parameter_dataframe[parameter_dataframe.context == context].groupby(group_cols)[param_cols]
+            parameter_dataframe[parameter_dataframe.context == context]
+            .groupby(group_cols)[param_cols]
             .agg("median")  # CHANGED FROM MEAN TO MEDIAN
             .reset_index()
         )
@@ -485,47 +581,86 @@ for context in CONTEXT_SET:
             subtypes_pam50,
             subtypes_lb,
             subtypes_hr,
-            subtypes_her2
+            subtypes_her2,
         )
 
         if plot_label == "param_dev":
             # Get ratios between param deviation ranges across train/val per samples/reg_param combo
             # This uses the median across jobs, but we could directly use ALL JOBS (parameter_dataframe
-            val_param_dev_ratios = compute_deviation_ratio(plot_df, param_cols, reg_param)
-            sns.boxplot(val_param_dev_ratios, x=reg_param, y="deviation_ratio", color='gray')
-            sns.stripplot(val_param_dev_ratios, x=reg_param, y="deviation_ratio", hue="samples")
+            val_param_dev_ratios = compute_deviation_ratio(
+                plot_df, param_cols, reg_param
+            )
+            sns.boxplot(
+                val_param_dev_ratios,
+                x=reg_param,
+                y="deviation_ratio",
+                color="gray",
+            )
+            sns.stripplot(
+                val_param_dev_ratios,
+                x=reg_param,
+                y="deviation_ratio",
+                hue="samples",
+            )
             plt.tight_layout()
             plt.savefig(
-                fig_dir / conf.model / conf.data / f"{context}.param_dev_ratio.{reg_param}.pdf"
+                fig_dir
+                / conf.model
+                / conf.data
+                / f"{context}.param_dev_ratio.{reg_param}.pdf"
             )
             plt.close()
 
-            val_param_dev_df = plot_df[plot_df.cell_line.isin(hardest_cell_lines)]
+            val_param_dev_df = plot_df[
+                plot_df.cell_line.isin(hardest_cell_lines)
+            ]
             results_dfs = []
-            for cell_line, reg_param_val in itt.product(val_param_dev_df.cell_line.unique(),
-                                                        val_param_dev_df[reg_param].unique()):
+            for cell_line, reg_param_val in itt.product(
+                val_param_dev_df.cell_line.unique(),
+                val_param_dev_df[reg_param].unique(),
+            ):
                 # Select a single cell-line and reg strength
                 sub_df = val_param_dev_df[
-                    (val_param_dev_df.cell_line == cell_line) & (val_param_dev_df[reg_param] == reg_param_val)
+                    (val_param_dev_df.cell_line == cell_line)
+                    & (val_param_dev_df[reg_param] == reg_param_val)
                 ]
                 # Get parameter for cell-line when in val set
                 params_val = sub_df[sub_df.dataset == "test"]
-                for samples in sub_df[sub_df.dataset != "test"].samples.unique():
+                for samples in sub_df[
+                    sub_df.dataset != "test"
+                ].samples.unique():
                     # Pick sets of parameters one CV split at a time and compute MSE among all parameter deviations
                     params = sub_df[sub_df.samples == samples]
-                    mse = np.mean((params_val[param_cols].values - params[param_cols].values) ** 2)
+                    mse = np.mean(
+                        (
+                            params_val[param_cols].values
+                            - params[param_cols].values
+                        )
+                        ** 2
+                    )
                     results_dfs.append(
                         pd.DataFrame(
-                            {"cell_line": [cell_line], reg_param: [reg_param_val], "samples": [samples], "MSE": [mse]}
+                            {
+                                "cell_line": [cell_line],
+                                reg_param: [reg_param_val],
+                                "samples": [samples],
+                                "MSE": [mse],
+                            }
                         )
                     )
-            diffs = pd.concat(results_dfs).sort_values(by=["cell_line", "samples"])
-            plot_mse_param_dev_val_across_splits(diffs=diffs, conf=conf, context=context, reg_param=reg_param)
+            diffs = pd.concat(results_dfs).sort_values(
+                by=["cell_line", "samples"]
+            )
+            plot_mse_param_dev_val_across_splits(
+                diffs=diffs, conf=conf, context=context, reg_param=reg_param
+            )
 
         for val_only, val_label in zip([True, False], ["val_only", "all"]):
-            filtered_df = plot_df if not val_only else plot_df[
-                plot_df.cell_line.isin(hardest_cell_lines)
-            ]
+            filtered_df = (
+                plot_df
+                if not val_only
+                else plot_df[plot_df.cell_line.isin(hardest_cell_lines)]
+            )
 
             plot_parameter_heatmaps(
                 filtered_df,
@@ -535,9 +670,12 @@ for context in CONTEXT_SET:
                 samples_train,
                 samples_val,
                 plot_label,
-                fig_dir / conf.model / conf.data / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}",
+                fig_dir
+                / conf.model
+                / conf.data
+                / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}",
                 val_only=val_only,
-                type="heatmap"
+                type="heatmap",
             )
 
     # # PARAMETER DEVIATION HISTOGRAMS PER CELL-LINE -- REMOVED FOR NOW
@@ -586,7 +724,6 @@ for context in CONTEXT_SET:
     #     plt.close()
 
 
-
 # ########################################################################## #
 # ######################### Statistical Test Plots ######################### #
 # ########################################################################## #
@@ -594,18 +731,14 @@ if RETURN_STAT_TESTS:
     # n_hidden pairwise comparisons:
     # subset to where n_hidden is null (n_hidden1 and n_hidden2 will be not null)
     n_hidden_pairwise_heatmap(
-        dataframe=stat_test_res_df[
-            stat_test_res_df.n_hidden.isnull()
-        ],
-        conf=conf
+        dataframe=stat_test_res_df[stat_test_res_df.n_hidden.isnull()],
+        conf=conf,
     )
     # Volcano plot of hyperparameter significance in improving (reducing) rmse_val:
     # subset to where n_hidden1 is null (for pairwise n_hidden comparisons above)
     volcano_hyperparameter_significance(
-        dataframe=stat_test_res_df[
-            stat_test_res_df.n_hidden1.isnull()
-        ],
-        conf=conf
+        dataframe=stat_test_res_df[stat_test_res_df.n_hidden1.isnull()],
+        conf=conf,
     )
 
 # ########################################################################### #
@@ -615,15 +748,12 @@ if RETURN_STAT_TESTS:
 df_meas, df_obs = get_measurements_and_obervables(conf)
 
 # Setup features_test for regressors - need to ensure all contexts and splits have the same number of features/columns
-features_test = {
-    context: None
-    for context in CONTEXT_SET
-}
+features_test = {context: None for context in CONTEXT_SET}
 
 for dataset, context, split in itt.product(
-        ["train","test"],
-        CONTEXT_SET,
-        sorted(list(SPLITS)) # ensure processing from 0of5 to 4of5
+    ["train", "test"],
+    CONTEXT_SET,
+    sorted(SPLITS),  # ensure processing from 0of5 to 4of5
 ):
     # Load petab base files and training/validation split
     conf.samples = split
@@ -642,7 +772,7 @@ for dataset, context, split in itt.product(
             problem,
             conf,
             pretrain_dir / conf.model / conf.data,
-            petab_base_files
+            petab_base_files,
         )
         if output is None:
             # file not found
@@ -653,22 +783,17 @@ for dataset, context, split in itt.product(
 
     # Get avg_model simulation
     avg_model_sim_df = simulate_avg_model(
-        conf,
-        pretrain_dir / conf.model / conf.data,
-        petab_base_files,
-        dataset
+        conf, pretrain_dir / conf.model / conf.data, petab_base_files, dataset
     )
     # Process and subset measurement dataset
     avg_model_sim_df, df_meas_subset = process_avg_model_simulation(
-        avg_model_sim_df,
-        df_meas,
-        dataset,
-        samples_dict
+        avg_model_sim_df, df_meas, dataset, samples_dict
     )
 
     # Get best-regressor simulation
     regressor_mode = best_regressors[
-        (best_regressors.context == context) & (best_regressors.dataset == dataset)
+        (best_regressors.context == context)
+        & (best_regressors.dataset == dataset)
     ].ref.values[0]
     trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
         model=conf.model,
@@ -696,12 +821,18 @@ for dataset, context, split in itt.product(
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
         features_filepath=get_features_and_pipeline_filepaths(
-            replace(conf, context=context, features="all"), FEATURES_OUTFILE, FEATURES_PIPELINE
-        )[0] if context == "MOSA" else None,
+            replace(conf, context=context, features="all"),
+            FEATURES_OUTFILE,
+            FEATURES_PIPELINE,
+        )[0]
+        if context == "MOSA"
+        else None,
     )
     output_data, test_columns = load_data(
         contextualization="cytof_dynamic",
-        samples=samples_dict[dataset] if context != "MOSA" else input_data.index,  # restrict samples for MOSA (not all cell-lines available)
+        samples=samples_dict[dataset]
+        if context != "MOSA"
+        else input_data.index,  # restrict samples for MOSA (not all cell-lines available)
         features=features_test[context] if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
@@ -710,35 +841,52 @@ for dataset, context, split in itt.product(
     if features_test[context] is None:
         features_test[context] = test_columns
 
-    best_regressor_sim_df = pd.DataFrame(
-        trained_pipeline.predict(input_data),
-        index=output_data.index,
-        columns=output_data.columns
-    ).T.stack().reset_index().sort_values(
-        by=[
-            'preequilibrationConditionId',
-            'observableId',
-            'simulationConditionId',
-            'time'
-        ]
-    ).reset_index().drop(columns='index').rename(columns={0: "simulation"})
+    best_regressor_sim_df = (
+        pd.DataFrame(
+            trained_pipeline.predict(input_data),
+            index=output_data.index,
+            columns=output_data.columns,
+        )
+        .T.stack()
+        .reset_index()
+        .sort_values(
+            by=[
+                "preequilibrationConditionId",
+                "observableId",
+                "simulationConditionId",
+                "time",
+            ]
+        )
+        .reset_index()
+        .drop(columns="index")
+        .rename(columns={0: "simulation"})
+    )
     # TODO @GiacomoFabrini - both avg_model_sim_df and per_sample_sim_df have 698 rows, but
     #  best_regressor_sim_df only has 608 - what are those 90 rows missing from the latter?
     #  Is this related to the missing/inconsistent timepoints in some samples?
 
     # BEST DMM -- chosen as best on validation set when considering performance from top 10 jobs on training set
     # TODO @GiacomoFabrini - ensure this is cast to int when it is generated
-    best_hyperparam_dmm["sparse_threshold_perc"] = best_hyperparam_dmm["sparse_threshold_perc"].astype(int)
-    best_config_jobs = sorted(best_hyperparam_dmm[
-        (best_hyperparam_dmm.context == context) & (best_hyperparam_dmm.samples == split)
-    ].job.unique())
+    best_hyperparam_dmm["sparse_threshold_perc"] = best_hyperparam_dmm[
+        "sparse_threshold_perc"
+    ].astype(int)
+    best_config_jobs = sorted(
+        best_hyperparam_dmm[
+            (best_hyperparam_dmm.context == context)
+            & (best_hyperparam_dmm.samples == split)
+        ].job.unique()
+    )
     best_dmm_conf_obj = [
         Conf(
             model=conf.model,
             data=conf.data,
             **best_hyperparam_dmm[
-                   (best_hyperparam_dmm.context == context) & (best_hyperparam_dmm.samples == split) & (best_hyperparam_dmm.job == job)
-                ].drop(columns=["rmse_train", "rmse_test", "ref", "model"]).to_dict(orient="records")[0]
+                (best_hyperparam_dmm.context == context)
+                & (best_hyperparam_dmm.samples == split)
+                & (best_hyperparam_dmm.job == job)
+            ]
+            .drop(columns=["rmse_train", "rmse_test", "ref", "model"])
+            .to_dict(orient="records")[0],
         )
         for job in best_config_jobs
     ]
@@ -747,11 +895,11 @@ for dataset, context, split in itt.product(
         conf=best_dmm_conf_obj[0],
         dataset=dataset,
         features_filepath=FEATURES_OUTFILE.format(
-            **{**best_dmm_conf_obj[0].__dict__, **dict(dataset='{dataset}')}
+            **{**best_dmm_conf_obj[0].__dict__, "dataset": "{dataset}"}
         ),
         feature_transform_pipeline_filepath=Path(
             FEATURES_PIPELINE.format_map(best_dmm_conf_obj[0].__dict__)
-        )
+        ),
     )
     overall_best_dmm_sim_dfs = []
 
@@ -763,7 +911,7 @@ for dataset, context, split in itt.product(
                 conf=overall_best_conf,
                 petab_base_files=petab_base_files,
                 dataset=dataset,
-                num_ensemble_members=1,   # use the best ensemble member by default
+                num_ensemble_members=1,  # use the best ensemble member by default
             )
         except FileNotFoundError:
             continue
@@ -783,14 +931,26 @@ for dataset, context, split in itt.product(
     overall_best_dmm_sim_df = pd.concat(overall_best_dmm_sim_dfs)
     del overall_best_dmm_sim_dfs
     # Add identifier column (to keep replicate datapoints)
-    overall_best_dmm_sim_df["unique_id"] = list(range(int(len(overall_best_dmm_sim_df) / len(best_config_jobs)))) * int(len(best_config_jobs))
+    overall_best_dmm_sim_df["unique_id"] = list(
+        range(int(len(overall_best_dmm_sim_df) / len(best_config_jobs)))
+    ) * int(len(best_config_jobs))
     # Group by all necessary columns, compute mean for "simulation" column and drop unnecessary columns
-    overall_best_dmm_sim_df = overall_best_dmm_sim_df.groupby(
-        ["observableId", "preequilibrationConditionId",
-         "time", "noiseParameters", "simulationConditionId",
-         "measurementType", "observableParameters", "unique_id"]
-    ).mean().reset_index().drop(
-        columns=["job", "unique_id"]
+    overall_best_dmm_sim_df = (
+        overall_best_dmm_sim_df.groupby(
+            [
+                "observableId",
+                "preequilibrationConditionId",
+                "time",
+                "noiseParameters",
+                "simulationConditionId",
+                "measurementType",
+                "observableParameters",
+                "unique_id",
+            ]
+        )
+        .mean()
+        .reset_index()
+        .drop(columns=["job", "unique_id"])
     )
 
     # Plot the time-varying response

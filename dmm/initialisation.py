@@ -1,24 +1,24 @@
+from dataclasses import replace
+from pathlib import Path
+from typing import Dict, List, Tuple, Union
+
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
 import joblib
 import numpy as np
-import os
 import pandas as pd
 import pypesto
-import scipy.linalg as la
-
-from . import MODEL_FEATURE_PREFIX, MEDIAN_FEATURE_PREFIX
-from cytof.problem import CytofProblem
-from dataclasses import replace
-from .config_options import Conf
-from .dmm_autoencoder_eqx import DeepMechanisticModel
-from pathlib import Path
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
-from sklearn.preprocessing import StandardScaler
 from sklearn.pipeline import Pipeline
-from typing import Dict, List, Tuple, Union
+from sklearn.preprocessing import StandardScaler
+
+from cytof.problem import CytofProblem
+
+from . import MEDIAN_FEATURE_PREFIX, MODEL_FEATURE_PREFIX
+from .config_options import Conf
+from .dmm_autoencoder_eqx import DeepMechanisticModel
 
 
 def make_dmm(*, dmm_params, features, key):
@@ -31,13 +31,11 @@ def make_dmm(*, dmm_params, features, key):
 
 
 def get_features(
-        features_filepath: str,
-        datasets: List[str]
+    features_filepath: str, datasets: List[str]
 ) -> Dict[str, pd.DataFrame]:
     features = {
         dataset: pd.read_csv(
-            features_filepath.format(dataset=dataset),
-            index_col=0
+            features_filepath.format(dataset=dataset), index_col=0
         ).sort_index()  # once again, ensure cell-lines appear in alphabetical order
         for dataset in datasets
     }
@@ -45,15 +43,17 @@ def get_features(
 
 
 def get_median_param_names(model: DeepMechanisticModel):
-    return [name[4:] if "MED" in name else name
-            for name in model.pypesto_subproblem.x_names
-            if "DEV" not in name]
+    return [
+        name[4:] if "MED" in name else name
+        for name in model.pypesto_subproblem.x_names
+        if "DEV" not in name
+    ]
 
 
 def pca_transform_features(
-        features: Dict[str, pd.DataFrame],
-        pipeline_filepath: Union[str, Path],
-        pipeline=None
+    features: Dict[str, pd.DataFrame],
+    pipeline_filepath: Union[str, Path],
+    pipeline=None,
 ) -> Dict[str, pd.DataFrame]:
     """
     :param features: dictionary of feature pd.DataFrames
@@ -64,20 +64,29 @@ def pca_transform_features(
     """
     if pipeline is None:
         # Construct the pipeline
-        pipeline = Pipeline([
-            ('scaler', StandardScaler()),
-            ("imputer", KNNImputer()),  # add to match regressor setup
-            ('pca', PCA(n_components=0.95, whiten=True))  # added whitening
-        ])
+        pipeline = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                ("imputer", KNNImputer()),  # add to match regressor setup
+                (
+                    "pca",
+                    PCA(n_components=0.95, whiten=True),
+                ),  # added whitening
+            ]
+        )
         # Fit the pipeline on the training data
         try:
             pipeline.fit(features["train"])
-        except KeyError:
+        except KeyError as e:
             # "train" key not found in the features dictionary
-            raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
+            raise ValueError(
+                "Training features not found in features dictionary - PCA cannot be fitted!"
+            ) from e
         except Exception as e:
             # any other exceptions that might occur during fitting
-            raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
+            raise RuntimeError(
+                f"An error occurred while fitting the pipeline: {e}"
+            ) from e
 
         # Serialise the scaling+PCA pipeline
         joblib.dump(pipeline, Path(pipeline_filepath))
@@ -87,7 +96,10 @@ def pca_transform_features(
         dataset: pd.DataFrame(
             pipeline.transform(features[dataset]),
             index=features[dataset].index,
-            columns=[f'pca_{i}' for i in range(pipeline.named_steps['pca'].n_components_)]
+            columns=[
+                f"pca_{i}"
+                for i in range(pipeline.named_steps["pca"].n_components_)
+            ],
         )
         for dataset in features.keys()
     }
@@ -95,56 +107,45 @@ def pca_transform_features(
 
 
 def process_features(
-        conf: Conf,
-        features_filepath: Union[str, List[str]],
-        pipeline_filepath: Union[Path, List[Path]],
-        datasets: List[str],
-        mode: str = "concatenate",
+    conf: Conf,
+    features_filepath: Union[str, List[str]],
+    pipeline_filepath: Union[Path, List[Path]],
+    datasets: List[str],
+    mode: str = "concatenate",
 ):
     # loads features corresponding to requested dataset settings
-    if isinstance(features_filepath, list) and isinstance(pipeline_filepath, list):
+    if isinstance(features_filepath, list) and isinstance(
+        pipeline_filepath, list
+    ):
         features = [
             get_features(features_filepath=filepath, datasets=datasets)
             for filepath in features_filepath
         ]
-        if conf.features_transform == "pca":
-            pipelines = [
-                joblib.load(filepath) if os.path.exists(filepath) else None
-                for filepath in pipeline_filepath
-            ]
-            features = [
-                pca_transform_features(features=subfeatures, pipeline_filepath=subpipeline_filepath, pipeline=pipeline)
-                for subfeatures, subpipeline_filepath, pipeline in zip(features, pipeline_filepath, pipelines)
-            ]
         if mode == "concatenate":
             features = {
-                feature_dataset: pd.concat([subfeatures[feature_dataset] for subfeatures in features], axis=1)
+                feature_dataset: pd.concat(
+                    [subfeatures[feature_dataset] for subfeatures in features],
+                    axis=1,
+                )
                 for feature_dataset in datasets
             }
         else:  # TODO @GiacomoFabrini: add support for contrastive learning -- conf option
             raise ValueError(f"Unknown mode for processing features: {mode}")
     else:
-        features = get_features(features_filepath=features_filepath, datasets=datasets)
-
-        if conf.features_transform == "pca":
-            # Check whether pipeline has already been trained. If so, load it. If not, train it.
-            if os.path.exists(pipeline_filepath):
-                pipeline = joblib.load(pipeline_filepath)
-            else:
-                pipeline = None
-            features = pca_transform_features(features, pipeline_filepath, pipeline)
-        else:
-            features = impute_features(features)
+        features = get_features(
+            features_filepath=features_filepath, datasets=datasets
+        )
+        features = impute_features(features)
     return features
 
 
 def process_features_and_setup_models(
-        conf: Conf,
-        features_filepath: Union[str, List[str]],
-        pipeline_filepath: Union[str, Path, List[str], List[Path]],
-        petab_base_files: Dict[str, pd.DataFrame],
-        dataset: str = "train",
-        return_features: bool = False,
+    conf: Conf,
+    features_filepath: Union[str, List[str]],
+    pipeline_filepath: Union[str, Path, List[str], List[Path]],
+    petab_base_files: Dict[str, pd.DataFrame],
+    dataset: str = "train",
+    return_features: bool = False,
 ) -> Union[
     Tuple[
         Union[
@@ -160,7 +161,7 @@ def process_features_and_setup_models(
         ],
         CytofProblem,
         Dict[str, pd.DataFrame],
-    ]
+    ],
 ]:
     problem = CytofProblem(conf.model)
 
@@ -187,20 +188,20 @@ def process_features_and_setup_models(
             )
 
     dmm_params = {
-        'problem': problem,
-        'dataset': conf.data,
-        'n_latent': conf.n_hidden,
-        'module_depth': conf.depth,
-        'module_structure_multiplier': conf.nn_structure_multiplier,
-        'use_layer_bias': conf.use_layer_bias,
-        'last_layer_activation': conf.last_layer_activation,
-        'weight_init_fn': conf.nn_init_fn,
-        'bias_init_fn': conf.nn_init_fn,
-        'orth_reg_strategy': conf.orth_reg_strategy,
-        'activation_fn_name': conf.activation_fn_name,
-        'reconstruct': conf.reconstruct,
-        'n_threads': conf.threads,
-        **petab_base_files
+        "problem": problem,
+        "dataset": conf.data,
+        "n_latent": conf.n_hidden,
+        "module_depth": conf.depth,
+        "module_structure_multiplier": conf.nn_structure_multiplier,
+        "use_layer_bias": conf.use_layer_bias,
+        "last_layer_activation": conf.last_layer_activation,
+        "weight_init_fn": conf.nn_init_fn,
+        "bias_init_fn": "zeros",
+        "orth_reg_strategy": conf.orth_reg_strategy,
+        "activation_fn_name": conf.activation_fn_name,
+        "reconstruct": conf.reconstruct,
+        "n_threads": conf.threads,
+        **petab_base_files,
     }
 
     key = jr.PRNGKey(conf.job)
@@ -217,22 +218,27 @@ def process_features_and_setup_models(
             key=subkey,
         )
         for features, subkey in zip(
-            [features[feature_dataset] for feature_dataset in settings[dataset]],
-            keys
+            [
+                features[feature_dataset]
+                for feature_dataset in settings[dataset]
+            ],
+            keys,
         )
     )
 
-    result = (tuple(dmms), problem) if dataset == "train+test" else (*dmms, problem)
+    result = (
+        (tuple(dmms), problem) if dataset == "train+test" else (*dmms, problem)
+    )
     return (*result, features) if return_features else result
 
 
 def get_kin_params_median_deviation(
-        model: DeepMechanisticModel,
-        parameter_filepath: str,
-        avg_model_parameter_file: str,
-        random_seed: int,
-        median_params_method: str = "per_sample",
-        return_full_combo: bool = False,
+    model: DeepMechanisticModel,
+    parameter_filepath: str,
+    avg_model_parameter_file: str,
+    random_seed: int,
+    median_params_method: str = "per_sample",
+    return_full_combo: bool = False,
 ):
     # Set random seed for poisson sampling
     np.random.seed(random_seed)
@@ -261,14 +267,18 @@ def get_kin_params_median_deviation(
             [
                 pretraining[
                     pretraining.index
-                    == np.min([np.random.poisson(2, 1)[0], len(pretraining) - 1])
-                    ]
+                    == np.min(
+                        [np.random.poisson(2, 1)[0], len(pretraining) - 1]
+                    )
+                ]
                 for pretraining in pretrained_samples.values()
             ]
         )
         par_combo.rename(
-            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
-            inplace=True
+            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX) :]
+            if col.startswith(MEDIAN_FEATURE_PREFIX)
+            else col,
+            inplace=True,
         )
         par_combo.index = list(pretrained_samples.keys())
         par_combo = par_combo.reindex(model.sample_name_list)
@@ -297,8 +307,10 @@ def get_kin_params_median_deviation(
             ]
         ]
         avg_model_params.rename(
-            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX):] if col.startswith(MEDIAN_FEATURE_PREFIX) else col,
-            inplace=True
+            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX) :]
+            if col.startswith(MEDIAN_FEATURE_PREFIX)
+            else col,
+            inplace=True,
         )
 
         # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
@@ -306,12 +318,12 @@ def get_kin_params_median_deviation(
         #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
         #     ].iloc[0]
         # Use the best initialisation from avg_model (here second best)
-        avg_param_combo = avg_model_params[
-            avg_model_params.index == 1
-        ].iloc[0]
+        avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
         return avg_param_combo, None
     else:
-        raise ValueError(f"Unknown method for computing median parameters: {median_params_method}")
+        raise ValueError(
+            f"Unknown method for computing median parameters: {median_params_method}"
+        )
 
 
 # def load_and_subset_input_features(
@@ -342,9 +354,9 @@ def get_kin_params_median_deviation(
 
 
 def subset_features(
-        features: pd.DataFrame,
-        model: DeepMechanisticModel,
-        pypesto_subproblem: pypesto.Problem = None,
+    features: pd.DataFrame,
+    model: DeepMechanisticModel,
+    pypesto_subproblem: pypesto.Problem = None,
 ) -> np.ndarray:
     # extract sample names, ordering of those is important since samples
     # must match when reshaping the inflated matrix
@@ -368,132 +380,12 @@ def subset_features(
     return input_features
 
 
-def linear_nn_init(
-        conf: Conf,
-        model: DeepMechanisticModel,
-        per_sample_parameter_file: str,
-        avg_model_parameter_file: str,
-        features: Dict[str, np.ndarray],
-        dataset: str,
-        median_params_method: str,
-):
-    # Check that encoder, inflater (and potentially decoder) all have a single layer
-    # but decoder layer sizes are simply given by the encoder, so only need to check encoder and inflater.
-    if (len(model.deep_encoder.layers) > 1) or (len(model.deep_inflater.layers) > 1):
-        raise ValueError("Both encoder and inflater must be single linear layers for linear initialisation!")
-
-    if conf.features_transform == 'pca':
-        # Features have already been PCA-transformed, just need to subset
-        features_pca = features[dataset][:, :model.n_latent]
-        # Initialise with all zeros
-        new_encoder_weights = jnp.zeros_like(model.deep_encoder.layers[0].weight)
-        # and replace upper model.n_latent * model.n_latent block with identity matrix of size model.n_latent
-        new_encoder_weights = new_encoder_weights.at[:model.n_latent, :model.n_latent].set(jnp.eye(model.n_latent))
-    else:
-        # Features are pristine
-        try:
-            # fit PCA to training features
-            pca = PCA(n_components=model.n_latent).fit(features["train"])
-        except KeyError:
-            # "train" key not found in the features dictionary
-            raise ValueError("Training features not found in features dictionary - PCA cannot be fitted!")
-        except Exception as e:
-            # any other exceptions that might occur during fitting
-            raise RuntimeError(f"An error occurred while fitting the pipeline: {e}")
-
-        features_pca = pca.transform(features[dataset])
-        # Compute new encoder weights with PCA components -- PREVIOUS SOLUTION
-        # This will NOT produce the first n_hidden/model.n_latent PCA-transformed features as embedding
-        # new_encoder_weights = jnp.array(
-        #     pca.components_.T.flatten()
-        # ).reshape(model.deep_encoder.layers[0].weight.shape)
-        # APPROACH 1: last squares solution
-        # new_encoder_weights = jnp.array(
-        #     la.lstsq(
-        #         features[dataset],
-        #         features_pca[:, :model.n_latent],
-        #     )[0].flatten()
-        # ).reshape(model.deep_encoder.layers[0].weight.shape)
-        # APPROACH 2: pinv -- lower numerical discrepancy between actual computed embedding, i.e.
-        # `jax.vmap(model.deep_encoder)(features[dataset])` and target `features_pca`
-        new_encoder_weights = jnp.dot(
-            jnp.linalg.pinv(features[dataset]),  # pseudo-inverse
-            features_pca
-        ).T
-
-    model = eqx.tree_at(
-        lambda m: m.deep_encoder.layers[0].weight,  # fetch weights from single layer of encoder
-        model,
-        new_encoder_weights
-    )
-    if conf.use_layer_bias:
-        model = eqx.tree_at(
-            lambda m: m.deep_encoder.layers[0].bias,  # fetch bias from single linear layer
-            model,
-            jnp.zeros_like(model.deep_encoder.layers[0].bias),  # and set it to zero
-        )
-
-    # Compute target for least square initialisation of inflater weights:
-    # kinetic parameter deviation around the median
-    _, par_deviations = get_kin_params_median_deviation(
-        model=model,
-        parameter_filepath=per_sample_parameter_file,
-        avg_model_parameter_file=avg_model_parameter_file,
-        random_seed=conf.job,
-        median_params_method=median_params_method,
-        return_full_combo=False,
-    )
-
-    inputs = [
-        "__".join(p.split("__")[:-1]).replace(MODEL_FEATURE_PREFIX, "")
-        for p in model.petab_importer.petab_problem.parameter_df.index
-        if p.startswith(MODEL_FEATURE_PREFIX) and p.endswith(par_deviations.index[0])
-    ]
-    # Overwrite inflater weights with least squares solution
-    new_inflater_weights = jnp.array(
-        la.lstsq(
-            features_pca,  # initialisation should ensure correct number of columns (i.e. model.n_latent)
-            par_deviations[inputs].values,
-        )[0].flatten()
-    ).reshape(model.deep_inflater.layers[0].weight.shape)
-
-    model = eqx.tree_at(
-        lambda m: m.deep_inflater.layers[0].weight,
-        model,
-        new_inflater_weights
-    )
-    if conf.use_layer_bias:
-        model = eqx.tree_at(
-            lambda m: m.deep_inflater.layers[0].bias,
-            model,
-            jnp.zeros_like(model.deep_inflater.layers[0].bias),
-        )
-    # Overwrite decoder weights with inverse of encoder weights
-    if conf.reconstruct:
-        # initialise the decoder with the transpose of the encoder weights
-        new_decoder_weights = new_encoder_weights.T
-        if new_decoder_weights.shape != model.deep_decoder.layers[0].weight.shape:
-            raise ValueError("Incorrect shape of new decoder weights!")
-        model = eqx.tree_at(
-            lambda m: m.deep_decoder.layers[0].weight,
-            model,
-            new_decoder_weights
-        )
-        if conf.use_layer_bias:
-            model = eqx.tree_at(
-                lambda m: m.deep_decoder.layers[0].bias,
-                model,
-                jnp.zeros_like(model.deep_decoder.layers[0].bias),
-            )
-    return model
-
-
 def init_global_kin_params_combiner(
-        model: DeepMechanisticModel,
-        per_sample_parameter_file: str,
-        avg_model_parameter_file: str,
-        random_seed: int,
-        median_params_method: str,
+    model: DeepMechanisticModel,
+    per_sample_parameter_file: str,
+    avg_model_parameter_file: str,
+    random_seed: int,
+    median_params_method: str,
 ) -> DeepMechanisticModel:
     """
     Setup KinParamsCombiner module (model.kin_params_combiner).
@@ -528,21 +420,22 @@ def init_global_kin_params_combiner(
     # Initialise global kin parameters combiner with median values of non-cell-line-specific parameter components
     new_global_kin_params = jnp.array(par_medians.values)
     # Check shape match prior to initialisation
-    if new_global_kin_params.shape != model.kin_params_combiner.learned_global_kin_params.shape:
+    if (
+        new_global_kin_params.shape
+        != model.kin_params_combiner.learned_global_kin_params.shape
+    ):
         raise ValueError("Incorrect shape of new global kin parameters!")
     # Initialise KinParamsCombiner parameters
     model = eqx.tree_at(
         lambda m: m.kin_params_combiner.learned_global_kin_params,  # fetch weights from single layer of encoder
         model,
-        new_global_kin_params
+        new_global_kin_params,
     )
     return model
 
 
 def get_features_and_pipeline_filepaths(
-        conf: Conf,
-        features_file_template: str,
-        features_pipeline_template: str
+    conf: Conf, features_file_template: str, features_pipeline_template: str
 ) -> tuple[Union[List[str], str], Union[List[Path], Path]]:
     # Handle multiple contexts
     if len(conf.context.split("+")) > 1:
@@ -551,7 +444,10 @@ def get_features_and_pipeline_filepaths(
             subconf = replace(conf, context=subcontext)
             features_filepath.append(
                 features_file_template.format(
-                    **{**subconf.__dict__, **dict(dataset="{dataset}", context=subcontext)}
+                    **{
+                        **subconf.__dict__,
+                        **{"dataset": "{dataset}", "context": subcontext},
+                    }
                 )
             )
             feature_transform_pipeline_filepath.append(
@@ -559,9 +455,11 @@ def get_features_and_pipeline_filepaths(
             )
     else:
         features_filepath = features_file_template.format(
-            **{**conf.__dict__, **dict(dataset='{dataset}')}
+            **{**conf.__dict__, **{"dataset": "{dataset}"}}
         )
-        feature_transform_pipeline_filepath = Path(features_pipeline_template.format(**conf.__dict__))
+        feature_transform_pipeline_filepath = Path(
+            features_pipeline_template.format(**conf.__dict__)
+        )
     return features_filepath, feature_transform_pipeline_filepath
 
 
@@ -573,7 +471,7 @@ def impute_features(features: dict) -> dict:
         dataset: pd.DataFrame(
             imputer.transform(features[dataset]),
             index=features[dataset].index,
-            columns=features[dataset].columns
+            columns=features[dataset].columns,
         )
         for dataset in features.keys()
     }

@@ -1,9 +1,10 @@
+from typing import Any, Union
+
 import equinox as eqx
+from jax import config, random
 
 from .config_options import ModuleParams
 from .deepcomponent_eqx import DeepComponent
-from jax import config, random
-from typing import Any, Union
 
 config.update("jax_enable_x64", True)
 
@@ -47,21 +48,24 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     reconstruct: bool = eqx.static_field()
 
     def __init__(
-            self,
-            encoder_params: ModuleParams,
-            inflater_params: ModuleParams,
-            decoder_params: ModuleParams,
-            key: Any,
-            activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
-            reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
+        self,
+        encoder_params: ModuleParams,
+        inflater_params: ModuleParams,
+        decoder_params: ModuleParams,
+        key: Any,
+        activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
+        reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
     ):
-
         # CHECKS
         # encoder layers must shrink towards bottleneck/latent representation -- by default - remove?
         if encoder_params.layer_sizes[-1] > encoder_params.layer_sizes[0]:
-            raise ValueError("Latent space size cannot be larger than input feature space size!")
+            raise ValueError(
+                "Latent space size cannot be larger than input feature space size!"
+            )
         elif inflater_params.layer_sizes[0] > inflater_params.layer_sizes[1]:
-            raise ValueError("Latent space size cannot be larger than output/kinetic parameters feature space size!")
+            raise ValueError(
+                "Latent space size cannot be larger than output/kinetic parameters feature space size!"
+            )
 
         # Set module parameters
         self.encoder_params = encoder_params
@@ -118,4 +122,4 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflated = self.deep_inflater(encoded)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
         decoded = self.deep_decoder(encoded) if self.reconstruct else None
-        return dict(inflated=inflated, decoded=decoded)
+        return {"inflated": inflated, "decoded": decoded}

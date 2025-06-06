@@ -1,13 +1,17 @@
-import fire
 import itertools as itt
-import numpy as np
 import os
-import pandas as pd
-import petab
 import warnings
 
-from joblib import dump, load
+# test_samples,
+# training_samples,
+from dataclasses import replace
+from typing import List
 
+import fire
+import numpy as np
+import pandas as pd
+import petab
+from joblib import dump, load
 from sklearn.pipeline import Pipeline
 
 from common import (
@@ -20,18 +24,17 @@ from common import (
     # Wildcards,
     fig_dir,
     pretrain_dir,
-    # test_samples,
-    # training_samples,
 )
-from dataclasses import replace
 from dmm.analysis import process_simulation
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features_and_pipeline_filepaths, process_features
+from dmm.initialisation import (
+    get_features_and_pipeline_filepaths,
+    process_features,
+)
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
-from regressor_training import *
-from typing import List
+from regressor_training import train_pipeline
 from util import load_petab_base_files
 
 
@@ -147,7 +150,7 @@ def evaluate_standard_regression(
     ]
 
     # Plot -- reg_pred is either reg_pred_train or reg_pred_test
-    plot_name = mode + "_" + context + "_" + conf.features + "_" + str(conf.features_transform)
+    plot_name = mode + "_" + context + "_" + conf.features
     plot_cross_samples(
         df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
     )
@@ -208,8 +211,10 @@ del petab_base_files["condition_table"]
 for context, mode in itt.product(
     CONTEXT_SET, ["linreg", "lasso", "elasticnet"]
 ):
-    if (context == "MOSA") and ((conf.features != "all") or (conf.features_transform != "None")):
-        raise ValueError("MOSA context only available for all features with no transformation!")
+    if (context == "MOSA") and (conf.features != "all"):
+        raise ValueError(
+            "MOSA context only available for all features with no transformation!"
+        )
 
     # Load input features
     features_filepath, pipeline_filepath = get_features_and_pipeline_filepaths(
@@ -217,11 +222,9 @@ for context, mode in itt.product(
             conf,
             context=context,
             features=conf.features,
-            features_selection=conf.features_selection,
-            features_transform=conf.features_transform
         ),
         FEATURES_OUTFILE,
-        FEATURES_PIPELINE
+        FEATURES_PIPELINE,
     )
 
     input_features_dict = process_features(
@@ -257,8 +260,6 @@ for context, mode in itt.product(
         mode=mode,
         context=context,
         features=conf.features,
-        features_selection=conf.features_selection,
-        features_transform=conf.features_transform,
     )
 
     features_train_file = REGR_FEATURES_TRAIN.format(
@@ -268,12 +269,12 @@ for context, mode in itt.product(
         mode=mode,
         context=context,
         features=conf.features,
-        features_selection=conf.features_selection,
-        features_transform=conf.features_transform,
     )
 
     # if both pipeline and features exist, load them and proceed
-    if os.path.exists(trained_pipeline_file) and os.path.exists(features_train_file):
+    if os.path.exists(trained_pipeline_file) and os.path.exists(
+        features_train_file
+    ):
         trained_pipeline = load(trained_pipeline_file)
         features_train = load(features_train_file)
     # else build and train the pipeline and extract the features
@@ -284,7 +285,7 @@ for context, mode in itt.product(
         trained_pipeline, features_train = train_pipeline(
             input_data_train=input_features_dict["train"],
             output_data_train=output_data_train,
-            pipeline_steps=[conf.features_transform, mode] if conf.features_transform is not None else [mode],
+            pipeline_steps=[mode],
         )
         dump(trained_pipeline, trained_pipeline_file)
         dump(features_train, features_train_file)
@@ -292,7 +293,9 @@ for context, mode in itt.product(
     for dataset in ["train", "val"]:
         df = evaluate_standard_regression(
             input_data=input_features_dict[dataset],
-            output_data=output_data_train if dataset == "train" else output_data_val,
+            output_data=output_data_train
+            if dataset == "train"
+            else output_data_val,
             dataset=dataset,
             conf=conf,
             samples=input_features_dict[dataset].index,
@@ -310,14 +313,18 @@ for context, mode in itt.product(
                 mode=mode,
                 context=context,
                 features=conf.features,
-                features_selection=conf.features_selection,
-                features_transform=conf.features_transform,
             )
         )
 
         # Added printout of RMSE on train/val datasets for each regressor (mode)
         rmse = np.sqrt(np.mean(np.square(df["res"])))
-        print(f"RMSE for {mode} on {conf.samples}, {context}, {dataset}, using {conf.features} features with"
-              f" selection {conf.features_selection} and transformation {conf.features_transform} = {rmse}")
+        print(
+            f"RMSE for {mode} on {conf.samples}, {context}, {dataset}, using {conf.features} features = {rmse}"
+        )
 
-    del trained_pipeline, features_train, trained_pipeline_file, features_train_file
+    del (
+        trained_pipeline,
+        features_train,
+        trained_pipeline_file,
+        features_train_file,
+    )
