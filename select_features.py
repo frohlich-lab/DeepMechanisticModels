@@ -82,6 +82,7 @@ def get_selected_features(
             means = np.mean(input_data, axis=0)
             threshold = np.percentile(means, 20)
             input_data = input_data.loc[:, means >= threshold]
+            # Keep top 500 features with highest variance
             var_threshold = sorted(
                 np.nanvar(input_data, axis=0), reverse=True
             )[500]
@@ -201,9 +202,6 @@ for context in conf.context.split("+"):
     )
 
     # Transform and save per split
-    if subconf.context == "MOSA":
-        input_train, input_val, _ = preprocess_mosa_latent(
-            subconf, samples_train, samples_val
         )
 
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):

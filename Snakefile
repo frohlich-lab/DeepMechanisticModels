@@ -284,6 +284,7 @@ rule evaluate_training:
         oreg_inflate='[0-9\.]+',
         oreg_encode='[0-9\.]+',
         l1reg_inflater_output='[0-9\.]+',
+        l2reg_inflater_output='[0-9\.]+',
         inflater_output_reg_epoch='[0-9]+',
         sparse_threshold_perc='\w+',
         recon_loss='[0-9\.]+',

@@ -309,6 +309,7 @@ reg_params = [
     "l1reg_encode",
     "oreg_encode",  # encoder
     "l1reg_inflater_output",
+    "l2reg_inflater_output", 
     "median_reg",
     "inflater_output_reg_epoch",  # param dev, param medians
     "sparse_threshold_perc",

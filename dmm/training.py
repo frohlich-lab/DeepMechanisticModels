@@ -254,6 +254,7 @@ def train(
             model = model.update_input_sparsity_binary_mask(
                 x=input_features_train,
             )
+            # TODO: refactor - conf is frozen (check), but this is conf.__dict__ so replacing is allowed
             conf["l1reg_inflater_output"] = 0.0
             if debug_mode:
                 x_names = [
