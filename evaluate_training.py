@@ -19,7 +19,7 @@ from common import (
 from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
 from dmm.initialisation import (get_features, get_features_and_pipeline_filepaths, process_features,
-                                pca_transform_features, subset_features)
+                                subset_features)
 from evaluation_utils import load_model_and_obj, get_embedding_and_params_df
 from training_configuration import N_ENSEMBLE_EVALUATION, N_ENSEMBLE_MEMBERS
 from pathlib import Path

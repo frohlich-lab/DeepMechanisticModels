@@ -50,62 +50,6 @@ def get_median_param_names(model: DeepMechanisticModel):
     ]
 
 
-def pca_transform_features(
-    features: Dict[str, pd.DataFrame],
-    pipeline_filepath: Union[str, Path],
-    pipeline=None,
-) -> Dict[str, pd.DataFrame]:
-    """
-    :param features: dictionary of feature pd.DataFrames
-    :param pipeline_filepath: filepath where to save the pipeline
-    :param pipeline: trained pipeline object (optional)
-
-    :return: dictionary of transformed features pd.DataFrames
-    """
-    if pipeline is None:
-        # Construct the pipeline
-        pipeline = Pipeline(
-            [
-                ("scaler", StandardScaler()),
-                ("imputer", KNNImputer()),  # add to match regressor setup
-                (
-                    "pca",
-                    PCA(n_components=0.95, whiten=True),
-                ),  # added whitening
-            ]
-        )
-        # Fit the pipeline on the training data
-        try:
-            pipeline.fit(features["train"])
-        except KeyError as e:
-            # "train" key not found in the features dictionary
-            raise ValueError(
-                "Training features not found in features dictionary - PCA cannot be fitted!"
-            ) from e
-        except Exception as e:
-            # any other exceptions that might occur during fitting
-            raise RuntimeError(
-                f"An error occurred while fitting the pipeline: {e}"
-            ) from e
-
-        # Serialise the scaling+PCA pipeline
-        joblib.dump(pipeline, Path(pipeline_filepath))
-
-    # Transform features and return them ensuring same pd.DataFrame format as pristine input
-    transformed_features = {
-        dataset: pd.DataFrame(
-            pipeline.transform(features[dataset]),
-            index=features[dataset].index,
-            columns=[
-                f"pca_{i}"
-                for i in range(pipeline.named_steps["pca"].n_components_)
-            ],
-        )
-        for dataset in features.keys()
-    }
-    return transformed_features
-
-
 def process_features(
     conf: Conf,
     features_filepath: Union[str, List[str]],

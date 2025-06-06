@@ -27,7 +27,7 @@ from training_configuration import (
     MEDIAN_INIT,
     MOMENTUM,
     N_EPOCHS,
-    NETWORK_LAYOUT,
+    NETWORK_DEPTH,
     NN_INIT_FN,
     NN_STRUCTURE_MULTIPLIER,
     OMEGAS,
@@ -105,15 +105,6 @@ def prune_config(run_config: dict):
             run_config["inflater_output_reg_epoch"] / N_EPOCHS
         )
 
-    # Network structure - linear benchmark
-    if run_config["linear_benchmark"] == "True":
-        # remove network layout hyperparams when using linear benchmark
-        hps_to_prune.extend(["nn_structure_multiplier", "depth"])
-        run_config[
-            "last_layer_activation"
-        ] = False  # also remove non-linearities
-        prune = True
-
     # Reconstruction/decoder head
     if not run_config["reconstruct"]:
         # force reconstruction loss and symmetry loss/regularisation params to zero if no decoder head
@@ -134,7 +125,7 @@ def prune_config(run_config: dict):
 def generate_linear_scan(STARTS: list[str]):
     hyperparameters = {
         "n_hidden": LATENT_DIMS,
-        "network_layout": NETWORK_LAYOUT,
+        "depth": NETWORK_DEPTH,
         "l1reg_inflate": ALPHAS,
         "oreg_inflate": BETAS,
         "l1reg_encode": GAMMAS,
@@ -228,13 +219,7 @@ def generate_linear_scan(STARTS: list[str]):
         )
     ]
 
-    # Unpack network layout into depth and linear_benchmark + drop the original network_layout key
     for linear_scan_config in linear_scan_configs:
-        linear_scan_config["depth"] = linear_scan_config["network_layout"][0]
-        linear_scan_config["linear_benchmark"] = linear_scan_config[
-            "network_layout"
-        ][1]
-        linear_scan_config.pop("network_layout")
         prune_config(linear_scan_config)
 
     # Ensure configs are unique
@@ -253,7 +238,7 @@ def generate_linear_scan(STARTS: list[str]):
 def generate_grid_search(STARTS: list[str]):
     hyperparameters = {
         "n_hidden": LATENT_DIMS,
-        "network_layout": NETWORK_LAYOUT,
+        "depth": NETWORK_DEPTH,
         "l1reg_inflate": ALPHAS,
         "oreg_inflate": BETAS,
         "l1reg_encode": GAMMAS,
@@ -290,7 +275,7 @@ def generate_grid_search(STARTS: list[str]):
             "freeze_medians": freeze_medians,
             "n_hidden": n_hidden,
             "nn_structure_multiplier": NN_STRUCTURE_MULTIPLIER,  # fixed
-            "network_layout": network_layout,
+            "depth": depth,
             "use_layer_bias": use_layer_bias,
             "last_layer_activation": last_layer_activation,
             "nn_init_fn": nn_init_fn,
@@ -327,7 +312,7 @@ def generate_grid_search(STARTS: list[str]):
             median_init,
             freeze_medians,
             n_hidden,
-            network_layout,
+            depth,
             use_layer_bias,
             last_layer_activation,
             nn_init_fn,
@@ -364,7 +349,7 @@ def generate_grid_search(STARTS: list[str]):
             MEDIAN_INIT,
             FREEZE_MEDIANS,
             LATENT_DIMS,
-            NETWORK_LAYOUT,
+            NETWORK_DEPTH,
             USE_BIAS,
             LAST_LAYER_ACTIVATION,
             NN_INIT_FN,
@@ -396,13 +381,7 @@ def generate_grid_search(STARTS: list[str]):
             STARTS,
         )
     ]
-    # Unpack network layout into depth and linear_benchmark + drop network_layout key
     for grid_search_config in grid_search_configs:
-        grid_search_config["depth"] = grid_search_config["network_layout"][0]
-        grid_search_config["linear_benchmark"] = grid_search_config[
-            "network_layout"
-        ][1]
-        grid_search_config.pop("network_layout")
         prune_config(grid_search_config)
 
     # Ensure configs are unique -- removes combinations of scheduling hyperparams when using schedule-free

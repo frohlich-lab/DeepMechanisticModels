@@ -103,25 +103,20 @@ LATENT_DIMS = {
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
 
-# Define network layouts for linear scans in modular fashion
-NETWORK_LAYOUT = {
+# Define network depths
+NETWORK_DEPTH = {
     "range": (
-        (0, "False"),
-        # (1, "False"),
-        # (2, "False"),
-        # (3, "False"),
-        # (4, "False"),
-        # (5, "False"),
-    ),  # 0-4 hidden layers, no linear benchmark
-    "central_value": (0, "False"),  # 2 hidden layers, no linear benchmark
+        0,
+        # 1,
+        # 2
+    ),
+    "central_value": 0,  # no hidden layers
 }
 
-# NETWORK_LAYOUT = (
-#     (0, "False"),
-#     (1, "False"),
-#     (2, "False"),
-#     (3, "False"),
-#     (4, "False"),
+# NETWORK_DEPTH = (
+#     0,
+#     1,
+#     2,
 # )
 
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
