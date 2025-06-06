@@ -153,7 +153,7 @@ hyperparam_configs = {
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(SPLITS):
-    for dataset in ["train", "test"]:
+    for dataset in ["train", "val"]:
         # DMM evaluations
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
