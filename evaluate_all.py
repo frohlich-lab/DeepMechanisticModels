@@ -215,11 +215,12 @@ for samples in sorted(SPLITS):
             f"Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}"
         )
 
+        # TODO @GiacomoFabrini - refactor either where regressors/references or dmms save their results and remove replacements below
         # Get references (avg_model, per_sample)
         avg_model, ps = [
             process_reference(
                 conf, samples, dataset.replace("test", "val"), mode, ref_name
-            )  # TODO @GiacomoFabrini - refactor either where regressors or dmms save their results
+            )
             for mode, ref_name in zip(
                 ["avg_model", "per_sample"], ["avg_model", "sample"]
             )
@@ -233,7 +234,7 @@ for samples in sorted(SPLITS):
                         **{
                             **conf.__dict__,
                             "samples": samples,
-                            "dataset": dataset,
+                            "dataset": dataset.replace("test", "val"),
                             "context": ctxt,
                             "features": features,
                         },
