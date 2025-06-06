@@ -71,7 +71,9 @@ def update_module_params_dict(
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     kin_params_combiner: KinParamsCombiner
-    sparsity_binary_mask: Tuple  # prevent undesired updates
+    # Sparsity masks are tuples to prevent undesired updates
+    input_sparsity_binary_mask: Tuple
+    output_sparsity_binary_mask: Tuple
 
     dataset_name: str = eqx.static_field()
     # pathway_name: str = eqx.static_field()  # not used?!
@@ -297,8 +299,12 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             n_global_kin_params=self.n_global_kin_params,
         )
 
-        # Initialise dummy sparsity binary mask with a tuple of ones the same size as inflater kinetic param dev
-        self.sparsity_binary_mask = tuple(
+        # Initialise dummy sparsity binary masks with a tuple of ones the same size as input_features / inflater
+        # kinetic param deviations for input / output masks
+        self.input_sparsity_binary_mask = tuple(
+            [1 for _ in range(self.n_input_features)]
+        )
+        self.output_sparsity_binary_mask = tuple(
             [1 for _ in range(self.n_inflated_specific_kin_params)]
         )
 
@@ -315,17 +321,31 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         )
 
     def __call__(self, x):
-        # Call the parent __call__ method to get the original outputs
-        outputs = super().__call__(x)
+        # Call the parent __call__ method to get the original outputs; filter inputs through input_sparsity_binary_mask
+        outputs = super().__call__(
+            x * jnp.array(self.input_sparsity_binary_mask)
+        )
         # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
         outputs["inflated"] = outputs["inflated"] * jnp.array(
-            self.sparsity_binary_mask
+            self.output_sparsity_binary_mask
         )
         # Finally, introduce soft constrain within ±3 (hardcoded) range through rescaled tanh: a * tanh(x/a), a=3
         outputs["inflated"] = 3 * jnp.tanh(outputs["inflated"] / 3)
         return outputs
 
-    def update_sparsity_binary_mask(
+    # TODO - upgrade this function based on inputs needed for the update
+    def update_input_sparsity_binary_mask(self, x):
+        # Replace with code to update the input sparsity binary mask
+        # Left x (input features) as input
+        new_input_sparsity_binary_mask = self.input_sparsity_binary_mask
+        return eqx.tree_at(
+            lambda model: model.input_sparsity_binary_mask,
+            self,
+            new_input_sparsity_binary_mask,
+            is_leaf=lambda leaf: type(leaf) is tuple,  # is this needed?
+        )
+
+    def update_output_sparsity_binary_mask(
         self, x, threshold_perc: str, round_up: bool = False
     ):
         """
@@ -333,8 +353,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param x:
             input data.
         :param threshold_perc:
-            percentage of the median parameter deviations to retain as cell-line-specific (default: 50%, specified as 50,
-            means retaining top 50% most deviating parameters).
+            percentage of the median parameter deviations to retain as cell-line-specific or
+            `gmm` for automatic threshold detection via gaussian mixture model
         :param round_up:
             boolean flag to round up or down when computing the threshold (default: False).
 
@@ -382,17 +402,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             ]
 
         # Check kinetic parameter deviation and zero out entries in the sparsity mask if below threshold
-        new_sparsity_binary_mask = tuple(
+        new_output_sparsity_binary_mask = tuple(
             jnp.where(
                 param_dev_stds < threshold,
                 0.0,
-                jnp.array(self.sparsity_binary_mask),
+                jnp.array(self.output_sparsity_binary_mask),
             ).tolist()
         )
         return eqx.tree_at(
-            lambda model: model.sparsity_binary_mask,
+            lambda model: model.output_sparsity_binary_mask,
             self,
-            new_sparsity_binary_mask,
+            new_output_sparsity_binary_mask,
             is_leaf=lambda leaf: type(leaf) is tuple,  # is this needed?
         )
 
