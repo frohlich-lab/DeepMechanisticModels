@@ -202,7 +202,6 @@ for context in conf.context.split("+"):
     )
 
     # Transform and save per split
-        )
 
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
