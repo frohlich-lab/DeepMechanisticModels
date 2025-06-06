@@ -286,13 +286,21 @@ for samples in sorted(SPLITS):
         # Cleanup
         del training, avg_ps_dfs, rdf, dfd, temp_results
 
-df = pd.concat(dfs).reset_index()
-le_df, param_dev_df, param_df = [
-    pd.concat(dfs) for dfs in [le_dfs, param_dev_dfs, param_dfs]
-]
-for results_df in [le_df, param_dev_df, param_df]:
+df = pd.concat(dfs, ignore_index=True)
+del dfs
+
+le_df = pd.concat(le_dfs, ignore_index=True)
+del le_dfs
+
+param_dev_df = pd.concat(param_dev_dfs, ignore_index=True)
+del param_dev_dfs
+
+param_df = pd.concat(param_dfs, ignore_index=True)
+del param_dfs
+
+for results_df in (le_df, param_dev_df, param_df):
     results_df["job"] = results_df["job"].astype(int)
-del dfs, le_dfs, param_dev_dfs, param_dfs
+
 
 # Select reg_param for plotting based on the number of unique investigated values
 reg_params = [

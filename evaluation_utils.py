@@ -722,7 +722,6 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
             df[col] = df[col].astype("float")
     for col in [
         "pretrain",
-        "linear_benchmark",
         "use_layer_bias",
         "last_layer_activation",
     ]:
@@ -769,8 +768,6 @@ def aggregate_and_log(
     gbs_dmm = ["dataset", "ref"] + default_attributes
     gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
     gbs_refs = ["dataset", "context", "samples", "ref"]
-    # Replace missing values in features_transform (None instead of nan)
-    df["features_transform"] = df["features_transform"].replace(np.nan, "None")
 
     temp_dfs = []
     for ref_subset, group_cols in zip(
