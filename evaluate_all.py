@@ -153,7 +153,7 @@ hyperparam_configs = {
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(SPLITS):
-    for dataset in ["train", "val"]:
+    for dataset in ["train", "test"]:
         # DMM evaluations
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
@@ -217,7 +217,9 @@ for samples in sorted(SPLITS):
 
         # Get references (avg_model, per_sample)
         avg_model, ps = [
-            process_reference(conf, samples, dataset, mode, ref_name)
+            process_reference(
+                conf, samples, dataset.replace("test", "val"), mode, ref_name
+            )  # TODO @GiacomoFabrini - refactor either where regressors or dmms save their results
             for mode, ref_name in zip(
                 ["avg_model", "per_sample"], ["avg_model", "sample"]
             )
