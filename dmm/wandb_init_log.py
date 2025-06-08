@@ -64,7 +64,8 @@ def init_wandb(
         # v23: new CV split, per_cv selection, no l1reg inflater or sparsity, trying n_hidden, with/without frozen medians
         # v24: new feature selection, reduce depth to 0, explore l1reg_inflater_output, sparsity, l2reg_inflater_output, feature selection, constant schedule
         # v25: new feature selection
-        project=f"DeepMechanisticModels.v25.{conf.data}.{conf.model}",
+        # v26: new feature selection, optimal l1/l2reg_inflater_output, scanning l1reg & oreg on synced inflater/encoder
+        project=f"DeepMechanisticModels.v26.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
