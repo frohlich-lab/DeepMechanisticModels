@@ -48,6 +48,7 @@ from training_configuration import (
     WARMUP_FCTS,
     WEIGHT_DECAY,
     ZETAS,
+    SYNC_ENCODER_INFLATER_REG,
 )
 
 
@@ -220,6 +221,12 @@ def generate_linear_scan(STARTS: list[str]):
     ]
 
     for linear_scan_config in linear_scan_configs:
+        # Sync regularisation parameters across encoder and inflater
+        if SYNC_ENCODER_INFLATER_REG:
+            if linear_scan_config["l1reg_inflate"] != linear_scan_config["l1reg_encode"]:
+                linear_scan_config["l1reg_inflate"] = linear_scan_config["l1reg_encode"]
+            if linear_scan_config["oreg_inflate"] != linear_scan_config["oreg_encode"]:
+                linear_scan_config["oreg_inflate"] = linear_scan_config["oreg_encode"]
         prune_config(linear_scan_config)
 
     # Ensure configs are unique
@@ -476,7 +483,7 @@ def generate_run_configs(
 # )
 
 generate_run_configs(
-    n_starts=50,
+    n_starts=10,
     hp_run_mode=HP_RUN_MODE,
     refine_hps=REFINE_HPS,
 )

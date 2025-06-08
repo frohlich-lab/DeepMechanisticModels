@@ -32,7 +32,7 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "HVGRFE_10_tree"),
     # ("proteomics", "RFE_10_tree"),
     # ("proteomics", "HVGRFE_15_permute"),
-    ("proteomics", "HVGRFE_20_permute"),
+    # ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
@@ -42,8 +42,8 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "HVGRFE_10_permute"),
     # ("transcriptomics", "HVGRFE_10_tree"),
     # ("transcriptomics", "RFE_10_tree"),
-    ("transcriptomics", "HVGRFE_15_permute"),
-    ("transcriptomics", "HVGRFE_20_permute"),
+    # ("transcriptomics", "HVGRFE_15_permute"),
+    # ("transcriptomics", "HVGRFE_20_permute"),
     # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
     # ("MOSA", "all"),
 )
@@ -223,8 +223,8 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e10,  # increasing values
 # )
 ALPHAS = {
-    "range": LINEAR_SCAN_RANGE_L1REG,
-    "central_value": LINEAR_SCAN_CENTRAL,
+    "range": (0, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "central_value": 0,
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
@@ -239,7 +239,10 @@ ALPHAS = {
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {"range": LINEAR_SCAN_RANGE_OREG, "central_value": LINEAR_SCAN_CENTRAL}
+BETAS = {
+    "range": (0, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "central_value": 0
+}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -256,8 +259,8 @@ BETAS = {"range": LINEAR_SCAN_RANGE_OREG, "central_value": LINEAR_SCAN_CENTRAL}
 #     # 1e10,  # increasing values
 # )
 GAMMAS = {
-    "range": LINEAR_SCAN_RANGE_L1REG,
-    "central_value": LINEAR_SCAN_CENTRAL,
+    "range": (0, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "central_value": 0,
 }
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
@@ -271,8 +274,8 @@ GAMMAS = {
 #     # 1e10,  # increasing values
 # )
 DELTAS = {
-    "range": LINEAR_SCAN_RANGE_OREG,
-    "central_value": LINEAR_SCAN_CENTRAL,
+    "range": (0, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "central_value": 0,
 }
 # previously centered at 1e7, but now excluded from scanned values
 
@@ -284,13 +287,13 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": (62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
-    "central_value": 1_000,
+    "range": (62.5, ),
+    "central_value": 62.5,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0, 625, 1_250, 2_500, 5_000, 10_000, 20_000, 40_000, 80_000),
+    "range": (0, ),
     "central_value": 0,
 }
 
@@ -471,3 +474,5 @@ REFINE_HPS = None
 
 N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE val across training) -- NOT IN USE
 N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
+
+SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters
