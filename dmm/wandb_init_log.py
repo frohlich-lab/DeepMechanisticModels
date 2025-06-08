@@ -324,4 +324,4 @@ def log_extra_loss_terms(
         if val != 0:
             wandb.log({key: val}, step=epoch)
 
-    wandb.log({IO_SPARSITY: np.sum(model.sparsity_binary_mask)}, step=epoch)
+    wandb.log({IO_SPARSITY: np.sum(model.output_sparsity_binary_mask)}, step=epoch)
