@@ -16,7 +16,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_init", "RFE_5_permute"),
-    ("cytof_init", "RFE_10_permute"),
+    # ("cytof_init", "RFE_10_permute"),
     # ("cytof_init", "RFE_10_tree"),
     # ("cytof_init", "RFE_15_permute"),
     # ("cytof_init", "RFE_20_permute"),
@@ -32,7 +32,7 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "HVGRFE_10_tree"),
     # ("proteomics", "RFE_10_tree"),
     # ("proteomics", "HVGRFE_15_permute"),
-    # ("proteomics", "HVGRFE_20_permute"),
+    ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
@@ -287,8 +287,8 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": (62.5, ),
-    "central_value": 62.5,
+    "range": (8_000, ),
+    "central_value": 8_000,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
