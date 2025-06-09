@@ -240,7 +240,7 @@ ALPHAS = {
 #     # 1e8,
 # )
 BETAS = {
-    "range": (0, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
     "central_value": 0
 }
 # previously centred at 1e7, but now excluded from scanned values
@@ -274,7 +274,7 @@ GAMMAS = {
 #     # 1e10,  # increasing values
 # )
 DELTAS = {
-    "range": (0, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
     "central_value": 0,
 }
 # previously centered at 1e7, but now excluded from scanned values
