@@ -675,7 +675,7 @@ for context in CONTEXT_SET:
                 / conf.data
                 / f"{conf.model}.{conf.data}.{context}.{plot_label}.{val_label}",
                 val_only=val_only,
-                type="heatmap",
+                plot_type="heatmap",
             )
 
     # # PARAMETER DEVIATION HISTOGRAMS PER CELL-LINE -- REMOVED FOR NOW

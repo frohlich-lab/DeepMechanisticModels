@@ -1,6 +1,8 @@
 import seaborn as sns
+import matplotlib.colors as mcolors
 import matplotlib.patches as patches
 import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 
 from common import fig_dir, EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines
@@ -25,6 +27,27 @@ from typing import List, Union
 #     "Metastatic; Brain": "green",
 #     "Unknown": "black"
 # }
+
+
+cv_samples_mapping = {
+    f"{i}of5": hardest_cell_lines[i]
+    for i in range(5)
+}
+shared_category_colors = {
+    "LA": "gold", "LB": "darkorange", "Basal": "cornflowerblue", "HER2": "firebrick",
+    "Normal": "purple", "Other": "slategray",
+    1: "navy", 2: "darkorange", 3: "cornflowerblue",
+    4: "lightgray", 5: "purple"
+}
+
+pam50_labels = ["LA", "LB", "HER2", "Basal", "Normal", "Other"]
+lb_labels = ["Luminal", "Basal", "Normal", "Other"]
+lb_to_shared = {
+    "Luminal": "LA",
+    "Basal": "Basal",
+    "Normal": "Normal",
+    "Other": "Other",
+}
 
 # Base plotting functions for FacetGrid
 def lineplot_methods(data, *args, **kwargs):
@@ -350,7 +373,7 @@ def plot_parameter_heatmaps(
         figure_fmt: str = ".pdf",
         val_only: bool = False,
         add_avg_to_val: bool = False,
-        type: str = "heatmap"
+        plot_type: str = "heatmap"
 ):
     # Adds an extra row in each heatmap corresponding to average cell-line
     if val_only and add_avg_to_val:
@@ -375,7 +398,7 @@ def plot_parameter_heatmaps(
     else:
         raise ValueError(f"Invalid plot_label: {plot_label}")
 
-    if type == "heatmap":
+    if plot_type == "heatmap":
         def plot_heatmap_with_highlight(data, val_only, **kwargs):
             ax = plt.gca()  # Get the current axis
             sns.heatmap(
@@ -424,7 +447,7 @@ def plot_parameter_heatmaps(
         g.fig.tight_layout()
         plt.savefig(str(figure_filepath) + ".h" + figure_fmt)
         plt.close()
-    elif type == "clustermap":
+    elif plot_type == "clustermap":
         samples = sorted(param_df.samples.unique())
         reg_params = sorted(param_df[top_reg_param].unique())
         # Plot individually - cannot assign ax to Clustermap, so incompatible with FacetGrid and subplots
@@ -596,3 +619,149 @@ def plot_param_dev_hist_min_max(param_dev_df: pd.DataFrame, reg_param: str, para
         plt.legend()
         plt.tight_layout()
         plt.savefig(str(fig_dir / conf.model / conf.data / fig_name) + f".vs_{reg_param}.{fig_label}.pdf")
+
+
+
+def get_annotation_palette(hue_var: str) -> dict:
+    if hue_var == "subtype_pam50":
+        return {label: shared_category_colors[label] for label in pam50_labels}
+    elif hue_var == "subtype_lb":
+        # Resolve via lb_to_shared to ensure consistent color mapping
+        return {
+            label: shared_category_colors[lb_to_shared[label]]
+            for label in lb_labels
+        }
+    else:
+        return {}  # fallback: let seaborn pick default palette
+
+# Plotting function factory
+def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: dict):
+    def scatter(data, color, **kwargs):
+        ax = plt.gca()
+        context = data["context"].iloc[0]
+        sample = data["samples"].iloc[0]
+        L1_max = context_limits[context]["L1_max"]
+        L2_max = context_limits[context]["L2_max"]
+
+        hardest = cv_samples_mapping.get(sample, None)
+
+        # Split data
+        data_missing = data[data[hue_var].isna()]
+        data_main = data[data[hue_var].notna() & (data["cell_line"] != hardest)]
+        hardest_data = data[(data["cell_line"] == hardest) & data[hue_var].notna()]
+        hardest_missing = data[(data["cell_line"] == hardest) & data[hue_var].isna()]
+
+        # 1. Plot missing data as gray dots
+        if not data_missing.empty:
+            sns.scatterplot(
+                data=data_missing,
+                x="L1", y="L2",
+                color="lightgray",
+                alpha=1.0,
+                edgecolor="black",
+                linewidth=0.3,
+                s=20,
+                marker="X",
+                ax=ax,
+                legend=False
+            )
+
+        if not hardest_missing.empty:
+            sns.scatterplot(
+                data=hardest_missing,
+                x="L1", y="L2",
+                color="lightgray",
+                alpha=1.0,
+                edgecolor="black",
+                linewidth=0.3,
+                s=40,
+                marker="s",
+                ax=ax,
+                legend=False
+            )
+
+        # 2. Plot valid annotated points
+        if is_categorical:
+            palette = get_annotation_palette(hue_var)
+            sns.scatterplot(
+                data=data_main,
+                x="L1", y="L2",
+                hue=hue_var,
+                palette=palette,
+                alpha=1.0,
+                edgecolor="black",
+                linewidth=0.3,
+                s=20,
+                ax=ax,
+                legend="auto"
+            )
+            sns.scatterplot(
+                data=hardest_data,
+                x="L1", y="L2",
+                hue=hue_var,
+                palette=palette,
+                marker="s",
+                edgecolor="black",
+                linewidth=0.3,
+                s=40,
+                ax=ax,
+                legend="auto"
+            )
+        else:
+            vmin = data[hue_var].replace([np.inf, -np.inf], np.nan).min()
+            vmax = data[hue_var].replace([np.inf, -np.inf], np.nan).max()
+            norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+            cmap = "coolwarm"
+            sns.scatterplot(
+                data=data_main,
+                x="L1", y="L2",
+                hue=hue_var,
+                palette=cmap,
+                hue_norm=norm,
+                alpha=1.0,
+                edgecolor="black",
+                linewidth=0.3,
+                s=20,
+                ax=ax,
+                legend=False
+            )
+            sns.scatterplot(
+                data=hardest_data,
+                x="L1", y="L2",
+                hue=hue_var,
+                palette=cmap,
+                hue_norm=norm,
+                marker="s",
+                edgecolor="black",
+                linewidth=0.3,
+                s=40,
+                ax=ax,
+                legend=False
+            )
+
+        # Annotate all hardest
+        for cl in cv_samples_mapping.values():
+            row = data[data["cell_line"] == cl]
+            if not row.empty:
+                ax.text(
+                    row["L1"].values[0] - 0.1,
+                    row["L2"].values[0] + 0.1,
+                    cl,
+                    fontsize=8,
+                    color="black"
+                )
+
+        # Axis style
+        ax.axhline(0, color='black', lw=0.5)
+        ax.axvline(0, color='black', lw=0.5)
+        ax.set_xlim(-L1_max * 1.1, L1_max * 1.1)
+        ax.set_ylim(-L2_max * 1.1, L2_max * 1.1)
+        ax.set_xticks([])
+        ax.set_yticks([])
+        ax.set_xlabel('')
+        ax.set_ylabel('')
+        ax.grid(False)
+        for spine in ax.spines.values():
+            spine.set_visible(False)
+
+    return scatter
