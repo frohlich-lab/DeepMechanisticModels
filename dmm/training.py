@@ -265,7 +265,7 @@ def train(
                 selected_features = [
                     x_name
                     for x_name, mask in zip(
-                        x_names, model.sparsity_binary_mask
+                        x_names, model.output_sparsity_binary_mask
                     )
                     if mask
                 ]
