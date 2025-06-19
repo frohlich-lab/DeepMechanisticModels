@@ -148,8 +148,8 @@ NN_INIT_FN = (
 
 # RECONSTRUCT: whether to add a second head to the autoencoder or not
 RECONSTRUCT = (
-    # True,
-    False,
+    True,
+    # False,
 )
 
 
@@ -223,7 +223,7 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e10,  # increasing values
 # )
 ALPHAS = {
-    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, ),
     "central_value": 0,
 }
 
@@ -240,7 +240,7 @@ ALPHAS = {
 #     # 1e8,
 # )
 BETAS = {
-    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, ),
     "central_value": 0
 }
 # previously centred at 1e7, but now excluded from scanned values
@@ -259,7 +259,7 @@ BETAS = {
 #     # 1e10,  # increasing values
 # )
 GAMMAS = {
-    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, ),
     "central_value": 0,
 }
 
@@ -274,7 +274,7 @@ GAMMAS = {
 #     # 1e10,  # increasing values
 # )
 DELTAS = {
-    "range": (0, 1e-2, 1e-1, 1, 10, 62.5, 125, 250, 500, 1_000, 2_000, 4_000, 8_000),
+    "range": (0, ),
     "central_value": 0,
 }
 # previously centered at 1e7, but now excluded from scanned values
@@ -304,7 +304,10 @@ THETAS = {
 #     1e5,
 #     1e7,
 # )
-EPSILONS = {"range": (0,), "central_value": 0}
+EPSILONS = {
+    "range": (0, 1e-3, 1e-2, 1e-1, 1e0),
+    "central_value": 0
+}
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
 # ZETAS = (
