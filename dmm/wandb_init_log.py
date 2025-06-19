@@ -65,7 +65,8 @@ def init_wandb(
         # v24: new feature selection, reduce depth to 0, explore l1reg_inflater_output, sparsity, l2reg_inflater_output, feature selection, constant schedule
         # v25: new feature selection
         # v26: new feature selection, optimal l1/l2reg_inflater_output, scanning l1reg & oreg on synced inflater/encoder
-        project=f"DeepMechanisticModels.v26.{conf.data}.{conf.model}",
+        # v27: drop l1reg/oreg for encoder/inflater; test decoder reconstruction
+        project=f"DeepMechanisticModels.v27.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
