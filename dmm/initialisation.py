@@ -65,6 +65,22 @@ def process_features(
             get_features(features_filepath=filepath, datasets=datasets)
             for filepath in features_filepath
         ]
+        if conf.standardise_features:
+            for i, subfeatures in enumerate(features):
+                scaler = StandardScaler()
+                if "train" in datasets:
+                    scaler.fit(subfeatures["train"])
+                else:
+                    raise ValueError(
+                        "Standardisation requires a 'train' dataset in the provided datasets list."
+                    )
+                for feature_dataset in datasets:
+                    subfeatures[feature_dataset] = pd.DataFrame(
+                        scaler.fit_transform(subfeatures[feature_dataset]),
+                        index=subfeatures[feature_dataset].index,
+                        columns=subfeatures[feature_dataset].columns,
+                    )
+                features[i] = subfeatures
         if mode == "concatenate":
             features = {
                 feature_dataset: pd.concat(
@@ -79,6 +95,9 @@ def process_features(
         features = get_features(
             features_filepath=features_filepath, datasets=datasets
         )
+        if conf.standardise_features:
+            scaler = StandardScaler()
+
         features = impute_features(features)
     return features
 
