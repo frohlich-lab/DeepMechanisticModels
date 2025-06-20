@@ -61,6 +61,11 @@ PRETRAIN = {
     "True",
 }
 
+STANDARDISE_FEATURES = {
+    # True,
+    False,
+}
+
 # INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
 MEDIAN_INIT = {
     # "per_sample",

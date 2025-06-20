@@ -57,6 +57,24 @@ def process_features(
             get_features(features_filepath=filepath, datasets=datasets)
             for filepath in features_filepath
         ]
+        if conf.standardise_features:
+            for i, subfeatures in enumerate(features):
+                if "train" in subfeatures:
+                    scaler = StandardScaler()
+                    scaler.fit(subfeatures["train"])
+                    features[i] = {
+                        dataset: pd.DataFrame(
+                            scaler.transform(subfeatures[dataset]),
+                            index=subfeatures[dataset].index,
+                            columns=subfeatures[dataset].columns,
+                        )
+                        for dataset in subfeatures.keys()
+                    }
+                    features[i] = impute_features(features[i])
+                else:
+                    raise ValueError(
+                        "Standard scaling is only supported when 'train' dataset is provided!"
+                    )
         if mode == "concatenate":
             features = {
                 feature_dataset: pd.concat(
@@ -71,6 +89,22 @@ def process_features(
         features = get_features(
             features_filepath=features_filepath, datasets=datasets
         )
+        if conf.standardise_features:
+            if "train" in features:
+                scaler = StandardScaler()
+                scaler.fit(features["train"])
+                features = {
+                    dataset: pd.DataFrame(
+                        scaler.transform(features[dataset]),
+                        index=features[dataset].index,
+                        columns=features[dataset].columns,
+                    )
+                    for dataset in features.keys()
+                }
+            else:
+                raise ValueError(
+                    "Standard scaling is only supported when 'train' dataset is provided!"
+                )
         features = impute_features(features)
     return features
 
