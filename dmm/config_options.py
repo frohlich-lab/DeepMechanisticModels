@@ -11,8 +11,6 @@ class Conf(dict):
     samples: str = None
     pretrain: bool = False
     sample: str = None
-    # Standard scaling
-    standardise_features: bool = False
     # Initialisation
     median_init: str = "None"  # can be either `per_sample` or `avg_model` -> initialises params of KinParamsCombiner
     # Train/freeze medians
