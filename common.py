@@ -201,7 +201,7 @@ def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
         ]
 
 
-def test_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
+def val_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
     samples = get_samples(wildcards.data)
     split, n_splits = wildcards.samples.split("of")
     if mode != "leave_one_out":
@@ -225,7 +225,7 @@ def per_sample_pretraining_test(wildcards) -> List[str]:
         PER_SAMPLE_OUTFILE_PARS.format(
             sample=sample, model=wildcards.model, data=wildcards.data
         )
-        for sample in test_samples(wildcards)
+        for sample in val_samples(wildcards)
     ]
 
 

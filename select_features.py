@@ -10,7 +10,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from common import FEATURES_OUTFILE, Wildcards, test_samples, training_samples
+from common import FEATURES_OUTFILE, Wildcards, val_samples, training_samples
 from dmm.feature_selection import (
     build_preprocessor,
     load_data,
@@ -144,7 +144,7 @@ samples_train = {
     for split in sorted(SPLITS)
 }
 samples_val = {
-    split: sorted(test_samples(Wildcards(conf.data, split)))
+    split: sorted(val_samples(Wildcards(conf.data, split)))
     for split in sorted(SPLITS)
 }
 

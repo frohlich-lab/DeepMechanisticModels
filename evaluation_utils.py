@@ -25,7 +25,7 @@ from common import (
     default_attributes,
     evaluations_dir,
     hardest_cell_lines,
-    test_samples,
+    val_samples,
     training_samples,
 )
 from cytof.problem import CytofProblem
@@ -165,7 +165,7 @@ def simulate_avg_model(
         conf.data,
         training_samples(Wildcards(conf.data, conf.samples))
         if dataset == "train"
-        else test_samples(Wildcards(conf.data, conf.samples)),
+        else val_samples(Wildcards(conf.data, conf.samples)),
     )
     problem_sample = importer.create_problem()
     df = pd.read_csv(rfile, index_col=[0])
@@ -1145,6 +1145,7 @@ def add_annotations(
     return annotated_df
 
 
+# TODO do we even need this function? Can use process_and_transform_features + extra step?
 def load_and_transform_features(
     conf: Conf,
     dataset: str,
@@ -1155,9 +1156,4 @@ def load_and_transform_features(
         features_filepath=features_filepath, datasets=["train", "val"]
     )
     features = impute_features(features)
-    if dataset == "train":
-        features_dataset = "train"
-    elif dataset == "test":
-        features_dataset = "val"
-    # TODO @GiacomoFabrini - will need to change this when we resolve 'val' vs 'test' ambiguity
-    return features[features_dataset].values
+    return features[dataset].values

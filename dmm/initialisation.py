@@ -109,11 +109,13 @@ def process_features_and_setup_models(
 ]:
     problem = CytofProblem(conf.model)
 
-    # TODO @GiacomoFabrini: issues with test/val nomenclature here!
     settings = {
         "train": ["train"],
-        "test": ["val"],
-        "train+test": ["train", "val"],
+        "val": ["val"],
+        "train+val": ["train", "val"],
+        "test": ["test"],
+        "train+test": ["train", "test"],
+        "train+val+test": ["train", "val", "test"],
     }
 
     features = process_features(

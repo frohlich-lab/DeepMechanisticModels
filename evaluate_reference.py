@@ -9,7 +9,7 @@ from common import (
     Wildcards,
     fig_dir,
     pretrain_dir,
-    test_samples,
+    val_samples,
     training_samples,
 )
 from cytof.problem import CytofProblem
@@ -37,7 +37,7 @@ indir = pretrain_dir / conf.model / conf.data
 #  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
-    "val": test_samples(Wildcards(conf.data, conf.samples)),
+    "val": val_samples(Wildcards(conf.data, conf.samples)),
 }
 
 # instantiate a replacement conf for references,

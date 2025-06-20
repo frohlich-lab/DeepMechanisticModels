@@ -13,7 +13,7 @@ from common import (
     Wildcards,
     fig_dir,
     results_dir,
-    test_samples,
+    val_samples,
     training_samples,
 )
 from dmm.analysis import evaluate_simulations
@@ -35,7 +35,7 @@ indir = results_dir / conf.model / conf.data
 # TODO @GiacomoFabrini: check here "val" vs "test"
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
-    "test": test_samples(Wildcards(conf.data, conf.samples)),
+    "val": val_samples(Wildcards(conf.data, conf.samples)),
 }
 
 
@@ -53,14 +53,9 @@ def evaluate_training(
     # Load ensemble models and objectives
     ensemble_models, obj = load_model_and_obj(conf, petab_base_files, dataset, num_ensemble_members)
 
-    # TODO @GiacomoFabrini need to fix this inconsistency in naming!
     # Extract needed features from input dictionary
-    if dataset == 'train':
-        features_dataset = 'train'
-    elif dataset == 'test':
-        features_dataset = 'val'
     input_features = subset_features(
-            features=features[features_dataset],
+            features=features[dataset],
             model=ensemble_models[0],  # all models have the same input features
     )
 
@@ -106,10 +101,10 @@ features = process_features(
 )
 
 
-# TODO @GiacomoFabrini: check here "val" vs "test"
 for dataset in [
         "train",
-        "test"
+        "val",
+        # "test"  # TODO still don't have test data!
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test

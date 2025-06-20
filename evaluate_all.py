@@ -34,7 +34,7 @@ from common import (
     hardest_cell_lines,
     pretrain_dir,
     subtypes_tognetti,
-    test_samples,
+    val_samples,
     training_samples,
 )
 from cytof.problem import CytofProblem
@@ -215,11 +215,10 @@ for samples in sorted(SPLITS):
             f"Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}"
         )
 
-        # TODO @GiacomoFabrini - refactor either where regressors/references or dmms save their results and remove replacements below
         # Get references (avg_model, per_sample)
         avg_model, ps = [
             process_reference(
-                conf, samples, dataset.replace("test", "val"), mode, ref_name
+                conf, samples, dataset, mode, ref_name
             )
             for mode, ref_name in zip(
                 ["avg_model", "per_sample"], ["avg_model", "sample"]
@@ -234,7 +233,7 @@ for samples in sorted(SPLITS):
                         **{
                             **conf.__dict__,
                             "samples": samples,
-                            "dataset": dataset.replace("test", "val"),
+                            "dataset": dataset,
                             "context": ctxt,
                             "features": features,
                         },
@@ -760,7 +759,7 @@ for dataset, context, split in itt.product(
     petab_base_files = load_petab_base_files(conf)
     samples_dict = {
         "train": training_samples(Wildcards(conf.data, split)),
-        "test": test_samples(Wildcards(conf.data, split)),
+        "test": val_samples(Wildcards(conf.data, split)),
     }
 
     # Get per-sample simulation

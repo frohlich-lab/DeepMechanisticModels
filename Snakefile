@@ -254,7 +254,7 @@ rule evaluate_training:
         csv=[
             [
                 path_format.format_map(SafeDict(dataset=dataset))
-                for dataset in ['train', 'test']
+                for dataset in ['train', 'val']
             ]
             for path_format in [
                 EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS
