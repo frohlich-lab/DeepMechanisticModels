@@ -886,6 +886,7 @@ for dataset, context, split in itt.product(
         for job in best_config_jobs
     ]
     # Compute features once (same across all jobs) - depend on SPLIT
+    # TODO @GiacomoFabrini - this needs to be adapted for multimodal concatenation
     input_features = load_and_transform_features(
         conf=best_dmm_conf_obj[0],
         dataset=dataset,
