@@ -15,7 +15,6 @@ from jaxtyping import Array, Float, PyTree
 # import subprocess
 import wandb
 
-# from common import TRAINED_MODEL_WEIGHT_PLOTS  # TODO - fix imports from common (not in use)
 from .config_options import (
     L1DREG,
     L1EREG,
@@ -446,11 +445,6 @@ def train(
     )
     # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
     # command = f"wandb sync {wandb_stripped_dir}"
-
-    # TODO @GiacomoFabrini - fix this if we want to use this!
-    # Plot model weights - proxy for model architecture -- disabled for now
-    # plot_model_weights(model, filename=Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))
-    # wandb.log({"trained_model_weights": wandb.Image(Path(TRAINED_MODEL_WEIGHT_PLOTS.format(**conf)))})
 
     # Save best models
     for ensemble_id, (_, _, ensemble_model_member) in enumerate(best_models):

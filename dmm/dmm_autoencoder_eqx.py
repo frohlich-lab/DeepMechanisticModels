@@ -252,7 +252,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
-                max_width=self.n_input_features,  # TODO check whether we need to double (*2) this
+                max_width=self.n_input_features,
                 multiplier=self.module_structure_multiplier,
                 reverse=True,
             ),
@@ -263,7 +263,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             *generate_layer_sizes(
                 latent_dim=self.n_latent,
                 depth=self.module_depth,
-                max_width=self.n_inflated_specific_kin_params,  # TODO check whether we need to double (*2) this
+                max_width=self.n_inflated_specific_kin_params,
                 multiplier=self.module_structure_multiplier,
                 reverse=False,
             ),
@@ -481,7 +481,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
     def reconstruction_loss(
         self,
-        x: Array,  # TODO @GiacomoFabrini is this ok?
+        x: Array,
         scale: float = 1.0,
     ):
         """

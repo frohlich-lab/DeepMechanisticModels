@@ -10,7 +10,6 @@ from jaxtyping import Array
 from typing import List, Union
 
 
-# TODO @GiacomoFabrini LATER: consider adding eqx.nn.PReLU (parametric leaky ReLU)
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
     "tanh": jnp.tanh,
