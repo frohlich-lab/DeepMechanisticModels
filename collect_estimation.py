@@ -4,7 +4,7 @@ import os
 import pypesto.visualize
 import re
 
-from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, FEATURES_OUTFILE, FEATURES_PIPELINE
+from common import COLLECTED_TRAINING_RESULTS, TRAINING_OUTFILE_RESULTS, FEATURES_OUTFILE
 from dmm.config_options import Conf
 from dmm.initialisation import process_features_and_setup_models
 from dmm.training_helper_funcs import create_pypesto_problem
@@ -22,11 +22,9 @@ conf = fire.Fire(Conf)
 features_filepath = FEATURES_OUTFILE.format(
     **{**conf.__dict__, **dict(dataset='{dataset}')}
 )
-feature_transform_pipeline_filepath = Path(FEATURES_PIPELINE.format(**conf.__dict__))
 model, problem = process_features_and_setup_models(
     conf=conf,
     features_filepath=features_filepath,
-    pipeline_filepath=feature_transform_pipeline_filepath,
     petab_base_files=load_petab_base_files(conf),
     dataset="train",
 )

@@ -1,8 +1,6 @@
 import itertools as itt
 import os
 from dataclasses import replace
-from pathlib import Path
-
 import fire
 import matplotlib.pyplot as plt
 import numpy as np
@@ -22,7 +20,6 @@ from common import (
     EVALUATION_REGRESSOR,
     EVALUATION_TRAINING,
     FEATURES_OUTFILE,
-    FEATURES_PIPELINE,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
     REGRESSION_MODES,
@@ -43,7 +40,7 @@ from dmm.analysis import simulate_dmm
 # from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
-from dmm.initialisation import get_features_and_pipeline_filepaths
+from dmm.initialisation import get_features_filepath
 from dmm.plotting import plot_cross_samples_multiple_simulations
 from evaluation_plotting import (
     n_hidden_pairwise_heatmap,
@@ -819,11 +816,10 @@ for dataset, context, split in itt.product(
         features=features_train if dataset == "test" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
-        features_filepath=get_features_and_pipeline_filepaths(
+        features_filepath=get_features_filepath(
             replace(conf, context=context, features="all"),
             FEATURES_OUTFILE,
-            FEATURES_PIPELINE,
-        )[0]
+        )
         if context == "MOSA"
         else None,
     )
@@ -895,10 +891,7 @@ for dataset, context, split in itt.product(
         dataset=dataset,
         features_filepath=FEATURES_OUTFILE.format(
             **{**best_dmm_conf_obj[0].__dict__, "dataset": "{dataset}"}
-        ),
-        feature_transform_pipeline_filepath=Path(
-            FEATURES_PIPELINE.format_map(best_dmm_conf_obj[0].__dict__)
-        ),
+        )
     )
     overall_best_dmm_sim_dfs = []
 

@@ -1150,7 +1150,6 @@ def load_and_transform_features(
     conf: Conf,
     dataset: str,
     features_filepath,
-    feature_transform_pipeline_filepath,
 ) -> np.ndarray:
     features = get_features(
         features_filepath=features_filepath, datasets=["train", "val"]

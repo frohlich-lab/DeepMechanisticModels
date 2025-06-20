@@ -7,7 +7,6 @@ from jax import config
 
 from common import (  # TRAINING_OUTFILE_RESULTS,
     FEATURES_OUTFILE,
-    FEATURES_PIPELINE,
     PER_SAMPLE_OUTFILE_PARS,
     PRETRAINED_BEST_MODELS,
     TRAINED_BEST_MODELS,
@@ -17,7 +16,7 @@ from common import (  # TRAINING_OUTFILE_RESULTS,
 # from cytof.problem import CytofProblem
 from dmm.config_options import Conf, EarlyStoppingParams
 from dmm.initialisation import (
-    get_features_and_pipeline_filepaths,
+    get_features_filepath,
     init_global_kin_params_combiner,
     process_features_and_setup_models,
     subset_features,
@@ -51,11 +50,8 @@ model_file = TRAINED_BEST_MODELS.format(
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Get filepaths for features and feature transformation pipeline
-(
-    features_filepath,
-    feature_transform_pipeline_filepath,
-) = get_features_and_pipeline_filepaths(
-    conf, FEATURES_OUTFILE, FEATURES_PIPELINE
+features_filepath = get_features_filepath(
+    conf, FEATURES_OUTFILE
 )
 
 # Set JAX configuration
@@ -71,7 +67,6 @@ petab_base_files = load_petab_base_files(conf=conf)
 ) = process_features_and_setup_models(
     conf=conf,
     features_filepath=features_filepath,
-    pipeline_filepath=feature_transform_pipeline_filepath,
     petab_base_files=petab_base_files,
     dataset="train+test",
     return_features=True,

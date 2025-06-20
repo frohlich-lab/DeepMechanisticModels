@@ -1,17 +1,13 @@
 from dataclasses import replace
-from pathlib import Path
 from typing import Dict, List, Tuple, Union
 
 import equinox as eqx
 import jax.numpy as jnp
 import jax.random as jr
-import joblib
 import numpy as np
 import pandas as pd
 import pypesto
-from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
-from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from cytof.problem import CytofProblem
@@ -49,18 +45,14 @@ def get_median_param_names(model: DeepMechanisticModel):
         if "DEV" not in name
     ]
 
-
 def process_features(
     conf: Conf,
     features_filepath: Union[str, List[str]],
-    pipeline_filepath: Union[Path, List[Path]],
     datasets: List[str],
     mode: str = "concatenate",
 ):
     # loads features corresponding to requested dataset settings
-    if isinstance(features_filepath, list) and isinstance(
-        pipeline_filepath, list
-    ):
+    if isinstance(features_filepath, list):
         features = [
             get_features(features_filepath=filepath, datasets=datasets)
             for filepath in features_filepath
@@ -86,7 +78,6 @@ def process_features(
 def process_features_and_setup_models(
     conf: Conf,
     features_filepath: Union[str, List[str]],
-    pipeline_filepath: Union[str, Path, List[str], List[Path]],
     petab_base_files: Dict[str, pd.DataFrame],
     dataset: str = "train",
     return_features: bool = False,
@@ -121,7 +112,6 @@ def process_features_and_setup_models(
     features = process_features(
         conf=conf,
         features_filepath=features_filepath,
-        pipeline_filepath=pipeline_filepath,
         datasets=settings[dataset],
     )
 
@@ -380,14 +370,25 @@ def init_global_kin_params_combiner(
     return model
 
 
-def get_features_and_pipeline_filepaths(
-    conf: Conf, features_file_template: str, features_pipeline_template: str
-) -> tuple[Union[List[str], str], Union[List[Path], Path]]:
+def get_features_filepath(
+    conf: Conf, features_file_template: str,
+) -> Union[List[str], str]:
     # Handle multiple contexts
     if len(conf.context.split("+")) > 1:
-        features_filepath, feature_transform_pipeline_filepath = [], []
-        for subcontext in conf.context.split("+"):
-            subconf = replace(conf, context=subcontext)
+        subcontexts = [
+            context for context in conf.context.split("+")
+        ]
+        features_filepath = []
+        if len(conf.features.split("+")) > 1:
+            features_selection_methods = [
+                features for features in conf.features.split("+")
+            ]
+        else:
+            features_selection_methods = [
+                conf.features for _ in subcontexts
+            ]
+        for subcontext, subfeatures in zip(subcontexts, features_selection_methods):
+            subconf = replace(conf, context=subcontext, features=subfeatures)
             features_filepath.append(
                 features_file_template.format(
                     **{
@@ -396,17 +397,11 @@ def get_features_and_pipeline_filepaths(
                     }
                 )
             )
-            feature_transform_pipeline_filepath.append(
-                Path(features_pipeline_template.format(**subconf.__dict__))
-            )
     else:
         features_filepath = features_file_template.format(
             **{**conf.__dict__, **{"dataset": "{dataset}"}}
         )
-        feature_transform_pipeline_filepath = Path(
-            features_pipeline_template.format(**conf.__dict__)
-        )
-    return features_filepath, feature_transform_pipeline_filepath
+    return features_filepath
 
 
 def impute_features(features: dict) -> dict:

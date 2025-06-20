@@ -18,7 +18,6 @@ from common import (
     CONTEXT_SET,
     EVALUATION_REGRESSOR,
     FEATURES_OUTFILE,
-    FEATURES_PIPELINE,
     REGR_FEATURES_TRAIN,
     REGR_TRAINED_PIPELINE,
     # Wildcards,
@@ -29,7 +28,7 @@ from dmm.analysis import process_simulation
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from dmm.initialisation import (
-    get_features_and_pipeline_filepaths,
+    get_features_filepath,
     process_features,
 )
 from dmm.plotting import plot_cross_samples
@@ -217,20 +216,18 @@ for context, mode in itt.product(
         )
 
     # Load input features
-    features_filepath, pipeline_filepath = get_features_and_pipeline_filepaths(
+    features_filepath = get_features_filepath(
         replace(
             conf,
             context=context,
             features=conf.features,
         ),
         FEATURES_OUTFILE,
-        FEATURES_PIPELINE,
     )
 
     input_features_dict = process_features(
         conf=conf,
         features_filepath=features_filepath,
-        pipeline_filepath=pipeline_filepath,
         datasets=["train", "val"],
     )
 
