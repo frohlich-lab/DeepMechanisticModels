@@ -68,7 +68,7 @@ petab_base_files = load_petab_base_files(conf=conf)
     conf=conf,
     features_filepath=features_filepath,
     petab_base_files=petab_base_files,
-    dataset="train+test",
+    dataset="train+val",
     return_features=True,
 )
 
