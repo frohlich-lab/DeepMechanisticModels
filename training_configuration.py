@@ -62,8 +62,8 @@ PRETRAIN = {
 }
 
 STANDARDISE_FEATURES = {
-    # True,
-    False,
+    True,
+    # False,
 }
 
 # INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
@@ -310,8 +310,8 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (0, 1e-3, 1e-2, 1e-1, 1e0),
-    "central_value": 0
+    "range": (1e-2, ),
+    "central_value": 1e-2
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
