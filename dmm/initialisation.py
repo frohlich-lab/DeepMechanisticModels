@@ -195,9 +195,9 @@ def process_features_and_setup_models(
             keys,
         )
     )
-
+    # TODO @GiacomoFabrini: add support for multiple datasets?
     result = (
-        (tuple(dmms), problem) if dataset == "train+test" else (*dmms, problem)
+        (tuple(dmms), problem) if len(settings[dataset]) > 1 else (*dmms, problem)
     )
     return (*result, features) if return_features else result
 
