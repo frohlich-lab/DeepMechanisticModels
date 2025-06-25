@@ -95,7 +95,7 @@ class DeepComponent(eqx.Module):
 
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     component_name: str = eqx.static_field()
-    activation_fn_name: str = eqx.static_field()  # makes it compatible with flattening utilities for schedule-free
+    activation_fn_name: str = eqx.static_field()
     last_layer_activation: bool = eqx.static_field()
 
     def __init__(
