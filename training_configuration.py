@@ -62,8 +62,8 @@ PRETRAIN = {
 }
 
 STANDARDISE_FEATURES = {
-    True,
-    # False,
+    # True,
+    False,
 }
 
 # INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
@@ -127,8 +127,8 @@ NETWORK_DEPTH = {
 # For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
 # hyperparameter
 USE_BIAS = (
-    "True",
-    # "False",
+    # "True",
+    "False",
 )
 
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
