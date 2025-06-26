@@ -1,4 +1,3 @@
-from dataclasses import replace
 from typing import Dict, List, Tuple, Union
 
 import equinox as eqx
@@ -47,65 +46,30 @@ def get_median_param_names(model: DeepMechanisticModel):
 
 def process_features(
     conf: Conf,
-    features_filepath: Union[str, List[str]],
-    datasets: List[str],
-    mode: str = "concatenate",
+    features_filepath: str,
+    datasets: List[str]
 ):
     # loads features corresponding to requested dataset settings
-    if isinstance(features_filepath, list):
-        features = [
-            get_features(features_filepath=filepath, datasets=datasets)
-            for filepath in features_filepath
-        ]
-        if conf.standardise_features:
-            for i, subfeatures in enumerate(features):
-                if "train" in subfeatures:
-                    scaler = StandardScaler()
-                    scaler.fit(subfeatures["train"])
-                    features[i] = {
-                        dataset: pd.DataFrame(
-                            scaler.transform(subfeatures[dataset]),
-                            index=subfeatures[dataset].index,
-                            columns=subfeatures[dataset].columns,
-                        )
-                        for dataset in subfeatures.keys()
-                    }
-                    features[i] = impute_features(features[i])
-                else:
-                    raise ValueError(
-                        "Standard scaling is only supported when 'train' dataset is provided!"
-                    )
-        if mode == "concatenate":
+    features = get_features(
+        features_filepath=features_filepath, datasets=datasets
+    )
+    if conf.standardise_features:
+        if "train" in features:
+            scaler = StandardScaler()
+            scaler.fit(features["train"])
             features = {
-                feature_dataset: pd.concat(
-                    [subfeatures[feature_dataset] for subfeatures in features],
-                    axis=1,
+                dataset: pd.DataFrame(
+                    scaler.transform(features[dataset]),
+                    index=features[dataset].index,
+                    columns=features[dataset].columns,
                 )
-                for feature_dataset in datasets
+                for dataset in features.keys()
             }
-        else:  # TODO @GiacomoFabrini: add support for contrastive learning -- conf option
-            raise ValueError(f"Unknown mode for processing features: {mode}")
-    else:
-        features = get_features(
-            features_filepath=features_filepath, datasets=datasets
-        )
-        if conf.standardise_features:
-            if "train" in features:
-                scaler = StandardScaler()
-                scaler.fit(features["train"])
-                features = {
-                    dataset: pd.DataFrame(
-                        scaler.transform(features[dataset]),
-                        index=features[dataset].index,
-                        columns=features[dataset].columns,
-                    )
-                    for dataset in features.keys()
-                }
-            else:
-                raise ValueError(
-                    "Standard scaling is only supported when 'train' dataset is provided!"
-                )
-        features = impute_features(features)
+        else:
+            raise ValueError(
+                "Standard scaling is only supported when 'train' dataset is provided!"
+            )
+    features = impute_features(features)
     return features
 
 
@@ -405,37 +369,12 @@ def init_global_kin_params_combiner(
 
 
 def get_features_filepath(
-    conf: Conf, features_file_template: str,
-) -> Union[List[str], str]:
-    # Handle multiple contexts
-    if len(conf.context.split("+")) > 1:
-        subcontexts = [
-            context for context in conf.context.split("+")
-        ]
-        features_filepath = []
-        if len(conf.features.split("+")) > 1:
-            features_selection_methods = [
-                features for features in conf.features.split("+")
-            ]
-        else:
-            features_selection_methods = [
-                conf.features for _ in subcontexts
-            ]
-        for subcontext, subfeatures in zip(subcontexts, features_selection_methods):
-            subconf = replace(conf, context=subcontext, features=subfeatures)
-            features_filepath.append(
-                features_file_template.format(
-                    **{
-                        **subconf.__dict__,
-                        **{"dataset": "{dataset}", "context": subcontext},
-                    }
-                )
-            )
-    else:
-        features_filepath = features_file_template.format(
-            **{**conf.__dict__, **{"dataset": "{dataset}"}}
-        )
-    return features_filepath
+        conf: Conf,
+        features_file_template: str,
+) -> str:
+    return features_file_template.format(
+        **{**conf.__dict__, **{"dataset": "{dataset}"}}
+    )
 
 
 def impute_features(features: dict) -> dict:

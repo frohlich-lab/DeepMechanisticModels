@@ -148,8 +148,28 @@ samples_val = {
     for split in sorted(SPLITS)
 }
 
-for context in conf.context.split("+"):
-    subconf = replace(conf, context=context)
+
+# Handle multimodality
+contexts, features_list = [], []
+multimodal_dfs = {}
+if (conf.context == "multimodal") and (conf.features == "optimal"):
+    contexts = ["cytof_init", "proteomics", "transcriptomics"]
+    # Hardcoded optimal feature selection methods
+    features_list = [
+        "RFE_10_permute",
+        "HVGRFE_20_permute",
+        "HVGRFE_15_permute"
+    ]
+else:
+    contexts = [conf.context]
+    features = [conf.features]
+
+for context, features in zip(contexts, features_list):
+    subconf = replace(
+        conf,
+        context=context,
+        features=features
+    )
 
     input_parts = []
     output_parts = []
@@ -193,7 +213,7 @@ for context in conf.context.split("+"):
         input_data=input_train,
         output_data=output_train,
         context=subconf.context,
-        features=conf.features,
+        features=subconf.features,
         features_all=features_all,
         cv=None,
     )
@@ -202,18 +222,36 @@ for context in conf.context.split("+"):
     )
 
     # Transform and save per split
-
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
             dict(**subconf.__dict__, dataset=dataset)
         )
         Path(outfile).parent.mkdir(exist_ok=True, parents=True)
         print(
-            f"Preprocessing {dataset} data for split {conf.samples} to {outfile}"
+            f"Preprocessing {dataset} data for split {conf.samples}..."
         )
         df_inputs = pd.DataFrame(
             inputs[selected_features].values,
             index=inputs.index,
             columns=selected_features,
         )
-        df_inputs.to_csv(outfile)
+        if not (conf.context == "multimodal"):
+            print(
+                f"Saving {dataset} data for split {conf.samples} to {outfile}"
+            )
+            df_inputs.to_csv(outfile)
+        else:
+            if dataset not in multimodal_dfs:
+                multimodal_dfs[dataset] = []
+            multimodal_dfs[dataset].append(df_inputs)
+
+if conf.context == "multimodal":
+    for dataset in ["train", "val"]:
+        outfile = FEATURES_OUTFILE.format_map(
+            dict(**conf.__dict__, dataset=dataset)
+        )
+        concat_df = pd.concat(multimodal_dfs[dataset], axis=1)
+        print(
+            f"Saving {dataset} data for split {conf.samples} to {outfile}"
+        )
+        concat_df.to_csv(outfile)
