@@ -68,7 +68,8 @@ def init_wandb(
         # v27: drop l1reg/oreg for encoder/inflater; test decoder reconstruction
         # v28: standard scaling
         # v29: no bias, no standard scaling
-        project=f"DeepMechanisticModels.v29.{conf.data}.{conf.model}",
+        # v30: no bias, no standard scaling, scanning depth + testing multimodal
+        project=f"DeepMechanisticModels.30.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
