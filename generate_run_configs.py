@@ -231,6 +231,15 @@ def generate_linear_scan(STARTS: list[str]):
                 linear_scan_config["l1reg_inflate"] = linear_scan_config["l1reg_encode"]
             if linear_scan_config["oreg_inflate"] != linear_scan_config["oreg_encode"]:
                 linear_scan_config["oreg_inflate"] = linear_scan_config["oreg_encode"]
+        if linear_scan_config["l1reg_inflater_output"] == "optimal":
+            if linear_scan_config["context"] == "cytof_init":
+                linear_scan_config["l1reg_inflater_output"] = 62.5
+            elif linear_scan_config["context"] == "proteomics":
+                linear_scan_config["l1reg_inflater_output"] = 8000
+            elif linear_scan_config["context"] == "transcriptomics":
+                linear_scan_config["l1reg_inflater_output"] = 4000
+            else:  # multimodal
+                linear_scan_config["l1reg_inflater_output"] = 100
         prune_config(linear_scan_config)
 
     # Ensure configs are unique
