@@ -16,7 +16,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_init", "RFE_5_permute"),
-    # ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_10_permute"),
     # ("cytof_init", "RFE_10_tree"),
     # ("cytof_init", "RFE_15_permute"),
     # ("cytof_init", "RFE_20_permute"),
@@ -42,9 +42,9 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "HVGRFE_10_permute"),
     # ("transcriptomics", "HVGRFE_10_tree"),
     # ("transcriptomics", "RFE_10_tree"),
-    # ("transcriptomics", "HVGRFE_15_permute"),
+    ("transcriptomics", "HVGRFE_15_permute"),
     # ("transcriptomics", "HVGRFE_20_permute"),
-    # ("cytof_init+proteomics+transcriptomics", "all"),  # multi-modal, crude - horizontal stacking
+    ("multimodal", "optimal"),
     # ("MOSA", "all"),
 )
 
@@ -112,8 +112,8 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2
+        1,
+        2
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -292,8 +292,8 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": (8_000, ),
-    "central_value": 8_000,
+    "range": ("optimal", ),
+    "central_value": "optimal",
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
@@ -310,8 +310,8 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (0, 1e-3, 1e-2, 1e-1, 1e0),
-    "central_value": 0
+    "range": (1e-2, ),
+    "central_value": 1e-2,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
