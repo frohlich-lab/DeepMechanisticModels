@@ -44,7 +44,7 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "RFE_10_tree"),
     ("transcriptomics", "HVGRFE_15_permute"),
     # ("transcriptomics", "HVGRFE_20_permute"),
-    ("multimodal", "optimal"),
+    # ("multimodal", "optimal"),
     # ("MOSA", "all"),
 )
 
