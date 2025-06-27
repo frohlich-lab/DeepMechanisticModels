@@ -558,7 +558,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         Save the model to a file.
 
         :param filename: path of file
-        :param samples_list_dict: dictionary of samples list (train/test)
+        :param samples_list_dict: dictionary of samples list (train/val)
         """
         filename.parent.mkdir(exist_ok=True, parents=True)
         with Path.open(filename, "wb") as f:

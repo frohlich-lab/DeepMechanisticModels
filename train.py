@@ -104,7 +104,7 @@ pypesto_problem_train, pypesto_problem_test = (
 init_wandb(model_train, conf, early_stopping_params)
 samples_name_list_dict = {
     dataset: model.sample_name_list
-    for dataset, model in zip(["train", "test"], [model_train, model_test])
+    for dataset, model in zip(["train", "val"], [model_train, model_test])
 }
 best_models = train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
