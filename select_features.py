@@ -152,7 +152,7 @@ samples_val = {
 # Handle multimodality
 contexts = []
 multimodal_dfs = {}
-if (conf.context == "multimodal"):
+if conf.context == "multimodal":
     contexts = ["cytof_init", "proteomics", "transcriptomics"]
 else:
     contexts = [conf.context]

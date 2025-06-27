@@ -16,7 +16,7 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
 )
 
 basedir = Path(os.getcwd())
@@ -359,12 +359,14 @@ rule evaluate_regressors:
     input:
         script='evaluate_regressors.py',
         # data=rules.process_data.output.datafiles,  # wait for download and processing
-        selected_features=expand(
-             rules.select_features.output.data,
+        selected_features=[
+            FEATURES_OUTFILE.format_map(SafeDict(
                 model='{model}', data='{data}', samples='{samples}',
-                features='{features}',
-                context=CONTEXT_SET,
-         )  # wait for feature selection (which requires download and processing)
+                context=context, features=features, dataset=dataset
+            ))
+            for context, features in CONTEXTS_FEATURES
+            for dataset in ['train', 'val']
+        ]
     output:
         csv=[
             EVALUATION_REGRESSOR.format_map(
