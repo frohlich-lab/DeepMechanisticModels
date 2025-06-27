@@ -150,25 +150,29 @@ samples_val = {
 
 
 # Handle multimodality
-contexts, features_list = [], []
+contexts = []
 multimodal_dfs = {}
-if (conf.context == "multimodal") and (conf.features == "optimal"):
+if (conf.context == "multimodal"):
     contexts = ["cytof_init", "proteomics", "transcriptomics"]
-    # Hardcoded optimal feature selection methods
-    features_list = [
-        "RFE_10_permute",
-        "HVGRFE_20_permute",
-        "HVGRFE_15_permute"
-    ]
 else:
     contexts = [conf.context]
-    features = [conf.features]
 
-for context, features in zip(contexts, features_list):
+features_dict = {}
+if conf.features == "optimal":
+    # Hardcoded optimal feature selection methods
+    features_dict = {
+        "cytof_init": "RFE_10_permute",
+        "proteomics": "HVGRFE_20_permute",
+        "transcriptomics": "HVGRFE_15_permute"
+    }
+else:
+    features_dict = {context: conf.features for context in contexts}
+
+for context in contexts:
     subconf = replace(
         conf,
         context=context,
-        features=features
+        features=features_dict[context]
     )
 
     input_parts = []
