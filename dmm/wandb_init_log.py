@@ -69,7 +69,8 @@ def init_wandb(
         # v28: standard scaling
         # v29: no bias, no standard scaling
         # v30: no bias, no standard scaling, scanning depth + testing multimodal
-        project=f"DeepMechanisticModels.30.{conf.data}.{conf.model}",
+        # v31: no bias, with/without standard scaling, no depth, using last layer activation, incl. multimodal
+        project=f"DeepMechanisticModels.v31.{conf.data}.{conf.model}",
         group=group,
         config={
             **conf.__dict__,
