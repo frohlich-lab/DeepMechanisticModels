@@ -361,10 +361,13 @@ rule evaluate_regressors:
         # data=rules.process_data.output.datafiles,  # wait for download and processing
         selected_features=[
             FEATURES_OUTFILE.format_map(SafeDict(
-                model='{model}', data='{data}', samples='{samples}',
-                context=context, features=features, dataset=dataset
+                model='{model}',
+                data='{data}',
+                context='{context}',
+                features='{features}',
+                samples='{samples}',
+                dataset=dataset
             ))
-            for context, features in CONTEXTS_FEATURES
             for dataset in ['train', 'val']
         ]
     output:
@@ -373,20 +376,19 @@ rule evaluate_regressors:
                 SafeDict(
                     dataset=dataset,
                     mode=mode,
-                    context=context,
                 )
             )
-            for dataset, mode, context in itt.product(
+            for dataset, mode in itt.product(
                 ['train', 'val'],
                 ['linreg', 'lasso', 'elasticnet'],
-                CONTEXT_SET,   # TODO @GiacomoFabrini - should not train regressors for multimodal
             )
         ]
     wildcard_constraints:
         model='\w+',
         data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+',
+        context='\w+',
         features='\w+',
+        samples='[0-9]+of[0-9]+'
     retries: 1
     resources:
         mem="8GB",
@@ -396,7 +398,7 @@ rule evaluate_regressors:
     shell:
         'python3 {input.script} ' + ' '.join(
         f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model', 'data', 'samples', 'features')
+        for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
 
@@ -419,11 +421,14 @@ rule evaluate_all:
         reference=expand(
             rules.evaluate_references.output.csv,
             model='{model}',data='{data}', samples=SPLITS,
-        ) + expand(
-            rules.evaluate_regressors.output.csv,
-            model='{model}',data='{data}', samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET,
-        )
+        ) + [
+            expand(
+                rules.evaluate_regressors.output.csv,
+                model='{model}', data='{data}', samples=SPLITS,
+                context=context, features=features
+            )
+            for context, features in CONTEXTS_FEATURES
+        ]
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         # plot=[
             # EVALUATE_ALL.format_map(SafeDict(group=group))

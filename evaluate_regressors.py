@@ -1,4 +1,3 @@
-import itertools as itt
 import os
 import warnings
 
@@ -15,7 +14,6 @@ from joblib import dump, load
 from sklearn.pipeline import Pipeline
 
 from common import (
-    CONTEXT_SET,
     EVALUATION_REGRESSOR,
     FEATURES_OUTFILE,
     REGR_FEATURES_TRAIN,
@@ -43,7 +41,6 @@ def evaluate_standard_regression(
     dataset: str,
     conf: Conf,
     samples: List,
-    context: str,
     mode: str,  # 'linreg', 'lasso', 'elasticnet'
     trained_pipeline: Pipeline,
 ) -> pd.DataFrame:
@@ -149,7 +146,7 @@ def evaluate_standard_regression(
     ]
 
     # Plot -- reg_pred is either reg_pred_train or reg_pred_test
-    plot_name = mode + "_" + context + "_" + conf.features
+    plot_name = mode + "_" + conf.context + "_" + conf.features
     plot_cross_samples(
         df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
     )
@@ -163,7 +160,7 @@ def evaluate_standard_regression(
     regr_conf = Conf(
         model=conf.model,
         data=conf.data,
-        context=context,
+        context=conf.context,
         max_lrate=0,
         lrate_span=0,
         lrate_decay=0,
@@ -207,10 +204,8 @@ petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
 # Evaluate regressors
-for context, mode in itt.product(
-    CONTEXT_SET, ["linreg", "lasso", "elasticnet"]
-):
-    if (context == "MOSA") and (conf.features != "all"):
+for mode in ["linreg", "lasso", "elasticnet"]:
+    if (conf.context == "MOSA") and (conf.features != "all"):
         raise ValueError(
             "MOSA context only available for all features with no transformation!"
         )
@@ -219,7 +214,7 @@ for context, mode in itt.product(
     features_filepath = get_features_filepath(
         replace(
             conf,
-            context=context,
+            context=conf.context,
             features=conf.features,
         ),
         FEATURES_OUTFILE,
@@ -255,7 +250,7 @@ for context, mode in itt.product(
         data=conf.data,
         samples=conf.samples,
         mode=mode,
-        context=context,
+        context=conf.context,
         features=conf.features,
     )
 
@@ -264,7 +259,7 @@ for context, mode in itt.product(
         data=conf.data,
         samples=conf.samples,
         mode=mode,
-        context=context,
+        context=conf.context,
         features=conf.features,
     )
 
@@ -277,7 +272,7 @@ for context, mode in itt.product(
     # else build and train the pipeline and extract the features
     else:
         print(
-            f"Building pipeline and training estimator for {mode} on {context}..."
+            f"Building pipeline and training estimator for {mode} on {conf.context}..."
         )
         trained_pipeline, features_train = train_pipeline(
             input_data_train=input_features_dict["train"],
@@ -296,7 +291,6 @@ for context, mode in itt.product(
             dataset=dataset,
             conf=conf,
             samples=input_features_dict[dataset].index,
-            context=context,
             mode=mode,
             trained_pipeline=trained_pipeline,
         )
@@ -308,7 +302,7 @@ for context, mode in itt.product(
                 samples=conf.samples,
                 dataset=dataset,
                 mode=mode,
-                context=context,
+                context=conf.context,
                 features=conf.features,
             )
         )
@@ -316,7 +310,7 @@ for context, mode in itt.product(
         # Added printout of RMSE on train/val datasets for each regressor (mode)
         rmse = np.sqrt(np.mean(np.square(df["res"])))
         print(
-            f"RMSE for {mode} on {conf.samples}, {context}, {dataset}, using {conf.features} features = {rmse}"
+            f"RMSE for {mode} on {conf.samples}, {conf.context}, {dataset}, using {conf.features} features = {rmse}"
         )
 
     del (
