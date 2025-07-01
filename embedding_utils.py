@@ -1,8 +1,13 @@
+import jax
+import jax.numpy as jnp
+import optimistix as optx
 import numpy as np
 import pandas as pd
 
 from pathlib import Path
+from scipy.integrate import trapezoid
 from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler, LabelEncoder
@@ -206,3 +211,180 @@ def compute_local_marker_smoothness(df, n_neighbors=5, marker="ERBB2", is_catego
 
     label = "mean_disagreement" if is_categorical else "normalized_rmsd"
     return pd.Series(results, name=label)
+
+
+def find_embedding_rotation(
+        embeddings,
+        pher2_values
+):
+    # Only use valid (non-missing) pHER2 values
+    valid_mask = ~jnp.isnan(pher2_values)
+    X_valid = embeddings[valid_mask]
+    y_valid = pher2_values[valid_mask]
+    # Fit a linear model to predict pHER2 from embeddings
+    linreg = LinearRegression()
+    linreg.fit(X_valid, y_valid)
+    # Extract gradient direction, normalise and find second orthogonal vector
+    w = linreg.coef_
+    v1 = w / jnp.linalg.norm(w)
+    v2 = jnp.array([-v1[1], v1[0]])
+    # Build and return rotation matrix
+    return jnp.stack([v1, v2], axis=1)
+
+
+def find_embedding_origin(
+        model,
+        input_embeddings
+):
+    mask = jnp.array(model.output_sparsity_binary_mask)
+
+    def masked_inflater_optx(x, _):  # Accepts second arg even if unused
+        return model.deep_inflater(x) * mask
+
+    solver = optx.Newton(rtol=1e-8, atol=1e-8)
+    x0_init = jnp.mean(input_embeddings, axis=0)
+    sol = optx.root_find(
+        fn=masked_inflater_optx,
+        y0=x0_init,
+        solver=solver
+    )
+    return sol.value
+
+
+def rotate_embeddings(
+        embeddings,
+        x0,
+        R,
+        check_inverse=True
+):
+    rotated = (embeddings - x0) @ R
+    if check_inverse:
+        reconstructed = rotated @ R.T + x0
+        diff = jnp.sum(jnp.abs(reconstructed - embeddings))
+        assert diff < 1e-6, f"Inverse rotation mismatch: {diff}"
+    return rotated
+
+
+def find_input_features_baseline(
+        encoder,
+        input_features,
+        embeddings,
+        baseline_mode: str = "inflater_origin",
+        model = None,
+):
+    if baseline_mode == "zero_embedding":
+        target_embedding = jnp.zeros_like(embeddings[0])
+    elif baseline_mode == "inflater_origin":
+        assert model is not None, "Model required for 'inflater_origin' baseline."
+        target_embedding = find_embedding_origin(model, embeddings)
+    else:
+        raise ValueError(f"Unknown baseline_mode: {baseline_mode}")
+
+    def encoder_target_diff(x, _):
+        return encoder(x) - target_embedding
+
+    solver = optx.Newton(rtol=1e-8, atol=1e-8)
+    init_guess = jnp.mean(input_features, axis=0)
+    sol = optx.root_find(fn=encoder_target_diff, y0=init_guess, solver=solver)
+    input_features_baseline = sol.value
+    emb_origin = encoder(input_features_baseline)
+
+    print(
+        f"Baseline input features found: {input_features_baseline}, "
+        f"with corresponding baseline/origin embedding: {emb_origin}, "
+        f"whereas the target embedding was: {target_embedding}"
+    )
+
+    assert jnp.sum(jnp.abs(emb_origin - target_embedding)) < 1e-6, \
+        "Baseline embedding does not match target embedding!"
+    return input_features_baseline
+
+
+def integrated_gradients(
+        input_x,
+        model_fn,
+        baseline_x=None,
+        num_steps=100,
+        method="riemann"
+):
+    if baseline_x is None:
+        baseline_x = jnp.zeros_like(input_x)
+
+    # Form straight path along which to integrate gradients
+    alphas = jnp.linspace(0., 1., num_steps).reshape(-1, 1)
+    interpolated = baseline_x + alphas * (input_x - baseline_x)
+
+    jac_fn = jax.jacrev(model_fn)
+    jacobians = jax.vmap(jac_fn)(interpolated)
+
+    # Discrete integration (default: Riemann sum as in original paper)
+    if method == "riemann":
+        path_grad = jacobians.mean(axis=0)
+    elif method == "trapezoid":
+        path_grad = trapezoid(jacobians, dx=1.0/num_steps, axis=0)  # (M, 2)
+    else:
+        raise ValueError(f"Unknown method: {method}")
+
+    return (input_x - baseline_x) * path_grad
+
+
+def run_inflater_ig_attributions(
+        model,
+        input_embeddings,
+        pher2_values,
+        num_steps=100
+):
+    mask = jnp.array(model.output_sparsity_binary_mask)
+    R = find_embedding_rotation(input_embeddings, pher2_values)
+    x0 = find_embedding_origin(model, input_embeddings)
+    rotated_embeddings = rotate_embeddings(input_embeddings, x0, R)
+
+    def inverse_rotate_then_mask_inflate(x_rot):
+        # Reverse rotation and translation to apply inflater to original embeddings,
+        # while computing gradients in rotated space
+        return model.deep_inflater(x_rot @ R.T + x0) * mask
+
+    def ig_inflater_per_sample(x):
+        return integrated_gradients(
+            input_x=x,
+            model_fn=inverse_rotate_then_mask_inflate,
+            baseline_x=jnp.zeros_like(x),
+            num_steps=num_steps,
+            method="riemann"
+        )
+
+    return rotated_embeddings, jax.vmap(ig_inflater_per_sample)(rotated_embeddings)
+
+
+def run_encoder_ig_attributions(
+        encoder,
+        input_features,
+        embeddings,
+        pher2_values,
+        model=None,
+        baseline_mode="inflater_origin",
+        num_steps: int = 100,
+):
+    R = find_embedding_rotation(embeddings, pher2_values)
+    input_features_baseline = find_input_features_baseline(
+        encoder=encoder,
+        input_features=input_features,
+        embeddings=embeddings,
+        baseline_mode=baseline_mode,
+        model=model
+    )
+
+    def encode_then_rotate(x):
+        emb = encoder(x)
+        return (emb - encoder(input_features_baseline)) @ R
+
+    def ig_encoder_per_sample(x):
+        return integrated_gradients(
+            input_x=x,
+            model_fn=encode_then_rotate,
+            baseline_x=input_features_baseline,
+            num_steps=num_steps,
+            method="riemann"
+        )
+
+    return jax.vmap(ig_encoder_per_sample)(input_features)  # (N, 2, D_in)
