@@ -318,24 +318,40 @@ def build_condition_table(
         ]
     )
     for pert in perturbations:
+
+        def not_part_of_condition(c: str, pert=pert) -> bool:
+            return pert not in c.split("__")
+
         if model.parameters.get(f"{pert}_0") is None:
             # remove condition
             condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
-                    lambda x: pert not in x.split("__")
+                    not_part_of_condition
                 ),
                 :,
             ]
             continue
+
+        def part_of_condition(c: str, pert=pert) -> float:
+            return float(int(pert in c.split("__")))
+
         condition_table[f"{pert}_0"] = condition_table[
             petab.CONDITION_ID
-        ].apply(lambda x: float(int(pert in x.split("__"))))
+        ].apply(part_of_condition)
 
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
     for eq_par in model.parameters.keys():
-        if eq_par.endswith("_eq"):
+        if eq_par == "EGFR_eq" and "egfra" in model.name.split("_"):
+            EGFR_log2fc = measurement_table[
+                measurement_table[petab.OBSERVABLE_ID] == "EGFR"
+            ].set_index(petab.PREEQUILIBRATION_CONDITION_ID)[petab.MEASUREMENT]
+            condition_table[eq_par] = [
+                2 ** EGFR_log2fc.get(c.split("__")[0], 0.0)
+                for c in condition_table[petab.CONDITION_ID]
+            ]
+        elif eq_par.endswith("_eq"):
             condition_table[eq_par] = 1.0
     return condition_table
 

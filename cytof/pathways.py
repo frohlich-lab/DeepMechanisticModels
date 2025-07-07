@@ -48,6 +48,9 @@ def add_egfr(model):
 
 
 def add_mapk(model):
+    if "her2" in model.name.split("_"):
+        active_rtks.append("ERBB2__Y1248_p")
+
     mapk_cascade = [
         ("MEK", {"S222": (active_rtks, active_erk)}),
         ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),

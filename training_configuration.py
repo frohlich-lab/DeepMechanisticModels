@@ -1,4 +1,8 @@
-PATHWAYS = ("EGFR_MAPK",)
+PATHWAYS = (
+    "EGFR_MAPK",
+    "EGFR_MAPK_egfra",
+    "EGFR_MAPK_her2",
+)
 
 DATASETS = ("dream_cytof",)
 # DATASETS = {
@@ -62,7 +66,7 @@ PRETRAIN = {
 }
 
 STANDARDISE_FEATURES = {
-    True,
+    # True,
     False,
 }
 
@@ -228,7 +232,7 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e10,  # increasing values
 # )
 ALPHAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -244,10 +248,7 @@ ALPHAS = {
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {
-    "range": (0, ),
-    "central_value": 0
-}
+BETAS = {"range": (0,), "central_value": 0}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -264,7 +265,7 @@ BETAS = {
 #     # 1e10,  # increasing values
 # )
 GAMMAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -279,7 +280,7 @@ GAMMAS = {
 #     # 1e10,  # increasing values
 # )
 DELTAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 # previously centered at 1e7, but now excluded from scanned values
@@ -292,13 +293,13 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": ("optimal", ),
+    "range": ("optimal",),
     "central_value": "optimal",
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -310,7 +311,7 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (1e-2, ),
+    "range": (1e-2,),
     "central_value": 1e-2,
 }
 
