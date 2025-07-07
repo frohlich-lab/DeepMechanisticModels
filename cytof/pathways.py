@@ -48,7 +48,7 @@ def add_egfr(model):
 
 
 def add_mapk(model):
-    if "her2" in model.name.split("_"):
+    if "her2" in model.name.split("_") and "ERBB2__Y1248_p" not in active_rtks:
         active_rtks.append("ERBB2__Y1248_p")
 
     mapk_cascade = [
