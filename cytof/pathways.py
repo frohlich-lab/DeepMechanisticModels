@@ -38,12 +38,12 @@ def add_egfr(model):
     Rule(
         "EGFR_degradation",
         EGFR(compartment="e") >> None,
-        add_parameter("EGFR_degradation_kcat"),
+        add_parameter("EGFR_degradation_kcat", model),
     )
     Rule(
         "EGFR_endocytosis",
         EGFR(Y1173="p", compartment="pm") >> EGFR(Y1173="p", compartment="e"),
-        add_parameter("EGFR_endocytosis_kcat"),
+        add_parameter("EGFR_endocytosis_kcat", model),
     )
 
 
