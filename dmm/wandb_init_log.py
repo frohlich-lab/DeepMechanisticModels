@@ -114,9 +114,6 @@ def init_wandb(
             "par_dev_frob_norm",
             "max_abs_par_median",
             "par_median_frob_norm",
-            "rmse_sample_mean",
-            "rmse_sample_variance",
-            "rmse_sample_span",
             "log_parameter_std",
             "log_parameter_mean",
         ]
