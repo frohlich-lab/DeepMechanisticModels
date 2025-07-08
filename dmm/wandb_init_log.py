@@ -70,7 +70,8 @@ def init_wandb(
         # v29: no bias, no standard scaling
         # v30: no bias, no standard scaling, scanning depth + testing multimodal
         # v31: no bias, with/without standard scaling, no depth, using last layer activation, incl. multimodal
-        project=f"DeepMechanisticModels.v31.{conf.data}.{conf.model}",
+        # v33: different mechanistic model architectures
+        project=f"DeepMechanisticModels.v33.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
@@ -113,11 +114,11 @@ def init_wandb(
             "par_dev_frob_norm",
             "max_abs_par_median",
             "par_median_frob_norm",
-            "rmse_sample_mean" , 
-            "rmse_sample_variance", 
-            "rmse_sample_span", 
-            "log_parameter_std", 
-            "log_parameter_mean"
+            "rmse_sample_mean",
+            "rmse_sample_variance",
+            "rmse_sample_span",
+            "log_parameter_std",
+            "log_parameter_mean",
         ]
     }
 
@@ -329,4 +330,6 @@ def log_extra_loss_terms(
         if val != 0:
             wandb.log({key: val}, step=epoch)
 
-    wandb.log({IO_SPARSITY: np.sum(model.output_sparsity_binary_mask)}, step=epoch)
+    wandb.log(
+        {IO_SPARSITY: np.sum(model.output_sparsity_binary_mask)}, step=epoch
+    )
