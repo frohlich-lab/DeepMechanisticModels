@@ -40,7 +40,6 @@ from .training_helper_funcs import (
     model_output_to_petab_input_frozen_medians,
     rmse,
     rmse_ensemble,
-    rmse_sample_stat,
 )
 
 # from .training_helper_funcs import test_save_reload_model, plot_model_weights
@@ -318,10 +317,6 @@ def train(
 
             # Compute fval on train/val datasets using eval_model
 
-            rmse_sm, rmse_sv, rmse_ss = rmse_sample_stat(
-                problem_train, model, input_features_train
-            )
-
             fval_train, fval_val = (
                 jitted_objective(problem, model, input_data, base_obj_fn)
                 for problem, input_data in zip(
@@ -364,9 +359,6 @@ def train(
                     "rmse_val": np.sqrt(fval_val),
                     "fval_train": fval_train,
                     "fval_val": fval_val,
-                    "rmse_sample_mean": rmse_sm,
-                    "rmse_sample_variance": rmse_sv,
-                    "rmse_sample_span": rmse_ss,
                     "log_parameter_std": wandb.Histogram(list(log_parstd)),
                     "log_parameter_mean": wandb.Histogram(list(log_parmean)),
                     # **log_model_stats(eval_model, grads)

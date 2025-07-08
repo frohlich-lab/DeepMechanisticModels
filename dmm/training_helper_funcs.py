@@ -6,7 +6,6 @@ import jax
 import jax.numpy as jnp
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
 import petab.v1 as petab
 import pypesto
 import seaborn as sns
@@ -591,41 +590,6 @@ def rmse(pp, model: DeepMechanisticModel, input_data):
                 )
             )
         )
-    except Exception as e:
-        print(e)
-        return np.inf
-
-
-def rmse_sample_stat(pp, model: DeepMechanisticModel, input_data):
-    try:
-        simulation_df, petab_problem = compute_simulation_from_model(
-            pp=pp,
-            model=model,
-            input_data=input_data,
-            return_petab_problem=True,
-        )
-        residuals = (
-            simulation_df[petab.SIMULATION]
-            - petab_problem.measurement_df[petab.MEASUREMENT]
-        ) / simulation_df[petab.NOISE_PARAMETERS]
-        df = pd.DataFrame(
-            residuals.values,
-            index=simulation_df.index,
-            columns=["residuals"],
-        )
-        df["sample"] = simulation_df[petab.PREEQUILIBRATION_CONDITION_ID]
-        df_agg = df.groupby("sample").agg(
-            sample_residuals=(
-                "residuals",
-                lambda x: np.sqrt(np.mean(np.square(x))),
-            )
-        )
-        sm = df_agg["sample_residuals"].mean()
-        sv = df_agg["sample_residuals"].var()
-        ss = (
-            df_agg["sample_residuals"].max() - df_agg["sample_residuals"].min()
-        )
-        return sm, sv, ss
     except Exception as e:
         print(e)
         return np.inf
