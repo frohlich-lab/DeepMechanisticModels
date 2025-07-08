@@ -104,7 +104,7 @@ rule pretrain_per_sample:
         mem="2GB",
         runtime="6h",
         nodes=1,
-        threads=1
+        threads=2
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
@@ -126,9 +126,9 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="6h",
+        runtime="24h",
         nodes=1,
-        threads=1
+        threads=2
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
