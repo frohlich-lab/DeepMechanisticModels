@@ -109,7 +109,7 @@ rule pretrain_per_sample:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'sample')
-        )
+        ) + ' --threads={resources.threads}'
 
 
 rule pretrain_average_model:
@@ -133,7 +133,7 @@ rule pretrain_average_model:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'samples')
-        )
+        ) + ' --threads={resources.threads}'
 
 rule select_features:
     input:
