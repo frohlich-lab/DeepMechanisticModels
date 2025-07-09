@@ -209,7 +209,7 @@ def load_transcriptomics_from_synapse() -> pd.DataFrame:
     return df_transcriptomics
 
 
-def load_ids_from_uniprot(measurement_table_proteomics):
+def load_ids_from_uniprot(ids):
     import json
     import urllib.parse
     import urllib.request
@@ -225,9 +225,7 @@ def load_ids_from_uniprot(measurement_table_proteomics):
             "from": "ACC+ID",
             "to": "GENENAME",
             "format": "tab",
-            "query": " ".join(
-                measurement_table_proteomics[petab.OBSERVABLE_ID].unique()
-            ),
+            "query": " ".join(ids),
         }
 
         data = urllib.parse.urlencode(params)
@@ -245,12 +243,7 @@ def load_ids_from_uniprot(measurement_table_proteomics):
         with open(up_id_json, "w") as fp:
             json.dump(up_ids, fp)
 
-    measurement_table_proteomics.loc[
-        petab.OBSERVABLE_ID, :
-    ] = measurement_table_proteomics[petab.OBSERVABLE_ID].apply(
-        lambda x: up_ids.get(x, "")
-    )
-    return measurement_table_proteomics
+    return up_ids
 
 
 def process_petab_proteomics(df: pd.DataFrame):
@@ -351,7 +344,7 @@ def build_condition_table(
                 2 ** EGFR_log2fc.get(c.split("__")[0], 0.0)
                 for c in condition_table[petab.CONDITION_ID]
             ]
-        elif eq_par.endswith("_eq"):
+        elif eq_par.endswith("_eq") and not "freeeq" in model.name.split("_"):
             condition_table[eq_par] = 1.0
     return condition_table
 
@@ -363,8 +356,13 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     )
 
     measurement_table_proteomics = load_proteomics_from_synapse()
-    measurement_table_proteomics = load_ids_from_uniprot(
-        measurement_table_proteomics
+    up_ids = load_ids_from_uniprot(
+        measurement_table_proteomics[petab.OBSERVABLE_ID].unique()
+    )
+    measurement_table_proteomics.loc[
+        petab.OBSERVABLE_ID, :
+    ] = measurement_table_proteomics[petab.OBSERVABLE_ID].apply(
+        lambda x: up_ids.get(x, "")
     )
     measurement_table_proteomics = process_petab_proteomics(
         measurement_table_proteomics

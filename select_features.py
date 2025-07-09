@@ -10,7 +10,8 @@ from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from common import FEATURES_OUTFILE, Wildcards, val_samples, training_samples
+from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
+from cytof.data import load_ids_from_uniprot
 from dmm.feature_selection import (
     build_preprocessor,
     load_data,
@@ -69,6 +70,132 @@ def get_selected_features(
 ):
     if features == "all":
         return features_all
+
+    if features in ["KRT", "PAM50", "IHC"]:
+        if features == "KRT":
+            list = [
+                "KRT5",
+                "KRT6A",
+                "KRT6B",
+                "KRT14",
+                "KRT16",
+                "KRT17",
+                "KRT23",
+                "KRT81",
+                "KRT7",
+                "KRT8",
+                "KRT18",
+                "KRT19",
+            ]
+
+        if features == "IHC":
+            # commonly used IHC markers in breast cancer
+            # https://doi.org/10.1371/journal.pmed.1000279
+            list = [
+                "ERBB2",  # HER2/neu
+                "EGFR",  # epidermal growth factor receptor
+                "KRT5",  # keratin 5
+                "KRT6A",  # keratin 6A
+                "KRT6B",  # keratin 6B
+                "NR3C3",  # progesterone receptor
+                "ESR1",  # estrogen receptor
+            ]
+
+        if features == "CSC":
+            # CSC gene signature
+            list = [
+                "ALDH1A3",
+                "CD44",
+                "CD24",
+                "CD133",
+                "CD90",
+                "CD166",
+                "CXCR4",
+                "ITGA6",
+                "ITGB1",
+                "PROM1",
+                "SOX2",
+                "OCT4",
+                "NANOG",
+                "KLF4",
+                "MYC",
+            ]
+
+        if features == "PAM50":
+            # PAM50 gene signature
+            # https://doi.org/10.1200/JCO.2008.18.1370 Fig A2
+            list = [
+                # basal-like, missing: KNTC2 (alias NDC80)
+                "FOXC1",
+                "MIA",
+                "NDC80",
+                "CEP55",
+                "ANLN",
+                "MELK",
+                "GPR160",
+                "TMEM45B",
+                "ESR1",
+                "FOXA1",
+                # her2
+                "ERBB2",
+                "GRB7",
+                "FGFR4",
+                "BLVRA",
+                "BAG1",
+                "CDC20",
+                "CCNE1",
+                "ACTR3B",
+                "MYC",
+                "SFRP1",
+                # normal-like
+                "KRT14",
+                "KRT17",
+                "KRT5",
+                "MLPH",
+                "CCNB1",
+                "CDC6",
+                "TYMS",
+                "UBE2T",
+                "RRM2",
+                "MMP11",
+                # luminal B, missing: ORC6L (alias ORC6), PGR
+                # PGR filtered out in preprocessing
+                "CXXC5",
+                "ORC6",
+                "MDM2",
+                "KIF2C",
+                "PGR",
+                "MKI67",
+                "BCL2",
+                "EGFR",
+                "PHGDH",
+                "CDH3",
+                # luminal A, missing: CDCA1 (alias NUF2)
+                "NAT1",
+                "SLC39A6",
+                "MAPT",
+                "UBE2C",
+                "PTTG1",
+                "EXO1",
+                "CENPF",
+                "NUF2",
+                "MYBL2",
+                "BIRC5",
+            ]
+            assert len(list) == 50, "PAM50 gene list should contain 50 genes."
+
+        if context == "proteomics":
+            up_ids = load_ids_from_uniprot(list)
+            up_ids = {v: k for k, v in up_ids.items()}
+            return [
+                p
+                for g in list
+                if (p := up_ids.get(g, "")) in input_data.columns
+            ]
+        elif context == "transcriptomics":
+            return [g for g in input_data.columns if g in list]
+        else:
+            raise ValueError(f"PAM50 not available for {context}.")
 
     elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
         reduce_factor = 0.80
@@ -163,17 +290,13 @@ if conf.features == "optimal":
     features_dict = {
         "cytof_init": "RFE_10_permute",
         "proteomics": "HVGRFE_20_permute",
-        "transcriptomics": "HVGRFE_15_permute"
+        "transcriptomics": "HVGRFE_15_permute",
     }
 else:
     features_dict = {context: conf.features for context in contexts}
 
 for context in contexts:
-    subconf = replace(
-        conf,
-        context=context,
-        features=features_dict[context]
-    )
+    subconf = replace(conf, context=context, features=features_dict[context])
 
     input_parts = []
     output_parts = []
@@ -231,9 +354,7 @@ for context in contexts:
             dict(**subconf.__dict__, dataset=dataset)
         )
         Path(outfile).parent.mkdir(exist_ok=True, parents=True)
-        print(
-            f"Preprocessing {dataset} data for split {conf.samples}..."
-        )
+        print(f"Preprocessing {dataset} data for split {conf.samples}...")
         df_inputs = pd.DataFrame(
             inputs[selected_features].values,
             index=inputs.index,
@@ -255,7 +376,5 @@ if conf.context == "multimodal":
             dict(**conf.__dict__, dataset=dataset)
         )
         concat_df = pd.concat(multimodal_dfs[dataset], axis=1)
-        print(
-            f"Saving {dataset} data for split {conf.samples} to {outfile}"
-        )
+        print(f"Saving {dataset} data for split {conf.samples} to {outfile}")
         concat_df.to_csv(outfile)
