@@ -147,7 +147,10 @@ def add_monomer_synth_deg(
     else:
         m = model.monomers[m_name]
 
-    t = Parameter(f"{m_name}_eq", 100.0)
+    if "freeeq" in model.name.split("_"):
+        t = add_parameter(f"{m_name}_eq", model)
+    else:
+        t = Parameter(f"{m_name}_eq", 100.0)
     t0 = Expression(f"{m_name}_init", t)
 
     syn_prod = m(
