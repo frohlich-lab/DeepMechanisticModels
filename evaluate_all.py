@@ -1,6 +1,7 @@
 import itertools as itt
 import os
 from dataclasses import replace
+
 import fire
 import matplotlib.pyplot as plt
 import numpy as np
@@ -31,8 +32,8 @@ from common import (
     hardest_cell_lines,
     pretrain_dir,
     subtypes_tognetti,
-    val_samples,
     training_samples,
+    val_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.analysis import simulate_dmm
@@ -150,7 +151,7 @@ hyperparam_configs = {
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(SPLITS):
-    for dataset in ["train", "test"]:
+    for dataset in ["train", "val"]:
         # DMM evaluations
         training = pd.concat(
             pd.read_csv(efile, index_col=0)
@@ -214,9 +215,7 @@ for samples in sorted(SPLITS):
 
         # Get references (avg_model, per_sample)
         avg_model, ps = [
-            process_reference(
-                conf, samples, dataset, mode, ref_name
-            )
+            process_reference(conf, samples, dataset, mode, ref_name)
             for mode, ref_name in zip(
                 ["avg_model", "per_sample"], ["avg_model", "sample"]
             )
@@ -305,7 +304,7 @@ reg_params = [
     "l1reg_encode",
     "oreg_encode",  # encoder
     "l1reg_inflater_output",
-    "l2reg_inflater_output", 
+    "l2reg_inflater_output",
     "median_reg",
     "inflater_output_reg_epoch",  # param dev, param medians
     "sparse_threshold_perc",
@@ -621,9 +620,9 @@ for context in CONTEXT_SET:
                     & (val_param_dev_df[reg_param] == reg_param_val)
                 ]
                 # Get parameter for cell-line when in val set
-                params_val = sub_df[sub_df.dataset == "test"]
+                params_val = sub_df[sub_df.dataset == "val"]
                 for samples in sub_df[
-                    sub_df.dataset != "test"
+                    sub_df.dataset != "val"
                 ].samples.unique():
                     # Pick sets of parameters one CV split at a time and compute MSE among all parameter deviations
                     params = sub_df[sub_df.samples == samples]
@@ -747,7 +746,7 @@ df_meas, df_obs = get_measurements_and_obervables(conf)
 features_test = {context: None for context in CONTEXT_SET}
 
 for dataset, context, split in itt.product(
-    ["train", "test"],
+    ["train", "val"],
     CONTEXT_SET,
     sorted(SPLITS),  # ensure processing from 0of5 to 4of5
 ):
@@ -756,7 +755,7 @@ for dataset, context, split in itt.product(
     petab_base_files = load_petab_base_files(conf)
     samples_dict = {
         "train": training_samples(Wildcards(conf.data, split)),
-        "test": val_samples(Wildcards(conf.data, split)),
+        "val": val_samples(Wildcards(conf.data, split)),
     }
 
     # Get per-sample simulation
@@ -813,7 +812,7 @@ for dataset, context, split in itt.product(
     input_data, _ = load_data(
         contextualization=context,
         samples=samples_dict[dataset],
-        features=features_train if dataset == "test" else None,
+        features=features_train if dataset == "val" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
         features_filepath=get_features_filepath(
@@ -828,7 +827,7 @@ for dataset, context, split in itt.product(
         samples=samples_dict[dataset]
         if context != "MOSA"
         else input_data.index,  # restrict samples for MOSA (not all cell-lines available)
-        features=features_test[context] if dataset == "test" else None,
+        features=features_test[context] if dataset == "val" else None,
         measurement_table=petab_base_files["measurement_table"],
         observable_table=petab_base_files["observable_table"],
     )
@@ -892,7 +891,7 @@ for dataset, context, split in itt.product(
         dataset=dataset,
         features_filepath=FEATURES_OUTFILE.format(
             **{**best_dmm_conf_obj[0].__dict__, "dataset": "{dataset}"}
-        )
+        ),
     )
     overall_best_dmm_sim_dfs = []
 
