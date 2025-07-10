@@ -229,7 +229,11 @@ def generate_average_pretraining_problem(
     if "egfra" not in clean_model.name.split("_"):
         df_train[petab.SIMULATION_CONDITION_ID] = df_train[
             petab.SIMULATION_CONDITION_ID
-        ].apply(lambda x: x.split("__")[1])
+        ].apply(lambda x: x.replace(x.split("__")[0], ""))
+        df_train.loc[
+            df_train[petab.SIMULATION_CONDITION_ID] == "",
+            petab.SIMULATION_CONDITION_ID,
+        ] = "baseline"
 
         df_train[petab.PREEQUILIBRATION_CONDITION_ID] = "baseline"
 
@@ -237,7 +241,9 @@ def generate_average_pretraining_problem(
             [name.startswith(samples[0]) for name in pp.condition_df.index], :
         ].copy()
         cdf.index = [
-            name.replace(samples[0] + "__", "").replace(samples[0], "baseline")
+            name.replace(samples[0] + "__", "__").replace(
+                samples[0], "baseline"
+            )
             for name in cdf.index
         ]
     else:

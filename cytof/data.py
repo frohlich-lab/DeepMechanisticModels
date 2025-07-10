@@ -258,7 +258,7 @@ def process_petab_proteomics(df: pd.DataFrame):
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
 
     df[petab.TIME] = 0.0
-    df[petab.NOISE_PARAMETERS] = np.NaN
+    df[petab.NOISE_PARAMETERS] = 1.0
     return df
 
 
@@ -272,7 +272,7 @@ def process_petab_transcriptomics(df: pd.DataFrame):
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
 
     df[petab.TIME] = 0.0
-    df[petab.NOISE_PARAMETERS] = np.NaN
+    df[petab.NOISE_PARAMETERS] = 1.0
     return df
 
 
@@ -344,7 +344,9 @@ def build_condition_table(
                 2 ** EGFR_log2fc.get(c.split("__")[0], 0.0)
                 for c in condition_table[petab.CONDITION_ID]
             ]
-        elif eq_par.endswith("_eq") and not "freeeq" in model.name.split("_"):
+        elif eq_par.endswith("_eq") and not eq_par.startswith(
+            ("DEV_", "MED_")
+        ):
             condition_table[eq_par] = 1.0
     return condition_table
 

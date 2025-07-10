@@ -147,7 +147,7 @@ def add_monomer_synth_deg(
     else:
         m = model.monomers[m_name]
 
-    if "freeeq" in model.name.split("_"):
+    if "freeeq" in model.name.split("_") and m_name in ["EGFR", "ERBB2"]:
         t = add_parameter(f"{m_name}_eq", model)
     else:
         t = Parameter(f"{m_name}_eq", 100.0)
@@ -409,7 +409,8 @@ def add_observables(model: Model):
     phosphorylated site combinations for all monomers
     """
     for monomer in model.monomers:
-        # Observable(f't{monomer.name}', monomer())
+        if "tobs" in model.name.split("_"):
+            Observable(f"t{monomer.name}", monomer())
         psites = [
             site
             for site in monomer.site_states.keys()
