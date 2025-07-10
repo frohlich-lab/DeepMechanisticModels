@@ -44,11 +44,8 @@ def get_median_param_names(model: DeepMechanisticModel):
         if "DEV" not in name
     ]
 
-def process_features(
-    conf: Conf,
-    features_filepath: str,
-    datasets: List[str]
-):
+
+def process_features(conf: Conf, features_filepath: str, datasets: List[str]):
     # loads features corresponding to requested dataset settings
     features = get_features(
         features_filepath=features_filepath, datasets=datasets
@@ -98,19 +95,12 @@ def process_features_and_setup_models(
 ]:
     problem = CytofProblem(conf.model)
 
-    settings = {
-        "train": ["train"],
-        "val": ["val"],
-        "train+val": ["train", "val"],
-        "test": ["test"],
-        "train+test": ["train", "test"],
-        "train+val+test": ["train", "val", "test"],
-    }
+    datasets = dataset.split("+")
 
     features = process_features(
         conf=conf,
         features_filepath=features_filepath,
-        datasets=settings[dataset],
+        datasets=datasets,
     )
 
     # Check features arrays are two-dimensional
@@ -140,8 +130,8 @@ def process_features_and_setup_models(
 
     key = jr.PRNGKey(conf.job)
     # Split keys for train/validation (otherwise identical weights, etc.)
-    if len(settings[dataset]) > 1:
-        keys = jr.split(key, num=len(settings[dataset]))
+    if len(datasets) > 1:
+        keys = jr.split(key, num=len(datasets))
     else:
         keys = [key]
 
@@ -152,17 +142,12 @@ def process_features_and_setup_models(
             key=subkey,
         )
         for features, subkey in zip(
-            [
-                features[feature_dataset]
-                for feature_dataset in settings[dataset]
-            ],
+            [features[feature_dataset] for feature_dataset in datasets],
             keys,
         )
     )
     # TODO @GiacomoFabrini: add support for multiple datasets?
-    result = (
-        (tuple(dmms), problem) if len(settings[dataset]) > 1 else (*dmms, problem)
-    )
+    result = (tuple(dmms), problem) if len(datasets) > 1 else (*dmms, problem)
     return (*result, features) if return_features else result
 
 
@@ -369,8 +354,8 @@ def init_global_kin_params_combiner(
 
 
 def get_features_filepath(
-        conf: Conf,
-        features_file_template: str,
+    conf: Conf,
+    features_file_template: str,
 ) -> str:
     return features_file_template.format(
         **{**conf.__dict__, **{"dataset": "{dataset}"}}

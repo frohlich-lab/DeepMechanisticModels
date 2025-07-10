@@ -579,14 +579,17 @@ def rmse(pp, model: DeepMechanisticModel, input_data):
             input_data=input_data,
             return_petab_problem=True,
         )
+        is_cytof = simulation_df[petab.OBSERVABLE_ID].str.startswith("p")
         return np.sqrt(
             np.mean(
                 np.square(
                     (
-                        simulation_df[petab.SIMULATION]
-                        - petab_problem.measurement_df[petab.MEASUREMENT]
+                        simulation_df.loc[is_cytof, petab.SIMULATION]
+                        - petab_problem.measurement_df.loc[
+                            is_cytof, petab.MEASUREMENT
+                        ]
                     )
-                    / simulation_df[petab.NOISE_PARAMETERS]
+                    / simulation_df.loc[is_cytof, petab.NOISE_PARAMETERS]
                 )
             )
         )
