@@ -131,7 +131,7 @@ def evaluate_standard_regression(
     # process simulation condition id
     df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
         petab.SIMULATION_CONDITION_ID
-    ].apply(lambda x: x.split("__")[1])
+    ].apply(lambda x: x.replace(x.split("__")[0], ""))
 
     # reorder columns as in output_train
     df_meas = df_meas[
