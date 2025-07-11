@@ -54,8 +54,8 @@ rule process_data:
         model='\w+',
         data='[\w\.]+'
     resources:
-        mem="4GB",  # tried on cluster and process_data was OOM killed
-        runtime="30m",
+        mem="8GB",  # tried on cluster and process_data was OOM killed
+        runtime="60m",
         nodes=1,
         threads=1
     shell:
