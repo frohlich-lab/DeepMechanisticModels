@@ -71,6 +71,7 @@ def init_wandb(
         # v30: no bias, no standard scaling, scanning depth + testing multimodal
         # v31: no bias, with/without standard scaling, no depth, using last layer activation, incl. multimodal
         # v33: different mechanistic model architectures
+        # v34: feature selection v2
         project=f"DeepMechanisticModels.v33.{conf.data}",
         group=group,
         config={

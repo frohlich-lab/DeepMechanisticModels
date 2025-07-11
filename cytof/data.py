@@ -164,6 +164,9 @@ def process_petab_cytof(
         columns=["treatment", "fileID"], inplace=True
     )
     measurement_table_phospho["measurementType"] = "cytof"
+    measurement_table_phospho["FEATURE_ID"] = measurement_table_phospho[
+        petab.OBSERVABLE_ID
+    ]
     return measurement_table_phospho
 
 
@@ -173,11 +176,11 @@ def load_proteomics_from_synapse() -> pd.DataFrame:
     syn = synapseclient.Synapse()
     syn.login()
     df_proteomics = pd.read_csv(syn.get("syn20690775").path, index_col=[0])
-    df_proteomics[petab.OBSERVABLE_ID] = df_proteomics.index
+    df_proteomics["UPID"] = df_proteomics.index
 
     df_proteomics = pd.melt(
         df_proteomics,
-        id_vars=[petab.OBSERVABLE_ID],
+        id_vars=["UPID"],
         var_name=petab.PREEQUILIBRATION_CONDITION_ID,
         value_name=petab.MEASUREMENT,
     )
@@ -202,7 +205,7 @@ def load_transcriptomics_from_synapse() -> pd.DataFrame:
     df_transcriptomics = pd.melt(
         df_transcriptomics,
         id_vars=petab.PREEQUILIBRATION_CONDITION_ID,
-        var_name=petab.OBSERVABLE_ID,
+        var_name="GENENAME",
         value_name=petab.MEASUREMENT,
     )
     df_transcriptomics["measurementType"] = "transcriptomics"
@@ -247,8 +250,6 @@ def load_ids_from_uniprot(ids):
 
 
 def process_petab_proteomics(df: pd.DataFrame):
-    df = df.loc[df[petab.OBSERVABLE_ID] != "", :]
-
     df.dropna(axis=0, subset=[petab.MEASUREMENT], inplace=True)
 
     df[petab.PREEQUILIBRATION_CONDITION_ID] = df[
@@ -256,9 +257,11 @@ def process_petab_proteomics(df: pd.DataFrame):
     ].apply(lambda x: f'c{x.split("_")[0]}')
 
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
+    df[petab.OBSERVABLE_ID] = df["GENENAME"]
 
     df[petab.TIME] = 0.0
     df[petab.NOISE_PARAMETERS] = 1.0
+    df["FEATURE_ID"] = df["GENENAME"]
     return df
 
 
@@ -270,9 +273,11 @@ def process_petab_transcriptomics(df: pd.DataFrame):
     ].apply(lambda x: f'c{x.split("_")[0]}')
 
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
+    df[petab.OBSERVABLE_ID] = df["GENENAME"]
 
     df[petab.TIME] = 0.0
     df[petab.NOISE_PARAMETERS] = 1.0
+    df["FEATURE_ID"] = df["GENENAME"]
     return df
 
 
@@ -359,13 +364,21 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
 
     measurement_table_proteomics = load_proteomics_from_synapse()
     up_ids = load_ids_from_uniprot(
-        measurement_table_proteomics[petab.OBSERVABLE_ID].unique()
+        measurement_table_proteomics["UPID"].unique()
     )
+    # missing gene names: A2VCL2, A8MUA0, O00370, Q6ZSR9
+    # A2VCL2: dropped from uniprot, CCDC162P https://varsome.com/gene/hg19/CCDC162P
+    # A8MUA0: Putative UPF0607 protein, SPATA6: https://varsome.com/gene/hg19/SPATA6
+    # O00370: ORF2p: https://www.uniprot.org/uniprotkb/O00370/entry
+    # Q6ZSR9: Uncharacterized protein FLJ45252: https://www.uniprot.org/uniprotkb/Q6ZSR9/entry
+    up_ids["A2VCL2"] = "CCDC162P"
+    up_ids["A8MUA0"] = "SPATA6"
+    up_ids["O00370"] = "ORF2P"
+    up_ids["Q6ZSR9"] = "FLJ45252"
+
     measurement_table_proteomics.loc[
-        petab.OBSERVABLE_ID, :
-    ] = measurement_table_proteomics[petab.OBSERVABLE_ID].apply(
-        lambda x: up_ids.get(x, "")
-    )
+        :, "GENENAME"
+    ] = measurement_table_proteomics["UPID"].apply(lambda x: up_ids.get(x))
     measurement_table_proteomics = process_petab_proteomics(
         measurement_table_proteomics
     )

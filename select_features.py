@@ -11,7 +11,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
-from cytof.data import load_ids_from_uniprot
 from dmm.feature_selection import (
     build_preprocessor,
     load_data,
@@ -71,7 +70,7 @@ def get_selected_features(
     if features == "all":
         return features_all
 
-    if features in ["KRT", "PAM50", "IHC"]:
+    if features in ["KRT", "PAM50", "CSC", "IHC"]:
         if features == "KRT":
             list = [
                 "KRT5",
@@ -88,42 +87,37 @@ def get_selected_features(
                 "KRT19",
             ]
 
-        if features == "IHC":
+        elif features == "IHC":
             # commonly used IHC markers in breast cancer
             # https://doi.org/10.1371/journal.pmed.1000279
             list = [
                 "ERBB2",  # HER2/neu
                 "EGFR",  # epidermal growth factor receptor
-                "KRT5",  # keratin 5
-                "KRT6A",  # keratin 6A
-                "KRT6B",  # keratin 6B
-                "NR3C3",  # progesterone receptor
-                "ESR1",  # estrogen receptor
+                "KRT5",  # keratin 5;
+                "KRT6A",  # keratin 6A;
+                "KRT6B",  # keratin 6B; missing in prot (nans)
+                "PGR",  # progesterone receptor; missing in prot (nans)
+                "ESR1",  # estrogen receptor; missing in prot (nans)
+                "MKI67",  # Ki-67
+                "TP53",  # p53;
             ]
 
-        if features == "CSC":
+        elif features == "CSC":
             # CSC gene signature
             list = [
                 "ALDH1A3",
                 "CD44",
                 "CD24",
                 "CD133",
-                "CD90",
-                "CD166",
-                "CXCR4",
-                "ITGA6",
-                "ITGB1",
-                "PROM1",
-                "SOX2",
-                "OCT4",
-                "NANOG",
-                "KLF4",
-                "MYC",
+                "EPCAM",
+                "CD49f",
+                "CD90" "CD61",
             ]
 
-        if features == "PAM50":
+        elif features == "PAM50":
             # PAM50 gene signature
             # https://doi.org/10.1200/JCO.2008.18.1370 Fig A2
+            # transcriptomics 50, proteomics 31
             list = [
                 # basal-like, missing: KNTC2 (alias NDC80)
                 "FOXC1",
@@ -184,18 +178,7 @@ def get_selected_features(
             ]
             assert len(list) == 50, "PAM50 gene list should contain 50 genes."
 
-        if context == "proteomics":
-            up_ids = load_ids_from_uniprot(list)
-            up_ids = {v: k for k, v in up_ids.items()}
-            return [
-                p
-                for g in list
-                if (p := up_ids.get(g, "")) in input_data.columns
-            ]
-        elif context == "transcriptomics":
-            return [g for g in input_data.columns if g in list]
-        else:
-            raise ValueError(f"PAM50 not available for {context}.")
+        return [g for g in input_data.columns if g in list]
 
     elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
         reduce_factor = 0.80
@@ -216,6 +199,8 @@ def get_selected_features(
             input_data = input_data.loc[
                 :, np.nanvar(input_data, axis=0) >= var_threshold
             ]
+
+        output_data -= output_data.mean(axis=0)  # center output data
 
         n_features = int(features.split("_")[1])
         method = features.split("_")[2]
