@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Callable, Dict
+from typing import Callable
 
 import equinox as eqx
 import jax
@@ -88,7 +88,7 @@ def jitted_objective(
 @eqx.filter_value_and_grad(has_aux=True)
 def loss_fn(
     model: DeepMechanisticModel,
-    conf: Dict,
+    conf: dict,
     input_data,
     problem_train: pypesto.Problem,
     base_obj_fn: Callable,
@@ -140,7 +140,7 @@ def make_step(
     ],  # TODO @GiacomoFabrini fix input data shape?
     problem_train: pypesto.Problem,
     base_obj_fn: Callable,
-    conf: Dict,
+    conf: dict,
     median_init_arr: Array,
 ):
     (loss_value, (fval, reg)), grads = loss_fn(
@@ -167,7 +167,7 @@ def train(
     # rfile: Path,
     model_file: str,
     samples_name_list_dict: dict,
-    conf: Dict,
+    conf: dict,
     n_epoch,
     early_stopping_params: EarlyStoppingParams,
     debug_mode: bool = False,
