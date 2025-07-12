@@ -80,6 +80,11 @@ def contextualize_measurements(
                     list(observable_table.index)
                 )
             ]
+            pivot_columns = (
+                petab.OBSERVABLE_ID,
+                petab.SIMULATION_CONDITION_ID,
+                petab.TIME,
+            )
         elif contextualization == "cytof_init":
             if impute:
                 # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only

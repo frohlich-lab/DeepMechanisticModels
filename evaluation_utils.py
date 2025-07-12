@@ -6,7 +6,7 @@ import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
-from amici.petab_objective import rdatas_to_simulation_df
+from amici.petab import rdatas_to_simulation_df
 from jax import vmap
 from scipy.sparse.csgraph import connected_components
 from sklearn.decomposition import PCA
@@ -25,8 +25,8 @@ from common import (
     default_attributes,
     evaluations_dir,
     hardest_cell_lines,
-    val_samples,
     training_samples,
+    val_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.config_options import Conf

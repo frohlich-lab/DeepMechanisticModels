@@ -78,7 +78,7 @@ rule compile_mechanistic_model:
         data='[\w\.]+'
     resources:
         mem="8GB",
-        runtime="1h",
+        runtime="2h",
         nodes=1,
         threads=1
     shell:
