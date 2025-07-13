@@ -1,5 +1,5 @@
 PATHWAYS = (
-    "EGFR_MAPK",
+    # "EGFR_MAPK",
     "EGFR_MAPK_egfra",
     # "EGFR_MAPK_her2",
     # "EGFR_MAPK_freeeq",

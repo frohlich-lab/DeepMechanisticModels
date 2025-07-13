@@ -342,9 +342,13 @@ def build_condition_table(
     )
     for eq_par in model.parameters.keys():
         if eq_par == "EGFR_eq" and "egfra" in model.name.split("_"):
-            EGFR_log2fc = measurement_table[
-                measurement_table[petab.OBSERVABLE_ID] == "EGFR"
-            ].set_index(petab.PREEQUILIBRATION_CONDITION_ID)[petab.MEASUREMENT]
+            EGFR_log2fc = (
+                measurement_table[
+                    measurement_table[petab.OBSERVABLE_ID] == "EGFR"
+                ][[petab.PREEQUILIBRATION_CONDITION_ID, petab.MEASUREMENT]]
+                .groupby(petab.PREEQUILIBRATION_CONDITION_ID)
+                .agg("mean")[petab.MEASUREMENT]
+            )
             condition_table[eq_par] = [
                 2 ** EGFR_log2fc.get(c.split("__")[0], 0.0)
                 for c in condition_table[petab.CONDITION_ID]
