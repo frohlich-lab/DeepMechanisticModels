@@ -42,6 +42,7 @@ rule process_data:
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=cytof_dir / 'pw_{model}.py',
+        data_code2=cytof_dir / 'data.py',
         pathways=cytof_dir / 'pathways.py'
     output:
         datafiles=expand(
