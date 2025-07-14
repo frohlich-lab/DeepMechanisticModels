@@ -70,6 +70,66 @@ SYNAPSE_FILES = [
 ]
 
 
+def load_snp_from_synapse() -> pd.DataFrame:
+    import synapseclient
+
+    syn = synapseclient.Synapse()
+    syn.login()
+    MUTATION_GENES = [
+        "EGFR",
+        "ERBB2",
+        "ERBB3",
+        "ERBB4",
+        "MAP2K1",
+        "MAP2K2",
+        "MAPK1",
+        "MAPK3",
+        "RAF1",
+        "BRAF",
+        "KRAS",
+        "NRAS",
+        "HRAS",
+        "GRB2",
+        "SOS1",
+        "PIK3CA",
+        "NF1",
+    ]
+
+    df_snp_mapping = pd.read_csv(syn.get("syn20631265").path, index_col=0)
+    df_snp_mapping.dropna(subset="GeneNames", axis=0, inplace=True)
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["GeneNames"].apply(
+            lambda x: any(g in MUTATION_GENES for g in x.split(","))
+        )
+    ]
+    snp_file_path = syn.get("syn20631266").path
+    with open(snp_file_path, "r") as f:
+        header_line = f.readline().strip()
+    available_columns = header_line.split(",")
+    available_columns = [c.replace('"', "") for c in available_columns]
+    valid_snp_columns = [
+        col
+        for col in df_snp_mapping["SNPid"].tolist()
+        if col in available_columns
+    ]
+
+    df_snp = pd.read_csv(
+        snp_file_path,
+        engine="c",
+        low_memory=False,
+        usecols=valid_snp_columns,
+    )
+
+    df_snp = df_snp.loc[
+        :, df_snp.sum(axis=0) > 0
+    ]  # filter out columns with all zeros
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["SNPid"].isin(df_snp.columns)
+    ]
+
+    return df_snp, df_snp_mapping
+
+
 def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     import synapseclient
 
@@ -361,6 +421,8 @@ def build_condition_table(
 
 
 def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    # table_SNP, SNP_mapping = load_snp_from_synapse()
+
     measurement_table_cytof, id_vars = load_cytof_from_synapse()
     measurement_table_cytof = process_petab_cytof(
         measurement_table_cytof, id_vars
