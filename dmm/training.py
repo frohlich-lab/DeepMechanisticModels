@@ -307,18 +307,8 @@ def train(
 
         # Log RMSE values + check early-stopping criteria + check for invalid metrics
         if epoch in log_epochs:
-            # rmse_dict = dict()
-            # for dataset, pp, input_data in zip(
-            #         ("train", "test"),
-            #         (problem_train, problem_test),
-            #         (input_features_train, input_features_test)
-            # ):
-            #     rmse_dict[dataset] = rmse(pp, eval_model, input_data)
-
-            # Compute fval on train/val datasets using eval_model
-
-            fval_train, fval_val = (
-                jitted_objective(problem, model, input_data, base_obj_fn)
+            rmse_train, rmse_val = (
+                rmse(problem, model, input_data)
                 for problem, input_data in zip(
                     [problem_train, problem_test],
                     [input_features_train, input_features_test],
@@ -327,7 +317,7 @@ def train(
 
             # Handle invalid loss_train (fval_train) and RMSE
             should_break = metric_handler.handle_invalid_metrics(
-                metrics=[loss_train, fval_train, fval_val],
+                metrics=[loss_train, rmse_train, rmse_val],
                 epoch=epoch,
             )
             if should_break:
@@ -339,7 +329,7 @@ def train(
             if epoch >= conf["inflater_output_reg_epoch"]:
                 best_models = update_best_models(
                     model=model,
-                    rmse_val=np.sqrt(fval_val),
+                    rmse_val=rmse_val,
                     epoch=epoch,
                     best_models=best_models,
                     max_models=ensemble_members,
@@ -355,10 +345,8 @@ def train(
             # Log RMSE, fval (both train/val) and model stats
             wandb.log(
                 {
-                    "rmse_train": np.sqrt(fval_train),
-                    "rmse_val": np.sqrt(fval_val),
-                    "fval_train": fval_train,
-                    "fval_val": fval_val,
+                    "rmse_train": rmse_train,
+                    "rmse_val": rmse_val,
                     "log_parameter_std": wandb.Histogram(list(log_parstd)),
                     "log_parameter_mean": wandb.Histogram(list(log_parmean)),
                     # **log_model_stats(eval_model, grads)
@@ -370,15 +358,13 @@ def train(
             if debug_mode:
                 print(
                     f" | epoch {epoch:>5} "
-                    f" | rmse_train {np.sqrt(fval_train):.3f}"
-                    f" | rmse_val {np.sqrt(fval_val):.3f} "
-                    f" | fval_train {fval_train:.3f} "
-                    f" | fval_val {fval_val:.3f} | "
+                    f" | rmse_train {rmse_train:.3f}"
+                    f" | rmse_val {rmse_val:.3f} "
                 )
 
             if conf["use_early_stopping"]:
                 # Update early stopper
-                early_stopper = early_stopper.update(np.sqrt(fval_val))
+                early_stopper = early_stopper.update(rmse_val)
                 # Debugging statements
                 if debug_mode:
                     print(
