@@ -114,6 +114,21 @@ def get_selected_features(
                 "CD90" "CD61",
             ]
 
+        elif features == "MPAS":
+            # MAPK Pathway Activity Score
+            # https://doi.org/10.1038/s41698-018-0051-4
+            list = [
+                "SPRY2",
+                "SPRY4",
+                "ETV4",
+                "ETV5",
+                "DUSP4",
+                "DUSP6",
+                "CCND1",
+                "EPHA2",
+                "EPHA4",
+            ]
+
         elif features == "PAM50":
             # PAM50 gene signature
             # https://doi.org/10.1200/JCO.2008.18.1370 Fig A2
