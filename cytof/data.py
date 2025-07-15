@@ -401,16 +401,33 @@ def build_condition_table(
         lambda x: float("__" in x)
     )
     for eq_par in model.parameters.keys():
-        if eq_par == "EGFR_eq" and "egfra" in model.name.split("_"):
-            EGFR_log2fc = (
-                measurement_table[
-                    measurement_table[petab.OBSERVABLE_ID] == "EGFR"
-                ][[petab.PREEQUILIBRATION_CONDITION_ID, petab.MEASUREMENT]]
+        if eq_par == "EGFR_eq" and (
+            "tegfra" in model.name.split("_")
+            or "pegfra" in model.name.split("_")
+        ):
+            if "pegfra" in model.name.split("_"):
+                prot_data = measurement_table[
+                    (measurement_table[petab.OBSERVABLE_ID] == "EGFR")
+                    & (measurement_table["measurementType"] == "proteomics")
+                ]
+            elif "tegfra" in model.name.split("_"):
+                prot_data = measurement_table[
+                    (measurement_table[petab.OBSERVABLE_ID] == "EGFR")
+                    & (
+                        measurement_table["measurementType"]
+                        == "transcriptomics"
+                    )
+                ]
+
+            prot_log2fc = (
+                prot_data[
+                    [petab.PREEQUILIBRATION_CONDITION_ID, petab.MEASUREMENT]
+                ]
                 .groupby(petab.PREEQUILIBRATION_CONDITION_ID)
                 .agg("mean")[petab.MEASUREMENT]
             )
             condition_table[eq_par] = [
-                2 ** EGFR_log2fc.get(c.split("__")[0], 0.0)
+                2 ** prot_log2fc.get(c.split("__")[0], 0.0)
                 for c in condition_table[petab.CONDITION_ID]
             ]
         elif eq_par.endswith("_eq") and not eq_par.startswith(
