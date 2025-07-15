@@ -29,7 +29,6 @@ from dmm.initialisation import (
     get_features_filepath,
     process_features,
 )
-from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
 from regressor_training import train_pipeline
 from util import load_petab_base_files
@@ -146,10 +145,10 @@ def evaluate_standard_regression(
     ]
 
     # Plot -- reg_pred is either reg_pred_train or reg_pred_test
-    plot_name = mode + "_" + conf.context + "_" + conf.features
-    plot_cross_samples(
-        df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
-    )
+    # plot_name = mode + "_" + conf.context + "_" + conf.features
+    # plot_cross_samples(
+    #     df_meas, reg_pred, outdir / "simulation" / dataset, plot_name
+    # )
 
     # Process simulations/regressions, i.e. produce CSVs with residuals
     evaluations = []
