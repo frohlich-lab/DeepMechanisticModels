@@ -50,6 +50,54 @@ def extract_msi(comments_list):
     return 'Unknown'
 
 
+def extract_sequence_variations(comments_list):
+    """Extract structured sequence variation annotations from Cellosaurus comments."""
+    sv_data = []
+
+    for comment in comments_list:
+        if not comment.startswith("Sequence variation:"):
+            continue
+
+        entry = comment.replace("Sequence variation:", "").strip()
+
+        # Basic fields
+        sv_type_match = re.match(r"^(Gene deletion|Mutation|Gene fusion|Gene amplification|Other):?", entry)
+        sv_type = sv_type_match.group(1) if sv_type_match else "Unknown"
+
+        # Gene symbol and HGNC
+        hgnc_match = re.search(r"HGNC:?;?\s*HGNC:(\d+);?\s*([A-Z0-9\-]+);?", entry)
+        hgnc_id = hgnc_match.group(1) if hgnc_match else None
+        gene = hgnc_match.group(2) if hgnc_match else None
+
+        # Zygosity
+        zygosity_match = re.search(r"Zygosity=([A-Za-z]+)", entry)
+        zygosity = zygosity_match.group(1) if zygosity_match else None
+
+        # Protein-level annotation (e.g. p.Val600Glu)
+        protein_change_match = re.search(r"(p\.[A-Za-z0-9]+)", entry)
+        protein_change = protein_change_match.group(1) if protein_change_match else None
+
+        # cDNA-level annotation (e.g. c.1799T>A)
+        cdna_change_match = re.search(r"(c\.[0-9]+[A-Z]>[A-Z])", entry)
+        cdna_change = cdna_change_match.group(1) if cdna_change_match else None
+
+        # ClinVar ID
+        clinvar_match = re.search(r"ClinVar=([A-Za-z0-9_]+)", entry)
+        clinvar = clinvar_match.group(1) if clinvar_match else None
+
+        sv_data.append({
+            "type": sv_type,
+            "gene": gene,
+            "hgnc_id": hgnc_id,
+            "zygosity": zygosity,
+            "protein_change": protein_change,
+            "cdna_change": cdna_change,
+            "clinvar_id": clinvar,
+        })
+
+    return sv_data if sv_data else [{"type": "Not Found"}]
+
+
 def process_cell_lines(cell_line_dict):
     """Process each cell line's comments to extract site and MSI status."""
     new_dict = {cell_line: {} for cell_line in cell_line_dict.keys()}
@@ -57,13 +105,66 @@ def process_cell_lines(cell_line_dict):
         comments = info.get('Comments', '')
         info['Site'] = extract_site(comments)
         info['MSI_Status'] = extract_msi(comments)
+        info["Sequence_Variation"] = extract_sequence_variations(comments)
         new_dict[cell_line] = {
             "ID": info["ID"],
             "Site": info["Site"],
             "MS_Status": info["MSI_Status"],
-            "Disease": info["Disease"]
+            "Disease": info["Disease"],
+            "Sequence_Variation": info["Sequence_Variation"],
         }
     return new_dict
+
+
+def gene_variation_label(var):
+    var_type = var.get("type")
+    gene = var.get("gene")
+    zygosity = var.get("zygosity") or "Unknown"
+    protein = var.get("protein_change")
+
+    if not gene or not var_type:
+        return None, None
+
+    if var_type == "Mutation":
+        label = f"M ({protein})" if protein else "M"
+    elif var_type == "Gene deletion":
+        label = "D"
+    elif var_type == "Gene amplification":
+        label = "A"
+    elif var_type == "Gene fusion":
+        label = "F"
+    else:
+        print(f"Found unaccounted-for sequence variation type: {var_type}")
+        return None
+
+    if var_type != "Gene fusion":
+        final_label = f"{label}, {zygosity}"
+    else:
+        final_label = label
+    return gene, final_label
+
+
+def one_hot_variations(annotation_df):
+    # Process sequence variation per row
+    gene_variation_matrix = []
+
+    for variations in annotation_df["Sequence_Variation"]:
+        gene_labels = {}
+        if isinstance(variations, list):
+            for var in variations:
+                gene, label = gene_variation_label(var)
+                if gene and label:
+                    gene_labels[gene] = label  # If repeated, last one will stay
+        gene_variation_matrix.append(gene_labels)
+    # Convert to DataFrame
+    variation_df = pd.DataFrame(gene_variation_matrix, index=annotation_df.index).fillna(np.nan)
+
+    # Merge with original df
+    final_annotation_df = annotation_df.reset_index().merge(
+        variation_df.reset_index(), on="cell_line"
+    )
+
+    return final_annotation_df
 
 
 def get_cell_line_cellosaurus_annotations(file_dir: Path):
@@ -86,11 +187,15 @@ def get_cell_line_cellosaurus_annotations(file_dir: Path):
                     "Disease": record["DI"][0].split(";")[2].lstrip(" ") if record["DI"] else "Unknown"
                 }
     if len(brca_records.keys()) != len(cell_lines):
-        print(f"Warning: Number of cell lines in Cellosaurus annotations ({len(brca_records.keys())}) does not match the number of cell lines in the DREAM challenge ({len(cell_lines)}).")
+        print(
+            f"Warning: Number of cell lines in Cellosaurus annotations ({len(brca_records.keys())}) "
+            f"does not match the number of cell lines in the DREAM challenge ({len(cell_lines)})."
+        )
 
     # Process annotations re. MS status and site and return dataframe
     annotation_df = pd.DataFrame(process_cell_lines(brca_records)).T
     annotation_df.index.name = "cell_line"
+    annotation_df = one_hot_variations(annotation_df)
     return annotation_df
 
 
