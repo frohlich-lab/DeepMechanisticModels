@@ -1,9 +1,13 @@
 PATHWAYS = (
     "EGFR_MAPK",
-    "EGFR_MAPK_tegfra",
-    "EGFR_MAPK_pegfra",
+    "EGFR_MAPK_tegfr",
+    "EGFR_MAPK_pegfr",
+    "EGFR_MAPK_terbb2",
+    "EGFR_MAPK_perbb2",
+    "EGFR_MAPK_tegfr_terbb2",
+    "EGFR_MAPK_pegfr_perbb2",
     # "EGFR_MAPK_her2",
-    # "EGFR_MAPK_freeeq",
+    "EGFR_MAPK_freeeq",
     "EGFR_MAPK_freeeq_tobs",
 )
 
@@ -39,7 +43,7 @@ CONTEXTS_FEATURES = (
     # ("proteomics", "HVGRFE_10_tree"),
     # ("proteomics", "RFE_10_tree"),
     # ("proteomics", "HVGRFE_15_permute"),
-    ("proteomics", "HVGRFE_20_permute"),
+    # ("proteomics", "HVGRFE_20_permute"),
     # ("proteomics", "PAM50"),
     # ("proteomics", "IHC"),
     # ("proteomics", "KRT"),
@@ -52,12 +56,12 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "HVGRFE_10_permute"),
     # ("transcriptomics", "HVGRFE_10_tree"),
     # ("transcriptomics", "RFE_10_tree"),
-    ("transcriptomics", "HVGRFE_15_permute"),
+    # ("transcriptomics", "HVGRFE_15_permute"),
     # ("transcriptomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "PAM50"),
     # ("transcriptomics", "IHC"),
     # ("transcriptomics", "KRT"),
-    ("multimodal", "optimal"),
+    # ("multimodal", "optimal"),
     # ("MOSA", "all"),
 )
 

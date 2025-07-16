@@ -72,6 +72,8 @@ SYNAPSE_FILES = [
 
 def load_snp_from_synapse() -> pd.DataFrame:
     import synapseclient
+    import xmltodict
+    from Bio import Entrez
 
     syn = synapseclient.Synapse()
     syn.login()
@@ -93,6 +95,15 @@ def load_snp_from_synapse() -> pd.DataFrame:
         "SOS1",
         "PIK3CA",
         "NF1",
+        "ALK",
+        "EPHA3",
+        "EPHA5",
+        "KIT",
+        "MAP2K4",
+        "MET",
+        "PDGFRA",
+        "RET",
+        "ROS1",
     ]
 
     df_snp_mapping = pd.read_csv(syn.get("syn20631265").path, index_col=0)
@@ -102,6 +113,48 @@ def load_snp_from_synapse() -> pd.DataFrame:
             lambda x: any(g in MUTATION_GENES for g in x.split(","))
         )
     ]
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["SNPid"].str.startswith("rs")
+    ]
+
+    Entrez.email = "froehlichfab@gmail.com"
+
+    #########
+    # dbSNP #
+    #########
+    stream = Entrez.efetch(
+        db="snp", id=",".join(df_snp_mapping["SNPid"].tolist()), retmode="xml"
+    )
+    xml_data = stream.read()
+    stream.close()
+
+    data_snp = xmltodict.parse(xml_data)["ExchangeSet"]["DocumentSummary"]
+
+    # filter out mapping
+    df_snp_mapping = df_snp_mapping[[not ("error" in d) for d in data_snp]]
+    # now trim data_snp
+    data_snp = [d for d in data_snp if not ("error" in d)]
+    df_snp_mapping["HGVS"] = [
+        d["DOCSUM"].replace("HGVS=", "") for d in data_snp
+    ]
+    df_snp_mapping["clinvar"] = [
+        ""
+        if d["CLINICAL_SIGNIFICANCE"] is None
+        else d["CLINICAL_SIGNIFICANCE"]
+        for d in data_snp
+    ]
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["clinvar"].apply(
+            lambda x: (
+                "uncertain-significance" in x
+                or "likely-pathogenic" in x
+                or "pathogenic" in x
+                or "risk-factor" in x
+                or "protective" in x
+            )
+        )
+    ]
+
     snp_file_path = syn.get("syn20631266").path
     with open(snp_file_path, "r") as f:
         header_line = f.readline().strip()
@@ -116,8 +169,9 @@ def load_snp_from_synapse() -> pd.DataFrame:
     df_snp = pd.read_csv(
         snp_file_path,
         engine="c",
+        index_col=0,
         low_memory=False,
-        usecols=valid_snp_columns,
+        usecols=["Unnamed: 0"] + valid_snp_columns,
     )
 
     df_snp = df_snp.loc[
@@ -130,6 +184,20 @@ def load_snp_from_synapse() -> pd.DataFrame:
     return df_snp, df_snp_mapping
 
 
+def load_cna_from_synapse() -> pd.DataFrame:
+    import synapseclient
+
+    syn = synapseclient.Synapse()
+    syn.login()
+
+    df_cna = pd.read_csv(
+        syn.get("syn20631262").path,
+        index_col=0,
+    )
+
+    return df_cna
+
+
 def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     import synapseclient
 
@@ -139,6 +207,7 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     mean_data = []
     std_data = []
     group_ids = ["treatment", "cell_line", "time", "fileID"]
+    # file_id_table = pd.read_csv(syn.get("syn20631269").path, index_col=0)
     for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
         for ids, data in df.groupby(group_ids):
@@ -401,35 +470,42 @@ def build_condition_table(
         lambda x: float("__" in x)
     )
     for eq_par in model.parameters.keys():
-        if eq_par == "EGFR_eq" and (
-            "tegfra" in model.name.split("_")
-            or "pegfra" in model.name.split("_")
-        ):
-            if "pegfra" in model.name.split("_"):
+        if eq_par in ["EGFR_eq", "ERBB2_eq"]:
+            for gene in ["EGFR", "ERBB2"]:
+                if not eq_par.startswith(gene):
+                    continue
+
+                if f"p{gene.lower()}" in model.name.split("_"):
+                    measurement_type = "proteomics"
+                elif f"t{gene.lower()}" in model.name.split("_"):
+                    measurement_type = "transcriptomics"
+                else:
+                    condition_table[eq_par] = 1.0
+                    continue
+
                 prot_data = measurement_table[
-                    (measurement_table[petab.OBSERVABLE_ID] == "EGFR")
-                    & (measurement_table["measurementType"] == "proteomics")
-                ]
-            elif "tegfra" in model.name.split("_"):
-                prot_data = measurement_table[
-                    (measurement_table[petab.OBSERVABLE_ID] == "EGFR")
+                    (measurement_table[petab.OBSERVABLE_ID] == gene)
                     & (
                         measurement_table["measurementType"]
-                        == "transcriptomics"
+                        == measurement_type
                     )
                 ]
 
-            prot_log2fc = (
-                prot_data[
-                    [petab.PREEQUILIBRATION_CONDITION_ID, petab.MEASUREMENT]
+                prot_log2fc = (
+                    prot_data[
+                        [
+                            petab.PREEQUILIBRATION_CONDITION_ID,
+                            petab.MEASUREMENT,
+                        ]
+                    ]
+                    .groupby(petab.PREEQUILIBRATION_CONDITION_ID)
+                    .agg("mean")[petab.MEASUREMENT]
+                )
+                prot_log2fc -= prot_log2fc.mean()
+                condition_table[eq_par] = [
+                    2 ** prot_log2fc.get(c.split("__")[0], 0.0)
+                    for c in condition_table[petab.CONDITION_ID]
                 ]
-                .groupby(petab.PREEQUILIBRATION_CONDITION_ID)
-                .agg("mean")[petab.MEASUREMENT]
-            )
-            condition_table[eq_par] = [
-                2 ** prot_log2fc.get(c.split("__")[0], 0.0)
-                for c in condition_table[petab.CONDITION_ID]
-            ]
         elif eq_par.endswith("_eq") and not eq_par.startswith(
             ("DEV_", "MED_")
         ):
@@ -439,6 +515,7 @@ def build_condition_table(
 
 def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     # table_SNP, SNP_mapping = load_snp_from_synapse()
+    # table_cna = load_cna_from_synapse()
 
     measurement_table_cytof, id_vars = load_cytof_from_synapse()
     measurement_table_cytof = process_petab_cytof(
