@@ -226,9 +226,13 @@ def generate_average_pretraining_problem(
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples), :
     ].copy()
 
-    if "tegfra" not in clean_model.name.split(
-        "_"
-    ) or "pegfra" not in clean_model.name.split("_"):
+    can_be_aggregated = not any(
+        pp.condition_df[s].nunique() > 1
+        for s in pp.condition_df
+        if s.endswith("_eq")
+    )
+
+    if can_be_aggregated:
         df_train[petab.SIMULATION_CONDITION_ID] = df_train[
             petab.SIMULATION_CONDITION_ID
         ].apply(lambda x: x.replace(x.split("__")[0], ""))
