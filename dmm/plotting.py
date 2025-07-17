@@ -4,7 +4,21 @@ from typing import List, Tuple, Union
 import matplotlib.pyplot as plt
 import pandas as pd
 import petab.v1 as petab
-from plotnine import *
+from plotnine import (
+    aes,
+    element_blank,
+    element_line,
+    element_text,
+    facet_grid,
+    geom_errorbar,
+    geom_line,
+    geom_point,
+    ggplot,
+    ggtitle,
+    theme,
+    xlab,
+    ylab,
+)
 
 PLOTNINE_THEME = {
     "dpi": 300,
@@ -46,6 +60,9 @@ def process_dataframes(
         df[petab.OBSERVABLE_ID] = df[petab.OBSERVABLE_ID].apply(
             lambda x: x.replace("_obs", "")
         )
+
+        # only plot stuff from cytof dynamic
+        df = df[df[petab.OBSERVABLE_ID].str.startswith("p")]
 
         if (
             df.shape[0] > 0
@@ -159,7 +176,7 @@ def plot_single_sample_multiple_simulations(
             mapping=aes(y=petab.MEASUREMENT, **kwargs),
             size=1,
         )
-        + facet_grid(f'{petab.OBSERVABLE_ID} ~ treatment')
+        + facet_grid(f"{petab.OBSERVABLE_ID} ~ treatment")
         + xlab("time [min]")
         + ylab("measurement")
         + ggtitle(f"cell line: {sample[1:]}")

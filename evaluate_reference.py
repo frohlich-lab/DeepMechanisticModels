@@ -161,9 +161,9 @@ def evaluate_average_model(
         avg_model, df_meas, dataset, samples
     )
 
-    # plot_cross_samples(
-    #     df_meas, avg_model, outdir / "simulation" / dataset, "avg_model"
-    # )
+    plot_cross_samples(
+        df_meas, avg_model, outdir / "simulation" / dataset, "avg_model"
+    )
 
     evaluations = []
 
