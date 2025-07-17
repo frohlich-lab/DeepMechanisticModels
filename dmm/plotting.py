@@ -62,7 +62,10 @@ def process_dataframes(
         )
 
         # only plot stuff from cytof dynamic
-        df = df[df[petab.OBSERVABLE_ID].str.startswith("p")]
+        df.drop(
+            index=df[~df[petab.OBSERVABLE_ID].str.startswith("p")].index,
+            inplace=True,
+        )
 
         if (
             df.shape[0] > 0
