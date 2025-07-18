@@ -113,6 +113,9 @@ CONTEXTS_FEATURES = tuple(
         "RFE_20_tree",
     ]
     for context in ["transcriptomics", "proteomics"]
+    if not (
+        context == "proteomics" and genomic_features == "MPAS"
+    )  # not enough features
 )
 
 # Cross-validation splits
