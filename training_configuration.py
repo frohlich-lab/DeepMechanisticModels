@@ -20,7 +20,7 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = (
+CONTEXTS_FEATURES = tuple(
     # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
