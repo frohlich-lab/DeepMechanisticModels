@@ -18,6 +18,7 @@ from sklearn.model_selection import GridSearchCV
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
+from cellosaurus_utils import get_cell_line_cellosaurus_annotations
 from common import features_dir
 from dmm.initialisation import get_features, impute_features
 
@@ -285,7 +286,7 @@ def load_data(
     features_filepath=None,
     impute: bool = True,
 ):
-    if contextualization != "MOSA":
+    if contextualization not in ["MOSA", "seqvar"]:
         input_data = contextualize_measurements(
             measurement_table,
             observable_table,
@@ -300,6 +301,11 @@ def load_data(
         input_data = impute_features(input_data)
         input_data = pd.concat([input_data["train"], input_data["val"]])
         # ensure index has correct name
+        input_data = input_data.rename_axis(
+            petab.PREEQUILIBRATION_CONDITION_ID
+        )
+    elif contextualization == "seqvar":
+        _, input_data = get_cell_line_cellosaurus_annotations(file_dir=features_dir)
         input_data = input_data.rename_axis(
             petab.PREEQUILIBRATION_CONDITION_ID
         )
