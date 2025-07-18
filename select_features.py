@@ -72,8 +72,8 @@ def get_selected_features(
 
     curated_features = {
         # commonly used IHC markers in breast cancer
-        # https://doi.org/10.1371/journal.pmed.1000279
         "IHC": [
+            # https://doi.org/10.1371/journal.pmed.1000279
             "ERBB2",  # HER2/neu
             "EGFR",  # epidermal growth factor receptor
             "KRT5",  # keratin 5;
@@ -83,6 +83,16 @@ def get_selected_features(
             "ESR1",  # estrogen receptor; filtered in prot
             "MKI67",  # Ki-67
             "TP53",  # p53;
+            # https://doi.org/10.1038/s41379-020-00697-3
+            "GATA3",
+            "SOX10",
+            "SCGB2A2",  # mammaglobin 1 (MMGB)
+            "SCGB2A1",  # mammaglobin 2, missing in proteomics
+            "KRT7",  # keratin 7
+            "PIP",  # GCDFP-15, gross cystic disease fluid protein
+            "CDX2",  # missing in proteomics
+            "KRT20",  # missing in proteomics
+            "NKX2-1",  # thyroid transcription factor 1 (TTF-1), missing in transcriptomics
         ],
         # Breast cancer stem cell markers
         # https://doi.org/10.3390/cancers12123765

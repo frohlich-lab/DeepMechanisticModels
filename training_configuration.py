@@ -99,6 +99,18 @@ CONTEXTS_FEATURES = (
         "HVGRFE_10_permute",
         "HVGRFE_15_permute",
         "HVGRFE_20_permute",
+        "HVGRFE_5_tree",
+        "HVGRFE_10_tree",
+        "HVGRFE_15_tree",
+        "HVGRFE_20_tree",
+        "RFE_5_permute",
+        "RFE_10_permute",
+        "RFE_15_permute",
+        "RFE_20_permute",
+        "RFE_5_tree",
+        "RFE_10_tree",
+        "RFE_15_tree",
+        "RFE_20_tree",
     ]
     for context in ["transcriptomics", "proteomics"]
 )

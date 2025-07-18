@@ -74,7 +74,8 @@ def init_wandb(
         # v34: feature selection v2
         # v35: feature selection v2 with lower inflater reg and egfra model
         # v36: cytof_init only with different model variants incorporating variation in EGFR and ERBB2
-        project=f"DeepMechanisticModels.v36.{conf.data}",
+        # v37: proteomics+transcriptomics, with different feature selection approaches
+        project=f"DeepMechanisticModels.v37.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
