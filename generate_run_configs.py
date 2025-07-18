@@ -245,9 +245,9 @@ def generate_linear_scan(STARTS: list[str]):
             if linear_scan_config["context"] == "cytof_init":
                 linear_scan_config["l1reg_inflater_output"] = 62.5
             elif linear_scan_config["context"] == "proteomics":
-                linear_scan_config["l1reg_inflater_output"] = 8000
+                linear_scan_config["l1reg_inflater_output"] = 100
             elif linear_scan_config["context"] == "transcriptomics":
-                linear_scan_config["l1reg_inflater_output"] = 4000
+                linear_scan_config["l1reg_inflater_output"] = 100
             else:  # multimodal
                 linear_scan_config["l1reg_inflater_output"] = 100
         prune_config(linear_scan_config)
