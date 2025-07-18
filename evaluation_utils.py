@@ -1026,7 +1026,7 @@ def aggregate_and_log(
             evaluations_dir
             / f"{conf.model}"
             / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
+            / f"{evaluation_tag}.csv"
         )
 
         # DISABLED WANDB ARTIFACTS
