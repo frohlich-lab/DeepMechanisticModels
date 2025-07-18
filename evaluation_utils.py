@@ -42,7 +42,6 @@ from dmm.pretraining import (
 )
 from dmm.training_helper_funcs import create_pypesto_problem
 from evaluation_plotting import (
-    plot_rmse_val_cell_lines,
     random_forest_importance_plot,
 )
 from stat_test import statistical_significance_test
@@ -934,7 +933,7 @@ def aggregate_and_log(
         top_n_dmm_train, how="inner", on=default_attributes
     )[dmm_by_cl.columns]
     # Plot and store
-    plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
+    # plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
     top_n_results_by_cl.to_csv(
         evaluations_dir
         / f"{conf.model}"
