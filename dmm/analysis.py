@@ -179,7 +179,7 @@ def simulate_dmm(
 
 
 def evaluate_simulations(
-    models,  # list of models to ensemble
+    model,
     input_features,
     obj,
     conf,
@@ -190,34 +190,22 @@ def evaluate_simulations(
     evaluations,
     plot_file_prefix: str,
 ):
-    # Simulate DMM ensemble models one by one with the same obj
-    simulation_dfs = []
-    for model in models:
-        simulation_dfs.append(
-            simulate_dmm(
-                model, input_features, obj, petab_problem, jit_fn=False
-            )
-        )
-    # Initialise average simulation_df with any of the simulation_dfs
-    avg_simulation_df = simulation_dfs[0].copy()
-    # Compute average of simulation columns and replace the simulation column in the avg_simulation_df
-    avg_simulation_df[petab.SIMULATION] = np.mean(
-        [df[petab.SIMULATION].values for df in simulation_dfs], axis=0
+    simulation_df = simulate_dmm(
+        model, input_features, obj, petab_problem, jit_fn=False
     )
-    # TODO @GiacomoFabrini check avg_simulation_df does what you expect!
 
     for sample in samples:
         process_simulation(
             evaluations=evaluations,
             measurement_df=petab_problem.measurement_df,
-            simulation_df=avg_simulation_df,
+            simulation_df=simulation_df,
             conf=conf,
             sample=sample,
         )
 
     plot_cross_samples(
         petab_problem.measurement_df,
-        avg_simulation_df,
+        simulation_df,
         figdir=outdir / dataset,
         prefix=plot_file_prefix,
     )

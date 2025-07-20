@@ -550,7 +550,4 @@ REFINE_HPS = None
 #     "last_layer_activation": LAST_LAYER_ACTIVATION,
 # }
 
-N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE val across training) -- NOT IN USE
-N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
-
 SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters

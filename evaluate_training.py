@@ -1,30 +1,32 @@
+from pathlib import Path
+from typing import Dict
+
 import fire
 import jax
 import pandas as pd
 
 from common import (
-    EVALUATION_TRAINING,
     EVALUATION_EMBEDDING,
     EVALUATION_FULL_PARAMETERS,
     EVALUATION_PARAMETER_DEVIATIONS,
     EVALUATION_PLOT_FILE,
+    EVALUATION_TRAINING,
     FEATURES_OUTFILE,
     Wildcards,
     fig_dir,
     results_dir,
-    val_samples,
     training_samples,
+    val_samples,
 )
 from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
-from dmm.initialisation import (get_features_filepath, process_features,
-                                subset_features)
-from evaluation_utils import load_model_and_obj, get_embedding_and_params_df
-from training_configuration import N_ENSEMBLE_EVALUATION, N_ENSEMBLE_MEMBERS
-from pathlib import Path
-from typing import Dict
+from dmm.initialisation import (
+    get_features_filepath,
+    process_features,
+    subset_features,
+)
+from evaluation_utils import get_embedding_and_params_df, load_model_and_obj
 from util import load_petab_base_files
-
 
 conf = fire.Fire(Conf)
 
@@ -38,28 +40,27 @@ samples = {
 
 
 def evaluate_training(
-        dataset: str,
-        features: Dict[str, pd.DataFrame],
-        conf: Conf,
-        samples: dict,
-        petab_base_files: Dict[str, pd.DataFrame],
-        num_ensemble_members: int,
+    dataset: str,
+    features: Dict[str, pd.DataFrame],
+    conf: Conf,
+    samples: dict,
+    petab_base_files: Dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     # Initialise list to store evaluations
     evaluations = []
 
     # Load ensemble models and objectives
-    ensemble_models, obj = load_model_and_obj(conf, petab_base_files, dataset, num_ensemble_members)
+    model, obj = load_model_and_obj(conf, petab_base_files, dataset)
 
     # Extract needed features from input dictionary
     input_features = subset_features(
-            features=features[dataset],
-            model=ensemble_models[0],  # all models have the same input features
+        features=features[dataset],
+        model=model,  # all models have the same input features
     )
 
     # Get latent embeddings and parameter dataframes
     le_df, params_dev_df, params_df = get_embedding_and_params_df(
-        dmm_model=ensemble_models[0],
+        dmm_model=model,
         input_features=input_features,
         context=conf.context,
         split=conf.samples,
@@ -68,7 +69,7 @@ def evaluate_training(
     )
 
     evaluate_simulations(
-        models=ensemble_models,
+        model=model,
         input_features=input_features,
         obj=obj,
         conf=conf,
@@ -77,7 +78,9 @@ def evaluate_training(
         dataset=dataset,
         outdir=outdir / "simulation",
         evaluations=evaluations,
-        plot_file_prefix=EVALUATION_PLOT_FILE.format(dataset=dataset, **conf.__dict__),
+        plot_file_prefix=EVALUATION_PLOT_FILE.format(
+            dataset=dataset, **conf.__dict__
+        ),
     )
 
     return pd.DataFrame(evaluations), le_df, params_dev_df, params_df
@@ -87,9 +90,7 @@ def evaluate_training(
 petab_base_files = load_petab_base_files(conf)
 
 # Get filepaths for features and feature transformation pipeline
-features_filepath = get_features_filepath(
-    conf, FEATURES_OUTFILE
-)
+features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
 
 features = process_features(
     conf=conf,
@@ -99,9 +100,9 @@ features = process_features(
 
 
 for dataset in [
-        "train",
-        "val",
-        # "test"  # TODO still don't have test data!
+    "train",
+    "val",
+    # "test"  # TODO still don't have test data!
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test
@@ -112,17 +113,16 @@ for dataset in [
         conf=conf,
         samples=samples,
         petab_base_files=petab_base_files,
-        num_ensemble_members=N_ENSEMBLE_EVALUATION,
     )
-    df.to_csv(
-        EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__)
-    )
+    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__))
     for results, path_format in zip(
         [le_df, params_dev_df, params_df],
-        [EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS],
+        [
+            EVALUATION_EMBEDDING,
+            EVALUATION_PARAMETER_DEVIATIONS,
+            EVALUATION_FULL_PARAMETERS,
+        ],
     ):
         filepath = Path(path_format.format(dataset=dataset, **conf.__dict__))
         filepath.parent.mkdir(parents=True, exist_ok=True)
-        results.to_csv(
-                filepath
-        )
+        results.to_csv(filepath)

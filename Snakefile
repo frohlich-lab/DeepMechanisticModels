@@ -5,7 +5,7 @@ import itertools as itt
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
     # TRAINING_OUTFILE_RESULTS,
-    TRAINED_BEST_MODELS,
+    TRAINED_MODEL,
     # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
@@ -174,7 +174,7 @@ rule estimate_parameters:
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=[
-            TRAINED_BEST_MODELS.format_map(SafeDict(ensemble_id=ensemble_id))
+            TRAINED_MODEL.format_map(SafeDict(ensemble_id=ensemble_id))
             for ensemble_id in range(N_ENSEMBLE_MEMBERS)
         ]
     wildcard_constraints:

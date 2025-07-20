@@ -76,11 +76,8 @@ PRETRAINED_BEST_MODELS = str(
 )
 
 # TODO @GiacomoFabrini check this works and replace how this is handled everywhere!
-TRAINED_BEST_MODELS = str(
-    results_dir
-    / "{model}"
-    / "{data}"
-    / (tpl_results_file + "_bm_{ensemble_id}.eqx")
+TRAINED_MODEL = str(
+    results_dir / "{model}" / "{data}" / (tpl_results_file + ".eqx")
 )
 
 TRAINED_MODEL_WEIGHT_PLOTS = str(
