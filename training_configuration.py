@@ -1,6 +1,6 @@
 PATHWAYS = (
     "EGFR_MAPK",
-    # "EGFR_MAPK_tegfr",
+    "EGFR_MAPK_tegfr",
     # "EGFR_MAPK_pegfr",
     # "EGFR_MAPK_terbb2",
     # "EGFR_MAPK_perbb2",
@@ -20,14 +20,14 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = (
+CONTEXTS_FEATURES = tuple(
     # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_init", "RFE_5_permute"),
-    ("cytof_init", "RFE_10_permute"),
+    # ("cytof_init", "RFE_10_permute"),
     # ("cytof_init", "RFE_10_tree"),
     # ("cytof_init", "RFE_15_permute"),
     # ("cytof_init", "RFE_20_permute"),
@@ -35,7 +35,7 @@ CONTEXTS_FEATURES = (
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "HVGRFE_5_permute"),
     # ("proteomics", "HVGRFE_10_permute"),
-    ("proteomics", "HVGRFE_15_permute"),
+    # ("proteomics", "HVGRFE_15_permute"),
     # ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
@@ -47,7 +47,7 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "HVGRFE_10_tree"),
     # ("transcriptomics", "RFE_10_tree"),
     # ("transcriptomics", "HVGRFE_15_permute"),
-    ("transcriptomics", "HVGRFE_20_permute"),
+    # ("transcriptomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "PAM50"),
     # ("transcriptomics", "IHC"),
     # ("transcriptomics", "KRT"),
@@ -116,6 +116,12 @@ CONTEXTS_FEATURES = (
     # if not (
     #     context == "proteomics" and genomic_features == "MPAS"
     # )  # not enough features
+    (
+        context,
+        f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
+    )
+    for n_features in range(4, 34, 2)
+    for context in ["transcriptomics", "proteomics", "cytof_init"]
 )
 
 # Cross-validation splits
@@ -165,10 +171,10 @@ FREEZE_MEDIANS = {
 # Define linear scan for LATENT_DIMS
 LATENT_DIMS = {
     "range": (
-        2,
-        3,
-        4,
-        6,
+        # 2,
+        # 3,
+        # 4,
+        # 6,
         # 8,
         # 10,
     ),
@@ -182,8 +188,8 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        1,
-        2,
+        # 1,
+        # 2,
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -398,7 +404,7 @@ ETAS = {"range": (0,), "central_value": 0}
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (50, 100, 200, 300, 400, 500),
+    "range": (100,),
     "central_value": 100,
 }
 
