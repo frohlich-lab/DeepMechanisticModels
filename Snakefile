@@ -16,7 +16,7 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS
 )
 
 basedir = Path(os.getcwd())
@@ -161,7 +161,6 @@ rule select_features:
             for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
-# TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
 rule estimate_parameters:
     input:
         script = 'train.py',
@@ -173,10 +172,7 @@ rule estimate_parameters:
         pretrain_average_model=rules.pretrain_average_model.output.pretraining
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
-        model=[
-            TRAINED_MODEL.format_map(SafeDict(ensemble_id=ensemble_id))
-            for ensemble_id in range(N_ENSEMBLE_MEMBERS)
-        ]
+        model=TRAINED_MODEL
     wildcard_constraints:
         model = '\w+',
         data = r'[\w\.]+',
