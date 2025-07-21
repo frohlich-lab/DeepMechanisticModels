@@ -38,16 +38,19 @@ def add_egfr(model):
     Rule(
         "EGFR_degradation",
         EGFR(compartment="e") >> None,
-        add_parameter("EGFR_degradation_kcat"),
+        add_parameter("EGFR_degradation_kcat", model),
     )
     Rule(
         "EGFR_endocytosis",
         EGFR(Y1173="p", compartment="pm") >> EGFR(Y1173="p", compartment="e"),
-        add_parameter("EGFR_endocytosis_kcat"),
+        add_parameter("EGFR_endocytosis_kcat", model),
     )
 
 
 def add_mapk(model):
+    if "her2" in model.name.split("_") and "ERBB2__Y1248_p" not in active_rtks:
+        active_rtks.append("ERBB2__Y1248_p")
+
     mapk_cascade = [
         ("MEK", {"S222": (active_rtks, active_erk)}),
         ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),

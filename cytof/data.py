@@ -70,6 +70,134 @@ SYNAPSE_FILES = [
 ]
 
 
+def load_snp_from_synapse() -> pd.DataFrame:
+    import synapseclient
+    import xmltodict
+    from Bio import Entrez
+
+    syn = synapseclient.Synapse()
+    syn.login()
+    MUTATION_GENES = [
+        "EGFR",
+        "ERBB2",
+        "ERBB3",
+        "ERBB4",
+        "MAP2K1",
+        "MAP2K2",
+        "MAPK1",
+        "MAPK3",
+        "RAF1",
+        "BRAF",
+        "KRAS",
+        "NRAS",
+        "HRAS",
+        "GRB2",
+        "SOS1",
+        "PIK3CA",
+        "NF1",
+        "ALK",
+        "EPHA3",
+        "EPHA5",
+        "KIT",
+        "MAP2K4",
+        "MET",
+        "PDGFRA",
+        "RET",
+        "ROS1",
+    ]
+
+    df_snp_mapping = pd.read_csv(syn.get("syn20631265").path, index_col=0)
+    df_snp_mapping.dropna(subset="GeneNames", axis=0, inplace=True)
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["GeneNames"].apply(
+            lambda x: any(g in MUTATION_GENES for g in x.split(","))
+        )
+    ]
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["SNPid"].str.startswith("rs")
+    ]
+
+    Entrez.email = "froehlichfab@gmail.com"
+
+    #########
+    # dbSNP #
+    #########
+    stream = Entrez.efetch(
+        db="snp", id=",".join(df_snp_mapping["SNPid"].tolist()), retmode="xml"
+    )
+    xml_data = stream.read()
+    stream.close()
+
+    data_snp = xmltodict.parse(xml_data)["ExchangeSet"]["DocumentSummary"]
+
+    # filter out mapping
+    df_snp_mapping = df_snp_mapping[[not ("error" in d) for d in data_snp]]
+    # now trim data_snp
+    data_snp = [d for d in data_snp if not ("error" in d)]
+    df_snp_mapping["HGVS"] = [
+        d["DOCSUM"].replace("HGVS=", "") for d in data_snp
+    ]
+    df_snp_mapping["clinvar"] = [
+        ""
+        if d["CLINICAL_SIGNIFICANCE"] is None
+        else d["CLINICAL_SIGNIFICANCE"]
+        for d in data_snp
+    ]
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["clinvar"].apply(
+            lambda x: (
+                "uncertain-significance" in x
+                or "likely-pathogenic" in x
+                or "pathogenic" in x
+                or "risk-factor" in x
+                or "protective" in x
+            )
+        )
+    ]
+
+    snp_file_path = syn.get("syn20631266").path
+    with open(snp_file_path, "r") as f:
+        header_line = f.readline().strip()
+    available_columns = header_line.split(",")
+    available_columns = [c.replace('"', "") for c in available_columns]
+    valid_snp_columns = [
+        col
+        for col in df_snp_mapping["SNPid"].tolist()
+        if col in available_columns
+    ]
+
+    df_snp = pd.read_csv(
+        snp_file_path,
+        engine="c",
+        index_col=0,
+        low_memory=False,
+        usecols=["Unnamed: 0"] + valid_snp_columns,
+    )
+
+    df_snp = df_snp.loc[
+        :, df_snp.sum(axis=0) > 0
+    ]  # filter out columns with all zeros
+    df_snp_mapping = df_snp_mapping[
+        df_snp_mapping["SNPid"].isin(df_snp.columns)
+    ]
+
+    return df_snp, df_snp_mapping
+
+
+def load_cna_from_synapse() -> pd.DataFrame:
+    import synapseclient
+
+    syn = synapseclient.Synapse()
+    syn.login()
+
+    df_cna = pd.read_csv(
+        syn.get("syn20631262").path,
+        index_col=0,
+    )
+
+    return df_cna
+
+
 def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     import synapseclient
 
@@ -79,6 +207,7 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     mean_data = []
     std_data = []
     group_ids = ["treatment", "cell_line", "time", "fileID"]
+    # file_id_table = pd.read_csv(syn.get("syn20631269").path, index_col=0)
     for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
         for ids, data in df.groupby(group_ids):
@@ -164,6 +293,9 @@ def process_petab_cytof(
         columns=["treatment", "fileID"], inplace=True
     )
     measurement_table_phospho["measurementType"] = "cytof"
+    measurement_table_phospho["FEATURE_ID"] = measurement_table_phospho[
+        petab.OBSERVABLE_ID
+    ]
     return measurement_table_phospho
 
 
@@ -173,11 +305,11 @@ def load_proteomics_from_synapse() -> pd.DataFrame:
     syn = synapseclient.Synapse()
     syn.login()
     df_proteomics = pd.read_csv(syn.get("syn20690775").path, index_col=[0])
-    df_proteomics[petab.OBSERVABLE_ID] = df_proteomics.index
+    df_proteomics["UPID"] = df_proteomics.index
 
     df_proteomics = pd.melt(
         df_proteomics,
-        id_vars=[petab.OBSERVABLE_ID],
+        id_vars=["UPID"],
         var_name=petab.PREEQUILIBRATION_CONDITION_ID,
         value_name=petab.MEASUREMENT,
     )
@@ -202,14 +334,14 @@ def load_transcriptomics_from_synapse() -> pd.DataFrame:
     df_transcriptomics = pd.melt(
         df_transcriptomics,
         id_vars=petab.PREEQUILIBRATION_CONDITION_ID,
-        var_name=petab.OBSERVABLE_ID,
+        var_name="GENENAME",
         value_name=petab.MEASUREMENT,
     )
     df_transcriptomics["measurementType"] = "transcriptomics"
     return df_transcriptomics
 
 
-def load_ids_from_uniprot(measurement_table_proteomics):
+def load_ids_from_uniprot(ids):
     import json
     import urllib.parse
     import urllib.request
@@ -225,9 +357,7 @@ def load_ids_from_uniprot(measurement_table_proteomics):
             "from": "ACC+ID",
             "to": "GENENAME",
             "format": "tab",
-            "query": " ".join(
-                measurement_table_proteomics[petab.OBSERVABLE_ID].unique()
-            ),
+            "query": " ".join(ids),
         }
 
         data = urllib.parse.urlencode(params)
@@ -245,17 +375,10 @@ def load_ids_from_uniprot(measurement_table_proteomics):
         with open(up_id_json, "w") as fp:
             json.dump(up_ids, fp)
 
-    measurement_table_proteomics.loc[
-        petab.OBSERVABLE_ID, :
-    ] = measurement_table_proteomics[petab.OBSERVABLE_ID].apply(
-        lambda x: up_ids.get(x, "")
-    )
-    return measurement_table_proteomics
+    return up_ids
 
 
 def process_petab_proteomics(df: pd.DataFrame):
-    df = df.loc[df[petab.OBSERVABLE_ID] != "", :]
-
     df.dropna(axis=0, subset=[petab.MEASUREMENT], inplace=True)
 
     df[petab.PREEQUILIBRATION_CONDITION_ID] = df[
@@ -263,9 +386,11 @@ def process_petab_proteomics(df: pd.DataFrame):
     ].apply(lambda x: f'c{x.split("_")[0]}')
 
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
+    df[petab.OBSERVABLE_ID] = df["GENENAME"]
 
     df[petab.TIME] = 0.0
-    df[petab.NOISE_PARAMETERS] = np.NaN
+    df[petab.NOISE_PARAMETERS] = 1.0
+    df["FEATURE_ID"] = df["GENENAME"]
     return df
 
 
@@ -277,9 +402,11 @@ def process_petab_transcriptomics(df: pd.DataFrame):
     ].apply(lambda x: f'c{x.split("_")[0]}')
 
     df[petab.SIMULATION_CONDITION_ID] = df[petab.PREEQUILIBRATION_CONDITION_ID]
+    df[petab.OBSERVABLE_ID] = df["GENENAME"]
 
     df[petab.TIME] = 0.0
-    df[petab.NOISE_PARAMETERS] = np.NaN
+    df[petab.NOISE_PARAMETERS] = 1.0
+    df["FEATURE_ID"] = df["GENENAME"]
     return df
 
 
@@ -318,38 +445,100 @@ def build_condition_table(
         ]
     )
     for pert in perturbations:
+
+        def not_part_of_condition(c: str, pert=pert) -> bool:
+            return pert not in c.split("__")
+
         if model.parameters.get(f"{pert}_0") is None:
             # remove condition
             condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
-                    lambda x: pert not in x.split("__")
+                    not_part_of_condition
                 ),
                 :,
             ]
             continue
+
+        def part_of_condition(c: str, pert=pert) -> float:
+            return float(int(pert in c.split("__")))
+
         condition_table[f"{pert}_0"] = condition_table[
             petab.CONDITION_ID
-        ].apply(lambda x: float(int(pert in x.split("__"))))
+        ].apply(part_of_condition)
 
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
     for eq_par in model.parameters.keys():
-        if eq_par.endswith("_eq"):
+        if eq_par in ["EGFR_eq", "ERBB2_eq"]:
+            for gene in ["EGFR", "ERBB2"]:
+                if not eq_par.startswith(gene):
+                    continue
+
+                if f"p{gene.lower()}" in model.name.split("_"):
+                    measurement_type = "proteomics"
+                elif f"t{gene.lower()}" in model.name.split("_"):
+                    measurement_type = "transcriptomics"
+                else:
+                    condition_table[eq_par] = 1.0
+                    continue
+
+                prot_data = measurement_table[
+                    (measurement_table[petab.OBSERVABLE_ID] == gene)
+                    & (
+                        measurement_table["measurementType"]
+                        == measurement_type
+                    )
+                ]
+
+                prot_log2fc = (
+                    prot_data[
+                        [
+                            petab.PREEQUILIBRATION_CONDITION_ID,
+                            petab.MEASUREMENT,
+                        ]
+                    ]
+                    .groupby(petab.PREEQUILIBRATION_CONDITION_ID)
+                    .agg("mean")[petab.MEASUREMENT]
+                )
+                prot_log2fc -= prot_log2fc.mean()
+                condition_table[eq_par] = [
+                    2 ** prot_log2fc.get(c.split("__")[0], 0.0)
+                    for c in condition_table[petab.CONDITION_ID]
+                ]
+        elif eq_par.endswith("_eq") and not eq_par.startswith(
+            ("DEV_", "MED_")
+        ):
             condition_table[eq_par] = 1.0
     return condition_table
 
 
 def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
+    # table_SNP, SNP_mapping = load_snp_from_synapse()
+    # table_cna = load_cna_from_synapse()
+
     measurement_table_cytof, id_vars = load_cytof_from_synapse()
     measurement_table_cytof = process_petab_cytof(
         measurement_table_cytof, id_vars
     )
 
     measurement_table_proteomics = load_proteomics_from_synapse()
-    measurement_table_proteomics = load_ids_from_uniprot(
-        measurement_table_proteomics
+    up_ids = load_ids_from_uniprot(
+        measurement_table_proteomics["UPID"].unique()
     )
+    # missing gene names: A2VCL2, A8MUA0, O00370, Q6ZSR9
+    # A2VCL2: dropped from uniprot, CCDC162P https://varsome.com/gene/hg19/CCDC162P
+    # A8MUA0: Putative UPF0607 protein, SPATA6: https://varsome.com/gene/hg19/SPATA6
+    # O00370: ORF2p: https://www.uniprot.org/uniprotkb/O00370/entry
+    # Q6ZSR9: Uncharacterized protein FLJ45252: https://www.uniprot.org/uniprotkb/Q6ZSR9/entry
+    up_ids["A2VCL2"] = "CCDC162P"
+    up_ids["A8MUA0"] = "SPATA6"
+    up_ids["O00370"] = "ORF2P"
+    up_ids["Q6ZSR9"] = "FLJ45252"
+
+    measurement_table_proteomics.loc[
+        :, "GENENAME"
+    ] = measurement_table_proteomics["UPID"].apply(lambda x: up_ids.get(x))
     measurement_table_proteomics = process_petab_proteomics(
         measurement_table_proteomics
     )

@@ -5,7 +5,7 @@ import itertools as itt
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
     # TRAINING_OUTFILE_RESULTS,
-    TRAINED_BEST_MODELS,
+    TRAINED_MODEL,
     # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
@@ -16,7 +16,7 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS, N_ENSEMBLE_MEMBERS
+    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS
 )
 
 basedir = Path(os.getcwd())
@@ -42,6 +42,7 @@ rule process_data:
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
         pathway=cytof_dir / 'pw_{model}.py',
+        data_code2=cytof_dir / 'data.py',
         pathways=cytof_dir / 'pathways.py'
     output:
         datafiles=expand(
@@ -54,8 +55,8 @@ rule process_data:
         model='\w+',
         data='[\w\.]+'
     resources:
-        mem="4GB",  # tried on cluster and process_data was OOM killed
-        runtime="15m",
+        mem="8GB",  # tried on cluster and process_data was OOM killed
+        runtime="60m",
         nodes=1,
         threads=1
     shell:
@@ -78,7 +79,7 @@ rule compile_mechanistic_model:
         data='[\w\.]+'
     resources:
         mem="8GB",
-        runtime="1h",
+        runtime="2h",
         nodes=1,
         threads=1
     shell:
@@ -104,12 +105,12 @@ rule pretrain_per_sample:
         mem="2GB",
         runtime="6h",
         nodes=1,
-        threads=1
+        threads=2
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'sample')
-        )
+        ) + ' --threads={resources.threads}'
 
 
 rule pretrain_average_model:
@@ -126,14 +127,14 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="6h",
+        runtime="24h",
         nodes=1,
-        threads=1
+        threads=2
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data', 'samples')
-        )
+        ) + ' --threads={resources.threads}'
 
 rule select_features:
     input:
@@ -160,7 +161,6 @@ rule select_features:
             for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
-# TODO @GiacomoFabrini - missing wildcard constraints for network structure parameters -- CHECK resolved?
 rule estimate_parameters:
     input:
         script = 'train.py',
@@ -172,10 +172,7 @@ rule estimate_parameters:
         pretrain_average_model=rules.pretrain_average_model.output.pretraining
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
-        model=[
-            TRAINED_BEST_MODELS.format_map(SafeDict(ensemble_id=ensemble_id))
-            for ensemble_id in range(N_ENSEMBLE_MEMBERS)
-        ]
+        model=TRAINED_MODEL
     wildcard_constraints:
         model = '\w+',
         data = r'[\w\.]+',

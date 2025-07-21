@@ -50,7 +50,7 @@ figdir = fig_dir / conf.model / conf.data / "pretraining_sample"
 
 factory = importer.create_objective_creator()
 objective = Chi2Objective(factory.create_objective())
-problem.apply_objective_settings(objective)
+problem.apply_objective_settings(objective, n_threads=conf.threads)
 
 pypesto_problem = importer.create_problem(
     objective=objective,

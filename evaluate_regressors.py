@@ -1,16 +1,16 @@
-import os
 import warnings
 
 # test_samples,
 # training_samples,
 from dataclasses import replace
+from pathlib import Path
 from typing import List
 
 import fire
 import numpy as np
 import pandas as pd
 import petab
-from joblib import dump, load
+from joblib import dump
 from sklearn.pipeline import Pipeline
 
 from common import (
@@ -131,7 +131,7 @@ def evaluate_standard_regression(
     # process simulation condition id
     df_meas[petab.SIMULATION_CONDITION_ID] = df_meas[
         petab.SIMULATION_CONDITION_ID
-    ].apply(lambda x: x.split("__")[1])
+    ].apply(lambda x: x.replace(x.split("__")[0], ""))
 
     # reorder columns as in output_train
     df_meas = df_meas[
@@ -245,42 +245,39 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     )
 
     # Check whether the trained pipeline exists
-    trained_pipeline_file = REGR_TRAINED_PIPELINE.format(
-        model=conf.model,
-        data=conf.data,
-        samples=conf.samples,
-        mode=mode,
-        context=conf.context,
-        features=conf.features,
+    trained_pipeline_file = Path(
+        REGR_TRAINED_PIPELINE.format(
+            model=conf.model,
+            data=conf.data,
+            samples=conf.samples,
+            mode=mode,
+            context=conf.context,
+            features=conf.features,
+        )
     )
 
-    features_train_file = REGR_FEATURES_TRAIN.format(
-        model=conf.model,
-        data=conf.data,
-        samples=conf.samples,
-        mode=mode,
-        context=conf.context,
-        features=conf.features,
+    features_train_file = Path(
+        REGR_FEATURES_TRAIN.format(
+            model=conf.model,
+            data=conf.data,
+            samples=conf.samples,
+            mode=mode,
+            context=conf.context,
+            features=conf.features,
+        )
     )
 
-    # if both pipeline and features exist, load them and proceed
-    if os.path.exists(trained_pipeline_file) and os.path.exists(
-        features_train_file
-    ):
-        trained_pipeline = load(trained_pipeline_file)
-        features_train = load(features_train_file)
-    # else build and train the pipeline and extract the features
-    else:
-        print(
-            f"Building pipeline and training estimator for {mode} on {conf.context}..."
-        )
-        trained_pipeline, features_train = train_pipeline(
-            input_data_train=input_features_dict["train"],
-            output_data_train=output_data_train,
-            pipeline_steps=[mode],
-        )
-        dump(trained_pipeline, trained_pipeline_file)
-        dump(features_train, features_train_file)
+    print(
+        f"Building pipeline and training estimator for {mode} on {conf.context}..."
+    )
+    trained_pipeline, features_train = train_pipeline(
+        input_data_train=input_features_dict["train"],
+        output_data_train=output_data_train,
+        pipeline_steps=[mode],
+    )
+    trained_pipeline_file.parent.mkdir(exist_ok=True, parents=True)
+    dump(trained_pipeline, trained_pipeline_file)
+    dump(features_train, features_train_file)
 
     for dataset in ["train", "val"]:
         df = evaluate_standard_regression(

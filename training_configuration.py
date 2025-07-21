@@ -1,4 +1,15 @@
-PATHWAYS = ("EGFR_MAPK",)
+PATHWAYS = (
+    "EGFR_MAPK",
+    "EGFR_MAPK_tegfr",
+    # "EGFR_MAPK_pegfr",
+    # "EGFR_MAPK_terbb2",
+    # "EGFR_MAPK_perbb2",
+    # "EGFR_MAPK_terbb2_tegfr",
+    # "EGFR_MAPK_perbb2_pegfr",
+    # "EGFR_MAPK_her2",
+    # "EGFR_MAPK_freeeq",
+    # "EGFR_MAPK_freeeq_tobs",
+)
 
 DATASETS = ("dream_cytof",)
 # DATASETS = {
@@ -9,30 +20,23 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = (
+CONTEXTS_FEATURES = tuple(
     # ("cytof_init", "all"),
     # ("cytof_init", "rfe"),
     # ("cytof_init", "lasso"),
     # ("cytof_init", "elastic"),
     # ("cytof_init", "sequential"),
     # ("cytof_init", "RFE_5_permute"),
-    ("cytof_init", "RFE_10_permute"),
+    # ("cytof_init", "RFE_10_permute"),
     # ("cytof_init", "RFE_10_tree"),
     # ("cytof_init", "RFE_15_permute"),
     # ("cytof_init", "RFE_20_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "all"),
-    # ("proteomics", "rfe"),
-    # ("proteomics", "lasso"),
-    # ("proteomics", "elastic"),
-    # ("proteomics", "sequential"),
     # ("proteomics", "HVGRFE_5_permute"),
     # ("proteomics", "HVGRFE_10_permute"),
-    # ("proteomics", "HVGRFE_10_tree"),
-    # ("proteomics", "RFE_10_tree"),
     # ("proteomics", "HVGRFE_15_permute"),
-    ("proteomics", "HVGRFE_20_permute"),
+    # ("proteomics", "HVGRFE_20_permute"),
     # ("transcriptomics", "all"),
     # ("transcriptomics", "rfe"),
     # ("transcriptomics", "lasso"),
@@ -42,10 +46,82 @@ CONTEXTS_FEATURES = (
     # ("transcriptomics", "HVGRFE_10_permute"),
     # ("transcriptomics", "HVGRFE_10_tree"),
     # ("transcriptomics", "RFE_10_tree"),
-    ("transcriptomics", "HVGRFE_15_permute"),
+    # ("transcriptomics", "HVGRFE_15_permute"),
     # ("transcriptomics", "HVGRFE_20_permute"),
-    ("multimodal", "optimal"),
+    # ("transcriptomics", "PAM50"),
+    # ("transcriptomics", "IHC"),
+    # ("transcriptomics", "KRT"),
+    # ("multimodal", "optimal"),
     # ("MOSA", "all"),
+    # (context, genomic_features)
+    # for genomic_features in [
+    #     "MSIGDB_KEGG_ERBB",
+    #     "MSIGDB_KEGG_MAPK",
+    #     "MSIGDB_KEGG_EGFR",
+    #     "MSIGDB_KEGG_RTK",
+    #     "MSIGDB_KEGG_ERK",
+    #     "MSIGDB_BIOCARTA_MAPK",
+    #     "MSIGDB_BIOCARTA_EGF",
+    #     "MSIGDB_BIOCARTA_ERK",
+    #     "MSIGDB_BIOCARTA_RAS",
+    #     "MSIGDB_BIOCARTA_P38",
+    #     "MSIGDB_PID_ERBB_DOWNSTREAM",
+    #     "MSIGDB_PID_ERBB_INTERN",
+    #     "MSIGDB_PID_ERBB_PROXIMAL",
+    #     "MSIGDB_PID_ERBB",
+    #     "MSIGDB_PID_RAS",
+    #     "MSIGDB_PID_MAPK",
+    #     "MSIGDB_PID_P38_DOWNSTREAM",
+    #     "MSIGDB_PID_P38",
+    #     "MSIGDB_REACTOME_EGFR_CANCER_VARIANTS",
+    #     "MSIGDB_REACTOME_EGFR_DOWNREGULATION",
+    #     "MSIGDB_REACTOME_EGFR",
+    #     "MSIGDB_REACTOME_EGFR_CANCER",
+    #     "MSIGDB_REACTOME_ERBB2_OVEREXPRESSION",
+    #     "MSIGDB_REACTOME_ERBB2",
+    #     "MSIGDB_REACTOME_ERBB2_CANCER",
+    #     "MSIGDB_REACTOME_ERK_TARGETS",
+    #     "MSIGDB_REACTOME_ERK",
+    #     "MSIGDB_REACTOME_MAPK",
+    #     "MSIGDB_REACTOME_MAPK_CANCER",
+    #     "MSIGDB_REACTOME_P38",
+    #     "MSIGDB_WP_EGFR",
+    #     "MSIGDB_WP_EGFR_RESISTANCE",
+    #     "MSIGDB_WP_MAPK",
+    #     "MSIGDB_WP_P38",
+    #     "PAM50",
+    #     "MEKFA",
+    #     "CompRes",
+    #     "MPAS",
+    #     "CSC",
+    #     "IHC",
+    #     "HVGRFE_5_permute",
+    #     "HVGRFE_10_permute",
+    #     "HVGRFE_15_permute",
+    #     "HVGRFE_20_permute",
+    #     "HVGRFE_5_tree",
+    #     "HVGRFE_10_tree",
+    #     "HVGRFE_15_tree",
+    #     "HVGRFE_20_tree",
+    #     "RFE_5_permute",
+    #     "RFE_10_permute",
+    #     "RFE_15_permute",
+    #     "RFE_20_permute",
+    #     "RFE_5_tree",
+    #     "RFE_10_tree",
+    #     "RFE_15_tree",
+    #     "RFE_20_tree",
+    # ]
+    # for context in ["transcriptomics", "proteomics"]
+    # if not (
+    #     context == "proteomics" and genomic_features == "MPAS"
+    # )  # not enough features
+    (
+        context,
+        f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
+    )
+    for n_features in range(4, 34, 2)
+    for context in ["transcriptomics", "proteomics", "cytof_init"]
 )
 
 # Cross-validation splits
@@ -62,7 +138,7 @@ PRETRAIN = {
 }
 
 STANDARDISE_FEATURES = {
-    True,
+    # True,
     False,
 }
 
@@ -113,7 +189,7 @@ NETWORK_DEPTH = {
     "range": (
         0,
         # 1,
-        # 2
+        # 2,
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -228,7 +304,7 @@ LINEAR_SCAN_CENTRAL = 0  # previously 1e2
 #     # 1e10,  # increasing values
 # )
 ALPHAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -244,10 +320,7 @@ ALPHAS = {
 #     1e7,
 #     # 1e8,
 # )
-BETAS = {
-    "range": (0, ),
-    "central_value": 0
-}
+BETAS = {"range": (0,), "central_value": 0}
 # previously centred at 1e7, but now excluded from scanned values
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
@@ -264,7 +337,7 @@ BETAS = {
 #     # 1e10,  # increasing values
 # )
 GAMMAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -279,7 +352,7 @@ GAMMAS = {
 #     # 1e10,  # increasing values
 # )
 DELTAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 # previously centered at 1e7, but now excluded from scanned values
@@ -292,13 +365,13 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": ("optimal", ),
+    "range": ("optimal",),
     "central_value": "optimal",
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0, ),
+    "range": (0,),
     "central_value": 0,
 }
 
@@ -310,7 +383,7 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (1e-2, ),
+    "range": (1e-2,),
     "central_value": 1e-2,
 }
 
@@ -330,7 +403,10 @@ ETAS = {"range": (0,), "central_value": 0}
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
-INFLATER_OUTPUT_REG_EPOCHS = {"range": (100,), "central_value": 100}
+INFLATER_OUTPUT_REG_EPOCHS = {
+    "range": (100,),
+    "central_value": 100,
+}
 
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
@@ -479,8 +555,5 @@ REFINE_HPS = None
 #     "use_early_stopping": USE_EARLY_STOP,
 #     "last_layer_activation": LAST_LAYER_ACTIVATION,
 # }
-
-N_ENSEMBLE_MEMBERS = 1  # number of ensemble members to average over (top N RMSE val across training) -- NOT IN USE
-N_ENSEMBLE_EVALUATION = 1  # how many ensemble members to use during evaluation
 
 SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters

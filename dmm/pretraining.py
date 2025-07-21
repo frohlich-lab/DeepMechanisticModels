@@ -226,19 +226,35 @@ def generate_average_pretraining_problem(
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples), :
     ].copy()
 
-    df_train[petab.SIMULATION_CONDITION_ID] = df_train[
-        petab.SIMULATION_CONDITION_ID
-    ].apply(lambda x: x.split("__")[1])
+    can_be_aggregated = not any(
+        pp.condition_df[s].nunique() > 1
+        for s in pp.condition_df
+        if s.endswith("_eq")
+    )
 
-    df_train[petab.PREEQUILIBRATION_CONDITION_ID] = "baseline"
+    if can_be_aggregated:
+        df_train[petab.SIMULATION_CONDITION_ID] = df_train[
+            petab.SIMULATION_CONDITION_ID
+        ].apply(lambda x: x.replace(x.split("__")[0], ""))
+        df_train.loc[
+            df_train[petab.SIMULATION_CONDITION_ID] == "",
+            petab.SIMULATION_CONDITION_ID,
+        ] = "baseline"
 
-    cdf = pp.condition_df.loc[
-        [name.startswith(samples[0]) for name in pp.condition_df.index], :
-    ].copy()
-    cdf.index = [
-        name.replace(samples[0] + "__", "").replace(samples[0], "baseline")
-        for name in cdf.index
-    ]
+        df_train[petab.PREEQUILIBRATION_CONDITION_ID] = "baseline"
+
+        cdf = pp.condition_df.loc[
+            [name.startswith(samples[0]) for name in pp.condition_df.index], :
+        ].copy()
+        cdf.index = [
+            name.replace(samples[0] + "__", "__").replace(
+                samples[0], "baseline"
+            )
+            for name in cdf.index
+        ]
+    else:
+        cdf = pp.condition_df.copy()
+
     cdf.drop(
         columns=[x for x in cdf.columns if x.startswith(MODEL_FEATURE_PREFIX)],
         inplace=True,

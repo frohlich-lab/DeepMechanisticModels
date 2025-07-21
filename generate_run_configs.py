@@ -42,6 +42,7 @@ from training_configuration import (
     SPARSE_THRESH_PERCS,
     SPLITS,
     STANDARDISE_FEATURES,
+    SYNC_ENCODER_INFLATER_REG,
     THETAS,
     USE_BIAS,
     # OTHER OPTIONS
@@ -49,7 +50,6 @@ from training_configuration import (
     WARMUP_FCTS,
     WEIGHT_DECAY,
     ZETAS,
-    SYNC_ENCODER_INFLATER_REG,
 )
 
 
@@ -227,17 +227,27 @@ def generate_linear_scan(STARTS: list[str]):
     for linear_scan_config in linear_scan_configs:
         # Sync regularisation parameters across encoder and inflater
         if SYNC_ENCODER_INFLATER_REG:
-            if linear_scan_config["l1reg_inflate"] != linear_scan_config["l1reg_encode"]:
-                linear_scan_config["l1reg_inflate"] = linear_scan_config["l1reg_encode"]
-            if linear_scan_config["oreg_inflate"] != linear_scan_config["oreg_encode"]:
-                linear_scan_config["oreg_inflate"] = linear_scan_config["oreg_encode"]
+            if (
+                linear_scan_config["l1reg_inflate"]
+                != linear_scan_config["l1reg_encode"]
+            ):
+                linear_scan_config["l1reg_inflate"] = linear_scan_config[
+                    "l1reg_encode"
+                ]
+            if (
+                linear_scan_config["oreg_inflate"]
+                != linear_scan_config["oreg_encode"]
+            ):
+                linear_scan_config["oreg_inflate"] = linear_scan_config[
+                    "oreg_encode"
+                ]
         if linear_scan_config["l1reg_inflater_output"] == "optimal":
             if linear_scan_config["context"] == "cytof_init":
                 linear_scan_config["l1reg_inflater_output"] = 62.5
             elif linear_scan_config["context"] == "proteomics":
-                linear_scan_config["l1reg_inflater_output"] = 8000
+                linear_scan_config["l1reg_inflater_output"] = 100
             elif linear_scan_config["context"] == "transcriptomics":
-                linear_scan_config["l1reg_inflater_output"] = 4000
+                linear_scan_config["l1reg_inflater_output"] = 100
             else:  # multimodal
                 linear_scan_config["l1reg_inflater_output"] = 100
         prune_config(linear_scan_config)

@@ -1,12 +1,11 @@
 import itertools as itt
-from pathlib import Path
 from typing import Any, Dict, List, Tuple, Union
 
 import jax.numpy as jnp
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
-from amici.petab_objective import rdatas_to_simulation_df
+from amici.petab import rdatas_to_simulation_df
 from jax import vmap
 from scipy.sparse.csgraph import connected_components
 from sklearn.decomposition import PCA
@@ -20,13 +19,13 @@ from common import (
     MEASUREMENTS_FILE,
     OBSERVABLES_FILE,
     REGRESSION_MODES,
-    TRAINED_BEST_MODELS,
+    TRAINED_MODEL,
     Wildcards,
     default_attributes,
     evaluations_dir,
     hardest_cell_lines,
-    val_samples,
     training_samples,
+    val_samples,
 )
 from cytof.problem import CytofProblem
 from dmm.config_options import Conf
@@ -42,11 +41,10 @@ from dmm.pretraining import (
 )
 from dmm.training_helper_funcs import create_pypesto_problem
 from evaluation_plotting import (
-    plot_rmse_val_cell_lines,
     random_forest_importance_plot,
 )
 from stat_test import statistical_significance_test
-from training_configuration import HP_RUN_MODE, N_ENSEMBLE_MEMBERS, SPLITS
+from training_configuration import HP_RUN_MODE, SPLITS
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -66,35 +64,25 @@ def load_model_and_obj(
     conf: Conf,
     petab_base_files: Dict[str, pd.DataFrame],
     dataset: str,
-    num_ensemble_members: int,
 ) -> tuple[list[DeepMechanisticModel], Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
-    # Define filepaths for serialized models -- need to be formatted for ensemble_id
-    trained_model_file = TRAINED_BEST_MODELS.format(
-        **{**conf.__dict__, **{"ensemble_id": "{ensemble_id}"}}
+    # Define filepaths for serialized models
+    trained_model_file = TRAINED_MODEL.format(**conf.__dict__)
+
+    # Load ensemble member model
+    model = DeepMechanisticModel.load(
+        filename=trained_model_file,
+        problem=cytof_problem,
+        dataset=dataset,
+        petab_base_files=petab_base_files,
     )
-
-    models = []
-    for ensemble_id in range(min(num_ensemble_members, N_ENSEMBLE_MEMBERS)):
-        ensemble_member_file = Path(
-            trained_model_file.format(ensemble_id=ensemble_id)
-        )
-
-        # Load ensemble member model
-        model = DeepMechanisticModel.load(
-            filename=ensemble_member_file,
-            problem=cytof_problem,
-            dataset=dataset,
-            petab_base_files=petab_base_files,
-        )
-        models.append(model)
-
     # Create pypesto problem from any of the loaded models to extract objective
-    pypesto_problem = create_pypesto_problem(models[0])
+    pypesto_problem = create_pypesto_problem(model)
     obj = pypesto_problem.objective.base_objective.base_objective
-    return models, obj
+
+    return model, obj
 
 
 def process_per_sample_pretrain(
@@ -934,7 +922,7 @@ def aggregate_and_log(
         top_n_dmm_train, how="inner", on=default_attributes
     )[dmm_by_cl.columns]
     # Plot and store
-    plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
+    # plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
     top_n_results_by_cl.to_csv(
         evaluations_dir
         / f"{conf.model}"
@@ -1027,7 +1015,7 @@ def aggregate_and_log(
             evaluations_dir
             / f"{conf.model}"
             / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.{evaluation_tag}.csv"
+            / f"{evaluation_tag}.csv"
         )
 
         # DISABLED WANDB ARTIFACTS

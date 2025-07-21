@@ -69,7 +69,7 @@ def contextualize_measurements(
         ].apply(lambda x: x.split("__")[1])
 
         pivot_columns = (
-            petab.OBSERVABLE_ID,
+            "FEATURE_ID",
             petab.SIMULATION_CONDITION_ID,
             petab.TIME,
         )
@@ -81,6 +81,11 @@ def contextualize_measurements(
                     list(observable_table.index)
                 )
             ]
+            pivot_columns = (
+                petab.OBSERVABLE_ID,
+                petab.SIMULATION_CONDITION_ID,
+                petab.TIME,
+            )
         elif contextualization == "cytof_init":
             if impute:
                 # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
@@ -141,9 +146,9 @@ def contextualize_measurements(
                 input_measurements = input_measurements[
                     input_measurements[petab.TIME] == 0
                 ]
-                pivot_columns = [petab.OBSERVABLE_ID]
+                pivot_columns = ["FEATURE_ID"]
     else:
-        pivot_columns = [petab.OBSERVABLE_ID]
+        pivot_columns = ["FEATURE_ID"]
 
     # in all cases/contexts: average over replicates through np.nanmean aggfunc in pivot_table
     input_data = input_measurements.pivot_table(
@@ -329,10 +334,7 @@ def load_data(
         input_data = input_data[features]
     else:
         # for training, compute feature set, filtering out too many nans
-        # TODO @GiacomoFabrini: fix this - it needs to yield consistent numbers of columns!!!
-        input_data = input_data.loc[
-            :, input_data.isna().sum() / input_data.shape[0] < 0.3
-        ]
+        input_data = input_data.loc[:, input_data.isna().mean() < 0.3]
         if contextualization == "transcriptomics":
             # look at mean vs variance plot
             # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
@@ -340,19 +342,21 @@ def load_data(
             # plt.show()
 
             # filter low capture efficiency genes
-            input_data = input_data.loc[
-                :,
-                np.nanmin(input_data, axis=0)
-                < np.nanmedian(input_data, axis=0),
-            ]
+            # input_data = input_data.loc[
+            #     :,
+            #     np.nanmin(input_data, axis=0)
+            #     < np.nanmedian(input_data, axis=0),
+            # ]
+            pass
         elif contextualization == "proteomics":
             # look at mean vs variance plot
             # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
             # plt.yscale('log')
             # plt.show()
-            input_data = input_data.loc[
-                :, np.nanmedian(input_data, axis=0) > -2.5
-            ]
+            # input_data = input_data.loc[
+            #     :, np.nanmedian(input_data, axis=0) > -2.5
+            # ]
+            pass
         features = list(input_data.columns)
     return input_data, features
 

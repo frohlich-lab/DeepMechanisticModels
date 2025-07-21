@@ -9,7 +9,7 @@ from common import (  # TRAINING_OUTFILE_RESULTS,
     FEATURES_OUTFILE,
     PER_SAMPLE_OUTFILE_PARS,
     PRETRAINED_BEST_MODELS,
-    TRAINED_BEST_MODELS,
+    TRAINED_MODEL,
     debug_mode,
 )
 
@@ -26,7 +26,6 @@ from dmm.training_helper_funcs import create_pypesto_problem
 from dmm.wandb_init_log import init_wandb
 from training_configuration import (
     MIN_IMPROVEMENT,
-    N_ENSEMBLE_MEMBERS,
     N_EPOCHS,
     PATIENCE,
 )
@@ -44,15 +43,11 @@ avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
     **{**conf.__dict__, "sample": f"model_average_{conf.samples}"}
 )
 # results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
-model_file = TRAINED_BEST_MODELS.format(
-    **{**conf.__dict__, "ensemble_id": "{ensemble_id}"}
-)
+model_file = TRAINED_MODEL.format(**{**conf.__dict__})
 pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Get filepaths for features and feature transformation pipeline
-features_filepath = get_features_filepath(
-    conf, FEATURES_OUTFILE
-)
+features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
 
 # Set JAX configuration
 config.update("jax_enable_x64", True)
@@ -106,7 +101,7 @@ samples_name_list_dict = {
     dataset: model.sample_name_list
     for dataset, model in zip(["train", "val"], [model_train, model_test])
 }
-best_models = train(
+train(
     model=model_train,  # can be pretrained or not (in case of linear benchmark)
     problem_train=pypesto_problem_train,
     problem_test=pypesto_problem_test,
@@ -119,17 +114,4 @@ best_models = train(
     n_epoch=N_EPOCHS,
     early_stopping_params=early_stopping_params,
     debug_mode=debug_mode,
-    ensemble_members=N_ENSEMBLE_MEMBERS,
 )
-
-# TODO @GiacomoFabrini -- if this is still useful, it needs to handle the new structure of best_models, i.e.
-#  a list where each item is (rmse_val, model)
-# # Check whether the saved best_model indeed produces the best recorded RMSE on validation
-# check_best_model(
-#     best_model_filename=model_file,
-#     cytof_problem=CytofProblem(conf.model),
-#     petab_base_files=petab_base_files,
-#     input_data=input_features_test,
-#     pp=pypesto_problem_test,
-#     best_rmse_val=rmse_test_min,
-# )

@@ -70,7 +70,14 @@ def init_wandb(
         # v29: no bias, no standard scaling
         # v30: no bias, no standard scaling, scanning depth + testing multimodal
         # v31: no bias, with/without standard scaling, no depth, using last layer activation, incl. multimodal
-        project=f"DeepMechanisticModels.v31.{conf.data}.{conf.model}",
+        # v33: different mechanistic model architectures
+        # v34: feature selection v2
+        # v35: feature selection v2 with lower inflater reg and egfra model
+        # v36: cytof_init only with different model variants incorporating variation in EGFR and ERBB2
+        # v37: proteomics+transcriptomics, with different feature selection approaches
+        # v38: cytof+px+tx linear scans over depth, width, and l1reg_inflater_output iteration
+        # v39: cytof+px+tx linear scan over n_features
+        project=f"DeepMechanisticModels.v39.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
@@ -113,11 +120,8 @@ def init_wandb(
             "par_dev_frob_norm",
             "max_abs_par_median",
             "par_median_frob_norm",
-            "rmse_sample_mean" , 
-            "rmse_sample_variance", 
-            "rmse_sample_span", 
-            "log_parameter_std", 
-            "log_parameter_mean"
+            "log_parameter_std",
+            "log_parameter_mean",
         ]
     }
 
@@ -329,4 +333,6 @@ def log_extra_loss_terms(
         if val != 0:
             wandb.log({key: val}, step=epoch)
 
-    wandb.log({IO_SPARSITY: np.sum(model.output_sparsity_binary_mask)}, step=epoch)
+    wandb.log(
+        {IO_SPARSITY: np.sum(model.output_sparsity_binary_mask)}, step=epoch
+    )

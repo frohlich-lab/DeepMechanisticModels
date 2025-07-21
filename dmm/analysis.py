@@ -1,20 +1,23 @@
-import matplotlib.pyplot as plt
-import numpy as np
 import os
 import re
+from pathlib import Path
 
+import matplotlib.pyplot as plt
+import numpy as np
 import pandas as pd
 import petab.v1 as petab
 import seaborn as sns
-
-from amici.petab_objective import rdatas_to_simulation_df
-from .config_options import default_attributes
-from .plotting import plot_cross_samples
-from .training_helper_funcs import model_output_to_petab_input, model_output_to_petab_input_nojit
-from pathlib import Path
+from amici.petab import rdatas_to_simulation_df
 from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.store import OptimizationResultHDF5Reader
+
+from .config_options import default_attributes
+from .plotting import plot_cross_samples
+from .training_helper_funcs import (
+    model_output_to_petab_input,
+    model_output_to_petab_input_nojit,
+)
 
 
 def process_simulation(
@@ -29,15 +32,23 @@ def process_simulation(
         petab.OBSERVABLE_ID,
         petab.PREEQUILIBRATION_CONDITION_ID,
         petab.TIME,
-        petab.SIMULATION_CONDITION_ID
+        petab.SIMULATION_CONDITION_ID,
     ]
     # Sort by same observables and subset to same cell-line/sample
-    mdf = measurement_df[
-        measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
-        ].sort_values(by=cols_to_check).set_index(cols_to_check)
-    sdf = simulation_df[
-        simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
-        ].sort_values(by=cols_to_check).set_index(cols_to_check)
+    mdf = (
+        measurement_df[
+            measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+        ]
+        .sort_values(by=cols_to_check)
+        .set_index(cols_to_check)
+    )
+    sdf = (
+        simulation_df[
+            simulation_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
+        ]
+        .sort_values(by=cols_to_check)
+        .set_index(cols_to_check)
+    )
     # Subset to common observables (needed for regressors) -- alignment step
     sdf = sdf[sdf.index.isin(mdf.index)]
 
@@ -58,11 +69,9 @@ def process_simulation(
         # TODO @GiacomoFabrini - are all the defaults needed?
         subset_hyperparams = default_attributes
 
-        subset_conf_dict = dict(
-            (k, conf.__dict__[k])
-            for k in subset_hyperparams
-            if k in conf.__dict__
-        )
+        subset_conf_dict = {
+            k: v for k, v in conf.__dict__.items() if k in subset_hyperparams
+        }
         evaluations.append(
             {
                 "res": r[petab.MEASUREMENT],
@@ -113,11 +122,7 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def simulate_dmm(
-        model,
-        input_features,
-        obj,
-        petab_problem,
-        jit_fn: bool = True
+    model, input_features, obj, petab_problem, jit_fn: bool = True
 ) -> pd.DataFrame:
     # Generally use the jitted model_output_to_petab_input function
     if jit_fn:
@@ -125,11 +130,7 @@ def simulate_dmm(
     else:
         fn = model_output_to_petab_input_nojit
 
-    res = obj(
-        fn(model, input_features),
-        mode=MODE_RES,
-        return_dict=True
-    )
+    res = obj(fn(model, input_features), mode=MODE_RES, return_dict=True)
 
     amici_model = obj.amici_model
 
@@ -165,7 +166,9 @@ def simulate_dmm(
             # Create a DataFrame identical to petab_problem.measurement_df
             simulation_df = petab_problem.measurement_df.copy()
             # Rename the MEASUREMENT column to SIMULATION
-            simulation_df.rename(columns={petab.MEASUREMENT: petab.SIMULATION}, inplace=True)
+            simulation_df.rename(
+                columns={petab.MEASUREMENT: petab.SIMULATION}, inplace=True
+            )
             # Set simulation values to np.inf to indicate that the simulation failed
             simulation_df[petab.SIMULATION] = np.inf
         else:
@@ -176,7 +179,7 @@ def simulate_dmm(
 
 
 def evaluate_simulations(
-    models,  # list of models to ensemble
+    model,
     input_features,
     obj,
     conf,
@@ -187,32 +190,22 @@ def evaluate_simulations(
     evaluations,
     plot_file_prefix: str,
 ):
-    # Simulate DMM ensemble models one by one with the same obj
-    simulation_dfs = []
-    for model in models:
-        simulation_dfs.append(
-            simulate_dmm(model, input_features, obj, petab_problem, jit_fn=False)
-        )
-    # Initialise average simulation_df with any of the simulation_dfs
-    avg_simulation_df = simulation_dfs[0].copy()
-    # Compute average of simulation columns and replace the simulation column in the avg_simulation_df
-    avg_simulation_df[petab.SIMULATION] = np.mean(
-        [df[petab.SIMULATION].values for df in simulation_dfs], axis=0
+    simulation_df = simulate_dmm(
+        model, input_features, obj, petab_problem, jit_fn=False
     )
-    # TODO @GiacomoFabrini check avg_simulation_df does what you expect!
 
     for sample in samples:
         process_simulation(
             evaluations=evaluations,
             measurement_df=petab_problem.measurement_df,
-            simulation_df=avg_simulation_df,
+            simulation_df=simulation_df,
             conf=conf,
             sample=sample,
         )
 
     plot_cross_samples(
         petab_problem.measurement_df,
-        avg_simulation_df,
+        simulation_df,
         figdir=outdir / dataset,
         prefix=plot_file_prefix,
     )
@@ -221,7 +214,9 @@ def evaluate_simulations(
 def plot_loss_vs_regularization(df):
     df["cf"] = df["context"] + "_" + df["features"]
     dfa = (
-        df.groupby(["l1reg_inflate", "n_hidden", "cf", "sample", "job"])  # keep job-level info (one rmse value per job)
+        df.groupby(
+            ["l1reg_inflate", "n_hidden", "cf", "sample", "job"]
+        )  # keep job-level info (one rmse value per job)
         .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
         .rename(columns={"res": "rmse"})
         .reset_index()
@@ -232,7 +227,10 @@ def plot_loss_vs_regularization(df):
         sns.lineplot,
         x="l1reg_inflate",
         y="rmse",
-        errorbar=lambda x: (x.min(), x.max()),  # display error bars from min rmse to max rmse across jobs
+        errorbar=lambda x: (
+            x.min(),
+            x.max(),
+        ),  # display error bars from min rmse to max rmse across jobs
         hue="cf",
         palette="rocket",
         style="n_hidden",

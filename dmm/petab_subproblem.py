@@ -120,8 +120,18 @@ def load_petab(
     """
     # TEMPORARY: filter out baseline data
     measurement_table = measurement_table[
-        measurement_table[petab.SIMULATION_CONDITION_ID]
-        != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID]
+        np.logical_or(
+            # dynamic cytof data
+            measurement_table[petab.SIMULATION_CONDITION_ID]
+            != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID],
+            # proteomics
+            measurement_table[petab.OBSERVABLE_ID].str.startswith(
+                (
+                    "tEGFR_obs",
+                    "tERBB2_obs",
+                )
+            ),
+        )
     ]
 
     if samples:

@@ -17,7 +17,7 @@ from pysb import (
 from . import MODEL_FEATURE_PREFIX
 
 
-def add_parameter(name: str):
+def add_parameter(name: str, model: Model):
     """Adds a parameter to the model
 
     :param model:
@@ -29,8 +29,14 @@ def add_parameter(name: str):
     :param value:
         value of the parameter
     """
-    kavg = Parameter(f"MED_{name}", 1.0)
-    kmod = get_autoencoder_modulator(kavg)
+    if name in model.expressions.keys():
+        return model.expressions[name]
+
+    if not f"MED_{name}" in model.parameters.keys():
+        kavg = Parameter(f"MED_{name}", 1.0)
+    else:
+        kavg = model.parameters[f"MED_{name}"]
+    kmod = get_autoencoder_modulator(kavg, model)
     return Expression(name, kavg * kmod)
 
 
@@ -141,7 +147,10 @@ def add_monomer_synth_deg(
     else:
         m = model.monomers[m_name]
 
-    t = Parameter(f"{m_name}_eq", 100.0)
+    if "freeeq" in model.name.split("_") and m_name in ["EGFR", "ERBB2"]:
+        t = add_parameter(f"{m_name}_eq", model)
+    else:
+        t = Parameter(f"{m_name}_eq", 100.0)
     t0 = Expression(f"{m_name}_init", t)
 
     syn_prod = m(
@@ -158,7 +167,7 @@ def add_monomer_synth_deg(
     )
 
     if with_synth:
-        kdeg = add_parameter(f"{m_name}_degradation_kdeg")
+        kdeg = add_parameter(f"{m_name}_degradation_kdeg", model)
         deg_rate = Expression(f"{m_name}_degradation_rate", kdeg)
         syn_rate = Expression(f"{m_name}_synthesis_rate", t0 * deg_rate)
         Rule(f"synthesis_{m_name}", None >> syn_prod, syn_rate)
@@ -187,10 +196,14 @@ def add_monomer_synth_deg(
                     rp = m(**{site: state}) >> m(**{site: states[0]})
 
                 rates = [
-                    add_parameter(f"{m_name}_{label[0]}_{site}_base_kcat"),
+                    add_parameter(
+                        f"{m_name}_{label[0]}_{site}_base_kcat", model
+                    ),
                 ]
                 if with_basal_activation:
-                    kr = add_parameter(f"{m_name}_{label[1]}_{site}_base_kr")
+                    kr = add_parameter(
+                        f"{m_name}_{label[1]}_{site}_base_kr", model
+                    )
                     rates += [
                         Expression(
                             f"{m_name}_{label[1]}_{site}_base_rate",
@@ -330,7 +343,7 @@ def add_activation(
     fstate = {s: valid_states[0] for s in sites}
     rstate = {s: valid_states[1] for s in sites}
 
-    kr = add_parameter(f"{m_name}_{forward}_{site}_kr")
+    kr = add_parameter(f"{m_name}_{forward}_{site}_kr", model)
     if len(site.split("_")) > 1:
         koff = 0.0
         for s in site.split("_"):
@@ -344,14 +357,18 @@ def add_activation(
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         if len(activators) > 1:
-            weight = add_parameter(f"{m_name}_{forward}_{site}_{activator}_kw")
+            weight = add_parameter(
+                f"{m_name}_{forward}_{site}_{activator}_kw", model
+            )
             factor *= weight
 
         num += factor
 
     denum = 1.0
     for deactivator in deactivators:
-        weight = add_parameter(f"{m_name}_{reverse}_{site}_{deactivator}_kw")
+        weight = add_parameter(
+            f"{m_name}_{reverse}_{site}_{deactivator}_kw", model
+        )
         denum += add_or_get_modulator_obs(model, deactivator) * weight
 
     rate = rate_expr * num / denum
@@ -366,7 +383,7 @@ def add_activation(
 def add_degradation(model: Model, targets):
     for target in targets:
         mono_name, site_conditions = site_states_from_string(target)
-        kr = add_parameter(f"degradation_{target}_kr")
+        kr = add_parameter(f"degradation_{target}_kr", model)
         deg_rate = model.expressions[f"{mono_name}_degradation_rate"]
         rate = Expression(f"degradation_{target}_rate", kr * deg_rate)
         Rule(
@@ -376,11 +393,15 @@ def add_degradation(model: Model, targets):
         )
 
 
-def get_autoencoder_modulator(par: Parameter):
+def get_autoencoder_modulator(par: Parameter, model: Model):
     """Generate a new expression that allows modulation of a rate according to
     input parameter. Applies a sigmoid transformation.
     """
-    return Parameter(par.name.replace("MED_", MODEL_FEATURE_PREFIX), 1.0)
+    name = par.name.replace("MED_", MODEL_FEATURE_PREFIX)
+    if name in model.parameters.keys():
+        return model.parameters[name]
+    else:
+        return Parameter(name, 1.0)
 
 
 def add_observables(model: Model):
@@ -388,7 +409,8 @@ def add_observables(model: Model):
     phosphorylated site combinations for all monomers
     """
     for monomer in model.monomers:
-        # Observable(f't{monomer.name}', monomer())
+        if "tobs" in model.name.split("_"):
+            Observable(f"t{monomer.name}", monomer())
         psites = [
             site
             for site in monomer.site_states.keys()
@@ -417,7 +439,7 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
             target = target_expr
         else:
             continue
-        kd = add_parameter(f"{name}_{target}_kd")
+        kd = add_parameter(f"{name}_{target}_kd", model)
 
         if inh is None:
             inh = Parameter(f"{name}_0", 0.0)
