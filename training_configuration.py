@@ -171,7 +171,7 @@ FREEZE_MEDIANS = {
 # Define linear scan for LATENT_DIMS
 LATENT_DIMS = {
     "range": (
-        # 2,
+        2,
         # 3,
         # 4,
         # 6,
