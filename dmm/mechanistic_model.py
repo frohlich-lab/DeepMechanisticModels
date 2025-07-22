@@ -147,7 +147,7 @@ def add_monomer_synth_deg(
     else:
         m = model.monomers[m_name]
 
-    if "freeeq" in model.name.split("_") and m_name in ["EGFR", "ERBB2"]:
+    if "freeeq" in model.name.split("_") and m_name in ["EGFR"]:
         t = add_parameter(f"{m_name}_eq", model)
     else:
         t = Parameter(f"{m_name}_eq", 100.0)
