@@ -1,5 +1,6 @@
 PATHWAYS = (
     "EGFR_MAPK",
+    "EGFR_MAPK_AKT",
     "EGFR_MAPK_tegfr",
     # "EGFR_MAPK_pegfr",
     # "EGFR_MAPK_terbb2",
@@ -7,8 +8,8 @@ PATHWAYS = (
     # "EGFR_MAPK_terbb2_tegfr",
     # "EGFR_MAPK_perbb2_pegfr",
     # "EGFR_MAPK_her2",
-    # "EGFR_MAPK_freeeq",
-    # "EGFR_MAPK_freeeq_tobs",
+    "EGFR_MAPK_freeeq",
+    "EGFR_MAPK_freeeq_tobs",
 )
 
 DATASETS = ("dream_cytof",)
@@ -20,34 +21,14 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = tuple(
+CONTEXTS_FEATURES = (
     # ("cytof_init", "all"),
-    # ("cytof_init", "rfe"),
-    # ("cytof_init", "lasso"),
-    # ("cytof_init", "elastic"),
-    # ("cytof_init", "sequential"),
-    # ("cytof_init", "RFE_5_permute"),
-    # ("cytof_init", "RFE_10_permute"),
-    # ("cytof_init", "RFE_10_tree"),
-    # ("cytof_init", "RFE_15_permute"),
-    # ("cytof_init", "RFE_20_permute"),
+    ("cytof_init", "RFE_6_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "HVGRFE_5_permute"),
-    # ("proteomics", "HVGRFE_10_permute"),
-    # ("proteomics", "HVGRFE_15_permute"),
-    # ("proteomics", "HVGRFE_20_permute"),
+    ("proteomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "all"),
-    # ("transcriptomics", "rfe"),
-    # ("transcriptomics", "lasso"),
-    # ("transcriptomics", "elastic"),
-    # ("transcriptomics", "sequential"),
-    # ("transcriptomics", "HVGRFE_5_permute"),
-    # ("transcriptomics", "HVGRFE_10_permute"),
-    # ("transcriptomics", "HVGRFE_10_tree"),
-    # ("transcriptomics", "RFE_10_tree"),
-    # ("transcriptomics", "HVGRFE_15_permute"),
-    # ("transcriptomics", "HVGRFE_20_permute"),
+    ("transcriptomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "PAM50"),
     # ("transcriptomics", "IHC"),
     # ("transcriptomics", "KRT"),
@@ -116,12 +97,12 @@ CONTEXTS_FEATURES = tuple(
     # if not (
     #     context == "proteomics" and genomic_features == "MPAS"
     # )  # not enough features
-    (
-        context,
-        f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
-    )
-    for n_features in range(4, 34, 2)
-    for context in ["transcriptomics", "proteomics", "cytof_init"]
+    # (
+    #     context,
+    #     f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
+    # )
+    # for n_features in range(4, 34, 2)
+    # for context in ["transcriptomics", "proteomics", "cytof_init"]
 )
 
 # Cross-validation splits
@@ -209,8 +190,8 @@ USE_BIAS = (
 
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
 LAST_LAYER_ACTIVATION = (
-    "True",
-    # "False",
+    # "True",
+    "False",
 )
 
 # For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single

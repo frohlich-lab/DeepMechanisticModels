@@ -77,7 +77,8 @@ def init_wandb(
         # v37: proteomics+transcriptomics, with different feature selection approaches
         # v38: cytof+px+tx linear scans over depth, width, and l1reg_inflater_output iteration
         # v39: cytof+px+tx linear scan over n_features
-        project=f"DeepMechanisticModels.v39.{conf.data}",
+        # v41: added p90RSK to EGFR_MAPK, removed ERBB2 from freeeq model and fixed EGFR_MAPK_AKT model
+        project=f"DeepMechanisticModels.v41.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
