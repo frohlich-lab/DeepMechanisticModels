@@ -1,9 +1,7 @@
-from pysb import Monomer, Observable, Parameter, Rule
+from pysb import Monomer, Parameter, Rule
 
 from dmm.mechanistic_model import (
-    add_activation,
     add_inhibitor,
-    add_monomer_synth_deg,
     add_parameter,
     generate_pathway,
 )
@@ -12,9 +10,8 @@ active_rtks = [
     "EGFR__Y1173_p",
     # 'ERBB2__Y1248_p' # TODO: reactivate this? also add turnover for HER2?
 ]
-# active_erk = ['MAPK1__T185_p__Y187_p', 'MAPK3__T202_p__Y204_p']
 active_erk = ["ERK__Y204_p"]
-active_akt = ["AKT1__T308_p", "AKT2__T309_p", "AKT3__T305_p"]
+active_akt = ["AKT__T308_p"]
 
 
 def add_egfr(model):
@@ -54,77 +51,49 @@ def add_mapk(model):
     mapk_cascade = [
         ("MEK", {"S222": (active_rtks, active_erk)}),
         ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),
-        # ('RPS6KA1', {'S380': active_erk})  # p90RSK
+        ("RPS6KA1", {"S380": active_erk}),  # p90RSK
     ]
     generate_pathway(model, mapk_cascade, add_baseline_activation="first")
 
 
 def add_mtore_akt(model):
-    add_monomer_synth_deg(
-        "MTOR", asites=["C"], asite_states=["c0", "c1", "c2"]
-    )
+    # add_monomer_synth_deg(
+    #     "MTOR", asites=["C"], asite_states=["c0", "c1", "c2"]
+    # )
 
     # AKT
     akt_cascade = [
         ("PIK3CA", {"pip2": (active_rtks, active_erk)}),
         ("PDPK1", {"S241": ["PIK3CA__pip2_p"]}),
         (
-            "AKT1",
+            "AKT",
             {
                 "T308": ["PDPK1__S241_p"],
-                "S473": ["MTOR__C_c2", "AKT1__T308_p"],
-            },
-        ),
-        (
-            "AKT2",
-            {
-                "T309": ["PDPK1__S241_p"],
-                "S473": ["MTOR__C_c2", "AKT2__T309_p"],
-            },
-        ),
-        (
-            "AKT3",
-            {
-                "T305": ["PDPK1__S241_p"],
-                "S473": ["MTOR__C_c2", "AKT3__T305_p"],
+                # "S473": ["MTOR__C_c2", "AKT1__T308_p"],
             },
         ),
     ]
     generate_pathway(model, akt_cascade)
 
-    add_activation(
-        model,
-        "MTOR",
-        "C",
-        "activation",
-        active_akt,
-        [],
-        site_states=["c0", "c2"],
-    )
-
-    add_activation(
-        model,
-        "MTOR",
-        "C",
-        "activation",
-        ["RPS6KA1__S380_p"],
-        [],
-        site_states=["c0", "c1"],
-    )
-
-    Observable(
-        "pAKT_S473",
-        model.monomers["AKT1"](S473="p")
-        + model.monomers["AKT2"](S473="p")
-        + model.monomers["AKT3"](S473="p"),
-    )
-
-    Observable(
-        "pAKT_T308",
-        model.monomers["AKT1"](T308="p")
-        + model.monomers["AKT2"](T309="p")
-        + model.monomers["AKT3"](T305="p"),
-    )
+    # add_activation(
+    #     model,
+    #     "MTOR",
+    #     "C",
+    #     "activation",
+    #     active_akt,
+    #     [],
+    #     site_states=["c0", "c2"],
+    # )
+    #
+    # add_activation(
+    #     model,
+    #     "MTOR",
+    #     "C",
+    #     "activation",
+    #     ["RPS6KA1__S380_p"],
+    #     [],
+    #     site_states=["c0", "c1"],
+    # )
 
 
 def add_stat(model):
@@ -164,7 +133,7 @@ def add_s6(model):
         ("EIF4EBP1", {"T37_T46": ["MTOR__C_c1", "GSK3B__S9_p", *active_erk]}),
         (
             "CREB1",
-            {"S133": ["AKT1__T308_p", "AKT2__T309_p", "RPS6KA1__S380_p"]},
+            {"S133": ["AKT__T308_p", "RPS6KA1__S380_p"]},
         ),
     ]
     generate_pathway(model, EIF4_cascade)
@@ -173,5 +142,5 @@ def add_s6(model):
 def add_inhibitors(model):
     add_inhibitor(model, "iMEK", ["MEK__S222_p_obs"])
     add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs"])
-    add_inhibitor(model, "iPI3K", ["PIK3CA"])
+    add_inhibitor(model, "iPI3K", ["PIK3CA__pip2_p_obs"])
     add_inhibitor(model, "iPKC", ["PKC"])
