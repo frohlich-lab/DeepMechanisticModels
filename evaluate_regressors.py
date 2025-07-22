@@ -290,6 +290,8 @@ for mode in ["linreg", "lasso", "elasticnet"]:
             samples=input_features_dict[dataset].index,
             mode=mode,
             trained_pipeline=trained_pipeline,
+        ).assign(
+            features=conf.features
         )
 
         df.to_csv(
