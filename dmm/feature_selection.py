@@ -215,11 +215,11 @@ def harmonise_cytof_dynamic(input_data):
         input_data.loc[mask, target] = input_data.loc[mask, source]
         return input_data
 
-    markers = ("pERK_Y204_obs", "pMEK_S222_obs", "pERBB2_Y1248_obs")
-    egf_and_perturbations = ("EGF", "iMEK", "iEGFR")
+    markers = tuple(input_data.columns.levels[0])
+    perturbations = tuple(input_data.columns.levels[1])
 
     for marker in markers:
-        for pert in egf_and_perturbations:
+        for pert in perturbations:
             # Impute 13.0 from 12.0 then 14.0 (order matters!)
             for source_time in (12.0, 14.0):
                 input_data = impute_missing(
@@ -252,18 +252,8 @@ def harmonise_cytof_dynamic(input_data):
         )
 
     #  linear interpolation of intermediate missing timepoints
-    for marker in (
-        "pERK_Y204_obs",
-        "pMEK_S222_obs",
-        "pERBB2_Y1248_obs",
-    ):  # all currently considered observables - might need to access, not hardcode
-        for pert in (
-            "EGF",
-            "iMEK",
-            # "iPI3K",
-            "iEGFR",
-            # "iPKC",
-        ):  # all currently considered conditions - might need to access, not hardcode
+    for marker in markers:
+        for pert in perturbations:
             for missing_time, [time_before, time_after] in zip(
                 [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
             ):
@@ -310,7 +300,9 @@ def load_data(
             petab.PREEQUILIBRATION_CONDITION_ID
         )
     elif contextualization == "seqvar":
-        _, input_data = get_cell_line_cellosaurus_annotations(file_dir=features_dir)
+        _, input_data = get_cell_line_cellosaurus_annotations(
+            file_dir=features_dir
+        )
         input_data = input_data.rename_axis(
             petab.PREEQUILIBRATION_CONDITION_ID
         )
