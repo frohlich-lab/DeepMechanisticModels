@@ -192,7 +192,7 @@ for samples in sorted(SPLITS):
                         mode=mode,
                     ),
                     index_col=0,
-                )
+                ).assign(features=features)
                 for ctxt, features in CONTEXTS_FEATURES
             ).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
@@ -210,7 +210,7 @@ for samples in sorted(SPLITS):
             ]:
                 avg_ps_df = rdf.copy()
                 avg_ps_df = avg_ps_df.assign(
-                    context=context, samples=samples, dataset=dataset
+                    context=context, samples=samples, dataset=dataset, features="None"
                 ).replace(
                     np.nan, "N/A"
                 )  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
