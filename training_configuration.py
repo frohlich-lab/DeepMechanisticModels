@@ -120,8 +120,12 @@ CONTEXTS_FEATURES = tuple(
         context,
         f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
     )
-    for n_features in range(4, 34, 2)
-    for context in ["transcriptomics", "proteomics", "cytof_init"]
+    # for n_features in range(4, 34, 2)
+    # for context in ["transcriptomics", "proteomics", "cytof_init"]
+    for context, n_features in zip(
+        ["cytof_init", "proteomics", "transcriptomics"],
+        [10, 20, 15]
+    )
 )
 
 # Cross-validation splits
@@ -210,7 +214,7 @@ USE_BIAS = (
 # last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
 LAST_LAYER_ACTIVATION = (
     "True",
-    # "False",
+    "False",
 )
 
 # For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single

@@ -77,7 +77,8 @@ def init_wandb(
         # v37: proteomics+transcriptomics, with different feature selection approaches
         # v38: cytof+px+tx linear scans over depth, width, and l1reg_inflater_output iteration
         # v39: cytof+px+tx linear scan over n_features
-        project=f"DeepMechanisticModels.v39.{conf.data}",
+        # v40: re-running 'base' features with added regressor evaluations (with 'features' saved)
+        project=f"DeepMechanisticModels.v40.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
