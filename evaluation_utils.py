@@ -64,7 +64,7 @@ def load_model_and_obj(
     conf: Conf,
     petab_base_files: Dict[str, pd.DataFrame],
     dataset: str,
-) -> tuple[list[DeepMechanisticModel], Any]:
+) -> tuple[DeepMechanisticModel, Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
