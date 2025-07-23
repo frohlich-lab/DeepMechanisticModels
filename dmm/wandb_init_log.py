@@ -78,7 +78,8 @@ def init_wandb(
         # v38: cytof+px+tx linear scans over depth, width, and l1reg_inflater_output iteration
         # v39: cytof+px+tx linear scan over n_features
         # v40: re-running 'base' features with added regressor evaluations (with 'features' saved)
-        project=f"DeepMechanisticModels.v40.{conf.data}",
+        # v40c: same as v40, but with input features centred around 0 (mean subtracted)
+        project=f"DeepMechanisticModels.v40c.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
