@@ -36,7 +36,7 @@ def generate_per_sample_pretraining_problems(
     pp.parameter_df.loc[
         pp.parameter_df[petab.ESTIMATE] == 0,
         [petab.OBJECTIVE_PRIOR_TYPE, petab.OBJECTIVE_PRIOR_PARAMETERS],
-    ] = np.NaN
+    ] = np.nan
 
     # create fresh model from scratch since the petab imported one already
     # has the observables added and this might lead to issues.
