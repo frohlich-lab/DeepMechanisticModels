@@ -1,6 +1,6 @@
 # exported from PySB model 'EGFR_MAPK'
 
-from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern
+from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern, time
 
 Model()
 
@@ -126,3 +126,4 @@ Initial(EGFR(Y1173='u', compartment='pm'), EGFR_init)
 Initial(MEK(S222='u'), MEK_init)
 Initial(ERK(Y204='u'), ERK_init)
 Initial(RPS6KA1(S380='u'), RPS6KA1_init)
+
