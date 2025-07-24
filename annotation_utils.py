@@ -87,21 +87,32 @@ def generate_proteomics_annotations(
         impute=impute
     )
 
-    erbb2_cytof_init = overall_cytof_init["pERBB2_Y1248_obs"].rename_axis("cell_line").sort_index().reset_index()
-    erbb2_cytof_init.set_index("cell_line", inplace=True)
-    erbb2_cytof_init.rename(columns={"pERBB2_Y1248_obs": "pHER2_raw"}, inplace=True)
+    def extract_raw_marker(overall_df, marker, rename_to):
+        df = overall_df[[marker]].rename(columns={marker: rename_to})
+        df = df.rename_axis("cell_line").sort_index().reset_index()
+        return df.set_index("cell_line")
 
-    # Compute log2 fold change for HER2 levels with respect to reference cell-lines
+    def compute_log2fc(overall_df, marker, normal_lines, rename_to):
+        ref = overall_df.loc[normal_lines, marker].mean()
+        overall_df[marker] = np.log2(overall_df[marker] / ref)
+        overall_df.loc[normal_lines, marker] = 0
+        log2fc = overall_df[marker].rename(rename_to).rename_axis("cell_line").sort_index()
+        return log2fc.reset_index().set_index("cell_line")
+
+    # Define normal reference lines
     normal_cell_lines = ["c184A1", "c184B5", "cMCF10A", "cMCF12A"]
-    ref = overall_cytof_init.loc[normal_cell_lines, "pERBB2_Y1248_obs"].mean()
-    overall_cytof_init["pERBB2_Y1248_obs"] = np.log2(overall_cytof_init["pERBB2_Y1248_obs"] / ref)
-    overall_cytof_init.loc[normal_cell_lines, "pERBB2_Y1248_obs"] = 0
-    erbb2_cytof_init_log2fc = overall_cytof_init["pERBB2_Y1248_obs"].rename_axis("cell_line").sort_index()
-    erbb2_cytof_init_log2fc.rename("pHER2_log2FC", inplace=True).reset_index()
 
-    pher2_annotations = {"pHER2_raw": erbb2_cytof_init, "pHER2_log2FC": erbb2_cytof_init_log2fc}
+    # Extract raw marker levels
+    phospho_annotations = {
+        "pHER2_raw": extract_raw_marker(overall_cytof_init, "p.HER2", "pHER2_raw"),
+        "pHER2_log2FC": compute_log2fc(overall_cytof_init, "p.HER2", normal_cell_lines, "pHER2_log2FC"),
+        "p.p38_raw": extract_raw_marker(overall_cytof_init, "p.p38", "p.p38_raw"),
+        "p.p38_log2FC": compute_log2fc(overall_cytof_init, "p.p38", normal_cell_lines, "p.p38_log2FC"),
+        "pERK_raw": extract_raw_marker(overall_cytof_init, "p.ERK", "pERK_raw"),
+        "pERK_log2FC": compute_log2fc(overall_cytof_init, "p.ERK", normal_cell_lines, "pERK_log2FC")
+    }
 
-    return pher2_annotations, proteomarkers_log2fc_annotations
+    return phospho_annotations, proteomarkers_log2fc_annotations
 
 
 def generate_subtype_annotations(
