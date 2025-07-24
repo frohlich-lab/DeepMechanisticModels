@@ -334,6 +334,7 @@ def load_data(
         input_data = input_data[features]
     else:
         # for training, compute feature set, filtering out too many nans
+        # this does not affect "seqvar", which has 0/0.5/1 values
         input_data = input_data.loc[:, input_data.isna().mean() < 0.3]
         if contextualization == "transcriptomics":
             # look at mean vs variance plot
