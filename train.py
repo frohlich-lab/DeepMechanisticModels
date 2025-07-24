@@ -76,6 +76,11 @@ input_features_train, input_features_test = (
     for model, dataset in zip([model_train, model_test], ["train", "val"])
 )
 
+mean_input_features_train = input_features_train.mean(axis=0)
+input_features_train -= mean_input_features_train
+input_features_test -= mean_input_features_train
+
+
 early_stopping_params = EarlyStoppingParams(
     patience=PATIENCE,  # (n_epoch-1) where we tolerate `rmse_val` not improving by at least min_improvement
     min_improvement=MIN_IMPROVEMENT,  # min absolute improvement not to lose patience (i.e. increase patience counter)

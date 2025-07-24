@@ -64,7 +64,7 @@ def load_model_and_obj(
     conf: Conf,
     petab_base_files: Dict[str, pd.DataFrame],
     dataset: str,
-) -> tuple[list[DeepMechanisticModel], Any]:
+) -> tuple[DeepMechanisticModel, Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
@@ -755,7 +755,7 @@ def aggregate_and_log(
     # Define aggregation groups for DMM and refs
     gbs_dmm = ["dataset", "ref"] + default_attributes
     gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
-    gbs_refs = ["dataset", "context", "samples", "ref"]
+    gbs_refs = ["dataset", "context", "features", "samples", "ref"]
 
     temp_dfs = []
     for ref_subset, group_cols in zip(
