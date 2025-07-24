@@ -27,12 +27,12 @@ MODEL_FEATURE_PREFIX = "INPUT_"
 Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
-fig_dir = basedir / "figures_newmech"
-evaluations_dir = basedir / "eval_newmech_v40c"
-results_dir = basedir / "res_newmech_v40c"
+fig_dir = basedir / "figures"
+evaluations_dir = basedir / "eval"
+results_dir = basedir / "res"
 data_dir = basedir / "data"
-pretrain_dir = basedir / "pretraining_newmech"
-features_dir = basedir / "features_newmech"
+pretrain_dir = basedir / "pretrain"
+features_dir = basedir / "features"
 
 PER_SAMPLE_OUTFILE_PARS = str(
     pretrain_dir / "{model}" / "{data}" / "{sample}.csv"
@@ -107,7 +107,11 @@ OBSERVABLES_FILE = tpl_petab_file.format(
 )
 
 EVALUATION_REFERENCE = str(
-    evaluations_dir / "{model}" / "{data}" / "{samples}_{mode}_{dataset}.csv"
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "references"
+    / "{samples}_{mode}_{dataset}.csv"
 )
 
 # Regressor template and files
@@ -115,6 +119,7 @@ tpl_regressor = str(
     evaluations_dir
     / "{model}"
     / "{data}"
+    / "regressors"
     / (
         "__".join(
             f"{{{x}}}"
@@ -129,8 +134,6 @@ tpl_regressor = str(
 )
 
 EVALUATION_REGRESSOR = tpl_regressor + "__{dataset}.csv"
-REGR_TRAINED_PIPELINE = tpl_regressor + "__trained_pipeline.joblib"
-REGR_FEATURES_TRAIN = tpl_regressor + "__features_train.joblib"
 
 # using same defaults as above
 tpl_evaluation_file = "__".join(defaults.values())
