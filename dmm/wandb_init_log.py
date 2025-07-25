@@ -81,7 +81,8 @@ def init_wandb(
         # v40c: same as v40, but with input features centred around 0 (mean subtracted)
         # v41: added p90RSK to EGFR_MAPK, removed ERBB2 from freeeq model and fixed EGFR_MAPK_AKT model
         # v42: clean slate with p90RSK added, minimal setup with new directories
-        project=f"DeepMechanisticModels.v42.{conf.data}",
+        # v43: faster initialisation for tegfr model, add baseline activation for EGFR and p90RSK
+        project=f"DeepMechanisticModels.v43.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
