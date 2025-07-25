@@ -1,7 +1,7 @@
 PATHWAYS = (
     "EGFR_MAPK",
-    # "EGFR_MAPK_AKT",
-    # "EGFR_MAPK_tegfr",
+    "EGFR_MAPK_AKT",
+    "EGFR_MAPK_tegfr",
     # "EGFR_MAPK_pegfr",
     # "EGFR_MAPK_terbb2",
     # "EGFR_MAPK_perbb2",

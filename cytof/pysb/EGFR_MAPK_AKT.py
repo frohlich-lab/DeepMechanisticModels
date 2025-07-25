@@ -1,6 +1,6 @@
 # exported from PySB model 'EGFR_MAPK_AKT'
 
-from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern
+from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern, time
 
 Model()
 
@@ -55,6 +55,10 @@ Parameter('MED_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw', 1.0)
 Parameter('DEV_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw', 1.0)
 Parameter('MED_RPS6KA1_phosphorylation_S380_kr', 1.0)
 Parameter('DEV_RPS6KA1_phosphorylation_S380_kr', 1.0)
+Parameter('MED_RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw', 1.0)
+Parameter('DEV_RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw', 1.0)
+Parameter('MED_RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw', 1.0)
+Parameter('DEV_RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw', 1.0)
 Parameter('PIK3CA_eq', 100.0)
 Parameter('MED_PIK3CA_dephosphorylation_pip2_base_kcat', 1.0)
 Parameter('DEV_PIK3CA_dephosphorylation_pip2_base_kcat', 1.0)
@@ -113,6 +117,8 @@ Expression('ERK_phosphorylation_Y204_kr', DEV_ERK_phosphorylation_Y204_kr*MED_ER
 Expression('ERK_phosphorylation_Y204_MEK__S222_p_kw', DEV_ERK_phosphorylation_Y204_MEK__S222_p_kw*MED_ERK_phosphorylation_Y204_MEK__S222_p_kw)
 Expression('ERK_phosphorylation_Y204_EGFR__Y1173_p_kw', DEV_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw*MED_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw)
 Expression('RPS6KA1_phosphorylation_S380_kr', DEV_RPS6KA1_phosphorylation_S380_kr*MED_RPS6KA1_phosphorylation_S380_kr)
+Expression('RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw', DEV_RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw*MED_RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw)
+Expression('RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw', DEV_RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw*MED_RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw)
 Expression('PIK3CA_init', PIK3CA_eq)
 Expression('PIK3CA_dephosphorylation_pip2_base_kcat', DEV_PIK3CA_dephosphorylation_pip2_base_kcat*MED_PIK3CA_dephosphorylation_pip2_base_kcat)
 Expression('PDPK1_init', PDPK1_eq)
@@ -143,7 +149,7 @@ Expression('free_MEK__S222_p_obs', MEK__S222_p_obs/(1.0 + iMEK_0/iMEK_MEK__S222_
 Expression('ERBB2_phosphorylation_Y1248_activation_rate', 1.0*ERBB2_dephosphorylation_Y1248_base_kcat*ERBB2_phosphorylation_Y1248_kr*free_EGFR__Y1173_p_obs)
 Expression('MEK_phosphorylation_S222_activation_rate', MEK_dephosphorylation_S222_base_kcat*MEK_phosphorylation_S222_kr*free_EGFR__Y1173_p_obs/(MEK_dephosphorylation_S222_ERK__Y204_p_kw*ERK__Y204_p_obs + 1.0))
 Expression('ERK_phosphorylation_Y204_activation_rate', 1.0*ERK_dephosphorylation_Y204_base_kcat*ERK_phosphorylation_Y204_kr*(ERK_phosphorylation_Y204_EGFR__Y1173_p_kw*free_EGFR__Y1173_p_obs + ERK_phosphorylation_Y204_MEK__S222_p_kw*free_MEK__S222_p_obs))
-Expression('RPS6KA1_phosphorylation_S380_activation_rate', 1.0*RPS6KA1_dephosphorylation_S380_base_kcat*RPS6KA1_phosphorylation_S380_kr*ERK__Y204_p_obs)
+Expression('RPS6KA1_phosphorylation_S380_activation_rate', 1.0*RPS6KA1_dephosphorylation_S380_base_kcat*RPS6KA1_phosphorylation_S380_kr*(RPS6KA1_phosphorylation_S380_EGFR__Y1173_p_kw*free_EGFR__Y1173_p_obs + RPS6KA1_phosphorylation_S380_ERK__Y204_p_kw*ERK__Y204_p_obs))
 Expression('PIK3CA_phosphorylation_pip2_activation_rate', PIK3CA_dephosphorylation_pip2_base_kcat*PIK3CA_phosphorylation_pip2_kr*free_EGFR__Y1173_p_obs/(PIK3CA_dephosphorylation_pip2_ERK__Y204_p_kw*ERK__Y204_p_obs + 1.0))
 Expression('PDPK1_phosphorylation_S241_activation_rate', 1.0*PDPK1_dephosphorylation_S241_base_kcat*PDPK1_phosphorylation_S241_kr*free_PIK3CA__pip2_p_obs)
 Expression('AKT_phosphorylation_T308_activation_rate', 1.0*AKT_dephosphorylation_T308_base_kcat*AKT_phosphorylation_T308_kr*PDPK1__S241_p_obs)

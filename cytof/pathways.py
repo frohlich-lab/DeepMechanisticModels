@@ -10,7 +10,7 @@ active_rtks = [
     "EGFR__Y1173_p",
     # 'ERBB2__Y1248_p' # TODO: reactivate this? also add turnover for HER2?
 ]
-active_erk = ["ERK__Y204_p"]
+egfr_feedback = ["ERK__Y204_p"]
 active_akt = ["AKT__T308_p"]
 
 
@@ -49,9 +49,10 @@ def add_mapk(model):
         active_rtks.append("ERBB2__Y1248_p")
 
     mapk_cascade = [
-        ("MEK", {"S222": (active_rtks, active_erk)}),
+        ("MEK", {"S222": (active_rtks, egfr_feedback)}),
         ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),
-        ("RPS6KA1", {"S380": active_erk}),  # p90RSK
+        # egfr can activate via p38
+        ("RPS6KA1", {"S380": ["ERK__Y204_p", "EGFR__Y1173_p"]}),  # p90RSK
     ]
     generate_pathway(model, mapk_cascade, add_baseline_activation="first")
 
@@ -63,7 +64,7 @@ def add_mtore_akt(model):
 
     # AKT
     akt_cascade = [
-        ("PIK3CA", {"pip2": (active_rtks, active_erk)}),
+        ("PIK3CA", {"pip2": (active_rtks, egfr_feedback)}),
         ("PDPK1", {"S241": ["PIK3CA__pip2_p"]}),
         (
             "AKT",
@@ -99,8 +100,8 @@ def add_mtore_akt(model):
 def add_stat(model):
     stat_cascade = [
         ("SRC", {"Y419": active_rtks}),
-        ("STAT1", {"Y727": active_erk}),
-        ("STAT3", {"Y705": ["SRC__Y419_p", *active_erk, "EGFR__Y1173_p"]}),
+        ("STAT1", {"Y727": ["ERK__Y204_p"]}),
+        ("STAT3", {"Y705": ["SRC__Y419_p", "ERK__Y204_p", "EGFR__Y1173_p"]}),
         ("STAT5A", {"Y694": ["SRC__Y419_p", "EGFR__Y1173_p"]}),
         ("BTK", {"Y551": ["SRC__Y419_p"]}),
         ("PLCG2", {"Y759": ["EGFR__Y1173_p", "SRC__Y419_p", "BTK__Y551_p"]}),
@@ -130,7 +131,10 @@ def add_s6(model):
 
     # TFs
     EIF4_cascade = [
-        ("EIF4EBP1", {"T37_T46": ["MTOR__C_c1", "GSK3B__S9_p", *active_erk]}),
+        (
+            "EIF4EBP1",
+            {"T37_T46": ["MTOR__C_c1", "GSK3B__S9_p", "ERK__Y204_p"]},
+        ),
         (
             "CREB1",
             {"S133": ["AKT__T308_p", "RPS6KA1__S380_p"]},

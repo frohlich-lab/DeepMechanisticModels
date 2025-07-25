@@ -752,16 +752,24 @@ def aggregate_and_log(
     return_stat_tests: bool,
     num_best: int = 10,
 ):
+    outdir = evaluations_dir / conf.model / conf.data
     # Define aggregation groups for DMM and refs
     gbs_dmm = ["dataset", "ref"] + default_attributes
-    gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
-    gbs_refs = ["dataset", "context", "features", "samples", "ref"]
 
     temp_dfs = []
-    for ref_subset, group_cols in zip(
-        ["DMM", "DMM_CL", "refs"], [gbs_dmm, gbs_dmm_cl, gbs_refs]
-    ):
-        if ref_subset != "DMM_CL":
+    for ref_subset, group_cols in {
+        "DMM": gbs_dmm,
+        "BY_CL_COND_OBS": [
+            "sample",
+            "condition",
+            "observable",
+            "dataset",
+            "ref",
+        ]
+        + default_attributes,
+        "refs": ["dataset", "context", "features", "samples", "ref"],
+    }.items():
+        if ref_subset != "BY_CL_COND_OBS":
             if ref_subset == "DMM":
                 subset_df = df[df.ref == "DMM"]
             else:
@@ -778,14 +786,13 @@ def aggregate_and_log(
                 )
             )
         else:
-            subset_df = df[df.ref == "DMM"]
-            dmm_by_cl = pd.DataFrame(
+            by_cl_cond_obs = pd.DataFrame(
                 [
                     dict(
                         zip(group_cols, group),
                         rmse=np.sqrt(np.square(group_df["res"]).mean()),
                     )
-                    for group, group_df in subset_df.groupby(group_cols)
+                    for group, group_df in df.groupby(group_cols)
                 ]
             )
 
@@ -896,12 +903,7 @@ def aggregate_and_log(
         on=list(data.columns.difference(["rmse", "dataset", "ref"])),
         suffixes=("_train", "_test"),
     )
-    unified_dmm_results.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
-    )
+    unified_dmm_results.to_csv(outdir / "unified_dmm_rmse_train_test.csv")
     print("Finished saving unified (train/test) DMM RMSE results.")
 
     # Restrict DMM results to top 10 jobs for each configuration according to training performance
@@ -917,18 +919,9 @@ def aggregate_and_log(
     )
     # Ensure same dtypes as original dataframe
     top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
-    # Subset results at the cell-line granularity
-    top_n_results_by_cl = convert_dataframe_dtypes(dmm_by_cl).merge(
-        top_n_dmm_train, how="inner", on=default_attributes
-    )[dmm_by_cl.columns]
     # Plot and store
     # plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
-    top_n_results_by_cl.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test_by_cl_top10train.csv"
-    )
+    by_cl_cond_obs.to_csv(outdir / "by_cl_cond_obs.csv")
     # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
     top_n_dmm_train_cv = (
         top_n_dmm_train.groupby(config_cols)
@@ -954,12 +947,7 @@ def aggregate_and_log(
             .groupby("context")
             .head(1)
         )
-        best_configs_dmm.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.top1_best_dmm_{HP_RUN_MODE}.csv"
-        )
+        best_configs_dmm.to_csv(outdir / f"top1_best_dmm_{HP_RUN_MODE}.csv")
 
         # Get the top 10 jobs corresponding to best validation config
         best_configs_dmm_jobs = (
@@ -986,10 +974,7 @@ def aggregate_and_log(
             ]
         barplot_df = pd.concat([unified_nodmm_results, best_configs_dmm_jobs])
         barplot_df.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
+            outdir / f"top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
         )
 
     # # Log via W&B -- DISABLED WANDB FOR EVALS
@@ -1011,12 +996,7 @@ def aggregate_and_log(
         evaluation_tags.append("stat_tests_all")
     for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
         # Save dataframes to CSV
-        evaluation_df.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{evaluation_tag}.csv"
-        )
+        evaluation_df.to_csv(outdir / f"{evaluation_tag}.csv")
 
         # DISABLED WANDB ARTIFACTS
         # # Instantiate artifact
