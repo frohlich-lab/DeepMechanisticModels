@@ -29,7 +29,7 @@ def add_egfr(model):
     generate_pathway(
         model,
         erbb_cascade,
-        add_baseline_activation=["ERBB2"],
+        add_baseline_activation=["EGFR", "ERBB2"],
         species_with_synth="EGFR",
     )
     Rule(
