@@ -410,6 +410,10 @@ for context in contexts:
             **petab_base_files,
         )
 
+    mean_train = input_train.mean()
+    input_train -= mean_train
+    input_val -= mean_train
+
     output_train, features_output_train = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train[conf.samples],

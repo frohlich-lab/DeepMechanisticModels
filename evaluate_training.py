@@ -58,14 +58,6 @@ def evaluate_training(
         model=model,  # all models have the same input features
     )
 
-    # Zero-centre the input features based on training mean
-    mean_input_features_train = subset_features(
-        features=features["train"],
-        model=model,
-    ).mean(axis=0)
-
-    input_features -= mean_input_features_train
-
     # Get latent embeddings and parameter dataframes
     le_df, params_dev_df, params_df = get_embedding_and_params_df(
         dmm_model=model,
@@ -108,8 +100,8 @@ features = process_features(
 
 
 for dataset in [
-    "train",
     "val",
+    "train",
     # "test"  # TODO still don't have test data!
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
