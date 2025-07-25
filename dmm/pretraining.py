@@ -232,6 +232,9 @@ def generate_average_pretraining_problem(
         if s.endswith("_eq")
     )
 
+    # temp disable to reduce runtime
+    can_be_aggregated = True
+
     if can_be_aggregated:
         df_train[petab.SIMULATION_CONDITION_ID] = df_train[
             petab.SIMULATION_CONDITION_ID
@@ -246,6 +249,9 @@ def generate_average_pretraining_problem(
         cdf = pp.condition_df.loc[
             [name.startswith(samples[0]) for name in pp.condition_df.index], :
         ].copy()
+        for col in cdf.columns:
+            if col.endswith("_eq"):
+                cdf[col] = 1.0
         cdf.index = [
             name.replace(samples[0] + "__", "__").replace(
                 samples[0], "baseline"
