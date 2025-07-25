@@ -22,11 +22,11 @@ init_fn = {
 
 class CustomInitLinear(eqx.nn.Linear):
     # same notation as eqx.nn.Linear layers: access with .weight and .bias, enable bias with use_bias
-    in_features: Union[int, Literal["scalar"]] = eqx.static_field()
-    out_features: Union[int, Literal["scalar"]] = eqx.static_field()
+    in_features: Union[int, Literal["scalar"]] = eqx.field(static=True)
+    out_features: Union[int, Literal["scalar"]] = eqx.field(static=True)
     weight: Array
     bias: Optional[Array]
-    use_bias: bool = eqx.static_field()
+    use_bias: bool = eqx.field(static=True)
 
     def __init__(
         self,

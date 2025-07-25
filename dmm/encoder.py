@@ -21,21 +21,21 @@ class AutoEncoder(eqx.Module):
         number of parameters that to which the embedding will be inflated to
     """
 
-    n_features: int = eqx.static_field()  # input size
-    n_latent: int = eqx.static_field()  # bottleneck layer size
-    n_params: int = (
-        eqx.static_field()
+    n_features: int = eqx.field(static=True)  # input size
+    n_latent: int = eqx.field(static=True)  # bottleneck layer size
+    n_params: int = eqx.field(
+        static=True
     )  # number of kinetic parameters = output layer size
-    n_encode_weights: int = (
-        eqx.static_field()
+    n_encode_weights: int = eqx.field(
+        static=True
     )  # known from input size and bottleneck layer size
-    n_inflate_weights: int = (
-        eqx.static_field()
+    n_inflate_weights: int = eqx.field(
+        static=True
     )  # known from bottleneck layer size and output layer size
-    n_encoder_pars: int = eqx.static_field()  # known from two above (sum)
-    data: np.ndarray = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
-    orth_reg_strategy: str = eqx.static_field()
+    n_encoder_pars: int = eqx.field(static=True)  # known from two above (sum)
+    data: np.ndarray = eqx.field(static=True)
+    x_names: List[str] = eqx.field(static=True)
+    orth_reg_strategy: str = eqx.field(static=True)
 
     def __init__(
         self,

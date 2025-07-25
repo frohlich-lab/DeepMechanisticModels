@@ -42,10 +42,10 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
     deep_inflater: DeepComponent
     deep_decoder: Union[eqx.Module, DeepComponent]
 
-    encoder_params: ModuleParams = eqx.static_field()
-    inflater_params: ModuleParams = eqx.static_field()
-    decoder_params: ModuleParams = eqx.static_field()
-    reconstruct: bool = eqx.static_field()
+    encoder_params: ModuleParams = eqx.field(static=True)
+    inflater_params: ModuleParams = eqx.field(static=True)
+    decoder_params: ModuleParams = eqx.field(static=True)
+    reconstruct: bool = eqx.field(static=True)
 
     def __init__(
         self,

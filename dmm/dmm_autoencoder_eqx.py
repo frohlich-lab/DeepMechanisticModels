@@ -75,27 +75,27 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     input_sparsity_binary_mask: Tuple
     output_sparsity_binary_mask: Tuple
 
-    dataset_name: str = eqx.static_field()
-    # pathway_name: str = eqx.static_field()  # not used?!
-    module_depth: int = eqx.static_field()
-    module_structure_multiplier: int = eqx.static_field()
-    use_layer_bias: bool = eqx.static_field()
-    last_layer_activation: bool = eqx.static_field()
-    weight_init_fn: str = eqx.static_field()
-    bias_init_fn: str = eqx.static_field()
-    sample_name_list: List[str] = eqx.static_field()
-    n_input_features: int = eqx.static_field()
-    n_latent: int = eqx.static_field()
-    n_threads: int = eqx.static_field()
-    orth_reg_strategy: str = eqx.static_field()
-    activation_fn_name: str = eqx.static_field()
-    reconstruct: bool = eqx.static_field()
-    model_key: Any = eqx.static_field()
+    dataset_name: str = eqx.field(static=True)
+    # pathway_name: str = eqx.field(static=True)  # not used?!
+    module_depth: int = eqx.field(static=True)
+    module_structure_multiplier: int = eqx.field(static=True)
+    use_layer_bias: bool = eqx.field(static=True)
+    last_layer_activation: bool = eqx.field(static=True)
+    weight_init_fn: str = eqx.field(static=True)
+    bias_init_fn: str = eqx.field(static=True)
+    sample_name_list: List[str] = eqx.field(static=True)
+    n_input_features: int = eqx.field(static=True)
+    n_latent: int = eqx.field(static=True)
+    n_threads: int = eqx.field(static=True)
+    orth_reg_strategy: str = eqx.field(static=True)
+    activation_fn_name: str = eqx.field(static=True)
+    reconstruct: bool = eqx.field(static=True)
+    model_key: Any = eqx.field(static=True)
 
-    petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
-    pypesto_subproblem: pypesto.Problem = eqx.static_field()
-    n_inflated_specific_kin_params: int = eqx.static_field()
-    n_global_kin_params: int = eqx.static_field()
+    petab_importer: pypesto.petab.PetabImporter = eqx.field(static=True)
+    pypesto_subproblem: pypesto.Problem = eqx.field(static=True)
+    n_inflated_specific_kin_params: int = eqx.field(static=True)
+    n_global_kin_params: int = eqx.field(static=True)
 
     def __init__(
         self,

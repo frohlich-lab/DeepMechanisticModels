@@ -1,3 +1,5 @@
+from typing import List, Optional
+
 import equinox as eqx
 import jax.numpy as jnp
 import numpy as np
@@ -10,28 +12,26 @@ from . import MODEL_FEATURE_PREFIX
 from .encoder import AutoEncoder
 from .petab_subproblem import load_petab
 from .problem import Problem
-from typing import List, Optional
-
 
 config.update("jax_enable_x64", True)
 
 
 class DeepMechanisticModel(AutoEncoder):
-    data_name: str = eqx.static_field()
-    pathway_name: str = eqx.static_field()
-    features: np.ndarray = eqx.static_field()
-    features_pca: np.ndarray = eqx.static_field()
-    pca: PCA = eqx.static_field()
-    n_model_inputs: int = eqx.static_field()
-    n_kin_params: int = eqx.static_field()
-    n_samples: int = eqx.static_field()
-    orth_reg_strategy: str = eqx.static_field()
-    sample_names: List[str] = eqx.static_field()
-    x_names: List[str] = eqx.static_field()
-    feature_cols: List[str] = eqx.static_field()
+    data_name: str = eqx.field(static=True)
+    pathway_name: str = eqx.field(static=True)
+    features: np.ndarray = eqx.field(static=True)
+    features_pca: np.ndarray = eqx.field(static=True)
+    pca: PCA = eqx.field(static=True)
+    n_model_inputs: int = eqx.field(static=True)
+    n_kin_params: int = eqx.field(static=True)
+    n_samples: int = eqx.field(static=True)
+    orth_reg_strategy: str = eqx.field(static=True)
+    sample_names: List[str] = eqx.field(static=True)
+    x_names: List[str] = eqx.field(static=True)
+    feature_cols: List[str] = eqx.field(static=True)
     # general PetabImporter compared to old PetabImporterPysb
-    petab_importer: pypesto.petab.PetabImporter = eqx.static_field()
-    pypesto_subproblem: pypesto.Problem = eqx.static_field()
+    petab_importer: pypesto.petab.PetabImporter = eqx.field(static=True)
+    pypesto_subproblem: pypesto.Problem = eqx.field(static=True)
 
     def __init__(
         self,
@@ -175,9 +175,11 @@ class DeepMechanisticModel(AutoEncoder):
             return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)))
         elif self.orth_reg_strategy == "L2":
             # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent))**2)
+            return scale * jnp.mean(jnp.abs(m - jnp.eye(self.n_latent)) ** 2)
         else:
-            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
+            raise ValueError(
+                f"Invalid orth_reg_strategy: {self.orth_reg_strategy}"
+            )
         # SRIP - minimise max singular value/eigenvalue of the same matrix above
         # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
         # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102
@@ -185,7 +187,6 @@ class DeepMechanisticModel(AutoEncoder):
         # Unfortunately, optax.power_iteration() appears not to be differentiable!
         # _, max_eig = power_iteration(m - jnp.eye(self.n_latent))
         # return scale * max_eig
-
 
     def orth_inflate_reg(self, params: jnp.ndarray, scale: float = 1.0):
         """
@@ -207,9 +208,11 @@ class DeepMechanisticModel(AutoEncoder):
             return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))))
         elif self.orth_reg_strategy == "L2":
             # L2 norm
-            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m)))**2)
+            return scale * jnp.mean(jnp.abs(m - jnp.diag(jnp.diag(m))) ** 2)
         else:
-            raise ValueError(f"Invalid orth_reg_strategy: {self.orth_reg_strategy}")
+            raise ValueError(
+                f"Invalid orth_reg_strategy: {self.orth_reg_strategy}"
+            )
         # SRIP - minimise max singular value/eigenvalue of the same matrix above
         # Reference: "Can we gain more from orthogonality regularizations in training Deep CNNs?"
         # Reference DOI: https://doi.org/10.48550/arXiv.1810.09102

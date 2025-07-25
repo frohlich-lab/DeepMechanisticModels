@@ -1,14 +1,11 @@
-import equinox as eqx
-import jax.numpy as jnp
-
-from .custom_layers_eqx import (
-    CustomInitLinear,
-    init_fn
-)
-from jax import nn, random
-from jaxtyping import Array
 from typing import List, Union
 
+import equinox as eqx
+import jax.numpy as jnp
+from jax import nn, random
+from jaxtyping import Array
+
+from .custom_layers_eqx import CustomInitLinear, init_fn
 
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
@@ -23,12 +20,12 @@ act_fn_by_name = {
 
 
 def generate_layer(
-        in_features,
-        out_features,
-        use_bias,
-        key,
-        weight_init_fn="eqx_default",
-        bias_init_fn="eqx_default",
+    in_features,
+    out_features,
+    use_bias,
+    key,
+    weight_init_fn="eqx_default",
+    bias_init_fn="eqx_default",
 ):
     """
     Produces either a Linear (eqx.nn.Linear) layer or a CustomInitLayer (where
@@ -41,10 +38,12 @@ def generate_layer(
             in_features=in_features,
             out_features=out_features,
             use_bias=use_bias,
-            key=key
+            key=key,
         )
     # Select initializer from jax.nn.initializers() via init_fn dict
-    elif (weight_init_fn in init_fn.keys()) and (bias_init_fn in init_fn.keys()):
+    elif (weight_init_fn in init_fn.keys()) and (
+        bias_init_fn in init_fn.keys()
+    ):
         return CustomInitLinear(
             in_features=in_features,
             out_features=out_features,
@@ -56,7 +55,9 @@ def generate_layer(
     else:
         # TODO @GiacomoFabrini consider improving this?!
         # In case of mixed combinations or unknown init_fn names, raise ValueError
-        raise ValueError(f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}.")
+        raise ValueError(
+            f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}."
+        )
 
 
 class DeepComponent(eqx.Module):
@@ -94,9 +95,9 @@ class DeepComponent(eqx.Module):
     """
 
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
-    component_name: str = eqx.static_field()
-    activation_fn_name: str = eqx.static_field()
-    last_layer_activation: bool = eqx.static_field()
+    component_name: str = eqx.field(static=True)
+    activation_fn_name: str = eqx.field(static=True)
+    last_layer_activation: bool = eqx.field(static=True)
 
     def __init__(
         self,
@@ -114,13 +115,13 @@ class DeepComponent(eqx.Module):
 
         # Initialise layers and prepare keys for layer initialisation
         self.layers = []
-        layer_keys = random.split(key, num=len(layer_sizes)-1)
+        layer_keys = random.split(key, num=len(layer_sizes) - 1)
 
         # Define layer-wise architecture
         # Always specify either both weight_init_fn and bias_init_fn
         # or both as "eqx_default" -- mixed combinations will result in ValueError
-        for layer_num, (fan_in, fan_out, key, bias) in enumerate(
-                zip(layer_sizes[:-1], layer_sizes[1:], layer_keys, biases)
+        for fan_in, fan_out, key, bias in zip(
+            layer_sizes[:-1], layer_sizes[1:], layer_keys, biases
         ):
             self.layers.append(
                 generate_layer(
@@ -137,7 +138,9 @@ class DeepComponent(eqx.Module):
         if activation_fn_name in act_fn_by_name.keys():
             self.activation_fn_name = activation_fn_name
         else:
-            raise ValueError(f"Unknown activation function: {activation_fn_name}")
+            raise ValueError(
+                f"Unknown activation function: {activation_fn_name}"
+            )
         self.last_layer_activation = last_layer_activation
 
     def __call__(self, x):
@@ -148,7 +151,11 @@ class DeepComponent(eqx.Module):
             for layer in self.layers[:-1]:
                 a = activation(layer(a))
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
-        return self.layers[-1](a) if not self.last_layer_activation else activation(self.layers[-1](a))
+        return (
+            self.layers[-1](a)
+            if not self.last_layer_activation
+            else activation(self.layers[-1](a))
+        )
 
 
 class KinParamsCombiner(eqx.Module):
@@ -162,17 +169,16 @@ class KinParamsCombiner(eqx.Module):
     :param n_global_kin_params:
         number of global kinetic parameters.
     """
-    learned_global_kin_params: Array
-    component_name: str = eqx.static_field()
 
-    def __init__(
-            self,
-            component_name,
-            n_global_kin_params
-    ):
+    learned_global_kin_params: Array
+    component_name: str = eqx.field(static=True)
+
+    def __init__(self, component_name, n_global_kin_params):
         # Initialise the learned global (non-cell-specific) parameters to zeros (in log10 scale, so ones in linear)
         self.component_name = component_name
-        self.learned_global_kin_params = jnp.zeros(shape=(n_global_kin_params, ))
+        self.learned_global_kin_params = jnp.zeros(
+            shape=(n_global_kin_params,)
+        )
 
     def __call__(self, x):
         # input x is the inflated parameter deviations
