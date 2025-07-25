@@ -44,7 +44,7 @@ def generate_pathway(
     model: Model,
     proteins: Iterable[Tuple[str, Dict[str, Iterable[str]]]],
     species_with_synth=None,
-    add_baseline_activation="none",
+    add_baseline_activation=(),
 ):
     """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
@@ -58,14 +58,13 @@ def generate_pathway(
     if species_with_synth is None:
         species_with_synth = []
 
-    for ip, (p_name, site_activators) in enumerate(proteins):
+    for p_name, site_activators in proteins:
         add_monomer_synth_deg(
             model,
             p_name,
             psites=site_activators.keys(),
             with_synth=p_name in species_with_synth,
-            with_basal_activation=add_baseline_activation == "all"
-            or (add_baseline_activation == "first" and ip == 0),
+            with_basal_activation=p_name in add_baseline_activation,
         )
 
     for p_name, site_activators in proteins:

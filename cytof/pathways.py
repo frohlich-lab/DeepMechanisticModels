@@ -29,7 +29,7 @@ def add_egfr(model):
     generate_pathway(
         model,
         erbb_cascade,
-        add_baseline_activation="first",
+        add_baseline_activation=["ERBB2"],
         species_with_synth="EGFR",
     )
     Rule(
@@ -54,7 +54,9 @@ def add_mapk(model):
         # egfr can activate via p38
         ("RPS6KA1", {"S380": ["ERK__Y204_p", "EGFR__Y1173_p"]}),  # p90RSK
     ]
-    generate_pathway(model, mapk_cascade, add_baseline_activation="first")
+    generate_pathway(
+        model, mapk_cascade, add_baseline_activation=["MEK", "RPS6KA1"]
+    )
 
 
 def add_mtore_akt(model):
