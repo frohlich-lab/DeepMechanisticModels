@@ -5,7 +5,6 @@ import numpy as np
 import pandas as pd
 
 from pathlib import Path
-from scipy.integrate import trapezoid
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
 from sklearn.model_selection import cross_val_score
@@ -270,33 +269,80 @@ def find_input_features_baseline(
         input_features,
         embeddings,
         baseline_mode: str = "inflater_origin",
-        model = None,
+        model=None,
 ):
+    """
+    Finds baseline input features corresponding to a target embedding or zero inflater output.
+
+    baseline_mode options:
+        - "zero_embedding": baseline input features map to null embeddings
+        - "inflater_origin": baseline input features map to null inflated parameter deviations (through embeddings)
+        - "zero_parameter_deviations": baseline input features map to null inflated parameter deviations (directly)
+
+    Returns:
+        input_features_baseline
+    """
+
     if baseline_mode == "zero_embedding":
-        target_embedding = jnp.zeros_like(embeddings[0])
+        # Target: zero vector in embedding space
+        target = jnp.zeros_like(embeddings[0])
+
+        def root_find_fn(x, _):
+            return encoder(x) - target
     elif baseline_mode == "inflater_origin":
+        # Target: specific embedding that gives zero sparse deviations
         assert model is not None, "Model required for 'inflater_origin' baseline."
-        target_embedding = find_embedding_origin(model, embeddings)
+        target = find_embedding_origin(model, embeddings)
+
+        def root_find_fn(x, _):
+            return encoder(x) - target
+    elif baseline_mode == "zero_parameter_deviations":
+        assert model is not None, "Model required for 'zero_parameter_deviations' baseline."
+        mask = jnp.array(model.output_sparsity_binary_mask)
+        # Target: zero vector in parameter deviation space
+        target = jnp.zeros_like(mask)
+
+        def root_find_fn(x, _):
+            emb = encoder(x)
+            inflated_param_devs = model.deep_inflater(emb) * mask
+            return inflated_param_devs - target
     else:
         raise ValueError(f"Unknown baseline_mode: {baseline_mode}")
 
-    def encoder_target_diff(x, _):
-        return encoder(x) - target_embedding
-
+    # Solver setup
     solver = optx.Newton(rtol=1e-8, atol=1e-8)
     init_guess = jnp.mean(input_features, axis=0)
-    sol = optx.root_find(fn=encoder_target_diff, y0=init_guess, solver=solver)
-    input_features_baseline = sol.value
-    emb_origin = encoder(input_features_baseline)
 
-    print(
-        f"Baseline input features found: {input_features_baseline}, "
-        f"with corresponding baseline/origin embedding: {emb_origin}, "
-        f"whereas the target embedding was: {target_embedding}"
-    )
+    # Solve for baseline input
+    if baseline_mode in ["zero_embedding", "inflater_origin"]:
+        sol = optx.root_find(fn=root_find_fn, y0=init_guess, solver=solver)
+        input_features_baseline = sol.value
+        emb_origin = encoder(input_features_baseline)
 
-    assert jnp.sum(jnp.abs(emb_origin - target_embedding)) < 1e-6, \
-        "Baseline embedding does not match target embedding!"
+        print(
+            f"[{baseline_mode}] Baseline input: {input_features_baseline}, "
+            f"Embedding: {emb_origin}, "
+            f"Target: {target}"
+        )
+
+        assert jnp.sum(jnp.abs(emb_origin - target)) < 1e-6, \
+            f"{baseline_mode} embedding does not match target!"
+
+    elif baseline_mode == "zero_parameter_deviations":
+        sol = optx.root_find(fn=root_find_fn, y0=init_guess, solver=solver)
+        input_features_baseline = sol.value
+        deviations = model.deep_inflater(encoder(input_features_baseline)) * mask
+
+        print(
+            f"[zero_parameter_deviations] Baseline input: {input_features_baseline}, "
+            f"Parameter deviations: {deviations}"
+        )
+
+        assert jnp.linalg.norm(deviations) < 1e-6, \
+            "zero_parameter_deviations baseline does not yield zero deviations!"
+    else:
+        raise ValueError(f"Unknown baseline_mode: {baseline_mode}")
+
     return input_features_baseline
 
 
@@ -305,7 +351,6 @@ def integrated_gradients(
         model_fn,
         baseline_x=None,
         num_steps=100,
-        method="riemann"
 ):
     if baseline_x is None:
         baseline_x = jnp.zeros_like(input_x)
@@ -317,14 +362,8 @@ def integrated_gradients(
     jac_fn = jax.jacrev(model_fn)
     jacobians = jax.vmap(jac_fn)(interpolated)
 
-    # Discrete integration (default: Riemann sum as in original paper)
-    if method == "riemann":
-        path_grad = jacobians.mean(axis=0)
-    elif method == "trapezoid":
-        path_grad = trapezoid(jacobians, dx=1.0/num_steps, axis=0)  # (M, 2)
-    else:
-        raise ValueError(f"Unknown method: {method}")
-
+    # Discrete integration (Riemann sum as in original paper)
+    path_grad = jacobians.mean(axis=0)
     return (input_x - baseline_x) * path_grad
 
 
@@ -350,10 +389,35 @@ def run_inflater_ig_attributions(
             model_fn=inverse_rotate_then_mask_inflate,
             baseline_x=jnp.zeros_like(x),
             num_steps=num_steps,
-            method="riemann"
         )
 
-    return rotated_embeddings, jax.vmap(ig_inflater_per_sample)(rotated_embeddings)
+    # Apply IG to each rotated embedding
+    rotated_embeddings_output = jax.vmap(ig_inflater_per_sample)(rotated_embeddings)
+
+    # ======= Begin completeness and baseline checks =======
+
+    # Compute the model outputs at each rotated embedding
+    outputs_at_input = jax.vmap(inverse_rotate_then_mask_inflate)(rotated_embeddings)  # shape (N, D)
+
+    # Compute outputs at baseline (zero embedding) — should be close to zero
+    baseline_output = inverse_rotate_then_mask_inflate(jnp.zeros_like(rotated_embeddings[0]))  # shape (D,)
+    baseline_norm = jnp.linalg.norm(baseline_output)
+
+    # Check that baseline output is near zero (strict check)
+    assert baseline_norm < 1e-5, f"Inflater baseline output is not near zero: norm = {baseline_norm}"
+
+    # Compute sum of attributions over embedding dimensions (shape: N, P, D -> N, P)
+    attribution_sums = rotated_embeddings_output.sum(axis=2)
+
+    # Compute difference between attribution sum and output sum
+    diff = jnp.abs(attribution_sums - outputs_at_input)
+
+    # Assert that each difference is small (allow tolerance for numerical integration)
+    assert jnp.all(diff < 1e-5), f"Inflater attribution completeness check failed! Max difference: {diff.max()}"
+
+    # ======= End checks =======
+
+    return rotated_embeddings, rotated_embeddings_output
 
 
 def run_encoder_ig_attributions(
@@ -384,7 +448,102 @@ def run_encoder_ig_attributions(
             model_fn=encode_then_rotate,
             baseline_x=input_features_baseline,
             num_steps=num_steps,
-            method="riemann"
         )
 
+    # Step 4: Apply IG to all inputs
+    ig_attributions = jax.vmap(ig_encoder_per_sample)(input_features)  # shape: (N, 2, D_in)
+
+    # ======= Begin completeness and baseline checks =======
+
+    # Step 5: Compute true rotated embeddings relative to baseline
+    rotated_embeddings = jax.vmap(encode_then_rotate)(input_features)  # shape: (N, 2)
+
+    # Step 6: Compute baseline rotated embedding → must be zero by construction
+    baseline_embedding = encode_then_rotate(input_features_baseline)  # shape: (2,)
+    baseline_norm = jnp.linalg.norm(baseline_embedding)
+
+    assert baseline_norm < 1e-5, f"Encoder baseline embedding not near zero: norm = {baseline_norm}"
+
+    # Step 7: Compute sum of attributions over input dimensions (axis=-1)
+    attribution_sums = ig_attributions.sum(axis=2)  # shape: (N, 2)
+
+    # Step 8: Compute difference between IG sums and actual rotated embeddings
+    diff = jnp.abs(attribution_sums - rotated_embeddings)  # shape: (N, 2)
+
+    max_diff = diff.max()
+    assert jnp.all(diff < 1e-5), f"Encoder attribution completeness failed! Max diff: {max_diff}"
+
+    # ======= End checks =======
+
     return jax.vmap(ig_encoder_per_sample)(input_features)  # (N, 2, D_in)
+
+
+def run_full_model_ig_attributions(
+        encoder,
+        model,
+        input_features,
+        embeddings,
+        baseline_mode: str = "zero_parameter_deviations",
+        num_steps: int = 100,
+):
+    """
+    Computes Integrated Gradients (IG) attributions from input_features all the way to the
+    sparse parameter deviations (inflater outputs), applying the encoder + inflater sequentially.
+
+    Checks:
+    - Baseline output is near zero.
+    - IG attribution sums match actual output deviations.
+
+    Returns:
+        ig_attributions: per-sample, per-output, per-input attributions
+    """
+    mask = jnp.array(model.output_sparsity_binary_mask)  # shape: (P,)
+
+    # Step 1: Baseline in input space → mapped through encoder → embedding → inflater
+    input_features_baseline = find_input_features_baseline(
+        encoder=encoder,
+        input_features=input_features,
+        embeddings=embeddings,
+        baseline_mode=baseline_mode,
+        model=model
+    )
+
+    # Step 2: Define full model function: input_features → embedding → inflated deviation
+    def full_model_fn(x):
+        embedding = encoder(x)
+        inflated = model.deep_inflater(embedding) * mask
+        return inflated
+
+    # Step 3: Define per-sample IG function (returns (P, D_in))
+    def ig_full_per_sample(x):
+        return integrated_gradients(
+            input_x=x,
+            model_fn=full_model_fn,
+            baseline_x=input_features_baseline,
+            num_steps=num_steps,
+        )
+
+    # Step 4: Apply IG across all inputs
+    ig_attributions = jax.vmap(ig_full_per_sample)(input_features)  # shape: (N, P, D_in)
+
+    # ======= Begin completeness and baseline checks =======
+
+    # Step 6: Compute true model outputs at inputs and baseline
+    outputs_at_input = jax.vmap(full_model_fn)(input_features)  # shape: (N, P)
+    baseline_output = full_model_fn(input_features_baseline)    # shape: (P,)
+    baseline_norm = jnp.linalg.norm(baseline_output)
+
+    assert baseline_norm < 1e-5, f"Full model baseline output not near zero: norm = {baseline_norm}"
+
+    # Step 7: Compute sum of attributions over input dimensions (axis=-1)
+    attribution_sums = ig_attributions.sum(axis=2)  # shape: (N, P)
+
+    # Step 8: Compute difference between attribution sums and model outputs
+    diff = jnp.abs(attribution_sums - outputs_at_input)  # shape: (N, P)
+
+    max_diff = diff.max()
+    assert jnp.all(diff < 1e-5), f"Full model attribution completeness failed! Max diff: {max_diff}"
+
+    # ======= End checks =======
+
+    return ig_attributions  # shape: (N, P, D_in)
