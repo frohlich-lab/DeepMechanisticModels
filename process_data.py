@@ -68,7 +68,7 @@ def observable_id_to_model_expr(
     site_pattern = r"_([S|Y|T][0-9]+)"
 
     monomer = re.sub(site_pattern, "", obs_id)
-    sites = sorted(list(re.findall(site_pattern, obs_id)))
+    sites = sorted(re.findall(site_pattern, obs_id))
 
     name = f'p{monomer}_{"_".join(sites)}' if sites else f"t{obs_id}"
 
@@ -150,6 +150,9 @@ if __name__ == "__main__":
     observable_table[petab.OBSERVABLE_FORMULA] = [
         f"log(observableParameter1_{obs}_obs * {obs} "
         f"+ observableParameter2_{obs}_obs)"
+        if obs.startswith("t")
+        else f"observableParameter1_{obs}_obs * {obs} "
+        f"+ observableParameter2_{obs}_obs"
         for obs in observable_obs
     ]
     observable_table[petab.NOISE_DISTRIBUTION] = petab.NORMAL
