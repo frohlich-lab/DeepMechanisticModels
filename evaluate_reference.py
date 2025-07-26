@@ -68,9 +68,6 @@ def evaluate_pretraining_per_sample(
         output = process_per_sample_pretrain(
             sample, problem, conf, indir, petab_base_files
         )
-        if output is None:
-            # file not found
-            continue
         importer, simulation_df = output
         process_simulation(
             evaluations=evaluations,

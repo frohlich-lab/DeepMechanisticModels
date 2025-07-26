@@ -8,6 +8,7 @@ import pandas as pd
 # import wandb
 from common import (
     CONTEXT_SET,
+    EVALUATE_ALL_CSVS,
     EVALUATION_EMBEDDING,
     EVALUATION_FULL_PARAMETERS,
     EVALUATION_PARAMETER_DEVIATIONS,
@@ -210,7 +211,10 @@ for samples in sorted(SPLITS):
             ]:
                 avg_ps_df = rdf.copy()
                 avg_ps_df = avg_ps_df.assign(
-                    context=context, samples=samples, dataset=dataset, features="None"
+                    context=context,
+                    samples=samples,
+                    dataset=dataset,
+                    features="None",
                 ).replace(
                     np.nan, "N/A"
                 )  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
@@ -241,9 +245,19 @@ df = pd.concat(dfs, ignore_index=True)
 del dfs
 
 le_df = pd.concat(le_dfs, ignore_index=True)
+le_df.to_csv(
+    EVALUATE_ALL_CSVS.format(
+        model=conf.model, data=conf.data, filename="embeddings"
+    )
+)
 del le_dfs
 
 param_dev_df = pd.concat(param_dev_dfs, ignore_index=True)
+param_dev_df.to_csv(
+    EVALUATE_ALL_CSVS.format(
+        model=conf.model, data=conf.data, filename="param_devs"
+    )
+)
 del param_dev_dfs
 
 param_df = pd.concat(param_dfs, ignore_index=True)

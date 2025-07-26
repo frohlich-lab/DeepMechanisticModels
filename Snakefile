@@ -9,9 +9,10 @@ from common import (
     # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
-    EVALUATE_ALL, EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
+    EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
-    CONTEXT_SET, FEATURES_SET, SafeDict
+    CONTEXT_SET, FEATURES_SET, SafeDict,
+    fig_dir
 )
 from generate_run_configs import generate_run_configs
 from pathlib import Path
@@ -463,10 +464,22 @@ rule evaluate_all:
 
 
 # Regular train_and_evaluate
+rule report_all:
+    input:
+        script='report_all.py',
+        evaluation=rules.evaluate_all.output.csv,
+    output:
+        performance=fig_dir / '{model}' / '{data}' / 'performance.pdf'
+    shell:
+        'python3 {input.script}' + ' '.join(
+            f'--{arg}={{wildcards.{arg}}}'
+            for arg in ('model', 'data')
+        )
+
 rule train_and_evaluate:
     input:
          evaluation=expand(
-             rules.evaluate_all.output.csv,  # changed it to CSV as plots might not be generated without stat tests
+             rules.report_all.output.performance,  # changed it to CSV as plots might not be generated without stat tests
              model=PATHWAYS, data=DATASETS
          )
 

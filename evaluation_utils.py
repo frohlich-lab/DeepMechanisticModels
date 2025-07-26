@@ -93,9 +93,6 @@ def process_per_sample_pretrain(
     petab_base_files: Dict[str, pd.DataFrame],
 ):
     rfile = indir / f"{sample}.csv"
-    if not rfile.exists():
-        return None
-
     petab_base_importer = load_petab(
         problem,
         conf.data,
@@ -792,7 +789,7 @@ def aggregate_and_log(
                         zip(group_cols, group),
                         rmse=np.sqrt(np.square(group_df["res"]).mean()),
                     )
-                    for group, group_df in df.groupby(group_cols)
+                    for group, group_df in df.groupby(group_cols, dropna=False)
                 ]
             )
 
