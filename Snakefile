@@ -145,7 +145,7 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="24h",
+        runtime="12h",
         nodes=1,
         threads=2
     shell:
@@ -282,7 +282,6 @@ rule estimate_parameters:
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
                 'use_simple_linear_schedule', 'use_early_stopping',
-                'job',
             )
         ) + ' --threads={resources.threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
 
