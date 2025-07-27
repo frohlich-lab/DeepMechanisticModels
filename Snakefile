@@ -37,14 +37,25 @@ envvars:
     "SYNAPSE_AUTH_TOKEN",
     "WANDB_API_KEY"
 
+
+rule load_data:
+    input:
+        script='load_data.py'
+    output:
+        cytof='./data/cytof.csv',
+        proteomics='./data/proteomics.csv',
+        transcriptomics='./data/transcriptomics.csv'
+
 rule process_data:
     input:
         script='process_data.py',
         data_code=mencoder_dir / 'generate_data.py',
         model_code=mencoder_dir / 'mechanistic_model.py',
-        pathway=cytof_dir / 'pw_{model}.py',
         data_code2=cytof_dir / 'data.py',
-        pathways=cytof_dir / 'pathways.py'
+        pathways=cytof_dir / 'pathways.py',
+        cytof=rules.load_data.output.cytof,
+        proteomics=rules.load_data.output.proteomics,
+        transcriptomics=rules.load_data.output.transcriptomics,
     output:
         datafiles=expand(
             tpl_petab_file,
@@ -70,7 +81,6 @@ rule compile_mechanistic_model:
     input:
         script='compile_model.py',
         model_code=rules.process_data.input.model_code,
-        pathway=rules.process_data.input.pathway,
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:

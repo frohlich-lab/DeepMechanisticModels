@@ -97,7 +97,7 @@ class CytofProblem(Problem):
         return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
-        model_file = pathway_dir / f"pw_{self.pathway_name}.py"
+        model_file = pathway_dir / f"pw_{self.pathway_name.split('__')[0]}.py"
         if not model_file.exists():
             raise ValueError(
                 f"{self.pathway_name} is not a valid pathway name for this problem class. Please specify"

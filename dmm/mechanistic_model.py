@@ -203,10 +203,11 @@ def add_monomer_synth_deg(
                     kr = add_parameter(
                         f"{m_name}_{label[1]}_{site}_base_kr", model
                     )
+                    k_cond = Parameter(f"b_{m_name}")
                     rates += [
                         Expression(
                             f"{m_name}_{label[1]}_{site}_base_rate",
-                            kr * rates[0],
+                            kr * rates[0] * k_cond,
                         )
                     ]
 
@@ -356,9 +357,11 @@ def add_activation(
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         if len(activators) > 1:
-            weight = add_parameter(
-                f"{m_name}_{forward}_{site}_{activator}_kw", model
-            )
+            p_name = f"{m_name}_{forward}_{site}_{activator}_kw"
+            if activator in model.parameters.keys():
+                weight = Parameter(p_name)
+            else:
+                weight = add_parameter(p_name, model)
             factor *= weight
 
         num += factor

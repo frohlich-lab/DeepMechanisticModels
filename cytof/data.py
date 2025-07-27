@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 from typing import List, Tuple
 
@@ -469,18 +470,66 @@ def build_condition_table(
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
-    for eq_par in model.parameters.keys():
-        if eq_par in ["EGFR_eq", "ERBB2_eq"]:
-            for gene in ["EGFR", "ERBB2"]:
-                if not eq_par.startswith(gene):
+    if "__" in model.name:
+        modifications = model.name.split("__")[1].split("_")
+    else:
+        modifications = ()
+
+    for par_name in model.parameters.keys():
+        # mutations
+        if par_name.startswith("m_"):
+            if par_name.replace("_", "").lower() in modifications:
+                if par_name == "m_BRAF":
+                    cell_lines = ["cDU4475"]
+                elif par_name == "m_KRAS":
+                    cell_lines = [
+                        "cMDAMB134VI",
+                        "cMDAMB231",
+                        "cMDAMB453",
+                        "cMPE600",
+                    ]
+                else:
+                    cell_lines = []
+
+                def filter_cl(x, cls):
+                    return float(x.split("__")[0] in cls)
+
+                fcl = partial(filter_cl, cls=cell_lines)
+
+                condition_table[par_name] = condition_table[
+                    petab.CONDITION_ID
+                ].apply(fcl)
+            else:
+                condition_table[par_name] = 0.0
+
+        # baseline activations
+        elif par_name.startswith("b_"):
+            if par_name.replace("_", "").lower() in modifications:
+                condition_table[par_name] = 1.0
+            else:
+                condition_table[par_name] = 0.0
+        # expression levels
+        elif par_name.endswith("_eq"):
+            for gene in [
+                "EGFR",
+                "ERBB2",
+                "TGFA",
+                "BTC",
+                "EREG",
+                "NRG1",
+                "NRG2",
+            ]:
+                if not par_name.startswith(gene):
                     continue
 
-                if f"p{gene.lower()}" in model.name.split("_"):
+                if f"p{gene.lower()}" in modifications:
                     measurement_type = "proteomics"
-                elif f"t{gene.lower()}" in model.name.split("_"):
+                elif f"t{gene.lower()}" in modifications:
                     measurement_type = "transcriptomics"
                 else:
-                    condition_table[eq_par] = 1.0
+                    condition_table[par_name] = float(
+                        gene in ["EGFR", "ERBB2"]
+                    )
                     continue
 
                 prot_data = measurement_table[
@@ -502,14 +551,14 @@ def build_condition_table(
                     .agg("mean")[petab.MEASUREMENT]
                 )
                 prot_log2fc -= prot_log2fc.mean()
-                condition_table[eq_par] = [
+                condition_table[par_name] = [
                     2 ** prot_log2fc.get(c.split("__")[0], 0.0)
                     for c in condition_table[petab.CONDITION_ID]
                 ]
-        elif eq_par.endswith("_eq") and not eq_par.startswith(
+        elif par_name.endswith("_eq") and not par_name.startswith(
             ("DEV_", "MED_")
         ):
-            condition_table[eq_par] = 1.0
+            condition_table[par_name] = 1.0
     return condition_table
 
 
@@ -517,35 +566,14 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     # table_SNP, SNP_mapping = load_snp_from_synapse()
     # table_cna = load_cna_from_synapse()
 
-    measurement_table_cytof, id_vars = load_cytof_from_synapse()
-    measurement_table_cytof = process_petab_cytof(
-        measurement_table_cytof, id_vars
+    measurement_table_cytof = pd.read_csv("./data/cytof.csv", index_col=0)
+
+    measurement_table_proteomics = pd.read_csv(
+        "./data/proteomics.csv", index_col=0
     )
 
-    measurement_table_proteomics = load_proteomics_from_synapse()
-    up_ids = load_ids_from_uniprot(
-        measurement_table_proteomics["UPID"].unique()
-    )
-    # missing gene names: A2VCL2, A8MUA0, O00370, Q6ZSR9
-    # A2VCL2: dropped from uniprot, CCDC162P https://varsome.com/gene/hg19/CCDC162P
-    # A8MUA0: Putative UPF0607 protein, SPATA6: https://varsome.com/gene/hg19/SPATA6
-    # O00370: ORF2p: https://www.uniprot.org/uniprotkb/O00370/entry
-    # Q6ZSR9: Uncharacterized protein FLJ45252: https://www.uniprot.org/uniprotkb/Q6ZSR9/entry
-    up_ids["A2VCL2"] = "CCDC162P"
-    up_ids["A8MUA0"] = "SPATA6"
-    up_ids["O00370"] = "ORF2P"
-    up_ids["Q6ZSR9"] = "FLJ45252"
-
-    measurement_table_proteomics.loc[
-        :, "GENENAME"
-    ] = measurement_table_proteomics["UPID"].apply(lambda x: up_ids.get(x))
-    measurement_table_proteomics = process_petab_proteomics(
-        measurement_table_proteomics
-    )
-
-    measurement_table_transcriptomics = load_transcriptomics_from_synapse()
-    measurement_table_transcriptomics = process_petab_transcriptomics(
-        measurement_table_transcriptomics
+    measurement_table_transcriptomics = pd.read_csv(
+        "./data/transcriptomics.csv", index_col=0
     )
 
     measurement_table = pd.concat(

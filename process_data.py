@@ -89,6 +89,12 @@ if __name__ == "__main__":
     problem = CytofProblem(pathway_name=conf.model)
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
+    model.name = conf.model
+
+    if "__" in conf.model:
+        modifications = conf.model.split("__")[-1].split("_")
+    else:
+        modifications = []
 
     if conf.data == "dream_cytof":
         (
@@ -150,7 +156,7 @@ if __name__ == "__main__":
     observable_table[petab.OBSERVABLE_FORMULA] = [
         f"log(observableParameter1_{obs}_obs * {obs} "
         f"+ observableParameter2_{obs}_obs)"
-        if obs.startswith("t")
+        if (obs.startswith("t") or "logobs" in modifications)
         else f"observableParameter1_{obs}_obs * {obs} "
         f"+ observableParameter2_{obs}_obs"
         for obs in observable_obs

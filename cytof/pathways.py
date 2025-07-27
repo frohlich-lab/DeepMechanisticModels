@@ -16,6 +16,12 @@ active_akt = ["AKT__T308_p"]
 
 def add_egfr(model):
     Parameter("EGF_0")
+    Parameter("TGFA_eq")
+    Parameter("BTC_eq")
+    Parameter("EREG_eq")
+    Parameter("NRG1_eq")
+    Parameter("NRG2_eq")
+
     EGFR = Monomer(
         "EGFR",
         ["Y1173", "compartment"],
@@ -23,8 +29,8 @@ def add_egfr(model):
     )
 
     erbb_cascade = [
-        ("ERBB2", {"Y1248": ["EGFR__Y1173_p"]}),
-        ("EGFR", {"Y1173": ["EGF_0"]}),
+        ("ERBB2", {"Y1248": ["EGFR__Y1173_p", "NRG1_eq", "NRG2_eq"]}),
+        ("EGFR", {"Y1173": ["EGF_0", "TGFA_eq", "BTC_eq", "EREG_eq"]}),
     ]
     generate_pathway(
         model,
@@ -45,11 +51,14 @@ def add_egfr(model):
 
 
 def add_mapk(model):
+    Parameter("m_KRAS")
+    Parameter("m_BRAF")
+
     if "her2" in model.name.split("_") and "ERBB2__Y1248_p" not in active_rtks:
         active_rtks.append("ERBB2__Y1248_p")
 
     mapk_cascade = [
-        ("MEK", {"S222": (active_rtks, egfr_feedback)}),
+        ("MEK", {"S222": (active_rtks + ["m_KRAS", "m_BRAF"], egfr_feedback)}),
         ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),
         # egfr can activate via p38
         ("RPS6KA1", {"S380": ["ERK__Y204_p", "EGFR__Y1173_p"]}),  # p90RSK

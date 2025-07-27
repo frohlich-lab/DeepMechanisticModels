@@ -1,17 +1,36 @@
-PATHWAYS = (
+from itertools import combinations
+
+modifications = [
+    # baselines
+    "begfr",
+    "berrb2",
+    "bmek",
+    "brps6ka1",
+    # transcriptional individualisation
+    # 'tegfr',
+    # 'terbb2',
+    # 'ttgfa',
+    # 'tbtc',
+    # 'tereg',
+    # 'tnrg1',
+    # 'tnrg2',
+    # mutations
+    # 'mbraf',
+    #'mkras',
+    # observable function
+    "logobs",
+]
+
+PATHWAYS = [
     "EGFR_MAPK",
-    # "EGFR_MAPK_AKT",
-    "EGFR_MAPK_tegfr",
-    "EGFR_MAPK_pegfr",
-    # "EGFR_MAPK_pegfr",
-    # "EGFR_MAPK_terbb2",
-    # "EGFR_MAPK_perbb2",
-    # "EGFR_MAPK_terbb2_tegfr",
-    # "EGFR_MAPK_perbb2_pegfr",
+] + [
+    f"EGFR_MAPK__{'_'.join(combo)}"
+    for r in range(1, 6)
+    for combo in combinations(modifications, r)
     # "EGFR_MAPK_her2",
     # "EGFR_MAPK_freeeq",
     # "EGFR_MAPK_freeeq_tobs",
-)
+]
 
 DATASETS = ("dream_cytof",)
 # DATASETS = {
