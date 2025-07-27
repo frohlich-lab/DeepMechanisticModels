@@ -1,3 +1,4 @@
+from common import basedir
 from cytof.data import (
     load_cytof_from_synapse,
     load_ids_from_uniprot,
@@ -13,7 +14,7 @@ if __name__ == "__main__":
     measurement_table_cytof = process_petab_cytof(
         measurement_table_cytof, id_vars
     )
-    measurement_table_cytof.to_csv("./data/cytof.csv")
+    measurement_table_cytof.to_csv(basedir / "data" / "cytof.csv")
     measurement_table_proteomics = load_proteomics_from_synapse()
     up_ids = load_ids_from_uniprot(
         measurement_table_proteomics["UPID"].unique()
@@ -35,11 +36,13 @@ if __name__ == "__main__":
     measurement_table_proteomics = process_petab_proteomics(
         measurement_table_proteomics
     )
-    measurement_table_proteomics.to_csv("./data/proteomics.csv")
+    measurement_table_proteomics.to_csv(basedir / "data" / "proteomics.csv")
 
     measurement_table_transcriptomics = load_transcriptomics_from_synapse()
     measurement_table_transcriptomics = process_petab_transcriptomics(
         measurement_table_transcriptomics
     )
 
-    measurement_table_transcriptomics.to_csv("./data/transcriptomics.csv")
+    measurement_table_transcriptomics.to_csv(
+        basedir / "data" / "transcriptomics.csv"
+    )
