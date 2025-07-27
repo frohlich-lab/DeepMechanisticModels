@@ -42,9 +42,9 @@ rule load_data:
     input:
         script='load_data.py'
     output:
-        cytof='./data/cytof.csv',
-        proteomics='./data/proteomics.csv',
-        transcriptomics='./data/transcriptomics.csv'
+        cytof='data/cytof.csv',
+        proteomics='data/proteomics.csv',
+        transcriptomics='data/transcriptomics.csv'
 
 rule process_data:
     input:
