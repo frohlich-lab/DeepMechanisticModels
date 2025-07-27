@@ -179,6 +179,33 @@ rule select_features:
             for arg in ('model', 'data', 'context', 'features', 'samples')
         )
 
+rule evaluate_references:
+    input:
+        script='evaluate_reference.py',
+        pretrain_per_sample_test=per_sample_pretraining_test,
+        pretrain_per_sample_train=per_sample_pretraining_train,
+        pretrain_average=rules.pretrain_average_model.output.pretraining
+    output:
+        csv=[
+            EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
+            for dataset, mode in itt.product(['train', 'val'], ['per_sample', 'avg_model'])
+        ]
+    wildcard_constraints:
+        model='\w+',
+        data=r'[\w\.]+',
+        samples='[0-9]+of[0-9]+'
+    retries: 1
+    resources:
+        mem="8GB",
+        runtime="1h",
+        nodes=1,
+        threads=1
+    shell:
+        'python3 {input.script} ' + ' '.join(
+        f'--{arg}={{wildcards.{arg}}}'
+        for arg in ('model','data','samples')
+        ) + ' --n_starts={N_STARTS}'
+
 rule estimate_parameters:
     input:
         script = 'train.py',
@@ -186,8 +213,7 @@ rule estimate_parameters:
         data=MEASUREMENTS_FILE,
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
-        pretrain_per_sample=per_sample_pretraining_train,
-        pretrain_average_model=rules.pretrain_average_model.output.pretraining
+        pretrain=rules.evaluate_references.output.csv,
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=TRAINED_MODEL
@@ -342,33 +368,6 @@ rule evaluate_training:
                 'job',
             )
         )
-
-rule evaluate_references:
-    input:
-        script='evaluate_reference.py',
-        pretrain_per_sample=per_sample_pretraining_test,
-        pretrain_average=rules.pretrain_average_model.output.pretraining
-    output:
-        csv=[
-            EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
-            for dataset, mode in itt.product(['train', 'val'], ['per_sample', 'avg_model'])
-        ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+'
-    retries: 1
-    resources:
-        mem="8GB",
-        runtime="1h",
-        nodes=1,
-        threads=1
-    shell:
-        'python3 {input.script} ' + ' '.join(
-        f'--{arg}={{wildcards.{arg}}}'
-        for arg in ('model','data','samples')
-        ) + ' --n_starts={N_STARTS}'
-
 
 rule evaluate_regressors:
     input:
