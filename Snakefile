@@ -213,7 +213,7 @@ rule estimate_parameters:
         data=MEASUREMENTS_FILE,
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
-        pretrain=rules.evaluate_references.output.csv,
+        pretrain=rules.pretrain_average_model.output.pretraining,
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=TRAINED_MODEL

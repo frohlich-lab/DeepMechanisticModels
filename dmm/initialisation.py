@@ -152,97 +152,39 @@ def process_features_and_setup_models(
 
 
 def get_kin_params_median_deviation(
-    model: DeepMechanisticModel,
-    parameter_filepath: str,
     avg_model_parameter_file: str,
     random_seed: int,
-    median_params_method: str = "per_sample",
-    return_full_combo: bool = False,
 ):
     # Set random seed for poisson sampling
     np.random.seed(random_seed)
-
-    if median_params_method == "per_sample":
-        pretrained_samples = {}
-
-        for sample in model.sample_name_list:
-            df = pd.read_csv(
-                parameter_filepath.format(sample=sample),
-                index_col=[0],
-            )
-            pretrained_samples[sample] = df[
-                [
-                    col
-                    for col in df.columns
-                    if not col.startswith(MODEL_FEATURE_PREFIX)
-                ]
-            ]
-
-        # Multi-starts of per-sample training are sorted by loss function (ascending order, lower is better,
-        # i.e. towards index 0). Parameters for initialisation are chosen from the multi-starts using Poisson sampling,
-        # with Poisson(lambda=2). Lambda is chosen so that the mode is small, but slightly larger than 0, enabling some
-        # spread. Lower indices will be more easily sampled, leading to higher chance of sampling lower loss multi-starts.
-        par_combo = pd.concat(
-            [
-                pretraining[
-                    pretraining.index
-                    == np.min(
-                        [np.random.poisson(2, 1)[0], len(pretraining) - 1]
-                    )
-                ]
-                for pretraining in pretrained_samples.values()
-            ]
-        )
-        par_combo.rename(
-            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX) :]
-            if col.startswith(MEDIAN_FEATURE_PREFIX)
-            else col,
-            inplace=True,
-        )
-        par_combo.index = list(pretrained_samples.keys())
-        par_combo = par_combo.reindex(model.sample_name_list)
-
-        if return_full_combo:
-            return par_combo
-        else:
-            # Compute the median across samples
-            par_medians = par_combo.median(skipna=True)
-            # Subtract the median from the parameters:
-            # par_combo now represents variation around the median
-            par_deviations = par_combo - par_medians
-            return par_medians, par_deviations
-    elif median_params_method == "avg_model":
-        # Fetch avg_model params (for all multi-starts)
-        avg_model_params = pd.read_csv(
-            avg_model_parameter_file,
-            index_col=[0],
-        )
-        # Subset to columns not starting with MODEL_FEATURE_PREFIX
-        avg_model_params = avg_model_params[
-            [
-                col
-                for col in avg_model_params.columns
-                if not col.startswith(MODEL_FEATURE_PREFIX)
-            ]
+    # Fetch avg_model params (for all multi-starts)
+    avg_model_params = pd.read_csv(
+        avg_model_parameter_file,
+        index_col=[0],
+    )
+    # Subset to columns not starting with MODEL_FEATURE_PREFIX
+    avg_model_params = avg_model_params[
+        [
+            col
+            for col in avg_model_params.columns
+            if not col.startswith(MODEL_FEATURE_PREFIX)
         ]
-        avg_model_params.rename(
-            columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX) :]
-            if col.startswith(MEDIAN_FEATURE_PREFIX)
-            else col,
-            inplace=True,
-        )
+    ]
+    avg_model_params.rename(
+        columns=lambda col: col[len(MEDIAN_FEATURE_PREFIX) :]
+        if col.startswith(MEDIAN_FEATURE_PREFIX)
+        else col,
+        inplace=True,
+    )
 
-        # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
-        # avg_param_combo = avg_model_params[
-        #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
-        #     ].iloc[0]
-        # Use the best initialisation from avg_model (here second best)
-        avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
-        return avg_param_combo, None
-    else:
-        raise ValueError(
-            f"Unknown method for computing median parameters: {median_params_method}"
-        )
+    # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
+    # avg_param_combo = avg_model_params[
+    #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
+    #     ].iloc[0]
+
+    # Use the best initialisation from avg_model (here second best)
+    avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
+    return avg_param_combo
 
 
 # def load_and_subset_input_features(
@@ -301,10 +243,8 @@ def subset_features(
 
 def init_global_kin_params_combiner(
     model: DeepMechanisticModel,
-    per_sample_parameter_file: str,
     avg_model_parameter_file: str,
     random_seed: int,
-    median_params_method: str,
 ) -> DeepMechanisticModel:
     """
     Setup KinParamsCombiner module (model.kin_params_combiner).
@@ -312,25 +252,17 @@ def init_global_kin_params_combiner(
 
     :param model:
         DeepMechanisticModel instance.
-    :param per_sample_parameter_file:
-        filepath (str) to load per_sample kinetic parameters in case median_params_method == "per_sample"
     :param avg_model_parameter_file:
         filepath (str) to load avg_model kinetic parameters in case median_params_method == "avg_model"
     :param random_seed:
         int, used to seed sampling of kinetic parameters in case median_params_method == "per_sample"
-    :param median_params_method:
-        string, defines which pretrained mechanistic model parameters to use to initialise kinetic parameter medians.
 
     :returns: updated model with initialised model.kin_params_combiner
     """
 
-    par_medians, _ = get_kin_params_median_deviation(
-        model=model,
-        parameter_filepath=per_sample_parameter_file,
+    par_medians = get_kin_params_median_deviation(
         avg_model_parameter_file=avg_model_parameter_file,
         random_seed=random_seed,
-        median_params_method=median_params_method,
-        return_full_combo=False,
     )
 
     # Check order of initialised median parameters matches petab median parameter order

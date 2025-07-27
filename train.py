@@ -84,10 +84,8 @@ early_stopping_params = EarlyStoppingParams(
 # Initialise the params of the KinParamsCombiner
 model_train = init_global_kin_params_combiner(
     model=model_train,
-    per_sample_parameter_file=per_sample_parameter_file,
     avg_model_parameter_file=avg_model_parameter_file,
     random_seed=conf.job,
-    median_params_method=conf.median_init,
 )
 
 # Setup pypesto problems for train/validation

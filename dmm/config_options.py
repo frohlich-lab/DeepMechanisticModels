@@ -13,8 +13,6 @@ class Conf(dict):
     sample: str = None
     # Standard scaling
     standardise_features: bool = False
-    # Initialisation
-    median_init: str = "None"  # can be either `per_sample` or `avg_model` -> initialises params of KinParamsCombiner
     # Train/freeze medians
     freeze_medians: bool = False
     # Network structure
