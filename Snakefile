@@ -145,7 +145,7 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="12h",
+        runtime="10h",
         nodes=1,
         threads=2
     shell:
@@ -262,7 +262,7 @@ rule estimate_parameters:
         mem="4GB",
         # disk="2GB",
         # tmpdir=str(tmp_dir),
-        runtime="12h",
+        runtime="10h",
         nodes=1,
         threads=2
     shell:
