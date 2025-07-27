@@ -97,7 +97,7 @@ rule compile_mechanistic_model:
         data='[\w\.]+'
     resources:
         mem="8GB",
-        runtime="2h",
+        runtime="1h",
         nodes=1,
         threads=1
     shell:
@@ -145,7 +145,7 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="10h",
+        runtime="6h",
         nodes=1,
         threads=2
     shell:
@@ -262,7 +262,7 @@ rule estimate_parameters:
         mem="4GB",
         # disk="2GB",
         # tmpdir=str(tmp_dir),
-        runtime="10h",
+        runtime="6h",
         nodes=1,
         threads=2
     shell:
