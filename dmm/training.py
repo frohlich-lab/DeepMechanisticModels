@@ -32,7 +32,6 @@ from .config_options import (
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 from .training_helper_funcs import (
     MetricHandler,
-    generate_log_epochs,
     get_finite_grads,
     get_optimiser_and_opt_state,
     map_params_to_array,
@@ -196,10 +195,18 @@ def train(
     # Use randomly initialised model to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
     # rmse_train_start = rmse(problem_train, model, input_features_train)
-    rmse_test_min = rmse(problem_test, model, input_features_test)
+    rmse_train, rmse_val = (
+        rmse(problem, model, input_data)
+        for problem, input_data in zip(
+            [problem_train, problem_test],
+            [input_features_train, input_features_test],
+        )
+    )
     wandb.log(
         {
-            "start_rmse_val": rmse_test_min,
+            "start_rmse_val": rmse_val,
+            "rmse_train": rmse_train,
+            "rmse_val": rmse_val,
         },
         step=0,
     )
@@ -218,10 +225,10 @@ def train(
                 patience=early_stopping_params.patience,
             )
 
-    # Generate regularly log-spaced epochs for early-stopping evaluation + model stat logging (100 points overall)
-    log_epochs = generate_log_epochs(
-        n_epoch=n_epoch, num_samples=20, min_dist=10
-    )  # same min_dist as before
+    n_log_iter = 25
+    log_epochs = np.linspace(
+        int(n_epoch / n_log_iter), n_epoch, n_log_iter
+    ).astype(int)
 
     # Get median_init_arr for median regularisation
     median_init_arr = (
