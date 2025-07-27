@@ -45,6 +45,11 @@ rule load_data:
         cytof='data/cytof.csv',
         proteomics='data/proteomics.csv',
         transcriptomics='data/transcriptomics.csv'
+    resources:
+        mem="8GB",  # tried on cluster and process_data was OOM killed
+        runtime="60m",
+        nodes=1,
+        threads=1
     shell:
         'python3 {input.script}'
 
