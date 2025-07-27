@@ -45,6 +45,8 @@ rule load_data:
         cytof='data/cytof.csv',
         proteomics='data/proteomics.csv',
         transcriptomics='data/transcriptomics.csv'
+    shell:
+        'python3 {input.script}'
 
 rule process_data:
     input:
