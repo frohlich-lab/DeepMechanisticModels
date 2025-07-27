@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Tuple
 
 import amici
+import amici.petab.conditions
 import amici.pysb_import
 import pandas as pd
 import pypesto.objective
@@ -120,10 +121,10 @@ class CytofProblem(Problem):
     def apply_solver_settings(self, solver):
         solver.setMaxSteps(int(2e4))
         solver.setNewtonMaxSteps(int(100))
-        solver.setAbsoluteTolerance(1e-12)
+        solver.setAbsoluteTolerance(1e-10)
         solver.setRelativeTolerance(1e-10)
-        solver.setAbsoluteToleranceSteadyState(1e-12)
-        solver.setRelativeToleranceSteadyState(1e-12)
+        solver.setAbsoluteToleranceSteadyState(1e-8)
+        solver.setRelativeToleranceSteadyState(1e-8)
         solver.setNewtonStepSteadyStateCheck(True)
 
     def apply_objective_settings(self, objective, n_threads: int = 1):
@@ -175,15 +176,15 @@ class CytofProblem(Problem):
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
-            if self.model_name.startswith("EGFR"):
-                fp = list(e.fixedParameters)
+            fp = list(e.fixedParameters)
+            if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
                 fp[
                     amiobjective.amici_model.getFixedParameterIds().index(
                         "EGF_0"
                     )
                 ] = 0
-                e.fixedParametersPresimulation = tuple(fp)
-                e.t_presim = 15
+            e.fixedParametersPresimulation = tuple(fp)
+            e.t_presim = 15
 
     @staticmethod
     def load_preprocess_petab_tables(
