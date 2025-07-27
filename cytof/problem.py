@@ -97,10 +97,11 @@ class CytofProblem(Problem):
         return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
-        model_file = pathway_dir / f"pw_{self.pathway_name.split('__')[0]}.py"
+        pathway = self.model_name.split("__")[0]
+        model_file = pathway_dir / f"pw_{pathway}.py"
         if not model_file.exists():
             raise ValueError(
-                f"{self.pathway_name} is not a valid pathway name for this problem class. Please specify"
+                f"{pathway} is not a valid pathway name for this problem class. Please specify"
                 f" a valid name via the `pathway_name` keyword argument when instantiating the problem."
             )
         logger.debug(f"loading pathway from {model_file}")
@@ -111,6 +112,8 @@ class CytofProblem(Problem):
         with open(pysb_file, "w") as file:
             logger.debug(f"writing pysb model to {pysb_file}")
             file.write(pysb.export.export(model, "pysb_flat"))
+
+        model.name = self.model_name
 
         return model
 
@@ -172,7 +175,7 @@ class CytofProblem(Problem):
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
-            if self.pathway_name.startswith("EGFR"):
+            if self.model_name.startswith("EGFR"):
                 fp = list(e.fixedParameters)
                 fp[
                     amiobjective.amici_model.getFixedParameterIds().index(

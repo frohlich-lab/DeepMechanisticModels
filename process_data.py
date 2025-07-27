@@ -86,10 +86,9 @@ if __name__ == "__main__":
 
     from cytof.problem import CytofProblem
 
-    problem = CytofProblem(pathway_name=conf.model)
+    problem = CytofProblem(model_name=conf.model)
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
-    model.name = conf.model
 
     if "__" in conf.model:
         modifications = conf.model.split("__")[-1].split("_")

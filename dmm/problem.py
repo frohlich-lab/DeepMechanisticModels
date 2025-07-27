@@ -30,7 +30,7 @@ class ParameterBounds:
 
 @dataclass
 class Problem(object):
-    pathway_name: str
+    model_name: str
 
     @abstractmethod
     def load_pysb(self) -> pysb.Model:

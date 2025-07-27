@@ -65,7 +65,7 @@ class DeepMechanisticModel(AutoEncoder):
 
         """
         self.data_name = dataset
-        self.pathway_name = problem.pathway_name
+        self.pathway_name = problem.model_name
 
         # set regularisation strategy
         self.orth_reg_strategy = orth_reg_strategy

@@ -203,7 +203,7 @@ def load_petab(
         petab_problem,
         model_name=model.name,
         output_folder=str(
-            problem.amici_dir / f"{problem.pathway_name}_{dataset}_petab"
+            problem.amici_dir / f"{problem.model_name}_{dataset}_petab"
         ),
         validate_petab=False,
     )
