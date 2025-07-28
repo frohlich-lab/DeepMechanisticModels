@@ -1,14 +1,9 @@
-from pathlib import Path
-from time import sleep
-
 import fire
-import numpy as np
 from jax import config
 
 from common import (  # TRAINING_OUTFILE_RESULTS,
     FEATURES_OUTFILE,
     PER_SAMPLE_OUTFILE_PARS,
-    PRETRAINED_BEST_MODELS,
     TRAINED_MODEL,
     debug_mode,
 )
@@ -31,20 +26,13 @@ from training_configuration import (
 )
 from util import load_petab_base_files
 
-# wait up to 1 minute to avoid filestream limits with wandb
-sleep(np.random.randint(0, 60))
-
 conf = fire.Fire(Conf)
 
-per_sample_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
-    **{**conf.__dict__, "sample": "{sample}"}
-)
 avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
     **{**conf.__dict__, "sample": f"model_average_{conf.samples}"}
 )
 # results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf.__dict__))
 model_file = TRAINED_MODEL.format(**{**conf.__dict__})
-pretrained_model_file = Path(PRETRAINED_BEST_MODELS.format(**conf.__dict__))
 
 # Get filepaths for features and feature transformation pipeline
 features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
