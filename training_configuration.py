@@ -3,7 +3,7 @@ from itertools import combinations
 modifications = [
     # baselines
     "begfr",
-    "berrb2",
+    "berbb2",
     "bmek",
     "brps6ka1",
     # transcriptional individualisation
