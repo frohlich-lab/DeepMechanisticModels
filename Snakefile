@@ -75,7 +75,7 @@ rule process_data:
         data='[\w\.]+'
     resources:
         mem="8GB",  # tried on cluster and process_data was OOM killed
-        runtime="60m",
+        runtime="1h",
         nodes=1,
         threads=1
     shell:
@@ -145,7 +145,7 @@ rule pretrain_average_model:
         samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
-        runtime="6h",
+        runtime="24h",
         nodes=1,
         threads=2
     shell:
@@ -262,7 +262,7 @@ rule estimate_parameters:
         mem="4GB",
         # disk="2GB",
         # tmpdir=str(tmp_dir),
-        runtime="6h",
+        runtime="12h",
         nodes=1,
         threads=2
     shell:
@@ -483,7 +483,7 @@ rule report_all:
     output:
         performance=fig_dir / '{model}' / '{data}' / 'performance.pdf'
     shell:
-        'python3 {input.script}' + ' '.join(
+        'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
         )
