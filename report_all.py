@@ -24,6 +24,7 @@ df_rmse = pd.read_csv(
     ),
     index_col=0,
 )
+df_rmse = df_rmse[df_rmse.rmse.apply(np.isfinite)]
 df_par_dev = pd.read_csv(
     EVALUATE_ALL_CSVS.format(
         model=conf.model, data=conf.data, filename="param_devs"
