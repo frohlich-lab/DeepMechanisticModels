@@ -63,7 +63,9 @@ g.map_dataframe(
     order=x_order,
     hue="context",
 )
-plt.savefig(fig_dir / conf.model / conf.data / "performance.pdf")
+outdir = fig_dir / conf.model / conf.data
+outdir.mkdir(parents=True, exist_ok=True)
+plt.savefig(outdir / "performance.pdf")
 
 # average over jobs+samples
 gb = [
@@ -102,7 +104,9 @@ for group, df_run in df.groupby(["ref"] + gb, dropna=False):
         param_cols = [
             c
             for c in par_dev.columns
-            if c not in ["cell_line", "samples", "dataset", "job"] + gb_rmse
+            if c
+            not in ["cell_line", "samples", "dataset", "job", "median_init"]
+            + gb_rmse
         ]
         gb_par_dev = ["cell_line", "dataset", "samples"]
         par_dev = (
