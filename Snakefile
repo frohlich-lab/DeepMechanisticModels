@@ -482,6 +482,11 @@ rule report_all:
         evaluation=rules.evaluate_all.output.csv,
     output:
         performance=fig_dir / '{model}' / '{data}' / 'performance.pdf'
+    resources:
+        mem="1GB",
+        runtime="1h",
+        nodes=1,
+        threads=1
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
