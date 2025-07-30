@@ -54,7 +54,8 @@ def process_simulation(
 
     # Compute residual dataframe
     res = mdf.copy()
-    res[petab.MEASUREMENT] -= sdf[petab.SIMULATION]
+    res["res"] = res[petab.MEASUREMENT] - sdf[petab.SIMULATION]
+    res["sim"] = sdf[petab.SIMULATION]
     # Unpack multi-index
     res.reset_index(inplace=True)
 
@@ -74,7 +75,9 @@ def process_simulation(
         }
         evaluations.append(
             {
-                "res": r[petab.MEASUREMENT],
+                "res": r["res"],
+                "sim": r["sim"],
+                "obs": r[petab.MEASUREMENT],
                 "sample": sample,
                 "observable": r[petab.OBSERVABLE_ID],
                 "condition": condition,
