@@ -8,7 +8,7 @@ from dmm.mechanistic_model import (
 
 active_rtks = [
     "EGFR__Y1173_p",
-    # 'ERBB2__Y1248_p' # TODO: reactivate this? also add turnover for HER2?
+    "ERBB2__Y1248_p",
 ]
 egfr_feedback = ["ERK__Y204_p"]
 active_akt = ["AKT__T308_p"]
@@ -54,14 +54,11 @@ def add_mapk(model):
     Parameter("m_KRAS")
     Parameter("m_BRAF")
 
-    if "her2" in model.name.split("_") and "ERBB2__Y1248_p" not in active_rtks:
-        active_rtks.append("ERBB2__Y1248_p")
-
     mapk_cascade = [
         ("MEK", {"S222": (active_rtks + ["m_KRAS", "m_BRAF"], egfr_feedback)}),
-        ("ERK", {"Y204": ["MEK__S222_p", "EGFR__Y1173_p"]}),
+        ("ERK", {"Y204": ["MEK__S222_p", *active_rtks]}),
         # egfr can activate via p38
-        ("RPS6KA1", {"S380": ["ERK__Y204_p", "EGFR__Y1173_p"]}),  # p90RSK
+        ("RPS6KA1", {"S380": ["ERK__Y204_p", *active_rtks]}),  # p90RSK
     ]
     generate_pathway(
         model, mapk_cascade, add_baseline_activation=["MEK", "RPS6KA1"]
@@ -156,6 +153,6 @@ def add_s6(model):
 
 def add_inhibitors(model):
     add_inhibitor(model, "iMEK", ["MEK__S222_p_obs"])
-    add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs"])
+    add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs", "ERBB2__Y1248_p_obs"])
     add_inhibitor(model, "iPI3K", ["PIK3CA__pip2_p_obs"])
     add_inhibitor(model, "iPKC", ["PKC"])

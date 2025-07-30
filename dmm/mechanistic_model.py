@@ -78,7 +78,7 @@ def generate_pathway(
                 model,
                 p_name,
                 site,
-                "phosphorylation",
+                "p",
                 activators,
                 deactivators,
             )
@@ -166,11 +166,11 @@ def add_monomer_synth_deg(
     )
 
     if with_synth:
-        kdeg = add_parameter(f"{m_name}_degradation_kdeg", model)
-        deg_rate = Expression(f"{m_name}_degradation_rate", kdeg)
-        syn_rate = Expression(f"{m_name}_synthesis_rate", t0 * deg_rate)
-        Rule(f"synthesis_{m_name}", None >> syn_prod, syn_rate)
-        Rule(f"degradation_{m_name}", m() >> None, deg_rate)
+        kdeg = add_parameter(f"{m_name}_deg_kdeg", model)
+        deg_rate = Expression(f"{m_name}_deg_rate", kdeg)
+        syn_rate = Expression(f"{m_name}_syn_rate", t0 * deg_rate)
+        Rule(f"syn_{m_name}", None >> syn_prod, syn_rate)
+        Rule(f"deg_{m_name}", m() >> None, deg_rate)
 
     Initial(syn_prod, t0)
 
@@ -178,7 +178,7 @@ def add_monomer_synth_deg(
     for sites, labels, states in zip(
         [psites, nsites, asites],
         [
-            [("dephosphorylation", "phosphorylation")],
+            [("dp", "p")],
             [("gdp_exchange", "gtp_exchange")],
             [
                 (f"deactivation_{state}", f"activation_{state}")
@@ -310,7 +310,7 @@ def add_activation(
 
     if site_states is not None:
         valid_states = site_states
-    elif activation_type == "phosphorylation":
+    elif activation_type == "p":
         valid_states = ["u", "p"]
     elif activation_type == "nucleotide_exchange":
         valid_states = ["gdp", "gtp"]
@@ -329,15 +329,15 @@ def add_activation(
                 f"{s} is not a valid target for {activation_type}."
             )
 
-    if activation_type == "phosphorylation":
-        forward = "phosphorylation"
-        reverse = "dephosphorylation"
+    if activation_type == "p":
+        forward = "p"
+        reverse = "dp"
     elif activation_type == "nucleotide_exchange":
         forward = "gtp_exchange"
         reverse = "gdp_exchange"
     elif activation_type == "activation":
-        forward = f"activation_{site_states[1]}"
-        reverse = f"deactivation_{site_states[1]}"
+        forward = f"act_{site_states[1]}"
+        reverse = f"deact_{site_states[1]}"
     else:
         raise ValueError(f"Invalid activation type {activation_type}.")
     fstate = {s: valid_states[0] for s in sites}
@@ -481,18 +481,14 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
     for expr in model.expressions:
         if expr.name.startswith("free_"):
             continue
-        target, obs_or_expr = next(
-            (
-                (s.name, s)
-                for s in expr.expr.free_symbols
-                for name in (s.name, s.name + "_obs")
-                if isinstance(s, (Observable, Expression)) and name in targets
-            ),
-            (None, None),
-        )
-        if target is None:
-            continue
-        expr.expr = expr.expr.subs(obs_or_expr, free_targets[target])
+
+        for target, obs_or_expr in [
+            (s.name, s)
+            for s in expr.expr.free_symbols
+            for name in (s.name, s.name + "_obs")
+            if isinstance(s, (Observable, Expression)) and name in targets
+        ]:
+            expr.expr = expr.expr.subs(obs_or_expr, free_targets[target])
 
 
 def add_gf_bolus(name: str):

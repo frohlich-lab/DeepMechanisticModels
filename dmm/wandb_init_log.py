@@ -124,7 +124,8 @@ def init_wandb(
         # v43: faster initialisation for tegfr model, add baseline activation for EGFR and p90RSK, linear cytof observables
         # v44: revert faster initialisation (took too long, will revisit
         # v45: model variants
-        project=f"DeepMechanisticModels.v45.{conf.data}",
+        # v46: updated model, add HER2 signaling + inhibition by lapatinib
+        project=f"DeepMechanisticModels.v46.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
