@@ -2,30 +2,30 @@ from itertools import combinations
 
 modifications = [
     # baselines
-    # "begfr",
-    # "berbb2",
-    # "bmek",
-    # "brps6ka1",
+    "begfr",
+    "berbb2",
+    "bmek",
+    "brps6ka1",
     # transcriptional individualisation
-    "tegfr",
-    "terbb2",
+    # "tegfr",
+    # "terbb2",
     # 'ttgfa',
     # 'tbtc',
     # 'tereg',
     # 'tnrg1',
     # 'tnrg2',
     # mutations
-    "mbraf",
-    "mkras",
+    # "mbraf",
+    # "mkras",
     # observable function
-    # "logobs",
+    "logobs",
 ]
 
 PATHWAYS = [
     "EGFR_MAPK",
 ] + [
-    f"EGFR_MAPK__{'_'.join(['begfr', 'berbb2', 'bmek'] + list(combo))}"
-    for r in range(1, 6)
+    f"EGFR_MAPK__{'_'.join(list(combo))}"
+    for r in range(1, len(modifications) + 1)
     for combo in combinations(modifications, r)
     # "EGFR_MAPK_her2",
     # "EGFR_MAPK_freeeq",
