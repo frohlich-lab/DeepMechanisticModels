@@ -22,7 +22,7 @@ from training_configuration import (
 
 basedir = Path(os.getcwd())
 # tmp_dir = basedir / 'tmp'
-mencoder_dir = basedir / 'dmm'
+dmm_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
 
 # Get config arguments from CLI
@@ -56,8 +56,8 @@ rule load_data:
 rule process_data:
     input:
         script='process_data.py',
-        data_code=mencoder_dir / 'generate_data.py',
-        model_code=mencoder_dir / 'mechanistic_model.py',
+        data_code=dmm_dir / 'generate_data.py',
+        model_code=dmm_dir / 'mechanistic_model.py',
         data_code2=cytof_dir / 'data.py',
         pathways=cytof_dir / 'pathways.py',
         cytof=rules.load_data.output.cytof,
@@ -110,7 +110,7 @@ rule compile_mechanistic_model:
 rule pretrain_per_sample:
     input:
         script='pretrain_per_sample.py',
-        pretraining_code=mencoder_dir / 'pretraining.py',
+        pretraining_code=dmm_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
     output:
@@ -134,7 +134,7 @@ rule pretrain_per_sample:
 rule pretrain_average_model:
     input:
         script='pretrain_average.py',
-        pretraining_code=mencoder_dir / 'pretraining.py',
+        pretraining_code=dmm_dir / 'pretraining.py',
         model=rules.compile_mechanistic_model.output.model,
         data=rules.process_data.output.datafiles
     output:
@@ -209,7 +209,7 @@ rule evaluate_references:
 rule estimate_parameters:
     input:
         script = 'train.py',
-        training = mencoder_dir / 'training.py',
+        training =dmm_dir / 'training.py',
         data=MEASUREMENTS_FILE,
         model=rules.compile_mechanistic_model.output.model,
         features=rules.select_features.output.data,
@@ -287,6 +287,7 @@ rule estimate_parameters:
 rule evaluate_training:
     input:
         script='evaluate_training.py',
+        code=dmm_dir / 'analysis.py',
         training=rules.estimate_parameters.output.model
     output:
         csv=[
