@@ -163,8 +163,9 @@ def simulate_avg_model(
             df.values[0, :], problem_sample.x_free_indices
         )
         res = problem_sample.objective(x, return_dict=True)
-        ress.append(res)
-        fvals.append(res["fval"])
+        if np.isfinite(res["fval"]):
+            ress.append(res)
+            fvals.append(res["fval"])
 
     # Convert the simulation to PEtab format.
     avg_model = rdatas_to_simulation_df(
