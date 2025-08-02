@@ -127,7 +127,7 @@ CONTEXTS_FEATURES = tuple(
     # )  # not enough features
     (
         context,
-        f"{'HVG' if context not in ('cytof_init', "cytof_dynamic") else ''}RFE_{n_features}_permute",
+        f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
     )
     for n_features in range(4, 33, 4)
     for context in [
