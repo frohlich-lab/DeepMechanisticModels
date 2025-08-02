@@ -1,7 +1,6 @@
 import os
 
 import fire
-import numpy as np
 import pandas as pd
 
 # import subprocess
@@ -215,9 +214,7 @@ for samples in sorted(SPLITS):
                     samples=samples,
                     dataset=dataset,
                     features="None",
-                ).replace(
-                    np.nan, "N/A"
-                )  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
+                )
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df

@@ -1,3 +1,5 @@
+import os
+
 import git
 import jax.numpy as jnp
 import numpy as np
@@ -81,6 +83,15 @@ def init_wandb(
     activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
     group = f"{conf.context}_{conf.features}"
 
+    base_model = conf.model.split("__")[0]
+    if "__" in conf.model:
+        modifications = conf.model.split("__")[1].split("_")
+    else:
+        modifications = []
+
+    job_id = os.environ.get("SLURM_JOB_ID", "0")
+    node_name = os.environ.get("SLURMD_NODENAME", "local")
+
     wandb.init(
         # v2: Equinox
         # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
@@ -125,7 +136,8 @@ def init_wandb(
         # v44: revert faster initialisation (took too long, will revisit
         # v45: model variants
         # v46: updated model, add HER2 signaling + inhibition by lapatinib
-        project=f"DeepMechanisticModels.v46.{conf.data}",
+        # v47: features selection revisited
+        project=f"DeepMechanisticModels.v47.{conf.data}",
         group=group,
         config={
             **conf.__dict__,
@@ -140,6 +152,10 @@ def init_wandb(
             if conf.use_simple_linear_schedule
             else "custom",
             "commit": repo.head.object.hexsha,
+            "base_model": base_model,
+            **{mod: 1 for mod in modifications},
+            "job_id": job_id,
+            "node": node_name,
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(

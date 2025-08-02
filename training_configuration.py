@@ -1,5 +1,3 @@
-from itertools import combinations
-
 modifications = [
     # baselines
     # "begfr",
@@ -9,28 +7,34 @@ modifications = [
     # transcriptional individualisation
     # "tegfr",
     # "terbb2",
-    "ttgfa",
-    "tbtc",
-    "tereg",
-    "tnrg1",
-    "tnrg2",
+    # "ttgfa",
+    # "tbtc",
+    # "tereg",
+    # "tnrg1",
+    # "tnrg2",
     # mutations
     # "mbraf",
     # "mkras",
     # observable function
-    # "logobs",
+    "logobs",
 ]
 
-PATHWAYS = [
-    "EGFR_MAPK",
-] + [
-    f"EGFR_MAPK__{'_'.join(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'logobs', 'tegfr'] + list(combo))}"
-    for r in range(1, len(modifications) + 1)
-    for combo in combinations(modifications, r)
-    # "EGFR_MAPK_her2",
-    # "EGFR_MAPK_freeeq",
-    # "EGFR_MAPK_freeeq_tobs",
-]
+PATHWAYS = (
+    [
+        "EGFR_MAPK",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
+    ]
+    # + [
+    #     f"EGFR_MAPK__{'_'.join(sorted(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'tegfr', 'ttgfa', 'tbtc', 'tereg', 'tnrg1', 'tnrg2'] + list(combo)))}"
+    #     for r in range(1, len(modifications) + 1)
+    #     for combo in combinations(modifications, r)
+    #     # "EGFR_MAPK_her2",
+    #     # "EGFR_MAPK_freeeq",
+    #     # "EGFR_MAPK_freeeq_tobs",
+    # ]
+)
 
 DATASETS = ("dream_cytof",)
 # DATASETS = {
@@ -43,7 +47,7 @@ DATASETS = ("dream_cytof",)
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = (
     # ("cytof_init", "all"),
-    ("cytof_init", "RFE_6_permute"),
+    # ("cytof_init", "RFE_6_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "HVGRFE_6_permute"),
@@ -117,12 +121,17 @@ CONTEXTS_FEATURES = (
     # if not (
     #     context == "proteomics" and genomic_features == "MPAS"
     # )  # not enough features
-    # (
-    #     context,
-    #     f"{'HVG' if context != 'cytof_init' else ''}RFE_{n_features}_permute",
-    # )
-    # for n_features in range(4, 34, 2)
-    # for context in ["transcriptomics", "proteomics", "cytof_init"]
+    (
+        context,
+        f"{'HVG' if context not in ('cytof_init', "cytof_dynamic") else ''}RFE_{n_features}_permute",
+    )
+    for n_features in range(4, 14, 2)
+    for context in [
+        "transcriptomics",
+        "proteomics",
+        "cytof_init",
+        "cytof_dynamic",
+    ]
 )
 
 # Cross-validation splits

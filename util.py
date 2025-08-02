@@ -2,6 +2,7 @@ from typing import Dict
 
 import numpy as np
 import pandas as pd
+import petab.v1 as petab
 import pypesto
 import scipy.linalg as la
 
@@ -16,6 +17,24 @@ from cytof.problem import CytofProblem
 from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 
+dtypes = {
+    "measurement_table": {
+        petab.OBSERVABLE_ID: str,
+        petab.PREEQUILIBRATION_CONDITION_ID: str,
+        petab.TIME: float,
+        petab.MEASUREMENT: float,
+        # petab.NOISE_PARAMETERS: float, // could be str/float, let pandas infer
+        petab.SIMULATION_CONDITION_ID: str,
+        petab.OBSERVABLE_PARAMETERS: str,
+        "measurementType": str,
+        "FEATURE_ID": str,
+        "date": str,
+        "time_course": str,
+    },
+    "condition_table": None,
+    "observable_table": str,
+}
+
 
 def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
     return {
@@ -23,6 +42,7 @@ def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
             file.format(**conf.__dict__),
             index_col=0,
             sep="\t",
+            dtype=dtypes[label],
         )
         for label, file in (
             ("measurement_table", MEASUREMENTS_FILE),

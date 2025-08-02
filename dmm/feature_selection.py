@@ -327,7 +327,11 @@ def load_data(
     else:
         # for training, compute feature set, filtering out too many nans
         # this does not affect "seqvar", which has 0/0.5/1 values
-        input_data = input_data.loc[:, input_data.isna().mean() < 0.3]
+        if contextualization == "cytof_dynamic":
+            threshold = 0.5  # AVOID DROPPING pERBB2/iMEK FOR REGRESSORS!
+        else:
+            threshold = 0.3
+        input_data = input_data.loc[:, input_data.isna().mean() < threshold]
         if contextualization == "transcriptomics":
             # look at mean vs variance plot
             # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))

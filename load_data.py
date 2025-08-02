@@ -32,9 +32,11 @@ if __name__ == "__main__":
     measurement_table_proteomics.loc[
         :, "GENENAME"
     ] = measurement_table_proteomics["UPID"].apply(lambda x: up_ids.get(x))
-    measurement_table_proteomics.drop(columns="UPID", inplace=True)
     measurement_table_proteomics = process_petab_proteomics(
         measurement_table_proteomics
+    )
+    measurement_table_proteomics.drop(
+        columns=["UPID", "GENENAME"], inplace=True
     )
     measurement_table_proteomics.to_csv(basedir / "data" / "proteomics.csv")
 
@@ -42,6 +44,7 @@ if __name__ == "__main__":
     measurement_table_transcriptomics = process_petab_transcriptomics(
         measurement_table_transcriptomics
     )
+    measurement_table_transcriptomics.drop(columns=["GENENAME"], inplace=True)
 
     measurement_table_transcriptomics.to_csv(
         basedir / "data" / "transcriptomics.csv"

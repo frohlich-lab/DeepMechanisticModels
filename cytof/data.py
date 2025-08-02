@@ -9,6 +9,8 @@ import pysb
 
 from . import get_samples
 
+figdir = Path(__file__).parent / "figures"
+
 SYNAPSE_FILES = [
     # Subchallenge 4
     "syn20613594",  # 184A1
@@ -207,10 +209,46 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     files = SYNAPSE_FILES
     mean_data = []
     std_data = []
-    group_ids = ["treatment", "cell_line", "time", "fileID"]
+    group_ids = [
+        "treatment",
+        "cell_line",
+        "time",
+        "fileID",
+        "date",
+        "time_course",
+    ]
+
+    # figdir.mkdir(parents=True, exist_ok=True)
+
+    file_id_table = pd.read_csv(
+        syn.get("syn20631269").path, index_col=0
+    ).set_index("fileID")
+
     # file_id_table = pd.read_csv(syn.get("syn20631269").path, index_col=0)
     for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
+        df["date"] = df["fileID"].apply(lambda x: file_id_table.loc[x, "date"])
+        df["time_course"] = df["fileID"].apply(
+            lambda x: file_id_table.loc[x, "time_course"]
+        )
+
+        # df_tidy = df.melt(id_vars=['treatment','cell_line', 'time', 'cellID', 'fileID', 'date', 'time_course'])
+        # markers = ('p.MEK', 'p.ERK', 'p.HER2', 'p.p90RSK', 'p.S6', 'p.p38', 'p.MAP2K3', 'p.MAPKAPK2', 'p.PDPK1')
+        # df_plot = df_tidy[df_tidy.variable.str.startswith(markers)]
+        # df_plot = df_plot[df_plot.treatment != 'full']
+        #
+        # g = sns.FacetGrid(
+        #     df_plot, col='treatment', row='variable'
+        # )
+        # g.map_dataframe(
+        #     sns.boxenplot,
+        #     data=df_plot,
+        #     x='time',
+        #     y='value',
+        #     hue='time_course',
+        # )
+        # plt.savefig(str(figdir / df_plot.cell_line.values[0]) + '.pdf')
+
         for ids, data in df.groupby(group_ids):
             if f"c{ids[1]}" not in get_samples("dream_cytof"):
                 continue
@@ -226,6 +264,8 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 sdf["cell_line"] = ids[1]
                 sdf["time"] = ids[2]
                 sdf["fileID"] = ids[3]
+                sdf["date"] = ids[4]
+                sdf["time_course"] = ids[5]
             mean_data.append(m)
             # std[std.isna()] = 1.0
             std_data.append(std)
@@ -234,7 +274,14 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
         desc: pd.concat(data, axis=1).T
         for desc, data in (("mean", mean_data), ("std", std_data))
     }
-    id_vars = ["cell_line", "treatment", "time", "fileID"]
+    id_vars = [
+        "cell_line",
+        "treatment",
+        "time",
+        "fileID",
+        "date",
+        "time_course",
+    ]
     df_phospho_condition = d["mean"][id_vars]
     for sdf in d.values():
         sdf.drop(columns=id_vars, inplace=True)

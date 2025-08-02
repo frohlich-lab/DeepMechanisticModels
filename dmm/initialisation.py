@@ -66,7 +66,6 @@ def process_features(conf: Conf, features_filepath: str, datasets: List[str]):
             raise ValueError(
                 "Standard scaling is only supported when 'train' dataset is provided!"
             )
-    features = impute_features(features)
     return features
 
 

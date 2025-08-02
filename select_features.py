@@ -285,7 +285,7 @@ def get_selected_features(
 
     elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
         reduce_factor = 0.80
-        # drop nans
+        # drop nans, this shouldnt do anything
         input_data = input_data.dropna(axis=1, how="any")
         if features.startswith("HVG") and context in [
             "proteomics",
@@ -410,6 +410,19 @@ for context in contexts:
             **petab_base_files,
         )
 
+    imputer_input = KNNImputer()
+    filled = imputer_input.fit_transform(input_train)
+    input_train = pd.DataFrame(
+        filled,
+        index=input_train.index,
+        columns=input_train.columns,
+    )
+    input_val = pd.DataFrame(
+        imputer_input.transform(input_val),
+        index=input_val.index,
+        columns=input_val.columns,
+    )
+
     mean_train = input_train.mean()
     input_train -= mean_train
     input_val -= mean_train
@@ -420,8 +433,8 @@ for context in contexts:
         features=None,
         **petab_base_files,
     )
-    imputer = KNNImputer()
-    filled = imputer.fit_transform(output_train)
+    imputer_output = KNNImputer()
+    filled = imputer_output.fit_transform(output_train)
     output_train = pd.DataFrame(
         filled,
         index=output_train.index,
@@ -439,7 +452,6 @@ for context in contexts:
     print(
         f"Selected {len(selected_features)} features for split {conf.samples} for {subconf.context}: {selected_features}"
     )
-
     # Transform and save per split
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
@@ -450,7 +462,12 @@ for context in contexts:
         df_inputs = pd.DataFrame(
             inputs[selected_features].values,
             index=inputs.index,
-            columns=selected_features,
+            columns=[
+                col
+                if isinstance(col, str)
+                else "#".join([str(level) for level in col])
+                for col in selected_features
+            ],
         )
         if not (conf.context == "multimodal"):
             print(
