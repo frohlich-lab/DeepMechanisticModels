@@ -25,6 +25,10 @@ PATHWAYS = (
         "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
         "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
+        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
     ]
     # + [
     #     f"EGFR_MAPK__{'_'.join(sorted(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'tegfr', 'ttgfa', 'tbtc', 'tereg', 'tnrg1', 'tnrg2'] + list(combo)))}"
@@ -45,7 +49,7 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = (
+CONTEXTS_FEATURES = tuple(
     # ("cytof_init", "all"),
     # ("cytof_init", "RFE_6_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
@@ -125,7 +129,7 @@ CONTEXTS_FEATURES = (
         context,
         f"{'HVG' if context not in ('cytof_init', "cytof_dynamic") else ''}RFE_{n_features}_permute",
     )
-    for n_features in range(4, 14, 2)
+    for n_features in range(4, 33, 4)
     for context in [
         "transcriptomics",
         "proteomics",
