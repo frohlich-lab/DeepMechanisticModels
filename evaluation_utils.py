@@ -168,11 +168,18 @@ def simulate_avg_model(
             fvals.append(res["fval"])
 
     # Convert the simulation to PEtab format.
-    avg_model = rdatas_to_simulation_df(
-        ress[np.argmin(fvals)]["rdatas"],
-        model=problem_sample.objective.amici_model,
-        measurement_df=importer.petab_problem.measurement_df,
-    )
+    if fvals:
+        avg_model = rdatas_to_simulation_df(
+            ress[np.argmin(fvals)]["rdatas"],
+            model=problem_sample.objective.amici_model,
+            measurement_df=importer.petab_problem.measurement_df,
+        )
+    else:
+        avg_model = importer.petab_problem.measurement_df.copy().rename(
+            columns={petab.MEASUREMENT: petab.SIMULATION}
+        )
+        avg_model[petab.SIMULATION] = np.nan
+
     return avg_model
 
 
