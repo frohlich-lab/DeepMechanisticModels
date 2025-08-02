@@ -761,6 +761,8 @@ def aggregate_and_log(
     # Define aggregation groups for DMM and refs
     gbs_dmm = ["dataset", "ref"] + default_attributes
 
+    df["res"] = df["res"].astype(float)
+
     temp_dfs = []
     for ref_subset, group_cols in {
         "DMM": gbs_dmm,
