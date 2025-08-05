@@ -321,9 +321,6 @@ def add_activation(
     rate = Expression(f"{forward_name}_activation_rate", koff * kr)
 
     if n_delays := add_delay.get(f"{m_name}_{site}", 0):
-        kdelay = add_parameter(
-            f"{forward_name}_{deactivator}_delay_kcat", model
-        )
         Rule(
             f"{forward_name}_activation",
             mono(**fstate) >> mono(**{site: "u0"}),
@@ -333,12 +330,12 @@ def add_activation(
             Rule(
                 f"{forward_name}_activation_d{idelay}",
                 mono(**{site: f"u{idelay}"}) >> mono(**{site: f"u{idelay+1}"}),
-                kdelay,
+                rate,
             )
         Rule(
             f"{forward_name}_activation_d{n_delays-1}",
             mono(**{site: f"u{n_delays-1}"}) >> mono(**rstate),
-            kdelay,
+            rate,
         )
 
     else:
