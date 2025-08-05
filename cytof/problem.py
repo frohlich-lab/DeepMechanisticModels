@@ -25,7 +25,7 @@ pathway_dir = base_dir
 logger = logging.getLogger("cytof_problem")
 
 BOUNDS = ParameterBounds(
-    kdeg=(-4, 2, "log10"),  # [1/[t]]
+    kdeg=(-4, 0, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
     kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
     kr=(-6, 6, "log10"),  # [-]
@@ -33,8 +33,8 @@ BOUNDS = ParameterBounds(
     offset=(-4, 4, "log10"),  # [[c]]
     koff=(-3, 2, "log10"),  # [1/[t]]
     kd=(-10, 3, "log10"),  # [[c]]
-    kw=(-4, 4, "log10"),  # [1/[c]]
-    bact=(-4, 4, "log10"),
+    kw=(-3, 2, "log10"),  # [1/[c]]
+    bact=(-4, 2, "log10"),
 )
 
 

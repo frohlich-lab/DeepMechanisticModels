@@ -46,6 +46,7 @@ def generate_pathway(
     species_with_synth=None,
     species_with_free_levels=(),
     add_delay=None,
+    require_compartment=None,
 ):
     """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
@@ -60,6 +61,8 @@ def generate_pathway(
         add_delay = {}
     if species_with_synth is None:
         species_with_synth = []
+    if require_compartment is None:
+        require_compartment = {}
 
     for p_name, site_activators in proteins:
         add_monomer_synth_deg(
@@ -87,6 +90,7 @@ def generate_pathway(
                 deactivators=deactivators,
                 activation_type="phospho" if site != "compartment" else "endo",
                 add_delay=add_delay,
+                require_compartment=require_compartment,
             )
 
 
@@ -243,6 +247,7 @@ def add_activation(
     site: str,
     activation_type: str,
     add_delay: dict,
+    require_compartment: dict,
     activators: Iterable[str] = (),
     deactivators: Iterable[str] = (),
 ):
@@ -282,6 +287,9 @@ def add_activation(
         reverse = "dp"
         fstate = {site: "u"}
         rstate = {site: "p"}
+        if comp := require_compartment.get(f"{m_name}_{site}"):
+            fstate["compartment"] = comp
+            rstate["compartment"] = comp
     elif activation_type == "endo":
         forward = "endo"
         reverse = "recycle"
@@ -298,7 +306,7 @@ def add_activation(
         forward_name = f"{m_name}_{forward}_{site}"
     koff = model.expressions[f"{reverse_name}_kcat"]
 
-    activation = add_parameter(f"{reverse_name}_bact", model)
+    activation = add_parameter(f"{forward_name}_bact", model)
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         factor *= add_parameter(f"{forward_name}_{activator}_kw", model)

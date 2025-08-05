@@ -33,7 +33,7 @@ def add_egfr(model):
             "ERBB2",
             {
                 "Y1248": (
-                    ["ERBB2", "EGF_0", "EGFR__Y1173_p", "NRG1_eq", "NRG2_eq"],
+                    ["ERBB2", "EGFR__Y1173_p", "NRG1_eq", "NRG2_eq"],
                     ["iEGFR_0"],
                 ),
             },
@@ -56,6 +56,7 @@ def add_egfr(model):
         species_with_synth=["EGFR"],
         species_with_free_levels=free_levels,
         add_delay={"EGFR_compartment": 3},
+        require_compartment={"EGFR_Y1173": "pm"},
     )
     for RTK in ["EGFR"]:
         Rule(
