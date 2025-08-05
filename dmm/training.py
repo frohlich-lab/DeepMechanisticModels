@@ -196,8 +196,6 @@ def train(
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
     # rmse_train_start = rmse(problem_train, model, input_features_train)
     rmse_train, rmse_val = (
-        rmse(problem, model, input_data)
-        for problem, input_data in zip(
         rmse(problem, rmse_model, input_data)
         for problem, rmse_model, input_data in zip(
             [problem_train, problem_test],
