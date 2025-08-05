@@ -631,6 +631,9 @@ def test_save_reload_model(
     dataset: str,
     input_data: np.ndarray,
 ):
+    # Set model to inference mode
+    model = eqx.nn.inference_mode(model)
+
     model_filename.parent.mkdir(exist_ok=True, parents=True)
     # Save
     model.save(model_filename, samples_name_list_dict)
@@ -642,6 +645,7 @@ def test_save_reload_model(
         dataset=dataset,
         petab_base_files=petab_base_files,
     )
+    re_model = eqx.nn.inference_mode(re_model)
 
     # TODO(Giacomo): add checks on RMSE -- need to import problem_train,
     #  problem_test and compute RMSE on both

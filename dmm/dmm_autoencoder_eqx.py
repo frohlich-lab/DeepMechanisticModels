@@ -50,23 +50,23 @@ def init_biases(biases, num_layers):
     return biases
 
 
-def update_module_params_dict(
-    module_params: ModuleParams,
-    new_layer_sizes: List[int],
-) -> ModuleParams:
-    # Initialise biases (in case of None or single value definitions)
-    new_layer_biases = init_biases(
-        biases=module_params.layer_biases,
-        num_layers=(len(new_layer_sizes) - 1),
-    )
-    # Produce updated module parameters dictionary
-    updated_module_params = ModuleParams(
-        layer_sizes=new_layer_sizes,
-        layer_biases=new_layer_biases,
-        weight_init_fn=module_params.weight_init_fn,
-        bias_init_fn=module_params.bias_init_fn,
-    )
-    return updated_module_params
+# def update_module_params_dict(
+#     module_params: ModuleParams,
+#     new_layer_sizes: List[int],
+# ) -> ModuleParams:
+#     # Initialise biases (in case of None or single value definitions)
+#     new_layer_biases = init_biases(
+#         biases=module_params.layer_biases,
+#         num_layers=(len(new_layer_sizes) - 1),
+#     )
+#     # Produce updated module parameters dictionary
+#     updated_module_params = ModuleParams(
+#         layer_sizes=new_layer_sizes,
+#         layer_biases=new_layer_biases,
+#         weight_init_fn=module_params.weight_init_fn,
+#         bias_init_fn=module_params.bias_init_fn,
+#     )
+#     return updated_module_params
 
 
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
@@ -107,6 +107,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         last_layer_activation: bool,
         weight_init_fn: str,
         bias_init_fn: str,
+        use_dropout: bool,
+        dropout_rate: float,
         key: Any,
         measurement_table: pd.DataFrame,
         observable_table: pd.DataFrame,
@@ -144,6 +146,12 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
 
         :param bias_init_fn:
             bias initialisation function to use for module layers.
+
+        :param use_dropout:
+            whether to use dropout in module layers.
+
+        :param dropout_rate:
+            dropout rate.
 
         :param key:
             PRNG key.
@@ -282,6 +290,9 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 bias_init_fn=self.bias_init_fn,
                 last_layer_activation=self.last_layer_activation,
                 # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
+                # Only apply dropout (if any) to the encoder module
+                use_dropout=use_dropout if module == "encoder" else False,
+                dropout_rate=dropout_rate if module == "encoder" else 0.0,
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
@@ -323,7 +334,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     def __call__(self, x):
         # Call the parent __call__ method to get the original outputs; filter inputs through input_sparsity_binary_mask
         outputs = super().__call__(
-            x * jnp.array(self.input_sparsity_binary_mask)
+            x * jnp.array(self.input_sparsity_binary_mask),
+            self.model_key,
         )
         # Apply the sparsity binary mask element-wise -- since it's a Tuple, it's not learnt/updated
         outputs["inflated"] = outputs["inflated"] * jnp.array(
@@ -551,6 +563,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             "activation_fn_name": self.activation_fn_name,
             "reconstruct": self.reconstruct,
             "key": self.model_key.tolist(),
+            "use_dropout": self.deep_encoder.use_dropout,
+            "dropout_rate": self.deep_encoder.dropout_rate,
         }
 
     def save(self, filename: Path, samples_list_dict: dict = None) -> None:

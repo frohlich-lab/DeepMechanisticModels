@@ -92,12 +92,21 @@ class DeepComponent(eqx.Module):
         bias initialisation function: either "eqx_default" to select eqx.nn.Linear layers or
         one from jax.nn.initializers to build CustomInitLayer. If latter, needs to be a key
         of `init_fn` dictionary.
+
+    :param use_dropout:
+        whether to use dropout or not.
+
+    :param dropout_rate:
+        dropout rate.
     """
 
     layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
     component_name: str = eqx.field(static=True)
     activation_fn_name: str = eqx.field(static=True)
     last_layer_activation: bool = eqx.field(static=True)
+    use_dropout: bool = eqx.field(static=True)
+    dropout_rate: float = eqx.field(static=True)
+    dropout_layers: Union[List[eqx.nn.Dropout], None] = eqx.field(static=True)
 
     def __init__(
         self,
@@ -109,6 +118,8 @@ class DeepComponent(eqx.Module):
         last_layer_activation: bool = "False",
         weight_init_fn="eqx_default",  # use eqx.nn.Linear layers by default
         bias_init_fn="eqx_default",
+        use_dropout=False,
+        dropout_rate=0.0,
     ):
         # component/module name (encoder/inflater/decoder)
         self.component_name = component_name
@@ -134,6 +145,16 @@ class DeepComponent(eqx.Module):
                 )
             )
 
+        self.use_dropout = use_dropout
+        self.dropout_rate = dropout_rate
+        # Create list of dropout layers
+        self.dropout_layers = []
+        for _ in layer_sizes[:-1]:
+            self.dropout_layers.append(
+                eqx.nn.Dropout(dropout_rate) if self.use_dropout and self.dropout_rate > 0
+                else None
+            )
+
         # activation function
         if activation_fn_name in act_fn_by_name.keys():
             self.activation_fn_name = activation_fn_name
@@ -143,13 +164,24 @@ class DeepComponent(eqx.Module):
             )
         self.last_layer_activation = last_layer_activation
 
-    def __call__(self, x):
+    def __call__(self, x, key):
+        if self.use_dropout and key is not None:
+            dropout_keys = random.split(key, num=len(self.dropout_layers))
+        elif self.use_dropout and key is None:
+            raise ValueError("Key cannot be None for dropout!")
         a = x
+        # Input dropout
+        if self.use_dropout:
+            input_dropout = self.dropout_layers[0]
+            a = input_dropout(a, key=dropout_keys[0])
         activation = act_fn_by_name[self.activation_fn_name]
         # if more than one layer, applies non-linear activations to all layers but the last
         if len(self.layers) > 1:
-            for layer in self.layers[:-1]:
+            for i, (layer, dropout) in enumerate(zip(self.layers[:-1], self.dropout_layers[1:])):
                 a = activation(layer(a))
+                # Hidden layer dropout
+                if self.use_dropout:
+                    a = dropout(a, key=dropout_keys[i+1])
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
         return (
             self.layers[-1](a)
