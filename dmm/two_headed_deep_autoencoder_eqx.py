@@ -88,7 +88,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             last_layer_activation=self.encoder_params.last_layer_activation,
             weight_init_fn=self.encoder_params.weight_init_fn,
             bias_init_fn=self.encoder_params.bias_init_fn,
-            use_dropout=self.encoder_params.use_dropout,
             dropout_rate=self.encoder_params.dropout_rate,
         )
 
@@ -103,7 +102,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             weight_init_fn=self.inflater_params.weight_init_fn,
             bias_init_fn=self.inflater_params.bias_init_fn,
             # no dropout
-            use_dropout=False,
             dropout_rate=0.0,
         )
 
@@ -119,7 +117,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 weight_init_fn=self.decoder_params.weight_init_fn,
                 bias_init_fn=self.decoder_params.bias_init_fn,
                 # no dropout
-                use_dropout=False,
                 dropout_rate=0.0,
             )
         else:

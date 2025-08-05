@@ -22,7 +22,6 @@ class Conf(dict):
     use_layer_bias: List[bool] = False
     last_layer_activation: bool = False
     nn_init_fn: str = "None"
-    use_dropout: bool = False
     dropout_rate: float = 0.0  # default: no entries set to 0
     reconstruct: bool = False
     # Training
@@ -139,7 +138,6 @@ class ModuleParams(dict):
     last_layer_activation: bool = (
         "False"  # no activation function in last layer of each module
     )
-    use_dropout: bool = False
     dropout_rate: float = 0.0
 
 

@@ -107,7 +107,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         last_layer_activation: bool,
         weight_init_fn: str,
         bias_init_fn: str,
-        use_dropout: bool,
         dropout_rate: float,
         key: Any,
         measurement_table: pd.DataFrame,
@@ -147,11 +146,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         :param bias_init_fn:
             bias initialisation function to use for module layers.
 
-        :param use_dropout:
-            whether to use dropout in module layers.
-
         :param dropout_rate:
-            dropout rate.
+            dropout rate (default = 0.0, dropout disabled).
 
         :param key:
             PRNG key.
@@ -291,7 +287,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 last_layer_activation=self.last_layer_activation,
                 # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
                 # Only apply dropout (if any) to the encoder module
-                use_dropout=use_dropout if module == "encoder" else False,
                 dropout_rate=dropout_rate if module == "encoder" else 0.0,
             )
             for module, layer_sizes in zip(
@@ -563,7 +558,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             "activation_fn_name": self.activation_fn_name,
             "reconstruct": self.reconstruct,
             "key": self.model_key.tolist(),
-            "use_dropout": self.deep_encoder.use_dropout,
             "dropout_rate": self.deep_encoder.dropout_rate,
         }
 
