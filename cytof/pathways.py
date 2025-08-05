@@ -57,6 +57,7 @@ def add_egfr(model):
         species_with_free_levels=free_levels,
         add_delay={"EGFR_compartment": 3},
         require_compartment={"EGFR_Y1173": "pm"},
+        require_phosphorylation={"EGFR_compartment": "Y1173"},
     )
     for RTK in ["EGFR"]:
         Rule(

@@ -47,6 +47,7 @@ def generate_pathway(
     species_with_free_levels=(),
     add_delay=None,
     require_compartment=None,
+    require_phosphorylation=None,
 ):
     """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
@@ -63,6 +64,8 @@ def generate_pathway(
         species_with_synth = []
     if require_compartment is None:
         require_compartment = {}
+    if require_phosphorylation is None:
+        require_phosphorylation = {}
 
     for p_name, site_activators in proteins:
         add_monomer_synth_deg(
@@ -91,6 +94,7 @@ def generate_pathway(
                 activation_type="phospho" if site != "compartment" else "endo",
                 add_delay=add_delay,
                 require_compartment=require_compartment,
+                require_phosphorylation=require_phosphorylation,
             )
 
 
@@ -161,11 +165,10 @@ def add_monomer_synth_deg(
     )
 
     if with_synth:
-        kdeg = add_parameter(f"{m_name}_deg_kdeg", model)
-        deg_rate = Expression(f"{m_name}_deg_rate", kdeg)
-        syn_rate = Expression(f"{m_name}_syn_rate", t0 * deg_rate)
+        # kdeg = add_parameter(f"{m_name}_deg_kdeg", model)
+        syn_rate = Expression(f"{m_name}_syn_rate", t0)
         Rule(f"syn_{m_name}", None >> syn_prod, syn_rate)
-        Rule(f"deg_{m_name}", m() >> None, deg_rate)
+        # Rule(f"deg_{m_name}", m() >> None, deg_rate)
 
     Initial(syn_prod, t0)
 
@@ -248,6 +251,7 @@ def add_activation(
     activation_type: str,
     add_delay: dict,
     require_compartment: dict,
+    require_phosphorylation: dict,
     activators: Iterable[str] = (),
     deactivators: Iterable[str] = (),
 ):
@@ -282,11 +286,14 @@ def add_activation(
 
     mono = model.monomers[m_name]
 
+    n_delays = add_delay.get(f"{m_name}_{site}", 0)
+
     if activation_type == "phospho":
         forward = "p"
         reverse = "dp"
         fstate = {site: "u"}
         rstate = {site: "p"}
+        dstate = {}
         if comp := require_compartment.get(f"{m_name}_{site}"):
             fstate["compartment"] = comp
             rstate["compartment"] = comp
@@ -295,6 +302,13 @@ def add_activation(
         reverse = "recycle"
         fstate = {site: "pm"}
         rstate = {site: "e"}
+        dstate = {}
+        if p := require_phosphorylation.get(f"{m_name}_{site}"):
+            fstate[p] = "p"
+            if n_delays == 0:
+                fstate[p] = "p"
+            else:
+                dstate[p] = "p"
     else:
         raise RuntimeError(f"Unknown activation type {activation_type}")
 
@@ -328,10 +342,10 @@ def add_activation(
 
     rate = Expression(f"{forward_name}_activation_rate", koff * kr)
 
-    if n_delays := add_delay.get(f"{m_name}_{site}", 0):
+    if n_delays:
         Rule(
             f"{forward_name}_activation",
-            mono(**fstate) >> mono(**{site: "u0"}),
+            mono(**fstate) >> mono(**{site: "u0", **dstate}),
             rate,
         )
         for idelay in range(n_delays - 1):
