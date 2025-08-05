@@ -557,7 +557,8 @@ def build_condition_table(
                 condition_table[par_name] = 0.0
         # expression levels
         elif par_name.endswith("_eq"):
-            for gene in [
+            gene = par_name.split("_")[0]
+            if gene in [
                 "EGFR",
                 "ERBB2",
                 "TGFA",
@@ -566,9 +567,6 @@ def build_condition_table(
                 "NRG1",
                 "NRG2",
             ]:
-                if not par_name.startswith(gene):
-                    continue
-
                 if f"p{gene.lower()}" in modifications:
                     measurement_type = "proteomics"
                 elif f"t{gene.lower()}" in modifications:
@@ -602,6 +600,9 @@ def build_condition_table(
                     2 ** prot_log2fc.get(c.split("__")[0], 0.0)
                     for c in condition_table[petab.CONDITION_ID]
                 ]
+                continue
+            else:
+                condition_table[par_name] = 1.0
         elif par_name.endswith("_eq") and not par_name.startswith(
             ("DEV_", "MED_")
         ):

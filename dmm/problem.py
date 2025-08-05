@@ -16,13 +16,10 @@ class ParameterBounds:
     kr: Tuple[float, float, str]
     scale: Tuple[float, float, str]
     offset: Tuple[float, float, str]
-    weight: Tuple[float, float, str]
     koff: Tuple[float, float, str]
     kd: Tuple[float, float, str]
     kw: Tuple[float, float, str]
-    tau: Tuple[float, float, str]
-    amp: Tuple[float, float, str]
-    p0: Tuple[float, float, str]
+    bact: Tuple[float, float, str]
 
     def __getitem__(self, item):
         return getattr(self, item)

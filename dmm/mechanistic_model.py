@@ -1,6 +1,6 @@
 import itertools as itt
 import re
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Tuple
 
 import pysb.bng
 import sympy as sp
@@ -44,7 +44,8 @@ def generate_pathway(
     model: Model,
     proteins: Iterable[Tuple[str, Dict[str, Iterable[str]]]],
     species_with_synth=None,
-    add_baseline_activation=(),
+    species_with_free_levels=(),
+    add_delay=None,
 ):
     """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
@@ -55,6 +56,8 @@ def generate_pathway(
     :param proteins:
         pathway specification
     """
+    if add_delay is None:
+        add_delay = {}
     if species_with_synth is None:
         species_with_synth = []
 
@@ -62,9 +65,11 @@ def generate_pathway(
         add_monomer_synth_deg(
             model,
             p_name,
-            psites=site_activators.keys(),
+            sites=site_activators.keys(),
             with_synth=p_name in species_with_synth,
-            with_basal_activation=p_name in add_baseline_activation,
+            compartments=["pm", "e"],
+            species_with_free_levels=species_with_free_levels,
+            add_delay=add_delay,
         )
 
     for p_name, site_activators in proteins:
@@ -75,24 +80,24 @@ def generate_pathway(
             else:
                 activators, deactivators = modulators
             add_activation(
-                model,
-                p_name,
-                site,
-                "p",
-                activators,
-                deactivators,
+                model=model,
+                m_name=p_name,
+                site=site,
+                activators=activators,
+                deactivators=deactivators,
+                activation_type="phospho" if site != "compartment" else "endo",
+                add_delay=add_delay,
             )
 
 
 def add_monomer_synth_deg(
     model: Model,
     m_name: str,
-    psites: Optional[Iterable[str]] = None,
-    nsites: Optional[Iterable[str]] = None,
-    asites: Optional[Iterable[str]] = None,
-    asite_states: Optional[Iterable[str]] = None,
-    with_basal_activation: Optional[bool] = False,
+    add_delay: dict,
+    compartments: Iterable[str],
+    sites: Iterable[str] = (),
     with_synth=False,
+    species_with_free_levels=(),
 ):
     """Adds the respective monomer plus synthesis rules and basal
     activation/deactivation rules for all activateable sites
@@ -105,48 +110,40 @@ def add_monomer_synth_deg(
 
     :param psites:
         phospho sites
-
-    :param nsites:
-        nucleotide sites
-
-    :param asites:
-        other activity encoding sites
     """
-    if psites is None:
-        psites = []
-    else:
-        psites = list({site for psite in psites for site in psite.split("_")})
-
-    if nsites is None:
-        nsites = []
-
-    if asites is None:
-        asites = []
-
-    if asite_states is None:
-        asite_states = ["inactive", "active"]
-
-    sites = psites + nsites + asites
-    sites = sorted(sites)
+    psites = sorted({site for site in sites if re.match(r"[YTS][0-9]+", site)})
 
     if m_name not in model.monomers.keys():
+        # basic states
+        site_states = {
+            site: ["u", "p"] if site in psites else compartments
+            for site in sites
+        }
+        # extend for delays
+        site_states = {
+            site: [
+                states[0],
+                *[
+                    f"u{d}"
+                    for d in range(add_delay.get(f"{m_name}_{site}", 0))
+                ],
+                states[1],
+            ]
+            for site, states in site_states.items()
+        }
         m = Monomer(
             m_name,
             sites=sites,
             site_states={
-                site: ["u", "p"]
-                if site in psites
-                else ["gdp", "gtp"]
-                if site in nsites
-                else asite_states
+                site: site_states[site]
                 for site in sites
-                if site in psites + nsites + asites
+                if site in psites + ["compartment"]
             },
         )
     else:
         m = model.monomers[m_name]
 
-    if "freeeq" in model.name.split("_") and m_name in ["EGFR"]:
+    if m_name in species_with_free_levels:
         t = add_parameter(f"{m_name}_eq", model)
     else:
         t = Parameter(f"{m_name}_eq", 100.0)
@@ -154,13 +151,7 @@ def add_monomer_synth_deg(
 
     syn_prod = m(
         **{
-            site: "u"
-            if site in psites
-            else "gdp"
-            if site in nsites
-            else asite_states[0]
-            if site in asites
-            else m.site_states[site][0]
+            site: "u" if site in psites else compartments[0]
             for site in m.sites
         }
     )
@@ -175,43 +166,20 @@ def add_monomer_synth_deg(
     Initial(syn_prod, t0)
 
     # basal deactivation
-    for sites, labels, states in zip(
-        [psites, nsites, asites],
-        [
-            [("dp", "p")],
-            [("gdp_exchange", "gtp_exchange")],
-            [
-                (f"deactivation_{state}", f"activation_{state}")
-                for state in asite_states[1:]
-            ],
-        ],
-        [("u", "p"), ("gdp", "gtp"), asite_states],
-    ):
-        for site in sites:
-            for state, label in zip(states[1:], labels):
-                if with_basal_activation:
-                    rp = m(**{site: state}) | m(**{site: states[0]})
-                else:
-                    rp = m(**{site: state}) >> m(**{site: states[0]})
+    for site in psites:
+        Rule(
+            f"{m_name}_dp_{site}_p",
+            m(**{site: "p"}) >> m(**{site: "u"}),
+            add_parameter(f"{m_name}_dp_{site}_kcat", model),
+        )
 
-                rates = [
-                    add_parameter(
-                        f"{m_name}_{label[0]}_{site}_base_kcat", model
-                    ),
-                ]
-                if with_basal_activation:
-                    kr = add_parameter(
-                        f"{m_name}_{label[1]}_{site}_base_kr", model
-                    )
-                    k_cond = Parameter(f"b_{m_name}")
-                    rates += [
-                        Expression(
-                            f"{m_name}_{label[1]}_{site}_base_rate",
-                            kr * rates[0] * k_cond,
-                        )
-                    ]
-
-                Rule(f"{m_name}_base_regulation_{site}_{state}", rp, *rates)
+    if "compartment" in sites:
+        site = "compartment"
+        Rule(
+            f"{m_name}_recycling",
+            m(**{site: compartments[1]}) >> m(**{site: compartments[0]}),
+            add_parameter(f"{m_name}_recycle_kcat", model),
+        )
 
     return m
 
@@ -226,6 +194,11 @@ def add_or_get_modulator_obs(model: Model, modulator: str):
         string definition of an observable in format
         `{monomer_name}__{site}_{site_condition}`
     """
+    if modulator in ["iEGFR_0", "iMEK_0", "iPKC_0", "iMTOR_0", "iPI3K_0"] and (
+        modulator not in model.parameters.keys()
+    ):
+        Parameter(modulator)
+
     if modulator in model.expressions.keys():
         return model.expressions[modulator]
 
@@ -269,9 +242,9 @@ def add_activation(
     m_name: str,
     site: str,
     activation_type: str,
-    activators: Optional[Iterable[str]] = None,
-    deactivators: Optional[Iterable[str]] = None,
-    site_states: Optional[Iterable[str]] = None,
+    add_delay: dict,
+    activators: Iterable[str] = (),
+    deactivators: Iterable[str] = (),
 ):
     """Adds activation/deactivation rules to a specific site
 
@@ -283,10 +256,6 @@ def add_activation(
 
     :param site:
         site name
-
-    :param activation_type:
-        type of activation, valid values are
-        {`phosphorylation`, `nucleotide_exchange`, `tf_activation`}
 
     :param activators:
         molecular species that activate the respective site, format
@@ -308,78 +277,76 @@ def add_activation(
 
     mono = model.monomers[m_name]
 
-    if site_states is not None:
-        valid_states = site_states
-    elif activation_type == "p":
-        valid_states = ["u", "p"]
-    elif activation_type == "nucleotide_exchange":
-        valid_states = ["gdp", "gtp"]
-    elif activation_type == "tf_activation":
-        valid_states = ["inactive", "active"]
-    else:
-        raise ValueError(f"Invalid activation type {activation_type}.")
-
-    sites = list(site.split("_"))
-
-    for s in sites:
-        if s not in mono.site_states or any(
-            state not in mono.site_states[s] for state in valid_states
-        ):
-            raise ValueError(
-                f"{s} is not a valid target for {activation_type}."
-            )
-
-    if activation_type == "p":
+    if activation_type == "phospho":
         forward = "p"
         reverse = "dp"
-    elif activation_type == "nucleotide_exchange":
-        forward = "gtp_exchange"
-        reverse = "gdp_exchange"
-    elif activation_type == "activation":
-        forward = f"act_{site_states[1]}"
-        reverse = f"deact_{site_states[1]}"
+        fstate = {site: "u"}
+        rstate = {site: "p"}
+    elif activation_type == "endo":
+        forward = "endo"
+        reverse = "recycle"
+        fstate = {site: "pm"}
+        rstate = {site: "e"}
     else:
-        raise ValueError(f"Invalid activation type {activation_type}.")
-    fstate = {s: valid_states[0] for s in sites}
-    rstate = {s: valid_states[1] for s in sites}
+        raise RuntimeError(f"Unknown activation type {activation_type}")
 
-    kr = add_parameter(f"{m_name}_{forward}_{site}_kr", model)
-    if len(site.split("_")) > 1:
-        koff = 0.0
-        for s in site.split("_"):
-            koff += model.expressions[f"{m_name}_{reverse}_{s}_base_kcat"]
-        koff /= len(site.split("_"))
+    if site == "compartment":
+        reverse_name = f"{m_name}_{reverse}"
+        forward_name = f"{m_name}_{forward}"
     else:
-        koff = model.expressions[f"{m_name}_{reverse}_{site}_base_kcat"]
-    rate_expr = kr * koff
+        reverse_name = f"{m_name}_{reverse}_{site}"
+        forward_name = f"{m_name}_{forward}_{site}"
+    koff = model.expressions[f"{reverse_name}_kcat"]
 
-    num = 0.0
+    activation = add_parameter(f"{reverse_name}_bact", model)
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
-        if len(activators) > 1:
-            p_name = f"{m_name}_{forward}_{site}_{activator}_kw"
-            if activator in model.parameters.keys():
-                weight = Parameter(p_name)
-            else:
-                weight = add_parameter(p_name, model)
-            factor *= weight
-
-        num += factor
-
-    denum = 1.0
-    for deactivator in deactivators:
-        weight = add_parameter(
-            f"{m_name}_{reverse}_{site}_{deactivator}_kw", model
+        factor *= add_parameter(f"{forward_name}_{activator}_kw", model)
+        activation += Expression(
+            f"{forward_name}_{activator}_activating_factor", factor
         )
-        denum += add_or_get_modulator_obs(model, deactivator) * weight
 
-    rate = rate_expr * num / denum
+    deactivation = 0
+    for deactivator in deactivators:
+        factor = add_or_get_modulator_obs(model, deactivator)
+        factor *= add_parameter(f"{forward_name}_{deactivator}_kw", model)
+        deactivation += Expression(
+            f"{forward_name}_{deactivator}_inhibiting_factor", factor
+        )
 
-    Rule(
-        f"{m_name}_{forward}_{site}_activation",
-        mono(**fstate) >> mono(**rstate),
-        Expression(f"{m_name}_{forward}_{site}_activation_rate", rate),
-    )
+    # dynamic_range = sp.log(100)
+
+    kr = Expression(f"{forward_name}_kr", activation / (1 + deactivation))
+
+    rate = Expression(f"{forward_name}_activation_rate", koff * kr)
+
+    if n_delays := add_delay.get(f"{m_name}_{site}", 0):
+        kdelay = add_parameter(
+            f"{forward_name}_{deactivator}_delay_kcat", model
+        )
+        Rule(
+            f"{forward_name}_activation",
+            mono(**fstate) >> mono(**{site: "u0"}),
+            rate,
+        )
+        for idelay in range(n_delays - 1):
+            Rule(
+                f"{forward_name}_activation_d{idelay}",
+                mono(**{site: f"u{idelay}"}) >> mono(**{site: f"u{idelay+1}"}),
+                kdelay,
+            )
+        Rule(
+            f"{forward_name}_activation_d{n_delays-1}",
+            mono(**{site: f"u{n_delays-1}"}) >> mono(**rstate),
+            kdelay,
+        )
+
+    else:
+        Rule(
+            f"{forward_name}_activation",
+            mono(**fstate) >> mono(**rstate),
+            rate,
+        )
 
 
 def add_degradation(model: Model, targets):
@@ -427,7 +394,9 @@ def add_observables(model: Model):
                 )
 
 
-def add_inhibitor(model: Model, name: str, targets: List[str]):
+def add_inhibitor(
+    model: Model, name: str, targets: List[str], inhibits_activation=False
+):
     inh = None
 
     free_targets = {}
@@ -439,6 +408,8 @@ def add_inhibitor(model: Model, name: str, targets: List[str]):
         ) in model.expressions.keys():
             target_sym = model.expressions[target_expr]
             target = target_expr
+        elif target in model.expressions.keys():
+            target_sym = model.expressions[target]
         else:
             continue
         kd = add_parameter(f"{name}_{target}_kd", model)

@@ -1,7 +1,6 @@
-from pysb import Monomer, Parameter, Rule
+from pysb import Parameter, Rule
 
 from dmm.mechanistic_model import (
-    add_inhibitor,
     add_parameter,
     generate_pathway,
 )
@@ -10,8 +9,15 @@ active_rtks = [
     "EGFR__Y1173_p",
     "ERBB2__Y1248_p",
 ]
-egfr_feedback = ["ERK__Y204_p"]
+rtk_feedback = ["ERK__Y204_p"]
 active_akt = ["AKT__T308_p"]
+
+
+def has_modification(model, modification):
+    if "__" not in model.name:
+        return False
+
+    return modification in model.name.split("__")[1].split("_")
 
 
 def add_egfr(model):
@@ -22,32 +28,41 @@ def add_egfr(model):
     Parameter("NRG1_eq")
     Parameter("NRG2_eq")
 
-    EGFR = Monomer(
-        "EGFR",
-        ["Y1173", "compartment"],
-        {"compartment": ["pm", "e"], "Y1173": ["u", "p"]},
-    )
-
     erbb_cascade = [
-        ("ERBB2", {"Y1248": ["EGFR__Y1173_p", "NRG1_eq", "NRG2_eq"]}),
-        ("EGFR", {"Y1173": ["EGF_0", "TGFA_eq", "BTC_eq", "EREG_eq"]}),
+        (
+            "ERBB2",
+            {
+                "Y1248": (
+                    ["ERBB2", "EGF_0", "EGFR__Y1173_p", "NRG1_eq", "NRG2_eq"],
+                    ["iEGFR_0"],
+                ),
+            },
+        ),
+        (
+            "EGFR",
+            {
+                "Y1173": (
+                    ["EGF_0", "TGFA_eq", "BTC_eq", "EREG_eq"],
+                    ["iEGFR_0"],
+                ),
+                "compartment": (["EGF_0", "EGFR__Y1173_p"], ["EGFR", "ERBB2"]),
+            },
+        ),
     ]
+    free_levels = ["EGFR"] if has_modification(model, "freeq") else []
     generate_pathway(
         model,
         erbb_cascade,
-        add_baseline_activation=["EGFR", "ERBB2"],
-        species_with_synth="EGFR",
+        species_with_synth=["EGFR"],
+        species_with_free_levels=free_levels,
+        add_delay={"EGFR_compartment": 3},
     )
-    Rule(
-        "EGFR_degradation",
-        EGFR(compartment="e") >> None,
-        add_parameter("EGFR_degradation_kcat", model),
-    )
-    Rule(
-        "EGFR_endocytosis",
-        EGFR(Y1173="p", compartment="pm") >> EGFR(Y1173="p", compartment="e"),
-        add_parameter("EGFR_endocytosis_kcat", model),
-    )
+    for RTK in ["EGFR"]:
+        Rule(
+            f"{RTK}_degradation",
+            model.monomers[RTK](compartment="e") >> None,
+            add_parameter(f"{RTK}_deg_kcat", model),
+        )
 
 
 def add_mapk(model):
@@ -55,13 +70,15 @@ def add_mapk(model):
     Parameter("m_BRAF")
 
     mapk_cascade = [
-        ("MEK", {"S222": (active_rtks + ["m_KRAS", "m_BRAF"], egfr_feedback)}),
-        ("ERK", {"Y204": ["MEK__S222_p", *active_rtks]}),
+        ("MEK", {"S222": (["m_KRAS", "m_BRAF", *active_rtks], rtk_feedback)}),
+        ("ERK", {"Y204": (["MEK__S222_p", *active_rtks], ["iMEK_0"])}),
         # egfr can activate via p38
         ("RPS6KA1", {"S380": ["ERK__Y204_p", *active_rtks]}),  # p90RSK
     ]
     generate_pathway(
-        model, mapk_cascade, add_baseline_activation=["MEK", "RPS6KA1"]
+        model,
+        mapk_cascade,
+        add_delay={"MEK_S222": 3},
     )
 
 
@@ -72,7 +89,7 @@ def add_mtore_akt(model):
 
     # AKT
     akt_cascade = [
-        ("PIK3CA", {"pip2": (active_rtks, egfr_feedback)}),
+        ("PIK3CA", {"pip2": (active_rtks, rtk_feedback)}),
         ("PDPK1", {"S241": ["PIK3CA__pip2_p"]}),
         (
             "AKT",
@@ -149,10 +166,3 @@ def add_s6(model):
         ),
     ]
     generate_pathway(model, EIF4_cascade)
-
-
-def add_inhibitors(model):
-    add_inhibitor(model, "iMEK", ["MEK__S222_p_obs"])
-    add_inhibitor(model, "iEGFR", ["EGFR__Y1173_p_obs", "ERBB2__Y1248_p_obs"])
-    add_inhibitor(model, "iPI3K", ["PIK3CA__pip2_p_obs"])
-    add_inhibitor(model, "iPKC", ["PKC"])

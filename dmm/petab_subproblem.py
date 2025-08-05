@@ -147,6 +147,14 @@ def load_petab(
 
     model = problem.load_pysb()
 
+    for col in condition_table.columns:
+        if (condition_table[col] == 0).all():
+            par_cols = [
+                par for par in model.parameters.keys() if f"_{col}_" in par
+            ]
+            # disable estimation
+            condition_table[par_cols] = 0
+
     features = [
         par
         for par in model.parameters

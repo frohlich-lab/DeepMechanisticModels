@@ -25,19 +25,16 @@ pathway_dir = base_dir
 logger = logging.getLogger("cytof_problem")
 
 BOUNDS = ParameterBounds(
-    kdeg=(-6, -1, "log10"),  # [1/[t]]
+    kdeg=(-4, 2, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
-    kcat=(-4, 4, "log10"),  # [1/([t]*[c])]
-    kr=(-4, 4, "log10"),  # [-]
-    scale=(0, 3, "log10"),  # [1/[c]]
-    offset=(-2, 2, "log10"),  # [[c]]
-    weight=(-0.5, 0.5, "lin"),  # [-]
+    kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
+    kr=(-6, 6, "log10"),  # [-]
+    scale=(-2, 4, "log10"),  # [1/[c]]
+    offset=(-4, 4, "log10"),  # [[c]]
     koff=(-3, 2, "log10"),  # [1/[t]]
-    kd=(-3, 3, "log10"),  # [[c]]
+    kd=(-10, 3, "log10"),  # [[c]]
     kw=(-4, 4, "log10"),  # [1/[c]]
-    tau=(-4, 2, "log10"),  # [t]
-    amp=(-4, 0, "log10"),  # [c]
-    p0=(-4, 0, "log10"),  # [c]
+    bact=(-4, 4, "log10"),
 )
 
 
@@ -123,8 +120,8 @@ class CytofProblem(Problem):
         solver.setNewtonMaxSteps(int(100))
         solver.setAbsoluteTolerance(1e-10)
         solver.setRelativeTolerance(1e-10)
-        solver.setAbsoluteToleranceSteadyState(1e-8)
-        solver.setRelativeToleranceSteadyState(1e-8)
+        solver.setAbsoluteToleranceSteadyState(1e-6)
+        solver.setRelativeToleranceSteadyState(1e-6)
         solver.setNewtonStepSteadyStateCheck(True)
 
     def apply_objective_settings(self, objective, n_threads: int = 1):

@@ -2,7 +2,6 @@ from pysb import Model
 
 from cytof.pathways import (
     add_egfr,
-    add_inhibitors,
     add_mapk,
     add_mtore_akt,
     add_stat,
@@ -17,4 +16,3 @@ add_mtore_akt(model)
 add_stat(model)
 
 add_observables(model)
-add_inhibitors(model)

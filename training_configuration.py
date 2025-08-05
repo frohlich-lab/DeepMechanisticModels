@@ -16,19 +16,19 @@ modifications = [
     # "mbraf",
     # "mkras",
     # observable function
-    "logobs",
+    # "logobs",
 ]
 
 PATHWAYS = (
     [
-        "EGFR_MAPK",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
+        # "EGFR_MAPK",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
     ]
     # + [
     #     f"EGFR_MAPK__{'_'.join(sorted(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'tegfr', 'ttgfa', 'tbtc', 'tereg', 'tnrg1', 'tnrg2'] + list(combo)))}"
@@ -129,12 +129,12 @@ CONTEXTS_FEATURES = tuple(
         context,
         f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
     )
-    for n_features in range(4, 33, 4)
+    for n_features in range(4, 4, 4)
     for context in [
-        "transcriptomics",
-        "proteomics",
+        # "transcriptomics",
+        # "proteomics",
         "cytof_init",
-        "cytof_dynamic",
+        # "cytof_dynamic",
     ]
 )
 
