@@ -88,6 +88,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             last_layer_activation=self.encoder_params.last_layer_activation,
             weight_init_fn=self.encoder_params.weight_init_fn,
             bias_init_fn=self.encoder_params.bias_init_fn,
+            dropout_rate=self.encoder_params.dropout_rate,
         )
 
         # Instantiate inflater component
@@ -100,6 +101,8 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             last_layer_activation=self.inflater_params.last_layer_activation,
             weight_init_fn=self.inflater_params.weight_init_fn,
             bias_init_fn=self.inflater_params.bias_init_fn,
+            # no dropout
+            dropout_rate=0.0,
         )
 
         # Instantiate decoder component if two-headed autoencoder
@@ -113,13 +116,15 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 last_layer_activation=self.decoder_params.last_layer_activation,
                 weight_init_fn=self.decoder_params.weight_init_fn,
                 bias_init_fn=self.decoder_params.bias_init_fn,
+                # no dropout
+                dropout_rate=0.0,
             )
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head
 
-    def __call__(self, x):
-        encoded = self.deep_encoder(x)
-        inflated = self.deep_inflater(encoded)
+    def __call__(self, x, key):
+        encoded = self.deep_encoder(x, key)
+        inflated = self.deep_inflater(encoded, None)
         # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
-        decoded = self.deep_decoder(encoded) if self.reconstruct else None
+        decoded = self.deep_decoder(encoded, None) if self.reconstruct else None
         return {"inflated": inflated, "decoded": decoded}

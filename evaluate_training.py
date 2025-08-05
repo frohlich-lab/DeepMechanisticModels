@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 import fire
+import equinox as eqx
 import jax
 import pandas as pd
 
@@ -49,8 +50,11 @@ def evaluate_training(
     # Initialise list to store evaluations
     evaluations = []
 
-    # Load ensemble models and objectives
+    # Load model and objective
     model, obj = load_model_and_obj(conf, petab_base_files, dataset)
+
+    # Set model to inference mode (essential for evaluation if dropout is applied to the encoder)
+    model = eqx.nn.inference_mode(model)
 
     # Extract needed features from input dictionary
     input_features = subset_features(

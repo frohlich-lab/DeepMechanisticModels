@@ -123,6 +123,7 @@ def process_features_and_setup_models(
         "orth_reg_strategy": conf.orth_reg_strategy,
         "activation_fn_name": conf.activation_fn_name,
         "reconstruct": conf.reconstruct,
+        "dropout_rate": conf.dropout_rate,
         "n_threads": conf.threads,
         **petab_base_files,
     }
