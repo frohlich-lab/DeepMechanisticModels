@@ -54,9 +54,9 @@ DATASETS = ("dream_cytof",)
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
-    ("cytof_init", "RFE_6_permute"),
-    ("cytof_dynamic", "RFE_6_permute"),
-    ("cytof_dynamic_pca", "RFE_6_permute"),
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_dynamic", "RFE_10_permute"),
+    ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "HVGRFE_6_permute"),
