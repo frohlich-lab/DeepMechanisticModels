@@ -1,9 +1,11 @@
-from typing import List
+from typing import Optional
 
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
+from sklearn.base import BaseEstimator, TransformerMixin
 from sklearn.cross_decomposition import CCA, PLSRegression
+from sklearn.decomposition import PCA
 from sklearn.feature_selection import (
     SelectFromModel,
     SequentialFeatureSelector,
@@ -27,7 +29,7 @@ def contextualize_measurements(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     contextualization: str,
-    samples: List[str],
+    samples: list[str],
     impute: bool = True,  # only affects cytof_init - if False, recovers previous behaviour
 ) -> pd.DataFrame:
     # Check requested contextualization is available
@@ -36,6 +38,7 @@ def contextualize_measurements(
         "proteomics",
         "cytof_init",
         "cytof_dynamic",
+        "cytof_dynamic_pca",
         "cytof_dynamic_full",
     ):
         raise ValueError(f"Unknown contextualization: {contextualization}")
@@ -280,6 +283,7 @@ def load_data(
     observable_table,
     features_filepath=None,
     impute: bool = True,
+    transform: Optional[callable] = None,
 ):
     if contextualization not in ["MOSA", "seqvar"]:
         input_data = contextualize_measurements(
@@ -319,43 +323,66 @@ def load_data(
             [sample for sample in samples if sample in input_data.index], :
         ]
 
-    if contextualization == "cytof_dynamic":
+    if contextualization.startswith("cytof_dynamic"):
         input_data = harmonise_cytof_dynamic(input_data)
+
+    # AVOID DROPPING pERBB2/iMEK FOR REGRESSORS!
+    nan_threshold = (
+        0.5 if contextualization.startswith("cytof_dynamic") else 0.3
+    )
+
+    if not features and not transform:
+        # for training, compute feature set, filtering out too many nans
+        # this does not affect "seqvar", which has 0/0.5/1 values
+        input_data = input_data.loc[
+            :, input_data.isna().mean() < nan_threshold
+        ]
+
+    if not transform and contextualization.endswith("_pca"):
+
+        class DropNaN(BaseEstimator, TransformerMixin):
+            def fit(self, X, y=None):
+                return self
+
+            def transform(self, X):
+                return X.loc[:, X.isna().mean() < nan_threshold]
+
+        class ConvertDataFrame(BaseEstimator, TransformerMixin):
+            def fit(self, X, y=None):
+                return self
+
+            def transform(self, X):
+                return pd.DataFrame(
+                    X,
+                    columns=[f"pca_{i}" for i in range(input_data.shape[0])],
+                )
+
+        pipeline = Pipeline(
+            [
+                ("dopnan", DropNaN()),
+                ("impute", KNNImputer()),
+                ("pca", PCA()),
+                ("df", ConvertDataFrame()),
+            ]
+        )
+        index = input_data.index
+        input_data = pipeline.fit_transform(input_data)
+        input_data.index = index
+        transform = pipeline.transform
+    elif not transform:
+        transform = lambda x: x
+    else:
+        index = input_data.index
+        input_data = transform(input_data)
+        input_data.index = index
+
     if features:
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
     else:
-        # for training, compute feature set, filtering out too many nans
-        # this does not affect "seqvar", which has 0/0.5/1 values
-        if contextualization == "cytof_dynamic":
-            threshold = 0.5  # AVOID DROPPING pERBB2/iMEK FOR REGRESSORS!
-        else:
-            threshold = 0.3
-        input_data = input_data.loc[:, input_data.isna().mean() < threshold]
-        if contextualization == "transcriptomics":
-            # look at mean vs variance plot
-            # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
-            # plt.yscale('log')
-            # plt.show()
-
-            # filter low capture efficiency genes
-            # input_data = input_data.loc[
-            #     :,
-            #     np.nanmin(input_data, axis=0)
-            #     < np.nanmedian(input_data, axis=0),
-            # ]
-            pass
-        elif contextualization == "proteomics":
-            # look at mean vs variance plot
-            # plt.scatter(np.nanmedian(input_data,axis=0),np.nanvar(input_data,axis=0))
-            # plt.yscale('log')
-            # plt.show()
-            # input_data = input_data.loc[
-            #     :, np.nanmedian(input_data, axis=0) > -2.5
-            # ]
-            pass
         features = list(input_data.columns)
-    return input_data, features
+
+    return input_data, features, transform
 
 
 def build_preprocessor(

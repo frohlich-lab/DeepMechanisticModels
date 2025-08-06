@@ -41,7 +41,9 @@ rmse_cols = [
 
 df_rmse["method"] = df_rmse.apply(
     lambda r: "_".join(
-        r[x] for x in rmse_cols if isinstance(r[x], str) or not np.isnan(r[x])
+        str(r[x])
+        for x in rmse_cols
+        if isinstance(r[x], str) or not np.isnan(r[x])
     ),
     axis=1,
 )

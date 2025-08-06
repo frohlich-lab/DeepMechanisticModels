@@ -26,6 +26,9 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr",
+        "EGFR_MAPK",
+        "EGFR_MAPK__tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
@@ -49,9 +52,11 @@ DATASETS = ("dream_cytof",)
 # }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = tuple(
+CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
-    # ("cytof_init", "RFE_6_permute"),
+    ("cytof_init", "RFE_6_permute"),
+    ("cytof_dynamic", "RFE_6_permute"),
+    ("cytof_dynamic_pca", "RFE_6_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "HVGRFE_6_permute"),
@@ -125,18 +130,18 @@ CONTEXTS_FEATURES = tuple(
     # if not (
     #     context == "proteomics" and genomic_features == "MPAS"
     # )  # not enough features
-    (
-        context,
-        f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
-    )
-    for n_features in range(4, 4, 4)
-    for context in [
-        # "transcriptomics",
-        # "proteomics",
-        "cytof_init",
-        # "cytof_dynamic",
-    ]
-)
+    # (
+    #     context,
+    #     f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
+    # )
+    # for n_features in range(4, 4, 4)
+    # for context in [
+    #     # "transcriptomics",
+    #     # "proteomics",
+    #     "cytof_init",
+    #     # "cytof_dynamic",
+    # ]
+]
 
 # Cross-validation splits
 SPLITS = {

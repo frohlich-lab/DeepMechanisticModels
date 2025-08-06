@@ -397,16 +397,17 @@ for context in contexts:
             subconf, samples_train[conf.samples], samples_val[conf.samples]
         )
     else:
-        input_train, features_all = load_data(
+        input_train, features_all, transform = load_data(
             contextualization=context,
             samples=samples_train[conf.samples],
             features=None,
             **petab_base_files,
         )
-        input_val, _ = load_data(
+        input_val, _, _ = load_data(
             contextualization=context,
             samples=samples_val[conf.samples],
             features=features_all,
+            transform=transform,
             **petab_base_files,
         )
 
@@ -427,7 +428,7 @@ for context in contexts:
     input_train -= mean_train
     input_val -= mean_train
 
-    output_train, features_output_train = load_data(
+    output_train, features_output_train, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train[conf.samples],
         features=None,

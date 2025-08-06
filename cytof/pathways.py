@@ -49,7 +49,7 @@ def add_egfr(model):
 def add_mapk(model):
     mek_activators = [*active_rtks]
     for mut in ["KRAS", "BRAF"]:
-        if model.has_modifiation(f"m{mut.lower()}"):
+        if model.has_modification(f"m{mut.lower()}"):
             par = f"m_{mut}"
             model.parameters.add(par)
             mek_activators.append(par)

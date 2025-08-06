@@ -227,13 +227,13 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     ]
 
     # Load output features
-    output_data_train, output_columns_train = load_data(
+    output_data_train, output_columns_train, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train,
         features=None,
         **petab_base_files,
     )
-    output_data_val, _ = load_data(
+    output_data_val, _, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_val,
         features=output_columns_train,
