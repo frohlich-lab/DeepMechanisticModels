@@ -72,7 +72,7 @@ optimizer = FidesOptimizer(
 amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
 result = pretrain(
     pypesto_problem,
-    25,
+    10,
     optimizer,
 )
 

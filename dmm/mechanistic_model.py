@@ -1,6 +1,6 @@
 import itertools as itt
 import re
-from typing import Dict, Iterable, List, Tuple
+from typing import Iterable, List
 
 import pysb.bng
 import sympy as sp
@@ -13,6 +13,59 @@ from pysb import (
     Parameter,
     Rule,
 )
+
+from cytof.pathways import add_egfr, add_mapk, add_mtor_akt
+
+
+class MechanisticModel:
+    pysb_model: Model
+
+    species_with_synth: list[str] = []
+    species_with_free_levels: list[str] = []
+    pathway_elements: dict[str, dict] = {}
+    delays: dict[str, int] = {}
+    require_phosphorylation: dict[str, str] = {}
+    require_compartment: dict[str, str] = {}
+    parameters: set[str] = set()
+    components: tuple[str, ...] = ()
+    modifications: tuple[str, ...] = ()
+
+    def __init__(self, model_name: str):
+        self.components = tuple(model_name.split("__")[0].split("_"))
+        if "__" in model_name:
+            self.modifications = tuple(model_name.split("__")[1].split("_"))
+
+        if "EGFR" in self.components:
+            add_egfr(self)
+
+        if "MAPK" in self.components:
+            add_mapk(self)
+
+        if "AKT" in self.components:
+            add_mtor_akt(self)
+
+    def construct_pysb(self, model_name):
+        pysb_model = Model(model_name)
+
+        for par in self.parameters:
+            Parameter(par)
+
+        generate_pathway(
+            model=pysb_model,
+            proteins=self.pathway_elements,
+            species_with_free_levels=self.species_with_free_levels,
+            species_with_synth=self.species_with_synth,
+            add_delay=self.delays,
+            require_compartment=self.require_compartment,
+            require_phosphorylation=self.require_phosphorylation,
+        )
+
+        add_observables(pysb_model)
+        return pysb_model
+
+    def has_modification(self, modification):
+        return modification in self.modifications
+
 
 from . import MODEL_FEATURE_PREFIX
 
@@ -42,7 +95,7 @@ def add_parameter(name: str, model: Model):
 
 def generate_pathway(
     model: Model,
-    proteins: Iterable[Tuple[str, Dict[str, Iterable[str]]]],
+    proteins: dict[str, dict[str, Iterable[str]]],
     species_with_synth=None,
     species_with_free_levels=(),
     add_delay=None,
@@ -67,34 +120,39 @@ def generate_pathway(
     if require_phosphorylation is None:
         require_phosphorylation = {}
 
-    for p_name, site_activators in proteins:
+    for p_name, site_modulators in proteins.items():
         add_monomer_synth_deg(
             model,
             p_name,
-            sites=site_activators.keys(),
+            sites=[s for s in site_modulators.keys() if s != "degradation"],
             with_synth=p_name in species_with_synth,
             compartments=["pm", "e"],
             species_with_free_levels=species_with_free_levels,
             add_delay=add_delay,
+            require_compartment=require_compartment,
         )
 
-    for p_name, site_activators in proteins:
-        for site, modulators in site_activators.items():
+    for p_name, site_modulators in proteins.items():
+        for site, modulators in site_modulators.items():
             if isinstance(modulators, list):
                 activators = modulators
                 deactivators = []
             else:
                 activators, deactivators = modulators
+
             add_activation(
                 model=model,
                 m_name=p_name,
                 site=site,
                 activators=activators,
                 deactivators=deactivators,
-                activation_type="phospho" if site != "compartment" else "endo",
-                add_delay=add_delay,
-                require_compartment=require_compartment,
-                require_phosphorylation=require_phosphorylation,
+                n_delays=add_delay.get(f"{p_name}_{site}", 0),
+                require_compartment=require_compartment.get(
+                    f"{p_name}_{site}"
+                ),
+                require_phosphorylation=require_phosphorylation.get(
+                    f"{p_name}_{site}"
+                ),
             )
 
 
@@ -102,6 +160,7 @@ def add_monomer_synth_deg(
     model: Model,
     m_name: str,
     add_delay: dict,
+    require_compartment: dict,
     compartments: Iterable[str],
     sites: Iterable[str] = (),
     with_synth=False,
@@ -165,18 +224,24 @@ def add_monomer_synth_deg(
     )
 
     if with_synth:
-        # kdeg = add_parameter(f"{m_name}_deg_kdeg", model)
-        syn_rate = Expression(f"{m_name}_syn_rate", t0)
+        kdeg = add_parameter(f"{m_name}_deg_kdeg", model)
+        syn_rate = Expression(f"{m_name}_syn_rate", t0 * kdeg)
         Rule(f"syn_{m_name}", None >> syn_prod, syn_rate)
-        # Rule(f"deg_{m_name}", m() >> None, deg_rate)
+        Rule(f"deg_{m_name}", m() >> None, kdeg)
 
     Initial(syn_prod, t0)
 
     # basal deactivation
     for site in psites:
+        rstate = {site: "p"}
+        fstate = {site: "u"}
+        if comp := require_compartment.get(f"{m_name}_{site}"):
+            rstate["compartment"] = comp
+            fstate["compartment"] = comp
+
         Rule(
             f"{m_name}_dp_{site}_p",
-            m(**{site: "p"}) >> m(**{site: "u"}),
+            m(**rstate) >> m(**fstate),
             add_parameter(f"{m_name}_dp_{site}_kcat", model),
         )
 
@@ -248,10 +313,9 @@ def add_activation(
     model: Model,
     m_name: str,
     site: str,
-    activation_type: str,
-    add_delay: dict,
-    require_compartment: dict,
-    require_phosphorylation: dict,
+    n_delays: int,
+    require_compartment: str | None,
+    require_phosphorylation: str | None,
     activators: Iterable[str] = (),
     deactivators: Iterable[str] = (),
 ):
@@ -286,7 +350,12 @@ def add_activation(
 
     mono = model.monomers[m_name]
 
-    n_delays = add_delay.get(f"{m_name}_{site}", 0)
+    activation_types = {
+        "compartment": "endo",
+        "degradation": "deg",
+    }
+
+    activation_type = activation_types.get(site, "phospho")
 
     if activation_type == "phospho":
         forward = "p"
@@ -294,31 +363,41 @@ def add_activation(
         fstate = {site: "u"}
         rstate = {site: "p"}
         dstate = {}
-        if comp := require_compartment.get(f"{m_name}_{site}"):
-            fstate["compartment"] = comp
-            rstate["compartment"] = comp
+        if require_compartment:
+            fstate["compartment"] = require_compartment
+            rstate["compartment"] = require_compartment
     elif activation_type == "endo":
         forward = "endo"
         reverse = "recycle"
         fstate = {site: "pm"}
         rstate = {site: "e"}
         dstate = {}
-        if p := require_phosphorylation.get(f"{m_name}_{site}"):
-            fstate[p] = "p"
+        if require_phosphorylation:
+            fstate[require_phosphorylation] = "p"
             if n_delays == 0:
-                fstate[p] = "p"
+                fstate[require_phosphorylation] = "p"
             else:
-                dstate[p] = "p"
+                dstate[require_phosphorylation] = "p"
+    elif activation_type == "deg":
+        forward = "deg"
+        reverse = "deg"
+        fstate = {}
+        rstate = {}
+        dstate = {}
+        if require_compartment:
+            fstate["compartment"] = require_compartment
     else:
         raise RuntimeError(f"Unknown activation type {activation_type}")
 
     if site == "compartment":
-        reverse_name = f"{m_name}_{reverse}"
         forward_name = f"{m_name}_{forward}"
+        kref = model.expressions[f"{m_name}_{reverse}_kcat"]
+    elif site == "degradation":
+        forward_name = f"{m_name}_{forward}"
+        kref = model.expressions[f"{m_name}_{reverse}_kdeg"]
     else:
-        reverse_name = f"{m_name}_{reverse}_{site}"
         forward_name = f"{m_name}_{forward}_{site}"
-    koff = model.expressions[f"{reverse_name}_kcat"]
+        kref = model.expressions[f"{m_name}_{reverse}_{site}_kcat"]
 
     activation = add_parameter(f"{forward_name}_bact", model)
     for activator in activators:
@@ -336,11 +415,9 @@ def add_activation(
             f"{forward_name}_{deactivator}_inhibiting_factor", factor
         )
 
-    # dynamic_range = sp.log(100)
-
     kr = Expression(f"{forward_name}_kr", activation / (1 + deactivation))
 
-    rate = Expression(f"{forward_name}_activation_rate", koff * kr)
+    rate = Expression(f"{forward_name}_activation_rate", kref * kr)
 
     if n_delays:
         Rule(
@@ -352,11 +429,17 @@ def add_activation(
             Rule(
                 f"{forward_name}_activation_d{idelay}",
                 mono(**{site: f"u{idelay}"}) >> mono(**{site: f"u{idelay+1}"}),
-                rate,
+                kref,
             )
         Rule(
             f"{forward_name}_activation_d{n_delays-1}",
             mono(**{site: f"u{n_delays-1}"}) >> mono(**rstate),
+            kref,
+        )
+    elif activation_type == "deg":
+        Rule(
+            forward_name,
+            mono(**fstate) >> None,
             rate,
         )
 

@@ -13,6 +13,7 @@ import pysb
 import pysb.export
 import sympy as sp
 
+from dmm.mechanistic_model import MechanisticModel
 from dmm.problem import ParameterBounds, Problem
 from dmm.training_helper_funcs import Chi2Objective
 
@@ -29,12 +30,12 @@ BOUNDS = ParameterBounds(
     eq=(-4, 4, "log10"),  # [[c]]
     kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
     kr=(-6, 6, "log10"),  # [-]
-    scale=(-2, 4, "log10"),  # [1/[c]]
-    offset=(-4, 4, "log10"),  # [[c]]
+    scale=(-2, 3, "log10"),  # [1/[c]]
+    offset=(-4, 3, "log10"),  # [[c]]
     koff=(-3, 2, "log10"),  # [1/[t]]
     kd=(-10, 3, "log10"),  # [[c]]
-    kw=(-3, 2, "log10"),  # [1/[c]]
-    bact=(-4, 2, "log10"),
+    kw=(-3, 3, "log10"),  # [1/[c]]
+    bact=(-5, 3, "log10"),
 )
 
 
@@ -95,23 +96,15 @@ class CytofProblem(Problem):
         return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
-        pathway = self.model_name.split("__")[0]
-        model_file = pathway_dir / f"pw_{pathway}.py"
-        if not model_file.exists():
-            raise ValueError(
-                f"{pathway} is not a valid pathway name for this problem class. Please specify"
-                f" a valid name via the `pathway_name` keyword argument when instantiating the problem."
-            )
-        logger.debug(f"loading pathway from {model_file}")
-        model = amici.pysb_import.pysb_model_from_path(model_file)
+        mechanistic_model = MechanisticModel(self.model_name)
+
+        model = mechanistic_model.construct_pysb(self.model_name)
 
         pysb_dir.mkdir(exist_ok=True, parents=True)
         pysb_file = pysb_dir / f"{model.name}.py"
         with open(pysb_file, "w") as file:
             logger.debug(f"writing pysb model to {pysb_file}")
             file.write(pysb.export.export(model, "pysb_flat"))
-
-        model.name = self.model_name
 
         return model
 

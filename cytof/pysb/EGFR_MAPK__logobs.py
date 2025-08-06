@@ -1,4 +1,4 @@
-# exported from PySB model 'EGFR_MAPK'
+# exported from PySB model 'EGFR_MAPK__logobs'
 
 from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern, time
 

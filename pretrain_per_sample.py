@@ -108,7 +108,7 @@ def plot_sample_rates(x_full, problem, importer, sample, dir):
         x="time",
         y="value",
         hue="effector",
-        palette="tab20",
+        palette="tab10",
         fill=False,
         dodge=False,
         sharey="col",
@@ -161,7 +161,7 @@ result = pretrain(
     startpoint_method=pypesto.startpoint.UniformStartpoints(
         check_fval=True, check_grad=True
     ),
-    nstarts=20,  # multistarts for pretraining (hard-coded)
+    nstarts=10,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
 results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
