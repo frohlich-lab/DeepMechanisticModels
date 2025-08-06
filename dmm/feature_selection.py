@@ -331,7 +331,7 @@ def load_data(
         0.5 if contextualization.startswith("cytof_dynamic") else 0.3
     )
 
-    if not features and not transform:
+    if not features and not contextualization.endswith("_pca"):
         # for training, compute feature set, filtering out too many nans
         # this does not affect "seqvar", which has 0/0.5/1 values
         input_data = input_data.loc[
@@ -341,11 +341,16 @@ def load_data(
     if not transform and contextualization.endswith("_pca"):
 
         class DropNaN(BaseEstimator, TransformerMixin):
+            _isna: pd.Series
+
+            def __init__(self, _isna):
+                self._isna = _isna
+
             def fit(self, X, y=None):
                 return self
 
             def transform(self, X):
-                return X.loc[:, X.isna().mean() < nan_threshold]
+                return X.loc[:, self._isna]
 
         class ConvertDataFrame(BaseEstimator, TransformerMixin):
             def fit(self, X, y=None):
@@ -357,9 +362,11 @@ def load_data(
                     columns=[f"pca_{i}" for i in range(input_data.shape[0])],
                 )
 
+        _isna = input_data.isna().mean() < nan_threshold
+
         pipeline = Pipeline(
             [
-                ("dopnan", DropNaN()),
+                ("dopnan", DropNaN(_isna)),
                 ("impute", KNNImputer()),
                 ("pca", PCA()),
                 ("df", ConvertDataFrame()),
