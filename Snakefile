@@ -484,8 +484,8 @@ rule report_all:
     output:
         performance=fig_dir / '{model}' / '{data}' / 'performance.pdf'
     resources:
-        mem="1GB",
-        runtime="1h",
+        mem="8GB",
+        runtime="2h",
         nodes=1,
         threads=1
     shell:
