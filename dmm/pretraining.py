@@ -233,7 +233,11 @@ def generate_average_pretraining_problem(
     )
 
     # temp disable to reduce runtime
-    # can_be_aggregated = True
+    if "__" in pp.model.model_id:
+        modifications = pp.model.model_id.split("__")[1].split("_")
+    else:
+        modifications = []
+    can_be_aggregated = "aggavg" in modifications or can_be_aggregated
 
     if can_be_aggregated:
         df_train[petab.SIMULATION_CONDITION_ID] = df_train[

@@ -42,8 +42,10 @@ def add_egfr(model):
     model.require_phosphorylation["EGFR_compartment"] = "Y1173"
     model.require_compartment["EGFR_Y1173"] = "pm"
     model.require_compartment["EGFR_degradation"] = "e"
-    if model.has_modification("freeq"):
+    if model.has_modification("fegfr"):
         model.species_with_free_levels.append("EGFR")
+    if model.has_modification("ferbb2"):
+        model.species_with_free_levels.append("ERBB2")
 
 
 def add_mapk(model):

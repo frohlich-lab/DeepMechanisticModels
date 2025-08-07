@@ -512,7 +512,7 @@ def add_observables(model: Model):
     phosphorylated site combinations for all monomers
     """
     for monomer in model.monomers:
-        if "tobs" in model.name.split("_"):
+        if "pobs" in model.name.split("_"):
             Observable(f"t{monomer.name}", monomer())
         psites = [
             site
