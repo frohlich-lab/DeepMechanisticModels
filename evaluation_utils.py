@@ -210,7 +210,13 @@ def get_embedding_and_params_df(
     job: int,
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
-    temp_latent_embeddings = vmap(dmm_model.deep_encoder)(input_features)
+    temp_latent_embeddings = vmap(
+        dmm_model.deep_encoder, 
+        in_axes=(0, None)
+    )(
+        input_features, 
+        dmm_model.model_key
+    )
     latent_embeddings_df = pd.DataFrame(
         {
             "cell_line": dmm_model.sample_name_list,
