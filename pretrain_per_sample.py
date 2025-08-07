@@ -55,7 +55,7 @@ def plot_sample_rates(x_full, problem, importer, sample, dir):
         [
             pd.DataFrame(data=r.w, columns=amici_model.getExpressionNames())
             .assign(time=r.t)
-            .assign(condition_id=r.id.split("__")[1])
+            .assign(condition_id=r.id)
             for r in res["rdatas"]
         ],
         axis=0,
