@@ -15,6 +15,7 @@ from training_configuration import (
     FREEZE_MEDIANS,
     GAMMAS,
     HP_RUN_MODE,
+    INFLATER_BOUND,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
     LAST_LAYER_ACTIVATION,
@@ -26,6 +27,7 @@ from training_configuration import (
     MAX_LEARNING_RATES,
     MEDIAN_INIT,
     MOMENTUM,
+    NEPOCH,
     NETWORK_DEPTH,
     NN_INIT_FN,
     NN_STRUCTURE_MULTIPLIER,
@@ -138,8 +140,8 @@ def generate_linear_scan(STARTS: list[str]):
         "opt_mult": OPT_MULT,
         "weight_decay": WEIGHT_DECAY,
         "momentum": MOMENTUM,
-        "n_epoch": 1000,  # fixed for linear scans
-        "inflater_bound": 5.0,  # fixed for linear scans
+        "n_epoch": NEPOCH,  # fixed for linear scans
+        "inflater_bound": INFLATER_BOUND,  # fixed for linear scans
     }
 
     # Check that all hyperparameter options are dicts (central value, range)

@@ -70,9 +70,6 @@ rule process_data:
             data='{data}',
             file=['measurements', 'conditions', 'observables']
         )
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+'
     resources:
         mem="8GB",  # tried on cluster and process_data was OOM killed
         runtime="1h",
@@ -92,9 +89,6 @@ rule compile_mechanistic_model:
         data=rules.process_data.output.datafiles
     output:
         model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py'
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+'
     resources:
         mem="8GB",
         runtime="1h",
@@ -115,10 +109,6 @@ rule pretrain_per_sample:
         data=rules.process_data.output.datafiles
     output:
         pretraining=PER_SAMPLE_OUTFILE_PARS
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+',
-        sample='\w+'
     resources:
         mem="2GB",
         runtime="6h",
@@ -139,10 +129,6 @@ rule pretrain_average_model:
         data=rules.process_data.output.datafiles
     output:
         pretraining=PER_SAMPLE_OUTFILE_PARS.format_map(SafeDict(sample='model_average_{samples}'))
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+',
-        samples='[0-9]+of[0-9]+'
     resources:
         mem="2GB",
         runtime="24h",
@@ -163,11 +149,6 @@ rule select_features:
             FEATURES_OUTFILE.format_map(SafeDict(dataset=dataset))
             for dataset in ['train', 'val']
         ]
-    wildcard_constraints:
-        model='\w+',
-        data='[\w\.]+',
-        context='\w+',
-        features = '\w+',
     resources:
         mem="4GB",
         runtime="10h",
@@ -190,10 +171,6 @@ rule evaluate_references:
             EVALUATION_REFERENCE.format_map(SafeDict(dataset=dataset, mode=mode))
             for dataset, mode in itt.product(['train', 'val'], ['per_sample', 'avg_model'])
         ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+'
     retries: 1
     resources:
         mem="8GB",
@@ -217,45 +194,6 @@ rule estimate_parameters:
     output:
         # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=TRAINED_MODEL
-    wildcard_constraints:
-        model = '\w+',
-        data = r'[\w\.]+',
-        samples = '[0-9]+of[0-9]+',
-        pretrain = 'True|False',
-        context = r"\w+(?:\+\w+)*",
-        features = r"\w+(?:\+\w+)*",
-        standardise_features= 'True|False',
-        freeze_medians='True|False',
-        n_hidden = '[0-9]+',
-        nn_structure_multiplier = '[0-9]+',
-        depth = '[0-9]+',
-        use_layer_bias = 'True|False',
-        last_layer_activation = 'True|False',
-        nn_init_fn = '\w+',
-        activation_fn_name = '\w+',
-        optimiser = '\w+',
-        orth_reg_strategy = '\w+',
-        l1reg_inflate = '[0-9\.]+',
-        l1reg_encode = '[0-9\.]+',
-        oreg_inflate = '[0-9\.]+',
-        oreg_encode = '[0-9\.]+',
-        l1reg_inflater_output='[0-9\.]+',
-        inflater_output_reg_epoch='[0-9\.]+',
-        sparse_threshold_perc='\w+',
-        recon_loss = '[0-9\.]+',
-        symm_reg = '[0-9\.]+',
-        median_reg='[0-9\.]+',
-        max_lrate = '[0-9\.]+',
-        lrate_span = '[0-9\.]+',
-        lrate_decay = '[0-9\.]+',
-        warmup_fct = '[0-9\.]+',
-        opt_steps = '[0-9]+',
-        opt_mult = '[0-9]+',
-        weight_decay = '[0-9\.]+',
-        momentum = '[0-9\.]+',
-        use_simple_linear_schedule = 'True|False',
-        use_early_stopping = 'True|False',
-        job = '[0-9]+'
     retries: 3
     resources:
         mem="4GB",
@@ -298,46 +236,6 @@ rule evaluate_training:
                 EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS
             ]
         ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+',
-        pretrain='True|False',
-        context=r"\w+(?:\+\w+)*",
-        features=r"\w+(?:\+\w+)*",
-        standardise_features= 'True|False',
-        freeze_medians='True|False',
-        n_hidden='[0-9]+',
-        nn_structure_multiplier='[0-9]+',
-        depth='[0-9]+',
-        use_layer_bias='True|False',
-        last_layer_activation='True|False',
-        nn_init_fn='\w+',
-        activation_fn_name='\w+',
-        optimiser='\w+',
-        orth_reg_strategy='\w+',
-        l1reg_inflate='[0-9\.]+',
-        l1reg_encode='[0-9\.]+',
-        oreg_inflate='[0-9\.]+',
-        oreg_encode='[0-9\.]+',
-        l1reg_inflater_output='[0-9\.]+',
-        l2reg_inflater_output='[0-9\.]+',
-        inflater_output_reg_epoch='[0-9]+',
-        sparse_threshold_perc='\w+',
-        recon_loss='[0-9\.]+',
-        symm_reg='[0-9\.]+',
-        median_reg='[0-9\.]+',
-        max_lrate='[0-9\.]+',
-        lrate_span='[0-9\.]+',
-        lrate_decay='[0-9\.]+',
-        warmup_fct='[0-9\.]+',
-        opt_steps='[0-9]+',
-        opt_mult='[0-9]+',
-        weight_decay='[0-9\.]+',
-        momentum='[0-9\.]+',
-        use_simple_linear_schedule='True|False',
-        use_early_stopping='True|False',
-        job='[0-9]+'
     retries: 1
     resources:
         mem="16GB",
@@ -392,12 +290,6 @@ rule evaluate_regressors:
                 ['linreg', 'lasso', 'elasticnet'],
             )
         ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        context='\w+',
-        features='\w+',
-        samples='[0-9]+of[0-9]+'
     retries: 1
     resources:
         mem="8GB",
@@ -457,10 +349,6 @@ rule evaluate_all:
                 # 'stat_tests_all',
             )
         ]
-    wildcard_constraints:
-        model='\w+',
-        data=r'[\w\.]+',
-        samples='[0-9]+of[0-9]+'
     resources:
         mem="16GB",
         runtime="90m",

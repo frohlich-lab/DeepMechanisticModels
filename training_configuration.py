@@ -530,6 +530,15 @@ MOMENTUM = {
     "central_value": 0.9,
 }
 
+NEPOCH = {
+    "range": (1000,),
+    "central_value": 1000,
+}
+
+INFLATER_BOUND = {
+    "range": (5.0,),
+    "central_value": 5.0,
+}
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
 # with the given max learning rate, warm-up and decay
