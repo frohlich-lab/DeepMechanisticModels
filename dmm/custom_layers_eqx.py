@@ -1,4 +1,4 @@
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import equinox as eqx
 import jax.nn.initializers as initializers
@@ -22,11 +22,11 @@ init_fn = {
 
 class CustomInitLinear(eqx.nn.Linear):
     # same notation as eqx.nn.Linear layers: access with .weight and .bias, enable bias with use_bias
-    in_features: Union[int, Literal["scalar"]] = eqx.field(static=True)
-    out_features: Union[int, Literal["scalar"]] = eqx.field(static=True)
+    in_features: int | Literal["scalar"]
+    out_features: int | Literal["scalar"]
     weight: Array
-    bias: Optional[Array]
-    use_bias: bool = eqx.field(static=True)
+    bias: Array | None
+    use_bias: bool
 
     def __init__(
         self,

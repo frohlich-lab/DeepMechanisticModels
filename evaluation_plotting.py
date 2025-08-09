@@ -149,7 +149,7 @@ def group_plots(
             )  # symlog to include unregularised settings
         # g.add_legend()
         plt.tight_layout()
-        rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
+        rfile = EVALUATE_ALL.format(**conf.to_dict(), group=group)
         plt.savefig(rfile)
         plt.savefig(rfile.replace(".pdf", ".svg"))
         plt.close()  # ensure figure is closed
@@ -197,7 +197,7 @@ def performance_barplot(
     g.tick_params(axis="x", rotation=90)
     g.add_legend()
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group=group_name)
+    rfile = EVALUATE_ALL.format(**conf.to_dict(), group=group_name)
     plt.savefig(rfile)
     plt.savefig(rfile.replace("pdf", "svg"))
     # plt.show(
@@ -238,7 +238,7 @@ def volcano_hyperparameter_significance(
     g.tick_params(direction="in", length=5)
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(
-        **conf.__dict__, group="volcano_plot_stat_test"
+        **conf.to_dict(), group="volcano_plot_stat_test"
     )
     plt.savefig(rfile)
     plt.savefig(rfile.replace("pdf", "svg"))
@@ -298,7 +298,7 @@ def n_hidden_pairwise_heatmap(dataframe: pd.DataFrame, conf):
     # Finally, save the whole figure combining all contexts
     plt.tight_layout()
     rfile = EVALUATE_ALL.format(
-        **conf.__dict__, group="heatmaps_n_hidden_pairwise"
+        **conf.to_dict(), group="heatmaps_n_hidden_pairwise"
     )
     plt.savefig(rfile)
     plt.savefig(rfile.replace("pdf", "svg"))

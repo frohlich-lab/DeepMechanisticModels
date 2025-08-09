@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Dict, Tuple, Union
+from typing import Tuple, Union
 
 import equinox as eqx
 import jax
@@ -31,12 +31,13 @@ from pypesto.objective.jax import JaxObjective
 
 import wandb
 
+from .config_options import Conf
 from .deepcomponent_eqx import DeepComponent
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 
 
 def get_scheduler(
-    conf: Dict,
+    conf: Conf,
     n_epoch: int,
 ) -> Schedule:
     """Get the learning rate scheduler.
@@ -53,67 +54,66 @@ def get_scheduler(
 
     """
 
-    if conf["use_simple_linear_schedule"]:
+    if conf.use_simple_linear_schedule:
         # Bypass for constant schedule if needed
         if (
-            conf["lrate_decay"] == 1
-            and conf["lrate_span"] == 1
-            and conf["warmup_fct"] == 0
+            conf.lrate_decay == 1
+            and conf.lrate_span == 1
+            and conf.warmup_fct == 0
         ):
-            return constant_schedule(conf["max_lrate"])
+            return constant_schedule(conf.max_lrate)
 
         assert (
-            conf["lrate_span"] >= 1
+            conf.lrate_span >= 1
         ), "lrate_span must be greater than or equal to 1!"
         assert (
-            conf["lrate_decay"] >= 0
+            conf.lrate_decay >= 0
         ), "lrate_decay must be greater than or equal to 0!"
         assert (
-            conf["warmup_fct"] >= 0
+            conf.warmup_fct >= 0
         ), "warmup_fct must be greater than or equal to 0!"
-        assert conf["warmup_fct"] < 1, "warmup_fct must be less than 1!"
+        assert conf.warmup_fct < 1, "warmup_fct must be less than 1!"
 
         # Handle warmup/no warmup
-        if conf["warmup_fct"] > 0:
+        if conf.warmup_fct > 0:
             boundaries_and_scales = {
-                int(conf["warmup_fct"] * n_epoch): conf["lrate_span"],
-                n_epoch - 1: conf["lrate_decay"],
+                int(conf.warmup_fct * n_epoch): conf.lrte_span,
+                n_epoch - 1: conf.lrate_decay,
             }
         else:
             boundaries_and_scales = {
-                n_epoch - 1: conf["lrate_decay"],
+                n_epoch - 1: conf.lrate_span,
             }
         return piecewise_interpolate_schedule(
             interpolate_type="linear",
-            init_value=conf["max_lrate"] / conf["lrate_span"],
+            init_value=conf.max_lrate / conf.lrate_span,
             boundaries_and_scales=boundaries_and_scales,
         )
     else:
         # Cosine annealing
         epochs_per_schedule = np.array(
             [
-                conf["opt_steps"] * (conf["opt_mult"] ** i)
-                for i in range(int(n_epoch // conf["opt_steps"]))
-                if conf["opt_steps"] * (conf["opt_mult"] ** i) <= n_epoch
+                conf.opt_steps * (conf.opt_mult**i)
+                for i in range(int(n_epoch // conf.opt_steps))
+                if conf.opt_steps * (conf.opt_mult**i) <= n_epoch
             ]
         )
         schedules = [
             {
-                "init_value": conf["max_lrate"]
-                / conf["lrate_span"]
-                * conf["lrate_decay"] ** i_schedule,
-                "peak_value": conf["max_lrate"]
-                * conf["lrate_decay"] ** i_schedule,
+                "init_value": conf.max_lrate
+                / conf.lrate_span
+                * conf.lrate_decay**i_schedule,
+                "peak_value": conf.max_lrate * conf.lrate_decay**i_schedule,
                 "warmup_steps": int(
-                    (conf["opt_steps"] * (conf["opt_mult"] ** i_schedule))
-                    * conf["warmup_fct"]
+                    (conf.opt_steps * (conf.opt_mult**i_schedule))
+                    * conf.warmup_fct
                 ),
                 "decay_steps": int(
-                    conf["opt_steps"] * (conf["opt_mult"] ** i_schedule)
+                    conf.opt_steps * (conf.opt_mult**i_schedule)
                 ),
-                "end_value": conf["max_lrate"]
-                / conf["lrate_span"]
-                * conf["lrate_decay"] ** (i_schedule + 1),
+                "end_value": conf.max_lrate
+                / conf.lrate_span
+                * conf.lrate_decay ** (i_schedule + 1),
             }
             for i_schedule in range(len(epochs_per_schedule))
         ]
@@ -121,7 +121,7 @@ def get_scheduler(
 
 
 def get_optimiser_and_opt_state(
-    conf: Dict,
+    conf: Conf,
     n_epoch: int,
     model: DeepMechanisticModel,
     log_wandb: bool = False,
@@ -143,14 +143,14 @@ def get_optimiser_and_opt_state(
     diff_model, _ = eqx.partition(model, eqx.is_array)
 
     # Initialise optimiser and optimiser state
-    if conf["optimiser"] == "adam":
+    if conf.optimiser == "adam":
         optimiser = adam
         extra_args = {}
-    elif conf["optimiser"] == "adamw":
+    elif conf.optimiser == "adamw":
         optimiser = adamw
-        extra_args = {"weight_decay": conf["weight_decay"]}
+        extra_args = {"weight_decay": conf.weight_decay}
     else:
-        raise ValueError(f"Unknown optimiser: {conf['optimiser']}")
+        raise ValueError(f"Unknown optimiser: {conf.optimiser}")
 
     # Get schedule and initialise optimiser and optimiser state accordingly
     schedule = get_scheduler(conf, n_epoch)
@@ -200,7 +200,7 @@ def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
             ]
         ]
     )
-    if model.reconstruct:
+    if isinstance(model.deep_decoder, DeepComponent):
         decoder_params = get_parameters(model.deep_decoder)
         param_array = jnp.concatenate(
             [param_array.flatten(), decoder_params.flatten()]
@@ -322,23 +322,20 @@ class Chi2Objective(pypesto.objective.Objective):
         return ret
 
 
-def generate_pypesto_objective(dmm: DeepMechanisticModel) -> JaxObjective:
+def generate_pypesto_objective(pypesto_subproblem) -> JaxObjective:
     """Creates a pypesto objective function (this is the loss function) that
-    needs to be minimized to train the respective autoencoder
+    needs to be minimized to train the respective dmm
 
     :returns:
         Objective function that needs to be minimized for training.
     """
-    # return JaxObjective(objective=ae.pypesto_subproblem.objective)
     return JaxObjective(
-        objective=Chi2Objective(
-            dmm.pypesto_subproblem.objective
-        ),  # renamed from ae (autoencoder) to dmm
+        objective=Chi2Objective(pypesto_subproblem.objective),
     )
 
 
 def create_pypesto_problem(
-    ae: DeepMechanisticModel,
+    subproblem: pypesto.Problem,
 ) -> pypesto.Problem:
     """Creates a pypesto.Problem that defines the optimization problem to solve
     for the training of the provided DeepMechanisticModel/Autoencoder (ae).
@@ -349,7 +346,7 @@ def create_pypesto_problem(
     :returns:
         Optimization pypesto_problem that needs to be solved for training.
     """
-    objective = generate_pypesto_objective(ae)
+    objective = generate_pypesto_objective(subproblem)
     return pypesto.Problem(
         objective=objective,
         lb=[
@@ -365,7 +362,7 @@ def model_output_to_petab_input(
     input_data: np.ndarray,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = vmap(model)(input_data)["inflated"]
+    pred = model.inflate_params(input_data)
     # Concatenate learnable global kinetic parameters (medians) with predicted deviations
     augmented_pred = jnp.concatenate(
         [model.kin_params_combiner.learned_global_kin_params, pred.flatten()]
@@ -380,7 +377,7 @@ def model_output_to_petab_input_frozen_medians(
     input_data: np.ndarray,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = vmap(model)(input_data)["inflated"]
+    pred = model.inflate_params(input_data)
     # Concatenate FROZEN global kinetic parameters with predicted deviations
     augmented_pred = jnp.concatenate(
         [
@@ -398,7 +395,7 @@ def model_output_to_petab_input_nojit(
     input_data: np.ndarray,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = vmap(model)(input_data)["inflated"]
+    pred = model.inflate_params(input_data)
     # Concatenate learnable global kinetic parameters with pred
     augmented_pred = jnp.concatenate(
         [model.kin_params_combiner.learned_global_kin_params, pred.flatten()]
@@ -571,7 +568,7 @@ def compute_simulation_from_model(
     )
 
 
-def rmse(pp, model: DeepMechanisticModel, input_data):
+def rmse(pp, model: DeepMechanisticModel, input_data: np.ndarray):
     try:
         simulation_df, petab_problem = compute_simulation_from_model(
             pp=pp,
@@ -648,12 +645,11 @@ def test_save_reload_model(
     # return RMSE on validation and assert it's the same as the best one
     # could write another function for this
     assert (
-        vmap(model)(input_data)["inflated"]
-        == vmap(re_model)(input_data)["inflated"]
+        model.inflate_params(input_data) == re_model.inflate_params(input_data)
     ).all()
     assert (
-        vmap(model)(input_data)["decoded"]
-        == vmap(re_model)(input_data)["decoded"]
+        vmap(model.encode)(input_data)["decoded"]
+        == vmap(re_model.encode)(input_data)["decoded"]
     ).all()
 
 

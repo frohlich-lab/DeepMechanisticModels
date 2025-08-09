@@ -126,10 +126,7 @@ def load_petab(
             != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID],
             # proteomics
             measurement_table[petab.OBSERVABLE_ID].str.startswith(
-                (
-                    "tEGFR_obs",
-                    "tERBB2_obs",
-                )
+                ("tEGFR_obs",)
             ),
         )
     ]

@@ -73,7 +73,7 @@ plt.savefig(outdir / "performance.pdf")
 # average over jobs+samples
 gb = [
     k
-    for k in conf.__dict__.keys()
+    for k in conf.to_dict()
     if (k not in ["job", "samples", "sample"]) and (k in df.columns)
 ]
 

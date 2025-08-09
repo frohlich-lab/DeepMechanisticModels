@@ -23,7 +23,7 @@ from dmm.config_options import Conf
 from dmm.initialisation import (
     get_features_filepath,
     process_features,
-    subset_features,
+    sort_features,
 )
 from evaluation_utils import get_embedding_and_params_df, load_model_and_obj
 from util import load_petab_base_files
@@ -45,17 +45,19 @@ def evaluate_training(
     conf: Conf,
     samples: dict,
     petab_base_files: Dict[str, pd.DataFrame],
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, ...]:
     # Initialise list to store evaluations
     evaluations = []
 
     # Load ensemble models and objectives
-    model, obj = load_model_and_obj(conf, petab_base_files, dataset)
+    model, pypesto_problem = load_model_and_obj(
+        conf, petab_base_files, features[dataset]
+    )
 
     # Extract needed features from input dictionary
-    input_features = subset_features(
+    input_features = sort_features(
         features=features[dataset],
-        model=model,  # all models have the same input features
+        pypesto_problem=pypesto_problem,
     )
 
     # Get latent embeddings and parameter dataframes
@@ -66,20 +68,21 @@ def evaluate_training(
         split=conf.samples,
         dataset=dataset,
         job=conf.job,
+        samples=list(features[dataset].index),
     )
 
     evaluate_simulations(
         model=model,
         input_features=input_features,
-        obj=obj,
+        obj=pypesto_problem.objective.base_objective.base_objective,
         conf=conf,
         samples=samples[dataset],
-        petab_problem=obj.amici_object_builder.petab_problem,
+        petab_problem=pypesto_problem.objective.base_objective.amici_object_builder.petab_problem,
         dataset=dataset,
         outdir=outdir / "simulation",
         evaluations=evaluations,
         plot_file_prefix=EVALUATION_PLOT_FILE.format(
-            dataset=dataset, **conf.__dict__
+            dataset=dataset, **conf.to_dict()
         ),
     )
 
@@ -123,6 +126,6 @@ for dataset in [
             EVALUATION_FULL_PARAMETERS,
         ],
     ):
-        filepath = Path(path_format.format(dataset=dataset, **conf.__dict__))
+        filepath = Path(path_format.format(dataset=dataset, **conf.to_dict()))
         filepath.parent.mkdir(parents=True, exist_ok=True)
         results.to_csv(filepath)

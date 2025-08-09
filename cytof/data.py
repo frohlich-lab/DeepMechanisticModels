@@ -553,7 +553,7 @@ def build_condition_table(
 
         # expression levels
         elif par_name.endswith("_eq"):
-            gene = par_name.split("_")[0]
+            gene = par_name.split("_")[-2]
             if gene in [
                 "EGFR",
                 "ERBB2",
@@ -567,6 +567,8 @@ def build_condition_table(
                     measurement_type = "proteomics"
                 elif f"t{gene.lower()}" in modifications:
                     measurement_type = "transcriptomics"
+                elif f"f{gene.lower()}" in modifications:
+                    continue
                 else:
                     condition_table[par_name] = float(
                         gene in ["EGFR", "ERBB2"]

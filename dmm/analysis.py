@@ -71,7 +71,7 @@ def process_simulation(
         subset_hyperparams = default_attributes
 
         subset_conf_dict = {
-            k: v for k, v in conf.__dict__.items() if k in subset_hyperparams
+            k: v for k, v in conf.to_dict().items() if k in subset_hyperparams
         }
         evaluations.append(
             {
@@ -125,7 +125,7 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def simulate_dmm(
-    model, input_features, obj, petab_problem, jit_fn: bool = True
+    model, input_features, obj, petab_problem, conf, jit_fn: bool = True
 ) -> pd.DataFrame:
     # Generally use the jitted model_output_to_petab_input function
     if jit_fn:
@@ -136,24 +136,6 @@ def simulate_dmm(
     res = obj(fn(model, input_features), mode=MODE_RES, return_dict=True)
 
     amici_model = obj.amici_model
-
-    # if isinstance(obj, pypesto.objective.AggregatedObjective):
-    #     amici_model = obj._objectives[0].amici_model
-    #     amici_solver = obj._objectives[0].amici_solver
-    # else:
-    #     amici_model = obj.amici_model
-    #     amici_solver = obj.amici_solver
-
-    # for r in res["rdatas"]:
-    #     if r["status"] != amici.AMICI_SUCCESS:
-    #         print(f'AMICI failed for {r["id"]}')
-    #         x = jnp.ones((1,), dtype=jnp.float64)
-    #         print(f"JAX dtype: {x.dtype} ")
-    #         print(
-    #             f"AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, "
-    #             f"{amici_solver.getRelativeTolerance():.2e} rtol"
-    #         )
-    #         return
 
     try:
         simulation_df = rdatas_to_simulation_df(
@@ -194,7 +176,7 @@ def evaluate_simulations(
     plot_file_prefix: str,
 ):
     simulation_df = simulate_dmm(
-        model, input_features, obj, petab_problem, jit_fn=False
+        model, input_features, obj, petab_problem, conf, jit_fn=False
     )
 
     for sample in samples:

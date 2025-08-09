@@ -164,8 +164,8 @@ result = pretrain(
     nstarts=10,  # multistarts for pretraining (hard-coded)
     optimizer=optimizer,
 )
-results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf.__dict__))
-pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(**conf.__dict__))
+results_file = Path(PER_SAMPLE_OUTFILE_RESULTS.format(**conf))
+pars_file = Path(PER_SAMPLE_OUTFILE_PARS.format(**conf))
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
 x_full = result.optimize_result.list[0].x
 plot_sample_rates(

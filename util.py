@@ -39,7 +39,7 @@ dtypes = {
 def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
     return {
         label: pd.read_csv(
-            file.format(**conf.__dict__),
+            file.format(**conf.to_dict()),
             index_col=0,
             sep="\t",
             dtype=dtypes[label],
@@ -67,7 +67,7 @@ def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
 #     petab_base_files = load_petab_base_files(conf)  # this used reweight=True, but we dropped reweighing
 #
 #     features_train = pd.read_csv(
-#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="train")),
+#         FEATURES_OUTFILE.format_map(dict(**.to_dict(), dataset="train")),
 #         index_col=0,
 #     )
 #
@@ -85,7 +85,7 @@ def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
 #         return dmm_train, problem
 #
 #     features_test = pd.read_csv(
-#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset="val")),
+#         FEATURES_OUTFILE.format_map(dict(**.to_dict(), dataset="val")),
 #         index_col=0,
 #     )
 #
@@ -116,7 +116,7 @@ def generate_startpoint(
     for sample in model.sample_names:
         df = pd.read_csv(
             PER_SAMPLE_OUTFILE_PARS.format(
-                **{**conf.__dict__, "sample": sample}
+                **{**conf.to_dict(), "sample": sample}
             ),
             index_col=[0],
         )

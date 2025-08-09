@@ -3,19 +3,16 @@ import os
 import git
 import jax.numpy as jnp
 import numpy as np
-from jax import vmap
 
 import wandb
 
 from .config_options import (
     IO_SPARSITY,
-    L1DREG,
     L1EREG,
     L1IREG,
     L1REG_IO,
     L2REG_IO,
     MEDIAN_REG,
-    ODREG,
     OEREG,
     OIREG,
     RECON_LOSS,
@@ -138,10 +135,10 @@ def init_wandb(
         # v46: updated model, add HER2 signaling + inhibition by lapatinib
         # v47: features selection revisited
         # v49: refactored model
-        project=f"DeepMechanisticModels.v49.{conf.data}",
+        project=f"DeepMechanisticModels.v49.{conf.data}_TEST",
         group=group,
         config={
-            **conf.__dict__,
+            **conf.to_dict(),
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
             "patience": early_stopping_params.patience
             if conf.use_early_stopping
@@ -179,12 +176,17 @@ def init_wandb(
             "loss",
             "fval_train",
             "fval_val",
-            "rmse_test",
+            "rmse_train",
             "rmse_val",
-            "max_abs_par_dev",
-            "par_dev_frob_norm",
+            "par_dev_max",
+            "par_dev_norm",
             "log_parameter_std",
             "log_parameter_mean",
+            L1EREG,
+            L1IREG,
+            L1REG_IO,
+            L2REG_IO,
+            MEDIAN_REG,
         ]
     }
 
@@ -196,21 +198,9 @@ def init_wandb(
     metrics["final_rmse_val"] = "none"
     metrics["integration_error"] = "none"
     # optional metrics depending on the presence of decoder head
-    if model.reconstruct:
+    if conf.recon_loss:
         metrics[RECON_LOSS] = "last"
         metrics[SYMM_LOSS] = "last"
-
-    reg_metrics = {
-        metric: "last"
-        for metric in [L1EREG, L1IREG, L1REG_IO, L2REG_IO, MEDIAN_REG]
-    }
-    # Add decoder regularisation terms if the model has a decoder head
-    if model.reconstruct:
-        reg_metrics[L1DREG] = "last"
-        reg_metrics[ODREG] = "last"
-
-    # Get final metrics
-    metrics = {**metrics, **reg_metrics}
 
     for metric, summary in metrics.items():
         wandb.define_metric(metric, summary=summary)
@@ -218,17 +208,19 @@ def init_wandb(
 
 def log_param_norms(
     model: DeepMechanisticModel,
+    conf: Conf,
     input_data: jnp.ndarray,
     epoch: int,
 ):
-    par_dev = vmap(model)(input_data)["inflated"]
-    par_medians = model.kin_params_combiner.learned_global_kin_params
+    par_dev = model.inflate_params(input_data)
+    stds = par_dev.std(axis=0)
     wandb.log(
         {
-            "max_abs_par_dev": jnp.max(jnp.abs(par_dev)),
-            "par_dev_frob_norm": jnp.linalg.norm(x=par_dev, ord=None),
-            "max_abs_par_median": jnp.max(jnp.abs(par_medians)),
-            "par_median_frob_norm": jnp.linalg.norm(x=par_medians, ord=None),
+            "par_dev_max": jnp.max(jnp.abs(par_dev)),
+            "par_dev_norm": jnp.linalg.norm(x=par_dev, ord=None),
+            "par_dev_log_std_sep": jnp.diff(
+                jnp.sort(jnp.log10(stds[stds > 0]))
+            ).max(),
         },
         step=epoch,
     )

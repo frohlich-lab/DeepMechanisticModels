@@ -1,5 +1,5 @@
 import warnings
-from typing import Dict
+from pathlib import Path
 
 import fire
 import numpy as np
@@ -58,7 +58,7 @@ def evaluate_pretraining_per_sample(
     dataset: str,
     conf: Conf,
     samples: dict,
-    petab_base_files: Dict[str, pd.DataFrame],
+    petab_base_files: dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     evaluations = []
     problem = CytofProblem(conf.model)
@@ -146,7 +146,7 @@ def evaluate_average_model(
     dataset: str,
     conf: Conf,
     samples: dict,
-    petab_base_files: Dict[str, pd.DataFrame],
+    petab_base_files: dict[str, pd.DataFrame],
 ) -> pd.DataFrame:
     df_meas, df_obs = get_measurements_and_obervables(conf)
 
@@ -185,13 +185,13 @@ petab_base_files = load_petab_base_files(conf)
 for dataset in ["train", "val"]:
     # model average ("avg_model")
     df = evaluate_average_model(dataset, conf, samples, petab_base_files)
-    df.to_csv(
-        EVALUATION_REFERENCE.format(
-            **conf.__dict__,
-            dataset=dataset,
-            mode="avg_model",
-        )
+    filepath = EVALUATION_REFERENCE.format(
+        **conf.to_dict(),
+        dataset=dataset,
+        mode="avg_model",
     )
+    Path(filepath).parent.mkdir(exist_ok=True, parents=True)
+    df.to_csv(filepath)
     rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
     print(f"avg_model on {dataset} - RMSE = {rmse_avg_model}")
 
@@ -199,7 +199,7 @@ for dataset in ["train", "val"]:
     # df = evaluate_average(dataset, conf, samples)
     # df.to_csv(
     #     EVALUATION_REFERENCE.format(
-    #         **conf.__dict__,
+    #         **conf,
     #         dataset=dataset,
     #         mode="average",
     #     )
@@ -211,7 +211,7 @@ for dataset in ["train", "val"]:
     )
     df.to_csv(
         EVALUATION_REFERENCE.format(
-            **conf.__dict__,
+            **conf.to_dict(),
             dataset=dataset,
             mode="per_sample",
         )

@@ -1,5 +1,3 @@
-from typing import List, Union
-
 import equinox as eqx
 import jax.numpy as jnp
 from jax import nn, random
@@ -94,10 +92,10 @@ class DeepComponent(eqx.Module):
         of `init_fn` dictionary.
     """
 
-    layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
-    component_name: str = eqx.field(static=True)
-    activation_fn_name: str = eqx.field(static=True)
-    last_layer_activation: bool = eqx.field(static=True)
+    layers: list[eqx.nn.Linear | CustomInitLinear]
+    component_name: str
+    activation_fn_name: str
+    last_layer_activation: bool
 
     def __init__(
         self,

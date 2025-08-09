@@ -2,14 +2,13 @@ import dataclasses
 from typing import Dict, List, Optional
 
 
-@dataclasses.dataclass(repr=True, init=True)
+@dataclasses.dataclass(repr=True, init=True, frozen=True, eq=True)
 class Conf(dict):
     model: str
     data: str
     context: str = None
     features: str = None
     samples: str = None
-    pretrain: bool = False
     sample: str = None
     # Standard scaling
     standardise_features: bool = False
@@ -22,7 +21,6 @@ class Conf(dict):
     use_layer_bias: List[bool] = False
     last_layer_activation: bool = False
     nn_init_fn: str = "None"
-    reconstruct: bool = False
     # Training
     activation_fn_name: str = "None"
     optimiser: str = "None"
@@ -42,26 +40,24 @@ class Conf(dict):
     symm_reg: float = 0.0
     median_reg: float = 0.0
     # Learning schedule hyperparameters
-    max_lrate: Optional[
-        float
-    ] = 0.01  # maximum learning rate (max in first schedule or in all without decay)
-    lrate_span: Optional[
-        float
-    ] = 1e0  # ratio between max and min learning rates in a given schedule
-    lrate_decay: Optional[
-        float
-    ] = 0.98  # if < 1, the learning rate decays between schedules.
+    max_lrate: float = 0.01  # maximum learning rate (max in first schedule or in all without decay)
+    lrate_span: float = (
+        1e0  # ratio between max and min learning rates in a given schedule
+    )
+    lrate_decay: float = (
+        0.98  # if < 1, the learning rate decays between schedules.
+    )
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
-    warmup_fct: Optional[
-        float
-    ] = 0.0  # fraction of schedule epochs to be used for warmup
-    opt_steps: Optional[int] = 0  # Number of steps in the first schedule
-    opt_mult: Optional[
-        int
-    ] = 0  # Multiplier for the number of steps in each schedule
-    momentum: Optional[float] = 0.9  # momentum for AdamW
-    weight_decay: Optional[float] = 1e-4  # controls weight decay for AdamW
+    warmup_fct: float = (
+        0.0  # fraction of schedule epochs to be used for warmup
+    )
+    opt_steps: int = 0  # Number of steps in the first schedule
+    opt_mult: int = 0  # Multiplier for the number of steps in each schedule
+    momentum: float = 0.9  # momentum for AdamW
+    weight_decay: float = 1e-4  # controls weight decay for AdamW
     use_simple_linear_schedule: bool = False
+    n_epoch: int = 500
+    inflater_bound: float = 5.0
     # Early-stopping
     use_early_stopping: bool = False
     # Other hyperparams
@@ -71,9 +67,26 @@ class Conf(dict):
     run_mode_tag: str = None
     date_tag: str = None
 
+    def to_dict(self) -> dict:
+        """
+        Convert the configuration to a dictionary.
+        """
+        return {
+            field.name: getattr(self, field.name)
+            for field in dataclasses.fields(self)
+        }
+
+    def __getitem__(self, key):
+        """
+        Custom __getitem__ to allow access to configuration parameters as dict.
+        """
+        if key in self.__dict__:
+            return self.__dict__[key]
+        raise AttributeError(f"Conf has no attribute '{key}")
+
     def __str__(
         self,
-        replace: Optional[Dict[str, str]] = None,
+        replace: Dict[str, str] | None = None,
     ):
         """
         Return string representation with selected hyperparameters.
@@ -155,6 +168,8 @@ unwanted_attributes = [
     "n_starts",
     "run_mode_tag",
     "date_tag",
+    "get_dmm_params",
+    "to_dict",
 ]
 
 default_attributes = [

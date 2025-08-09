@@ -26,7 +26,6 @@ from training_configuration import (
     MAX_LEARNING_RATES,
     MEDIAN_INIT,
     MOMENTUM,
-    N_EPOCHS,
     NETWORK_DEPTH,
     NN_INIT_FN,
     NN_STRUCTURE_MULTIPLIER,
@@ -36,8 +35,6 @@ from training_configuration import (
     OPTIMISERS,
     # Regularisation
     ORTH_REG_STRATEGIES,
-    PRETRAIN,
-    RECONSTRUCT,
     REFINE_HPS,
     SPARSE_THRESH_PERCS,
     SPLITS,
@@ -104,14 +101,8 @@ def prune_config(run_config: dict):
     # If warm-up is applied, override it to end at the epoch at which sparsity is imposed
     if run_config["warmup_fct"] > 0:
         run_config["warmup_fct"] = (
-            run_config["inflater_output_reg_epoch"] / N_EPOCHS
+            run_config["inflater_output_reg_epoch"] / run_config["n_epoch"]
         )
-
-    # Reconstruction/decoder head
-    if not run_config["reconstruct"]:
-        # force reconstruction loss and symmetry loss/regularisation params to zero if no decoder head
-        hps_to_prune.extend(["recon_loss", "symm_reg"])
-        prune = True
 
     if not run_config["l1reg_inflater_output"] > 0:
         # if no inflater output L1 regularisation, keep all param dev as cell-line-specific (100%)
@@ -169,7 +160,6 @@ def generate_linear_scan(STARTS: list[str]):
             "context": context,
             "features": features,
             "samples": split,
-            "pretrain": pretrain,
             "standardise_features": standardise_features,
             "median_init": median_init,
             "freeze_medians": freeze_medians,
@@ -177,7 +167,6 @@ def generate_linear_scan(STARTS: list[str]):
             "use_layer_bias": use_layer_bias,
             "last_layer_activation": last_layer_activation,
             "nn_init_fn": nn_init_fn,
-            "reconstruct": reconstruct,
             "activation_fn_name": activation_fn_name,
             "optimiser": optimiser,
             "orth_reg_strategy": orth_reg_strategy,
@@ -190,14 +179,12 @@ def generate_linear_scan(STARTS: list[str]):
         for (
             (context, features),
             split,
-            pretrain,
             standardise_features,
             median_init,
             freeze_medians,
             use_layer_bias,
             last_layer_activation,
             nn_init_fn,
-            reconstruct,
             activation_fn_name,
             optimiser,
             orth_reg_strategy,
@@ -207,14 +194,12 @@ def generate_linear_scan(STARTS: list[str]):
         ) in itt.product(
             CONTEXTS_FEATURES,
             SPLITS,
-            PRETRAIN,
             STANDARDISE_FEATURES,
             MEDIAN_INIT,
             FREEZE_MEDIANS,
             USE_BIAS,
             LAST_LAYER_ACTIVATION,
             NN_INIT_FN,
-            RECONSTRUCT,
             ACTIVATION_FNS,
             OPTIMISERS,
             ORTH_REG_STRATEGIES,
@@ -300,7 +285,6 @@ def generate_grid_search(STARTS: list[str]):
             "context": context,
             "features": features,
             "samples": split,
-            "pretrain": pretrain,
             "standardise_features": standardise_features,
             "median_init": median_init,
             "freeze_medians": freeze_medians,
@@ -310,7 +294,6 @@ def generate_grid_search(STARTS: list[str]):
             "use_layer_bias": use_layer_bias,
             "last_layer_activation": last_layer_activation,
             "nn_init_fn": nn_init_fn,
-            "reconstruct": reconstruct,
             "activation_fn_name": activation_fn_name,
             "optimiser": optimiser,
             "orth_reg_strategy": orth_reg_strategy,
@@ -339,7 +322,6 @@ def generate_grid_search(STARTS: list[str]):
         for (
             (context, features),
             split,
-            pretrain,
             standardise_features,
             median_init,
             freeze_medians,
@@ -348,7 +330,6 @@ def generate_grid_search(STARTS: list[str]):
             use_layer_bias,
             last_layer_activation,
             nn_init_fn,
-            reconstruct,
             activation_fn_name,
             optimiser,
             orth_reg_strategy,
@@ -377,7 +358,6 @@ def generate_grid_search(STARTS: list[str]):
         ) in itt.product(
             CONTEXTS_FEATURES,
             SPLITS,
-            PRETRAIN,
             STANDARDISE_FEATURES,
             MEDIAN_INIT,
             FREEZE_MEDIANS,
@@ -386,7 +366,6 @@ def generate_grid_search(STARTS: list[str]):
             USE_BIAS,
             LAST_LAYER_ACTIVATION,
             NN_INIT_FN,
-            RECONSTRUCT,
             ACTIVATION_FNS,
             OPTIMISERS,
             ORTH_REG_STRATEGIES,

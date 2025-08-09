@@ -25,15 +25,15 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
-        # "EGFR_MAPK__logobs",
-        # "EGFR_MAPK__logobs_tegfr",
-        "EGFR_MAPK__logobs_tegfr_terbb2",
-        "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr",
+        # "EGFR_MAPK__logobs_tegfr_terbb2",
+        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
         # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
         # "EGFR_MAPK__logobs_fegfr_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
-        "EGFR_MAPK__logobs_tegfr_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
         # "EGFR_MAPK",
         # "EGFR_MAPK__tegfr",
         # "EGFR_MAPK__tegfr_aggavg",
@@ -53,12 +53,6 @@ PATHWAYS = (
 )
 
 DATASETS = ("dream_cytof",)
-# DATASETS = {
-#    'synthetic_16_0.2_0.0',
-#     'synthetic_32_0.2_0.0',
-#     'synthetic_64_0.2_0.0',
-#     'synthetic_128_0.2_0.0',
-# }
 
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
@@ -154,15 +148,11 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "0of5",
-    "1of5",
-    "2of5",
-    "3of5",
-    "4of5",
-}
-
-PRETRAIN = {
-    "True",
+    "MCF7",
+    "BT20",
+    "HCC1500",
+    "EVSAT",
+    "UACC3199",
 }
 
 STANDARDISE_FEATURES = {
@@ -172,7 +162,6 @@ STANDARDISE_FEATURES = {
 
 # INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
 MEDIAN_INIT = {
-    # "per_sample",
     "avg_model",
 }
 
@@ -393,8 +382,8 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": ("optimal",),
-    "central_value": "optimal",
+    "range": (0, 1e-3, 1e-1, 1e1, 1e3, 1e5),
+    "central_value": 1e-1,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
@@ -567,10 +556,6 @@ MIN_IMPROVEMENT = 0
 
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
-
-# Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 500
-PRETRAIN_N_EPOCHS = 0
 
 # Type of run
 HP_RUN_MODE = "linear_scans"

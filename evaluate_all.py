@@ -41,7 +41,7 @@ def process_reference(
     ref = pd.read_csv(
         EVALUATION_REFERENCE.format(
             **{
-                **conf.__dict__,
+                **conf.to_dict(),
                 "samples": samples,
                 "dataset": dataset,
             },
@@ -183,7 +183,7 @@ for samples in sorted(SPLITS):
                 pd.read_csv(
                     EVALUATION_REGRESSOR.format(
                         **{
-                            **conf.__dict__,
+                            **conf.to_dict(),
                             "samples": samples,
                             "dataset": dataset,
                             "context": ctxt,

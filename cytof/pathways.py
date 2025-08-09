@@ -65,8 +65,9 @@ def add_mapk(model):
 
 def add_mtor_akt(model):
     # AKT
-    model.pathway_elements["PIK3CA"] = {"pip2": (active_rtks, rtk_feedback)}
-    model.pathway_elements["PDPK1"] = {"S241": ["PIK3CA__pip2_p"]}
+    model.pathway_elements["PDPK1"] = {
+        "S241": (active_rtks, ["iPI3K", *rtk_feedback])
+    }
     model.pathway_elements["AKT"] = {
         "T308": ["PDPK1__S241_p"],
     }
