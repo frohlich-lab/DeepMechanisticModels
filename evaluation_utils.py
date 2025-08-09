@@ -223,7 +223,7 @@ def get_embedding_and_params_df(
     specific_param_names = [
         param[4:]
         for param in dmm_model.pypesto_subproblem.x_names
-        if param.startswith("DEV_")
+        if param.startswith("MED_")
     ]
 
     # Parameter deviations
