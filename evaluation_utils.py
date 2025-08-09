@@ -198,12 +198,14 @@ def process_avg_model_simulation(
     avg_model = avg_model[
         avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
+    df_meas = df_meas[df_meas["measurementType"] == "cytof"]
+    avg_model = avg_model[avg_model["measurementType"] == "cytof"]
     return avg_model, df_meas
 
 
 def get_embedding_and_params_df(
     dmm_model: DeepMechanisticModel,
-    input_features: Union[np.ndarray, jnp.ndarray],
+    input_features: np.ndarray | jnp.ndarray,
     context: str,
     split: str,
     dataset: str,
