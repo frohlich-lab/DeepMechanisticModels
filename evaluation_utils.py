@@ -221,9 +221,9 @@ def get_embedding_and_params_df(
 
     # Get cell-line specific kinetic parameter names for dataframe column names
     specific_param_names = [
-        param.replace("MED_", "")
+        param[4:]
         for param in dmm_model.pypesto_subproblem.x_names
-        if "MED" in param
+        if param.startswith("DEV_")
     ]
 
     # Parameter deviations
