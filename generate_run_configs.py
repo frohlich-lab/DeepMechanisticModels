@@ -138,6 +138,8 @@ def generate_linear_scan(STARTS: list[str]):
         "opt_mult": OPT_MULT,
         "weight_decay": WEIGHT_DECAY,
         "momentum": MOMENTUM,
+        "n_epoch": 1000,  # fixed for linear scans
+        "inflater_bound": 5.0,  # fixed for linear scans
     }
 
     # Check that all hyperparameter options are dicts (central value, range)

@@ -279,7 +279,7 @@ rule estimate_parameters:
                 'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping', 'job'
+                'use_simple_linear_schedule', 'use_early_stopping', 'job', 'n_epoch', 'inflater_bound',
             )
         ) + ' --threads={resources.threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
 
@@ -359,7 +359,7 @@ rule evaluate_training:
                 'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
                 'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
                 'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping',
+                'use_simple_linear_schedule', 'use_early_stopping', 'n_epoch', 'inflater_bound',
                 'job',
             )
         )
