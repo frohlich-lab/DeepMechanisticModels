@@ -135,7 +135,8 @@ def init_wandb(
         # v46: updated model, add HER2 signaling + inhibition by lapatinib
         # v47: features selection revisited
         # v49: refactored model
-        project=f"DeepMechanisticModels.v49.{conf.data}_TEST",
+        # v50: code refactor, scan inflater output reg
+        project=f"DeepMechanisticModels.v50.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),

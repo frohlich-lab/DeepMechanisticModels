@@ -310,13 +310,15 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.deep_encoder,
             self.conf.orth_reg_strategy,
             "encoder",
-            self.conf.l1reg_encode,
+            self.conf.oreg_encode,
         )
 
     def l1_decode_reg(self):
         """
         L1 regularization of deep decoder weights.
         """
+        if self.conf.l1reg_encode == 0.0:
+            return 0.0
         return l1reg(self.deep_decoder, self.conf.l1reg_encode)
 
     def orth_decode_reg(self):
@@ -363,10 +365,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             or self.conf.l1reg_inflater_output == 0.0
         ):
             return 0.0
-        return (
-            self.conf.l1reg_inflater_output
-            * 1e-6
-            * jnp.mean(jnp.abs(self.inflate_params(x)))
+        return self.conf.l1reg_inflater_output * jnp.mean(
+            jnp.abs(self.inflate_params(x))
         )
 
     def l2reg_inflater_output(self, x: np.ndarray):

@@ -124,7 +124,7 @@ def loss_fn(
     return loss_value, (fval, reg)
 
 
-# @eqx.filter_jit
+@eqx.filter_jit
 def make_step(
     model: DeepMechanisticModel,
     opt: optax.GradientTransformation,
@@ -210,7 +210,7 @@ def train(
                 patience=early_stopping_params.patience,
             )
 
-    n_log_iter = 25
+    n_log_iter = 50
     log_epochs = np.linspace(
         int(conf.n_epoch / n_log_iter), conf.n_epoch, n_log_iter
     ).astype(int)

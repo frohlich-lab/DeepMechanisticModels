@@ -90,9 +90,11 @@ def process_features_and_setup_models(
             **petab_base_files,
             samples=list(features_dataset.index),
         )
-        pypesto_problems[dataset] = petab_importer.create_problem()
-        problem.apply_objective_settings(
-            pypesto_problems[dataset].objective, n_threads=conf.threads
+        factory = petab_importer.create_objective_creator()
+        objective = factory.create_objective()
+        problem.apply_objective_settings(objective, n_threads=conf.threads)
+        pypesto_problems[dataset] = petab_importer.create_problem(
+            objective=objective,
         )
     dmm = DeepMechanisticModel(
         pypesto_problem=pypesto_problems[datasets[0]],

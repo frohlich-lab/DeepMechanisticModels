@@ -382,7 +382,7 @@ DELTAS = {
 # OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 # OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": (0, 1e-3, 1e-1, 1e1, 1e3, 1e5),
+    "range": (0, 1e-5, 1e-3, 1e-1, 1e1, 1e3),
     "central_value": 1e-1,
 }
 

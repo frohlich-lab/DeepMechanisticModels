@@ -56,7 +56,7 @@ class Conf(dict):
     momentum: float = 0.9  # momentum for AdamW
     weight_decay: float = 1e-4  # controls weight decay for AdamW
     use_simple_linear_schedule: bool = False
-    n_epoch: int = 500
+    n_epoch: int = 1000
     inflater_bound: float = 5.0
     # Early-stopping
     use_early_stopping: bool = False
