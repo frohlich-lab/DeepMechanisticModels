@@ -114,10 +114,10 @@ for dataset in [
         samples=samples,
         petab_base_files=petab_base_files,
     )
-    df.to_csv(EVALUATION_TRAINING.format(dataset=dataset, **conf.__dict__))
     for results, path_format in zip(
-        [le_df, params_dev_df, params_df],
+        [df, le_df, params_dev_df, params_df],
         [
+            EVALUATION_TRAINING,
             EVALUATION_EMBEDDING,
             EVALUATION_PARAMETER_DEVIATIONS,
             EVALUATION_FULL_PARAMETERS,
