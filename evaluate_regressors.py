@@ -1,7 +1,4 @@
 import warnings
-
-# test_samples,
-# training_samples,
 from dataclasses import replace
 from typing import List
 
@@ -14,7 +11,6 @@ from sklearn.pipeline import Pipeline
 from common import (
     EVALUATION_REGRESSOR,
     FEATURES_OUTFILE,
-    # Wildcards,
     fig_dir,
     pretrain_dir,
 )

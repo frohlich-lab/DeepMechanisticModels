@@ -12,7 +12,7 @@ from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.store import OptimizationResultHDF5Reader
 
-from .config_options import default_attributes
+from .config_options import scan_attributes
 from .plotting import plot_cross_samples
 from .training_helper_funcs import (
     model_output_to_petab_input,
@@ -66,12 +66,8 @@ def process_simulation(
         else:
             condition = r[petab.SIMULATION_CONDITION_ID]
 
-        # Subset conf
-        # TODO @GiacomoFabrini - are all the defaults needed?
-        subset_hyperparams = default_attributes
-
         subset_conf_dict = {
-            k: v for k, v in conf.to_dict().items() if k in subset_hyperparams
+            k: v for k, v in conf.to_dict().items() if k in scan_attributes
         }
         evaluations.append(
             {

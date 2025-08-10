@@ -21,9 +21,9 @@ from common import (
     REGRESSION_MODES,
     TRAINED_MODEL,
     Wildcards,
-    default_attributes,
     evaluations_dir,
     hardest_cell_lines,
+    scan_attributes,
     training_samples,
     val_samples,
 )
@@ -759,7 +759,7 @@ def aggregate_and_log(
 ):
     outdir = evaluations_dir / conf.model / conf.data
     # Define aggregation groups for DMM and refs
-    gbs_dmm = ["dataset", "ref"] + default_attributes
+    gbs_dmm = ["dataset", "ref"] + scan_attributes
 
     df["res"] = df["res"].astype(float)
 
@@ -773,7 +773,7 @@ def aggregate_and_log(
             "dataset",
             "ref",
         ]
-        + default_attributes,
+        + scan_attributes,
         "refs": ["dataset", "context", "features", "samples", "ref"],
     }.items():
         if ref_subset != "BY_CL_COND_OBS":
