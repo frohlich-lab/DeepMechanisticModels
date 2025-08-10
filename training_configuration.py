@@ -160,10 +160,6 @@ STANDARDISE_FEATURES = {
     False,
 }
 
-# INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
-MEDIAN_INIT = {
-    "avg_model",
-}
 
 # Train/freeze median kinetic parameters
 FREEZE_MEDIANS = {
@@ -242,14 +238,6 @@ NN_INIT_FN = (
     # "XN",  # Xavier/Glorot Normal
     # "XU",  # Xavier/Glorot Uniform
 )
-
-
-# RECONSTRUCT: whether to add a second head to the autoencoder or not
-RECONSTRUCT = (
-    True,
-    # False,
-)
-
 
 # Training Hyperparameters
 # Activation Functions: activation_fn_name
@@ -421,8 +409,8 @@ ETAS = {"range": (0,), "central_value": 0}
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (100,),
-    "central_value": 100,
+    "range": (200,),
+    "central_value": 200,
 }
 
 # Percentage thresholds for sparsity

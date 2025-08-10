@@ -15,17 +15,17 @@ class Conf(dict):
     # Train/freeze medians
     freeze_medians: bool = False
     # Network structure
-    n_hidden: int = 0
-    nn_structure_multiplier: int = 0
+    n_hidden: int = 2
+    nn_structure_multiplier: int = 2
     depth: int = 0
     use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
-    nn_init_fn: str = ""
+    nn_init_fn: str = "custom"
     # Training
-    activation_fn_name: str = ""
-    optimiser: str = ""
+    activation_fn_name: str = "swish"
+    optimiser: str = "adam"
     # Regularisation
-    orth_reg_strategy: str = ""
+    orth_reg_strategy: str = "L2"
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
@@ -36,7 +36,7 @@ class Conf(dict):
         200  # after, regularisation is lifted but the sparsity pattern is kept
     )
     sparse_threshold_perc: str = "gmm"  # specified as top percentage to keep as cell-line specific, default: keep top 50%
-    recon_loss: float = 0.0
+    recon_loss: float = 0.01
     symm_reg: float = 0.0
     median_reg: float = 0.0
     # Learning schedule hyperparameters
@@ -45,16 +45,16 @@ class Conf(dict):
         1e0  # ratio between max and min learning rates in a given schedule
     )
     lrate_decay: float = (
-        0.98  # if < 1, the learning rate decays between schedules.
+        1.0  # if < 1, the learning rate decays between schedules.
     )
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
     warmup_fct: float = (
         0.0  # fraction of schedule epochs to be used for warmup
     )
-    opt_steps: int = 0  # Number of steps in the first schedule
-    opt_mult: int = 0  # Multiplier for the number of steps in each schedule
+    opt_steps: int = 10  # Number of steps in the first schedule
+    opt_mult: int = 2  # Multiplier for the number of steps in each schedule
     momentum: float = 0.9  # momentum for AdamW
-    weight_decay: float = 1e-4  # controls weight decay for AdamW
+    weight_decay: float = 0.0  # controls weight decay for AdamW
     use_simple_linear_schedule: bool = False
     n_epoch: int = 1000
     inflater_bound: float = 5.0
