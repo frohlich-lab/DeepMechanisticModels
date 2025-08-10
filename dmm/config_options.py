@@ -4,12 +4,12 @@ from typing import Dict, List, Optional
 
 @dataclasses.dataclass(repr=True, init=True, frozen=True, eq=True)
 class Conf(dict):
-    model: str
-    data: str
-    context: str = None
-    features: str = None
-    samples: str = None
-    sample: str = None
+    model: str = ""
+    data: str = ""
+    context: str = ""
+    features: str = ""
+    samples: str = ""
+    sample: str = ""
     # Standard scaling
     standardise_features: bool = False
     # Train/freeze medians
@@ -18,14 +18,14 @@ class Conf(dict):
     n_hidden: int = 0
     nn_structure_multiplier: int = 0
     depth: int = 0
-    use_layer_bias: List[bool] = False
+    use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
-    nn_init_fn: str = "None"
+    nn_init_fn: str = ""
     # Training
-    activation_fn_name: str = "None"
-    optimiser: str = "None"
+    activation_fn_name: str = ""
+    optimiser: str = ""
     # Regularisation
-    orth_reg_strategy: str = "None"
+    orth_reg_strategy: str = ""
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
@@ -160,24 +160,6 @@ class EarlyStoppingParams(dict):
     min_improvement: float = 0
 
 
-unwanted_attributes = [
-    "model",
-    "data",
-    "sample",
-    "threads",
-    "n_starts",
-    "run_mode_tag",
-    "date_tag",
-    "get_dmm_params",
-    "to_dict",
-]
-
-default_attributes = [
-    k
-    for k, v in vars(Conf).items()
-    if not k.startswith("__") and k not in unwanted_attributes
-]
-
 # define abbreviations/labels for logging of loss terms
 L1EREG = "l1reg_encode"
 OEREG = "oreg_encode"
@@ -191,3 +173,28 @@ IO_SPARSITY = "inflater_output_sparsity"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"
 MEDIAN_REG = "median_reg"
+
+scan_attributes = [
+    "model",
+    "data",
+    "samples",
+    "context",
+    "features",
+    # 'n_hidden',
+    # 'depth',
+    # 'activation_fn_name',
+    # L1IREG,
+    # OIREG,
+    # L1EREG,
+    # OEREG,
+    # L1REG_IO,
+    # L2REG_IO,
+    # RECON_LOSS,
+    "inflater_output_reg_epoch",
+    "job",
+    "n_epoch",
+    "inflater_bound",
+]
+
+for attr in scan_attributes:
+    assert hasattr(Conf, attr), f"Conf does not have attribute {attr}"

@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import List
 
 from cytof import get_samples
-from dmm.config_options import default_attributes
+from dmm.config_options import scan_attributes
 from training_configuration import CONTEXTS_FEATURES
 
 
@@ -61,7 +61,9 @@ FEATURES_PIPELINE = str(
     / "{context}__{samples}__{features}__trained_pca_pipeline.joblib"
 )
 
-defaults = {x: f"{{{x}}}" for x in default_attributes}
+defaults = {
+    x: f"{{{x}}}" for x in scan_attributes if x not in ["model", "data"]
+}
 
 tpl_results_file = "__".join(defaults.values())
 

@@ -26,7 +26,7 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_tegfr",
+        # "EGFR_MAPK__logobs_tegfr",
         # "EGFR_MAPK__logobs_tegfr_terbb2",
         # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
         # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
@@ -58,7 +58,7 @@ DATASETS = ("dream_cytof",)
 CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
-    ("cytof_dynamic", "RFE_10_permute"),
+    # ("cytof_dynamic", "RFE_10_permute"),
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
@@ -492,7 +492,7 @@ WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
 #     10,
 # }
 # Linear scan range for opt_steps
-OPT_STEPS = {"range": (1, 2, 5, 10, 100), "central_value": 10}
+OPT_STEPS = {"range": (10,), "central_value": 10}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
 # OPT_MULT = {
@@ -501,7 +501,7 @@ OPT_STEPS = {"range": (1, 2, 5, 10, 100), "central_value": 10}
 #     # 3,
 # }
 # Linear scan range for opt_mult
-OPT_MULT = {"range": (1, 2, 5, 10), "central_value": 2}
+OPT_MULT = {"range": (2,), "central_value": 2}
 
 # Weight-decay for AdamW / schedule-free AdamW
 # WEIGHT_DECAY = {

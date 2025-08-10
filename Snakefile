@@ -19,6 +19,7 @@ from pathlib import Path
 from training_configuration import (
     CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS
 )
+from dmm.config_options import scan_attributes
 
 basedir = Path(os.getcwd())
 # tmp_dir = basedir / 'tmp'
@@ -33,9 +34,9 @@ DATE_TAG = str(datetime.date.today())
 
 singularity: "docker://fabfroehlich/generic_parameter_estimation:main"
 
-envvars:
-    "SYNAPSE_AUTH_TOKEN",
-    "WANDB_API_KEY"
+# envvars:
+#     "SYNAPSE_AUTH_TOKEN",
+#     "WANDB_API_KEY"
 
 
 rule load_data:
@@ -205,20 +206,7 @@ rule estimate_parameters:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in (
-                'model', 'data', 'samples', 'pretrain',
-                'context', 'features', 'standardise_features',
-                'freeze_medians',
-                'n_hidden', 'nn_structure_multiplier', 'depth',
-                'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
-                'activation_fn_name', 'optimiser',
-                'orth_reg_strategy',
-                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output', 'l2reg_inflater_output',
-                'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
-                'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
-                'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping', 'job', 'n_epoch', 'inflater_bound',
-            )
+            for arg in scan_attributes
         ) + ' --threads={resources.threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
 
 rule evaluate_training:
@@ -245,21 +233,7 @@ rule evaluate_training:
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
-            for arg in (
-                'model', 'data',
-                'samples', 'pretrain',
-                'context', 'features', 'standardise_features',
-                'freeze_medians', 'n_hidden', 'nn_structure_multiplier', 'depth',
-                'use_layer_bias', 'last_layer_activation', 'nn_init_fn',
-                'activation_fn_name', 'optimiser',
-                'orth_reg_strategy',
-                'l1reg_inflate', 'oreg_inflate', 'l1reg_encode', 'oreg_encode', 'l1reg_inflater_output', 'l2reg_inflater_output',
-                'recon_loss', 'symm_reg', 'median_reg', 'inflater_output_reg_epoch', 'sparse_threshold_perc',
-                'max_lrate', 'lrate_span', 'lrate_decay', 'warmup_fct', 'opt_steps', 'opt_mult',
-                'weight_decay', 'momentum',
-                'use_simple_linear_schedule', 'use_early_stopping', 'n_epoch', 'inflater_bound',
-                'job',
-            )
+            for arg in scan_attributes
         )
 
 rule evaluate_regressors:
