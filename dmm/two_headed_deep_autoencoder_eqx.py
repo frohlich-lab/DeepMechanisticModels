@@ -87,7 +87,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             last_layer_activation=inflater_params.last_layer_activation,
             weight_init_fn=inflater_params.weight_init_fn,
             bias_init_fn=inflater_params.bias_init_fn,
-            dropout_rate=0.0, # no dropout
+            dropout_rate=0.0,  # no dropout
         )
 
         # Instantiate decoder component if two-headed autoencoder
@@ -101,16 +101,18 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 last_layer_activation=decoder_params.last_layer_activation,
                 weight_init_fn=decoder_params.weight_init_fn,
                 bias_init_fn=decoder_params.bias_init_fn,
-                dropout_rate=0.0, # no dropout
+                dropout_rate=0.0,  # no dropout
             )
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head
 
-    def encode(self, x):
-        return self.deep_encoder(x)
+    def encode(self, x, key):
+        return self.deep_encoder(x, key)
 
-    def decode(self, x):
-        return self.deep_decoder(self.encode(x))
+    def decode(self, x, key):
+        key_encoder, key_decoder = random.split(key, num=2)
+        return self.deep_decoder(self.encode(x, key_encoder), key_decoder)
 
-    def inflate(self, x):
-        return self.deep_inflater(self.encode(x))
+    def inflate(self, x, key):
+        key_encoder, key_inflater = random.split(key, num=2)
+        return self.deep_inflater(self.encode(x, key_encoder), key_inflater)

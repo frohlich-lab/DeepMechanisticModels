@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 @dataclasses.dataclass(repr=True, init=True, frozen=True, eq=True)
 class Conf(dict):
     model: str = ""
-    data: str = ""
+    data: str = "dream_cytof"
     context: str = ""
     features: str = ""
     samples: str = ""
@@ -177,7 +177,6 @@ MEDIAN_REG = "median_reg"
 
 scan_attributes = [
     "model",
-    "data",
     "samples",
     "context",
     "features",

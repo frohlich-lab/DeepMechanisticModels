@@ -1,7 +1,9 @@
 import os
 
+import equinox as eqx
 import git
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 
 import wandb
@@ -167,7 +169,7 @@ def init_wandb(
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag,  # label experiment with date of experiment start
         ],
-        mode="online",  # to run more jobs simultaneously on the cluster
+        mode="online",
     )
 
     # Define W&B metrics
@@ -209,11 +211,13 @@ def init_wandb(
 
 def log_param_norms(
     model: DeepMechanisticModel,
-    conf: Conf,
     input_data: jnp.ndarray,
     epoch: int,
 ):
-    par_dev = model.inflate_params(input_data)
+    # put in inference mode and use dummy key
+    par_dev = eqx.nn.inference_mode(model).inflate_params(
+        input_data, jr.PRNGKey(0)
+    )
     stds = par_dev.std(axis=0)
     # compute the biggest gap in std values across parameters, this is a cheap
     # proxy for the separation of modes in a gmm model that we use for

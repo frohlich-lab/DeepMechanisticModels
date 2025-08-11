@@ -3,6 +3,7 @@ from typing import Callable
 
 import equinox as eqx
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 import optax
 import pypesto
@@ -87,6 +88,7 @@ def loss_fn(
     input_data: np.ndarray,
     problem_train: pypesto.Problem,
     median_init_arr: Array,
+    key,
 ):
     # problem_train.objective() now needs to get in input what was previously the output of the jax_fun, i.e. the output
     # of ae.embedding(x). x contained the parameters (encoder, inflater, kinetic parameters) and ae.embedding(x)
@@ -96,11 +98,11 @@ def loss_fn(
     if conf.freeze_medians:
         # Use frozen medians for the objective function
         model_output = model_output_to_petab_input_frozen_medians(
-            model, input_data, median_init_arr
+            model, input_data, median_init_arr, key
         )
     else:
         # Use the model output to get the input for the objective function
-        model_output = model_output_to_petab_input(model, input_data)
+        model_output = model_output_to_petab_input(model, input_data, key)
     fval = problem_train.objective(model_output)
 
     reg = {
@@ -108,13 +110,13 @@ def loss_fn(
         OIREG: model.orth_inflate_reg(),
         L1EREG: model.l1_encode_reg(),
         L1IREG: model.l1_inflate_reg(),
-        L1REG_IO: model.l1reg_inflater_output(x=input_data),
-        L2REG_IO: model.l2reg_inflater_output(x=input_data),
-        MEDIAN_REG: model.constrain_median(x=median_init_arr),
+        L1REG_IO: model.l1reg_inflater_output(input_data, key),
+        L2REG_IO: model.l2reg_inflater_output(input_data, key),
+        MEDIAN_REG: model.constrain_median(median_init_arr),
     }
 
     if conf.recon_loss > 0:
-        reg[RECON_LOSS] = model.reconstruction_loss(x=input_data)
+        reg[RECON_LOSS] = model.reconstruction_loss(input_data, key)
         reg[SYMM_LOSS] = model.symmetry_loss()
         reg[ODREG] = model.orth_decode_reg()
         reg[L1DREG] = model.l1_decode_reg()
@@ -135,6 +137,7 @@ def make_step(
     problem_train: pypesto.Problem,
     conf: dict,
     median_init_arr: Array,
+    key,
 ):
     (loss_value, (fval, reg)), grads = loss_fn(
         model,
@@ -142,6 +145,7 @@ def make_step(
         input_data,
         problem_train,
         median_init_arr,
+        key=key,
     )
     grads = get_finite_grads(grads)
     updates, opt_state = opt.update(grads, opt_state, model)
@@ -184,7 +188,7 @@ def train(
         rmse(problem, rmse_model, input_data)
         for problem, rmse_model, input_data in zip(
             [problem_train, problem_test],
-            [model, eqx.nn.inference_mode(model)],
+            [model, model],
             [input_features_train, input_features_test],
         )
     )
@@ -222,14 +226,17 @@ def train(
     )  # prior to any training (epoch 0)
 
     # Training loop
-    for epoch in range(1, conf.n_epoch + 1):  # natural counting
+    dropout_keys = jr.split(jr.PRNGKey(conf.job), conf.n_epoch)
+    for epoch, dropout_key in zip(
+        range(1, conf.n_epoch + 1), dropout_keys
+    ):  # natural counting
         # At inflater_output_reg_epoch, update sparsity mask in the model inflated output and lift inflater output
         # regularisation to fine-tune only above threshold param dev
         if (
             epoch == conf.inflater_output_reg_epoch
             and conf.l1reg_inflater_output > 0.0
         ):
-            model =eqx.nn.inference_mode(model).update_output_sparsity_binary_mask(
+            model = model.update_output_sparsity_binary_mask(
                 x=input_features_train,
                 threshold_perc=conf.sparse_threshold_perc,
             )
@@ -238,9 +245,7 @@ def train(
                 x=input_features_train,
             )
             model = model.disable_inflater_output_reg()
-            # Take model out of inference
-            model = eqx.nn.inference_mode(model, value=False)
-            
+
             if debug_mode:
                 selected_features = [
                     x_name
@@ -265,6 +270,7 @@ def train(
             problem_train=problem_train,
             conf=conf,
             median_init_arr=median_init_arr,
+            key=dropout_key,
         )
 
         if epoch in log_epochs or debug_mode:
@@ -282,10 +288,9 @@ def train(
 
             # Log norms (max absolute value + 2-norm) of parameter deviations and medians
             log_param_norms(
-                model=eqx.nn.inference_mode(model),  # set model in inference
+                model=model,  # set model in inference
                 input_data=input_features_train,
                 epoch=epoch,
-                conf=conf,
             )
 
         # Log RMSE values + check early-stopping criteria + check for invalid metrics
@@ -294,7 +299,7 @@ def train(
                 rmse(problem, rmse_model, input_data)
                 for problem, rmse_model, input_data in zip(
                     [problem_train, problem_test],
-                    [model, eqx.nn.inference_mode(model)],
+                    [model, model],
                     [input_features_train, input_features_test],
                 )
             )
@@ -307,7 +312,10 @@ def train(
             if should_break:
                 break
 
-            pars = model.inflate_params(input_features_train)
+            # put model in inference and use dummy key
+            pars = eqx.nn.inference_mode(model).inflate_params(
+                input_features_train, key=jr.PRNGKey(0)
+            )
             parstd = jnp.std(pars, axis=0)
             parmean = jnp.abs(jnp.mean(pars, axis=0))
             log_parstd = jnp.log10(parstd[parstd > 0])
@@ -372,7 +380,7 @@ def train(
         model = next_model
 
     # W&B logs
-    rmse_val_final = rmse(problem_test, eqx.nn.inference_mode(model), input_features_test)
+    rmse_val_final = rmse(problem_test, model, input_features_test)
     wandb.log(
         {
             "final_rmse_val": rmse_val_final,

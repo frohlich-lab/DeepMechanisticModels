@@ -2,6 +2,8 @@ import os
 import re
 from pathlib import Path
 
+import equinox as eqx
+import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -121,7 +123,7 @@ def load_optimize_result_pretraining_cross_samples(
 
 
 def simulate_dmm(
-    model, input_features, obj, petab_problem, conf, jit_fn: bool = True
+    model, input_features, obj, petab_problem, jit_fn: bool = True
 ) -> pd.DataFrame:
     # Generally use the jitted model_output_to_petab_input function
     if jit_fn:
@@ -129,7 +131,11 @@ def simulate_dmm(
     else:
         fn = model_output_to_petab_input_nojit
 
-    res = obj(fn(model, input_features), mode=MODE_RES, return_dict=True)
+    res = obj(
+        fn(eqx.nn.inference_mode(model), input_features, jr.PRNGKey(0)),
+        mode=MODE_RES,
+        return_dict=True,
+    )
 
     amici_model = obj.amici_model
 
@@ -172,7 +178,7 @@ def evaluate_simulations(
     plot_file_prefix: str,
 ):
     simulation_df = simulate_dmm(
-        model, input_features, obj, petab_problem, conf, jit_fn=False
+        model, input_features, obj, petab_problem, jit_fn=False
     )
 
     for sample in samples:

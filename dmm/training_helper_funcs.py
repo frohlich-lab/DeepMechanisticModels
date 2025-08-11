@@ -4,6 +4,7 @@ from typing import Tuple, Union
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import petab.v1 as petab
@@ -360,9 +361,10 @@ def create_pypesto_problem(
 def model_output_to_petab_input(
     model: DeepMechanisticModel,
     input_data: np.ndarray,
+    key,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = model.inflate_params(input_data)
+    pred = model.inflate_params(input_data, key)
     # Concatenate learnable global kinetic parameters (medians) with predicted deviations
     augmented_pred = jnp.concatenate(
         [model.kin_params_combiner.learned_global_kin_params, pred.flatten()]
@@ -375,9 +377,10 @@ def model_output_to_petab_input(
 def model_output_to_petab_input_frozen_medians(
     model: DeepMechanisticModel,
     input_data: np.ndarray,
+    key: jr.PRNGKey,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = model.inflate_params(input_data)
+    pred = model.inflate_params(input_data, key)
     # Concatenate FROZEN global kinetic parameters with predicted deviations
     augmented_pred = jnp.concatenate(
         [
@@ -393,9 +396,10 @@ def model_output_to_petab_input_frozen_medians(
 def model_output_to_petab_input_nojit(
     model: DeepMechanisticModel,
     input_data: np.ndarray,
+    key: jr.PRNGKey,
 ):
     # Get model output (inflated cell-line-specific parameter deviations)
-    pred = model.inflate_params(input_data)
+    pred = model.inflate_params(input_data, key)
     # Concatenate learnable global kinetic parameters with pred
     augmented_pred = jnp.concatenate(
         [model.kin_params_combiner.learned_global_kin_params, pred.flatten()]
@@ -549,9 +553,10 @@ def compute_simulation_from_model(
     input_data: jnp.ndarray,
     return_petab_problem: bool = False,
 ):
-    x = model_output_to_petab_input(model, input_data)
-    # TODO @GiacomoFabrini: - can this can be unified in general framework that
-    #  can work with both fval and Chi2Objective?
+    # put model in inference mode and use dummy key
+    x = model_output_to_petab_input(
+        eqx.nn.inference_mode(model), input_data, jr.PRNGKey(0)
+    )
     obj = pp.objective.base_objective.base_objective
     amici_model = obj.amici_model
     petab_problem = obj.amici_object_builder.petab_problem
@@ -649,10 +654,12 @@ def test_save_reload_model(
     # return RMSE on validation and assert it's the same as the best one
     # could write another function for this
     assert (
-        model.inflate_params(input_data) == re_model.inflate_params(input_data)
+        model.inflate_params(input_data, key=jr.PRNGKey(0))
+        == re_model.inflate_params(input_data, jr.PRNGKey(0))
     ).all()
     assert (
-        vmap(model.decode)(input_data) == vmap(re_model.decode)(input_data)
+        vmap(model.decode)(input_data, jr.PRNGKey(0))
+        == vmap(re_model.decode)(input_data, jr.PRNGKey(0))
     ).all()
 
 

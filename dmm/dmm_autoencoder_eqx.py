@@ -4,6 +4,7 @@ from pathlib import Path
 import equinox as eqx
 import jax
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 import pypesto.petab
 from jaxtyping import Array
@@ -147,7 +148,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 last_layer_activation=conf.last_layer_activation,
                 # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
                 # Only apply dropout (if any) to the encoder module
-                dropout_rate=dropout_rate if module == "encoder" else 0.0,
+                dropout_rate=conf.dropout_rate if module == "encoder" else 0.0,
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
@@ -182,10 +183,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             activation_fn_name=conf.activation_fn_name,
         )
 
-    def inflate_params(self, x):
+    def inflate_params(self, x, key):
         # filter inputs through input_sparsity_binary_mask
-        y = jax.vmap(self.inflate)(
-            x * jnp.array(self.input_sparsity_binary_mask)
+        y = jax.vmap(self.inflate, in_axes=(0, None))(
+            x * jnp.array(self.input_sparsity_binary_mask), key
         )
         return self.conf.inflater_bound * jnp.tanh(
             y
@@ -228,7 +229,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             new instance of DMM with updated sparsity binary mask.
         """
         # Compute standard deviation of parameter deviation across samples
-        param_dev_stds = jnp.std(self.inflate_params(x), axis=0)
+        param_dev_stds = jnp.std(
+            eqx.nn.inference_mode(self).inflate_params(x, jr.PRNGKey(0)),
+            axis=0,
+        )
 
         # Sort in descending order
         sorted_deviations = jnp.sort(param_dev_stds)[::-1]
@@ -338,7 +342,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             self.conf.oreg_inflate,
         )
 
-    def l1reg_inflater_output(self, x: np.ndarray):
+    def l1reg_inflater_output(self, x: np.ndarray, key):
         """
         L1 regularization of inflater output - number of cell-specific deviations/log fold-changes.
         """
@@ -349,10 +353,10 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         ):
             return 0.0
         return self.conf.l1reg_inflater_output * jnp.mean(
-            jnp.abs(self.inflate_params(x))
+            jnp.abs(self.inflate_params(x, key))
         )
 
-    def l2reg_inflater_output(self, x: np.ndarray):
+    def l2reg_inflater_output(self, x: np.ndarray, key):
         """
         L2 regularization of inflater output - number of cell-specific deviations/log fold-changes.
         """
@@ -362,12 +366,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return (
             self.conf.l2reg_inflater_output
             * 1e-6
-            * jnp.linalg.norm(self.inflate_params(x), 2)
+            * jnp.linalg.norm(self.inflate_params(x, key), 2)
         )
 
     def reconstruction_loss(
         self,
         x: Array,
+        key,
     ):
         """
         Reconstruction loss of the autoencoder (in case `self.reconstruct` == True).
@@ -375,7 +380,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         if self.conf.recon_loss == 0.0:
             return 0.0
-        reconstructed_x = jax.vmap(self.decode)(x)
+        reconstructed_x = jax.vmap(self.decode, in_axes=(0, None))(x, key)
         # fval contains MSE (not RMSE) - using MSE in reconstruction loss
         # TODO @GiacomoFabrini: fval and reconstruction loss use MSEs - need to move to RMSEs?!
         #  Are they on the same scale/order of magnitude as L1 terms if we leave them squared?!
