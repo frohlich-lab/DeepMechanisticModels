@@ -2,6 +2,7 @@ from pathlib import Path
 from typing import Dict
 
 import fire
+import equinox as eqx
 import jax
 import pandas as pd
 
@@ -53,6 +54,9 @@ def evaluate_training(
     model, pypesto_problem = load_model_and_obj(
         conf, petab_base_files, features[dataset]
     )
+
+    # Set model to inference mode (essential for evaluation if dropout is applied to the encoder)
+    model = eqx.nn.inference_mode(model)
 
     # Extract needed features from input dictionary
     input_features = sort_features(

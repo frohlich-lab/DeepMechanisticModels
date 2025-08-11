@@ -181,9 +181,10 @@ def train(
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
     # rmse_train_start = rmse(problem_train, model, input_features_train)
     rmse_train, rmse_val = (
-        rmse(problem, model, input_data)
-        for problem, input_data in zip(
+        rmse(problem, rmse_model, input_data)
+        for problem, rmse_model, input_data in zip(
             [problem_train, problem_test],
+            [model, eqx.nn.inference_mode(model)],
             [input_features_train, input_features_test],
         )
     )
@@ -228,7 +229,7 @@ def train(
             epoch == conf.inflater_output_reg_epoch
             and conf.l1reg_inflater_output > 0.0
         ):
-            model = model.update_output_sparsity_binary_mask(
+            model =eqx.nn.inference_mode(model).update_output_sparsity_binary_mask(
                 x=input_features_train,
                 threshold_perc=conf.sparse_threshold_perc,
             )
@@ -237,6 +238,9 @@ def train(
                 x=input_features_train,
             )
             model = model.disable_inflater_output_reg()
+            # Take model out of inference
+            model = eqx.nn.inference_mode(model, value=False)
+            
             if debug_mode:
                 selected_features = [
                     x_name
@@ -278,7 +282,7 @@ def train(
 
             # Log norms (max absolute value + 2-norm) of parameter deviations and medians
             log_param_norms(
-                model=model,
+                model=eqx.nn.inference_mode(model),  # set model in inference
                 input_data=input_features_train,
                 epoch=epoch,
                 conf=conf,
@@ -287,9 +291,10 @@ def train(
         # Log RMSE values + check early-stopping criteria + check for invalid metrics
         if epoch in log_epochs:
             rmse_train, rmse_val = (
-                rmse(problem, model, input_data)
-                for problem, input_data in zip(
+                rmse(problem, rmse_model, input_data)
+                for problem, rmse_model, input_data in zip(
                     [problem_train, problem_test],
+                    [model, eqx.nn.inference_mode(model)],
                     [input_features_train, input_features_test],
                 )
             )
@@ -367,7 +372,7 @@ def train(
         model = next_model
 
     # W&B logs
-    rmse_val_final = rmse(problem_test, model, input_features_test)
+    rmse_val_final = rmse(problem_test, eqx.nn.inference_mode(model), input_features_test)
     wandb.log(
         {
             "final_rmse_val": rmse_val_final,

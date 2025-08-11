@@ -21,6 +21,7 @@ class Conf(dict):
     use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
     nn_init_fn: str = "custom"
+    dropout_rate: float = 0.0  # default: no entries set to 0
     # Training
     activation_fn_name: str = "swish"
     optimiser: str = "adam"
@@ -110,7 +111,6 @@ class Conf(dict):
             "context",
             "features",
             "pretrain",
-            "median_init",
             "freeze_medians",
             "use_layer_bias",
             "linear_benchmark",
@@ -151,6 +151,7 @@ class ModuleParams(dict):
     last_layer_activation: bool = (
         "False"  # no activation function in last layer of each module
     )
+    dropout_rate: float = 0.0
 
 
 @dataclasses.dataclass

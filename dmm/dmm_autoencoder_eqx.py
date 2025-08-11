@@ -47,25 +47,6 @@ def init_biases(biases, num_layers):
     return biases
 
 
-def update_module_params_dict(
-    module_params: ModuleParams,
-    new_layer_sizes: list[int],
-) -> ModuleParams:
-    # Initialise biases (in case of None or single value definitions)
-    new_layer_biases = init_biases(
-        biases=module_params.layer_biases,
-        num_layers=(len(new_layer_sizes) - 1),
-    )
-    # Produce updated module parameters dictionary
-    updated_module_params = ModuleParams(
-        layer_sizes=new_layer_sizes,
-        layer_biases=new_layer_biases,
-        weight_init_fn=module_params.weight_init_fn,
-        bias_init_fn=module_params.bias_init_fn,
-    )
-    return updated_module_params
-
-
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     kin_params_combiner: KinParamsCombiner
     # Sparsity masks are tuples to prevent undesired updates
@@ -165,6 +146,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 bias_init_fn="zeros",
                 last_layer_activation=conf.last_layer_activation,
                 # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
+                # Only apply dropout (if any) to the encoder module
+                dropout_rate=dropout_rate if module == "encoder" else 0.0,
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
