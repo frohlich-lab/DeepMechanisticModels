@@ -215,13 +215,16 @@ def log_param_norms(
 ):
     par_dev = model.inflate_params(input_data)
     stds = par_dev.std(axis=0)
+    log_std_diff = jnp.diff(jnp.log10(stds[stds > 0]).sort())
+    if log_std_diff.size:
+        par_dev_log_std_sep = log_std_diff.max()
+    else:  # only one non-zero std
+        par_dev_log_std_sep = 0
     wandb.log(
         {
             "par_dev_max": jnp.max(jnp.abs(par_dev)),
             "par_dev_norm": jnp.linalg.norm(x=par_dev, ord=None),
-            "par_dev_log_std_sep": jnp.diff(
-                jnp.sort(jnp.log10(stds[stds > 0]))
-            ).max(),
+            "par_dev_log_std_sep": par_dev_log_std_sep,
         },
         step=epoch,
     )

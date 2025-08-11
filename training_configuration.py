@@ -363,14 +363,8 @@ DELTAS = {
 # previously centered at 1e7, but now excluded from scanned values
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
-# 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
-# to scan switching epoch
-# 09.01.2024 - added pre-multiplier in DMM = 1e-6. Therefore, 1 -> 1e-6; 1e2 -> 1e-4
-# OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
-# OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-# OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": (0, 1e-5, 1e-3, 1e-1, 1e1, 1e3),
+    "range": (0, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-1,
 }
 
