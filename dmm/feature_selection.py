@@ -366,7 +366,7 @@ def load_data(
 
         pipeline = Pipeline(
             [
-                ("dopnan", DropNaN(_isna)),
+                ("dropnan", DropNaN(_isna)),
                 ("impute", KNNImputer()),
                 ("pca", PCA()),
                 ("df", ConvertDataFrame()),

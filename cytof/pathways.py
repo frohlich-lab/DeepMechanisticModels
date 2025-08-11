@@ -25,7 +25,7 @@ def add_egfr(model):
         if model.has_modification(f"t{gf.lower}"):
             par = f"{gf}_eq"
             egfr_activators.append(f"{gf}_eq")
-            model.parameters.addt(par)
+            model.parameters.add(par)
     model.pathway_elements["EGFR"] = {
         "Y1173": (
             egfr_activators,

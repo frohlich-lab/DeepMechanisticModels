@@ -215,6 +215,9 @@ def log_param_norms(
 ):
     par_dev = model.inflate_params(input_data)
     stds = par_dev.std(axis=0)
+    # compute the biggest gap in std values across parameters, this is a cheap
+    # proxy for the separation of modes in a gmm model that we use for
+    # sparsification
     log_std_diff = jnp.diff(jnp.log10(stds[stds > 0]).sort())
     if log_std_diff.size:
         par_dev_log_std_sep = log_std_diff.max()

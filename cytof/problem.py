@@ -29,13 +29,10 @@ BOUNDS = ParameterBounds(
     kdeg=(-4, 0, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
     kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
-    kr=(-6, 6, "log10"),  # [-]
     scale=(-2, 3, "log10"),  # [1/[c]]
     offset=(-4, 3, "log10"),  # [[c]]
-    koff=(-3, 2, "log10"),  # [1/[t]]
-    kd=(-10, 3, "log10"),  # [[c]]
     kw=(-3, 3, "log10"),  # [1/[c]]
-    bact=(-5, 3, "log10"),
+    bact=(-5, 3, "log10"),  # [1]
 )
 
 

@@ -199,7 +199,7 @@ for dataset in ["train", "val"]:
     # df = evaluate_average(dataset, conf, samples)
     # df.to_csv(
     #     EVALUATION_REFERENCE.format(
-    #         **conf,
+    #         **conf.to_dict(),
     #         dataset=dataset,
     #         mode="average",
     #     )

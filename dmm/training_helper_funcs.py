@@ -77,7 +77,7 @@ def get_scheduler(
         # Handle warmup/no warmup
         if conf.warmup_fct > 0:
             boundaries_and_scales = {
-                int(conf.warmup_fct * n_epoch): conf.lrte_span,
+                int(conf.warmup_fct * n_epoch): conf.lrate_span,
                 n_epoch - 1: conf.lrate_decay,
             }
         else:
@@ -652,8 +652,7 @@ def test_save_reload_model(
         model.inflate_params(input_data) == re_model.inflate_params(input_data)
     ).all()
     assert (
-        vmap(model.encode)(input_data)["decoded"]
-        == vmap(re_model.encode)(input_data)["decoded"]
+        vmap(model.decode)(input_data) == vmap(re_model.decode)(input_data)
     ).all()
 
 
