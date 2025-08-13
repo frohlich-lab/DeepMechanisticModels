@@ -220,7 +220,7 @@ def get_embedding_and_params_df(
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
     temp_latent_embeddings = vmap(
-        eqx.nn.inference_mode(dmm_model).deep_encoder, in_axes=(0, None)
+        eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
     )(input_features, jr.PRNGKey(0))
     latent_embeddings_df = pd.DataFrame(
         {
