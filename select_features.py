@@ -51,6 +51,21 @@ def get_feature_importances(model, X, y, method="auto"):
         raise ValueError(f"Unknown method: {method}")
 
 
+def get_hvg(input_df: pd.DataFrame, top_n: int = 500) -> pd.DataFrame:
+    # remove 20% of features with the lowest mean:
+    means = np.mean(input_df, axis=0)
+    threshold = np.percentile(means, 20)
+    input_df = input_df.loc[:, means >= threshold]
+    # Keep top N (default 500) features with the highest variance
+    var_threshold = sorted(
+        np.nanvar(input_df, axis=0), reverse=True
+    )[top_n]
+    input_df = input_df.loc[
+                 :, np.nanvar(input_df, axis=0) >= var_threshold
+                 ]
+    return input_df
+
+
 def get_selected_features(
     input_data,
     output_data,
@@ -283,17 +298,7 @@ def get_selected_features(
             "proteomics",
             "transcriptomics",
         ]:
-            # remove 20% of features with lowest mean:
-            means = np.mean(input_data, axis=0)
-            threshold = np.percentile(means, 20)
-            input_data = input_data.loc[:, means >= threshold]
-            # Keep top 500 features with highest variance
-            var_threshold = sorted(
-                np.nanvar(input_data, axis=0), reverse=True
-            )[500]
-            input_data = input_data.loc[
-                :, np.nanvar(input_data, axis=0) >= var_threshold
-            ]
+            input_data = get_hvg(input_data)
 
         output_data -= output_data.mean(axis=0)  # center output data
 
@@ -339,6 +344,163 @@ def get_selected_features(
     ]
 
 
+
+def build_context_feature_recipe(conf) -> list:
+    """
+    Returns a list of (context, feature_spec) describing the desired stack.
+    New combos:
+      - cytof_init_plus_tEGFR: cytof_init + transcriptomics EGFR only
+      - cytof_init_plus_pEGFR: cytof_init + proteomics EGFR only
+    Keeps existing 'multimodal' behaviors (including 'optimal' and 'best_RFE_*').
+    """
+    if conf.context == "cytof_init_plus_tEGFR":
+        return [("cytof_init", conf.features), ("transcriptomics", "genes:EGFR")]
+    if conf.context == "cytof_init_plus_pEGFR":
+        return [("cytof_init", conf.features), ("proteomics", "genes:EGFR")]
+
+    if conf.context == "multimodal":
+        if conf.features == "optimal":
+            return [
+                ("cytof_init", "RFE_10_permute"),
+                ("proteomics", "HVGRFE_20_permute"),
+                ("transcriptomics", "HVGRFE_15_permute"),
+            ]
+        if conf.features.startswith("best_RFE_"):
+            # Pre-filter proteomics/transcriptomics with HVG then do a single global RFE
+            return [
+                ("cytof_init", "all"),
+                ("proteomics", "HVG_all"),
+                ("transcriptomics", "HVG_all"),
+            ]
+        # Plain multimodal with same spec across contexts
+        return [
+            ("cytof_init", conf.features),
+            ("proteomics", conf.features),
+            ("transcriptomics", conf.features),
+        ]
+
+    # Single-context fallback
+    return [(conf.context, conf.features)]
+
+
+def prefix_for_context(ctx: str) -> str:
+    """Prefix non-cytof contexts to avoid column name clashes when concatenating."""
+    if ctx == "proteomics":
+        return "p"
+    elif ctx == "transcriptomics":
+        return "t"
+    else:
+        return ""  # cytof / MOSA
+
+
+def parse_feature_spec(feature_spec: str):
+    """
+    Extend the feature spec language with a lightweight 'genes:' option:
+      - 'genes:EGFR' or 'genes:EGFR,ERBB2'
+    Falls back to native behavior otherwise.
+    """
+    if isinstance(feature_spec, str) and feature_spec.startswith("genes:"):
+        genes = [g.strip() for g in feature_spec.split(":", 1)[1].split(",") if g.strip()]
+        return {"kind": "genes", "genes": genes}
+    return {"kind": "native", "spec": feature_spec}
+
+
+def prepare_inputs_for_context(
+    subconf,
+    samples_train_split,
+    samples_val_split,
+    feature_spec_str,
+    petab_base_files,
+    maybe_output_train,
+    do_prefix=False,
+):
+    """
+    Unified loader → imputer → mean centering → (optional HVG prefilter) → selection.
+    Supports:
+      - native specs (all existing: all / RFE_* / HVGRFE_* / curated / MSIGDB_*)
+      - 'HVG_all' quick prefilter (keeps all HVG without supervised step) - used to perform feature selection on
+        concatenated multimodal contexts.
+      - 'genes:...' direct selection by gene symbols (e.g., genes:EGFR)
+    """
+    spec = parse_feature_spec(feature_spec_str)
+
+    # Load inputs for context
+    if subconf.context == "MOSA":
+        input_train, input_val, features_all = preprocess_mosa_latent(
+            subconf, samples_train_split, samples_val_split
+        )
+    else:
+        input_train, features_all, _ = load_data(
+            contextualization=subconf.context,
+            samples=samples_train_split,
+            features=None,
+            **petab_base_files,
+        )
+        input_val, _, _ = load_data(
+            contextualization=subconf.context,
+            samples=samples_val_split,
+            features=features_all,
+            **petab_base_files,
+        )
+
+    # Impute missing input values
+    imputer_input = KNNImputer()
+    input_train = pd.DataFrame(
+        imputer_input.fit_transform(input_train),
+        index=input_train.index,
+        columns=input_train.columns,
+    )
+    input_val = pd.DataFrame(
+        imputer_input.transform(input_val),
+        index=input_val.index,
+        columns=input_val.columns,
+    )
+
+    # Mean-center by train mean
+    mean_train = input_train.mean()
+    input_train -= mean_train
+    input_val -= mean_train
+
+    # Feature selection
+    if spec["kind"] == "genes":
+        # Keep only the requested genes present in this context
+        requested = set(spec["genes"])
+        selected = [c for c in input_train.columns if c in requested]
+        input_train = input_train[selected]
+        input_val = input_val[selected]
+    else:
+        native = spec["spec"]
+        if native == "HVG_all":
+            # Quick unsupervised HVG prefilter, then keep all remaining
+            input_train = get_hvg(input_train)
+            selected = input_train.columns.tolist()
+            input_val = input_val[selected]
+        else:
+            # Supervised (or curated/MSIG) selection reusing existing function
+            selected = get_selected_features(
+                input_data=input_train,
+                output_data=maybe_output_train,
+                context=subconf.context,
+                features=native,
+                features_all=input_train.columns.tolist(),
+                cv=None,
+            )
+            input_train = input_train[selected]
+            input_val = input_val[selected]
+
+    # Optional prefixing to avoid duplication across contexts
+    if do_prefix:
+        prefix = prefix_for_context(subconf.context)
+        if prefix:
+            input_train.columns = [f"{prefix}{c}" for c in input_train.columns]
+            input_val.columns = [f"{prefix}{c}" for c in input_val.columns]
+            selected = input_train.columns.tolist()
+    else:
+        selected = input_train.columns.tolist()
+
+    return input_train, input_val, selected
+
+
 conf = fire.Fire(Conf)
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
@@ -355,128 +517,65 @@ samples_val = {
     for split in sorted(SPLITS)
 }
 
+recipe = build_context_feature_recipe(conf)
 
-# Handle multimodality
-contexts = []
-multimodal_dfs = {}
-if conf.context == "multimodal":
-    contexts = ["cytof_init", "proteomics", "transcriptomics"]
-else:
-    contexts = [conf.context]
+# Preload output (cytof_dynamic) once for the split (used by supervised selectors)
+output_train_raw, _, _ = load_data(
+    contextualization="cytof_dynamic",
+    samples=samples_train[conf.samples],
+    features=None,
+    **petab_base_files,
+)
+imputer_out = KNNImputer()
+output_train_imputed = pd.DataFrame(
+    imputer_out.fit_transform(output_train_raw),
+    index=output_train_raw.index,
+    columns=output_train_raw.columns,
+)
 
-features_dict = {}
-if conf.features == "optimal":
-    # Hardcoded optimal feature selection methods
-    features_dict = {
-        "cytof_init": "RFE_10_permute",
-        "proteomics": "HVGRFE_20_permute",
-        "transcriptomics": "HVGRFE_15_permute",
-    }
-else:
-    features_dict = {context: conf.features for context in contexts}
+# Detect global-RFE pattern: 'multimodal' + 'best_RFE_N_permute'
+perform_global_rfe = (
+        conf.context == "multimodal" and isinstance(conf.features, str) and conf.features.startswith("best_RFE_")
+)
 
-for context in contexts:
-    subconf = replace(conf, context=context, features=features_dict[context])
-
-    input_parts = []
-    output_parts = []
-    features_all = None
-    all_indices = []
-    split_indices = []
-
-    if subconf.context == "MOSA":
-        input_train, input_val, features_all = preprocess_mosa_latent(
-            subconf, samples_train[conf.samples], samples_val[conf.samples]
-        )
-    else:
-        input_train, features_all, transform = load_data(
-            contextualization=context,
-            samples=samples_train[conf.samples],
-            features=None,
-            **petab_base_files,
-        )
-        input_val, _, _ = load_data(
-            contextualization=context,
-            samples=samples_val[conf.samples],
-            features=features_all,
-            transform=transform,
-            **petab_base_files,
-        )
-
-    imputer_input = KNNImputer()
-    filled = imputer_input.fit_transform(input_train)
-    input_train = pd.DataFrame(
-        filled,
-        index=input_train.index,
-        columns=input_train.columns,
+# Prepare each (context, feature_spec)
+parts_train, parts_val = [], []
+for ctx, feat_spec in recipe:
+    subconf = replace(conf, context=ctx, features=feat_spec)
+    tr, va, sel = prepare_inputs_for_context(
+        subconf=subconf,
+        samples_train_split=samples_train[conf.samples],
+        samples_val_split=samples_val[conf.samples],
+        feature_spec_str=feat_spec,
+        petab_base_files=petab_base_files,
+        maybe_output_train=output_train_imputed,
+        do_prefix=conf.context == "multimodal" or len(recipe) > 1,
     )
-    input_val = pd.DataFrame(
-        imputer_input.transform(input_val),
-        index=input_val.index,
-        columns=input_val.columns,
-    )
+    parts_train.append(tr)
+    parts_val.append(va)
 
-    mean_train = input_train.mean()
-    input_train -= mean_train
-    input_val -= mean_train
+# Concatenate across recipe (if multiple)
+Xtr = pd.concat(parts_train, axis=1) if len(parts_train) > 1 else parts_train[0]
+Xva = pd.concat(parts_val,   axis=1) if len(parts_val)   > 1 else parts_val[0]
 
-    output_train, features_output_train, _ = load_data(
-        contextualization="cytof_dynamic",
-        samples=samples_train[conf.samples],
-        features=None,
-        **petab_base_files,
-    )
-    imputer_output = KNNImputer()
-    filled = imputer_output.fit_transform(output_train)
-    output_train = pd.DataFrame(
-        filled,
-        index=output_train.index,
-        columns=output_train.columns,
-    )
-
+# If requested, run global RFE on the concatenated inputs
+if perform_global_rfe:
+    N = int(conf.features.split("_")[-2])
     selected_features = get_selected_features(
-        input_data=input_train,
-        output_data=output_train,
-        context=subconf.context,
-        features=subconf.features,
-        features_all=features_all,
+        input_data=Xtr,
+        output_data=output_train_imputed,
+        context="multimodal",
+        features=f"RFE_{N}_permute",
+        features_all=Xtr.columns.tolist(),
         cv=None,
     )
-    print(
-        f"Selected {len(selected_features)} features for split {conf.samples} for {subconf.context}: {selected_features}"
-    )
-    # Transform and save per split
-    for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
-        outfile = FEATURES_OUTFILE.format_map(
-            dict(**subconf.to_dict(), dataset=dataset)
-        )
-        Path(outfile).parent.mkdir(exist_ok=True, parents=True)
-        print(f"Preprocessing {dataset} data for split {conf.samples}...")
-        df_inputs = pd.DataFrame(
-            inputs[selected_features].values,
-            index=inputs.index,
-            columns=[
-                col
-                if isinstance(col, str)
-                else "#".join([str(level) for level in col])
-                for col in selected_features
-            ],
-        )
-        if not (conf.context == "multimodal"):
-            print(
-                f"Saving {dataset} data for split {conf.samples} to {outfile}"
-            )
-            df_inputs.to_csv(outfile)
-        else:
-            if dataset not in multimodal_dfs:
-                multimodal_dfs[dataset] = []
-            multimodal_dfs[dataset].append(df_inputs)
+    print(selected_features)
+    Xtr = Xtr[selected_features]
+    Xva = Xva[selected_features]
 
-if conf.context == "multimodal":
-    for dataset in ["train", "val"]:
-        outfile = FEATURES_OUTFILE.format_map(
-            dict(**conf.to_dict(), dataset=dataset)
-        )
-        concat_df = pd.concat(multimodal_dfs[dataset], axis=1)
-        print(f"Saving {dataset} data for split {conf.samples} to {outfile}")
-        concat_df.to_csv(outfile)
+# Save once per dataset
+for dataset, mat in (("train", Xtr), ("val", Xva)):
+    outfile = FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset))
+    Path(outfile).parent.mkdir(exist_ok=True, parents=True)
+    print(f"Saving {dataset} data for split {conf.samples} to {outfile}")
+    mat.to_csv(outfile)
