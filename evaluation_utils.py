@@ -1,7 +1,9 @@
 import itertools as itt
 from typing import Any, Dict, List, Tuple, Union
 
+import equinox as eqx
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
@@ -217,9 +219,9 @@ def get_embedding_and_params_df(
     samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
-    temp_latent_embeddings = vmap(dmm_model.deep_encoder, in_axes=(0, None))(
-        input_features, dmm_model.model_key
-    )
+    temp_latent_embeddings = vmap(
+        eqx.nn.inference_mode(dmm_model).deep_encoder, in_axes=(0, None)
+    )(input_features, jr.PRNGKey(0))
     latent_embeddings_df = pd.DataFrame(
         {
             "cell_line": samples,
