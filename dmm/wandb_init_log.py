@@ -1,21 +1,20 @@
 import os
 
+import equinox as eqx
 import git
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
-from jax import vmap
 
 import wandb
 
 from .config_options import (
     IO_SPARSITY,
-    L1DREG,
     L1EREG,
     L1IREG,
     L1REG_IO,
     L2REG_IO,
     MEDIAN_REG,
-    ODREG,
     OEREG,
     OIREG,
     RECON_LOSS,
@@ -133,14 +132,17 @@ def init_wandb(
         # v41: added p90RSK to EGFR_MAPK, removed ERBB2 from freeeq model and fixed EGFR_MAPK_AKT model
         # v42: clean slate with p90RSK added, minimal setup with new directories
         # v43: faster initialisation for tegfr model, add baseline activation for EGFR and p90RSK, linear cytof observables
-        # v44: revert faster initialisation (took too long, will revisit
+        # v44: revert faster initialisation (took too long, will revisit)
         # v45: model variants
         # v46: updated model, add HER2 signaling + inhibition by lapatinib
         # v47: features selection revisited
-        project=f"DeepMechanisticModels.v47.{conf.data}",
+        # v49: refactored model
+        # v50: code refactor, scan inflater output reg
+        # v51: output reg + inflater bound scan
+        project=f"DeepMechanisticModels.v51.{conf.data}",
         group=group,
         config={
-            **conf.__dict__,
+            **conf.to_dict(),
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
             "patience": early_stopping_params.patience
             if conf.use_early_stopping
@@ -168,7 +170,7 @@ def init_wandb(
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag,  # label experiment with date of experiment start
         ],
-        mode="online",  # to run more jobs simultaneously on the cluster
+        mode="online",
     )
 
     # Define W&B metrics
@@ -178,12 +180,17 @@ def init_wandb(
             "loss",
             "fval_train",
             "fval_val",
-            "rmse_test",
+            "rmse_train",
             "rmse_val",
-            "max_abs_par_dev",
-            "par_dev_frob_norm",
+            "par_dev_max",
+            "par_dev_norm",
             "log_parameter_std",
             "log_parameter_mean",
+            L1EREG,
+            L1IREG,
+            L1REG_IO,
+            L2REG_IO,
+            MEDIAN_REG,
         ]
     }
 
@@ -195,21 +202,9 @@ def init_wandb(
     metrics["final_rmse_val"] = "none"
     metrics["integration_error"] = "none"
     # optional metrics depending on the presence of decoder head
-    if model.reconstruct:
+    if conf.recon_loss:
         metrics[RECON_LOSS] = "last"
         metrics[SYMM_LOSS] = "last"
-
-    reg_metrics = {
-        metric: "last"
-        for metric in [L1EREG, L1IREG, L1REG_IO, L2REG_IO, MEDIAN_REG]
-    }
-    # Add decoder regularisation terms if the model has a decoder head
-    if model.reconstruct:
-        reg_metrics[L1DREG] = "last"
-        reg_metrics[ODREG] = "last"
-
-    # Get final metrics
-    metrics = {**metrics, **reg_metrics}
 
     for metric, summary in metrics.items():
         wandb.define_metric(metric, summary=summary)
@@ -220,14 +215,24 @@ def log_param_norms(
     input_data: jnp.ndarray,
     epoch: int,
 ):
-    par_dev = vmap(model)(input_data)["inflated"]
-    par_medians = model.kin_params_combiner.learned_global_kin_params
+    # put in inference mode and use dummy key
+    par_dev = eqx.nn.inference_mode(model).inflate_params(
+        input_data, jr.PRNGKey(0)
+    )
+    stds = par_dev.std(axis=0)
+    # compute the biggest gap in std values across parameters, this is a cheap
+    # proxy for the separation of modes in a gmm model that we use for
+    # sparsification
+    log_std_diff = jnp.diff(jnp.log10(stds[stds > 0]).sort())
+    if log_std_diff.size:
+        par_dev_log_std_sep = log_std_diff.max()
+    else:  # only one non-zero std
+        par_dev_log_std_sep = 0
     wandb.log(
         {
-            "max_abs_par_dev": jnp.max(jnp.abs(par_dev)),
-            "par_dev_frob_norm": jnp.linalg.norm(x=par_dev, ord=None),
-            "max_abs_par_median": jnp.max(jnp.abs(par_medians)),
-            "par_median_frob_norm": jnp.linalg.norm(x=par_medians, ord=None),
+            "par_dev_max": jnp.max(jnp.abs(par_dev)),
+            "par_dev_norm": jnp.linalg.norm(x=par_dev, ord=None),
+            "par_dev_log_std_sep": par_dev_log_std_sep,
         },
         step=epoch,
     )

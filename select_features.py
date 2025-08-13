@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import fire
@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
+from dmm.config_options import Conf
 from dmm.feature_selection import (
     build_preprocessor,
     load_data,
@@ -18,15 +19,6 @@ from dmm.feature_selection import (
 )
 from training_configuration import SPLITS
 from util import load_petab_base_files
-
-
-@dataclass(init=True)
-class MinimalConf(dict):
-    model: str
-    data: str
-    context: str
-    features: str
-    samples: str
 
 
 def get_feature_importances(model, X, y, method="auto"):
@@ -347,11 +339,11 @@ def get_selected_features(
     ]
 
 
-conf = fire.Fire(MinimalConf)
+conf = fire.Fire(Conf)
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
-if (conf.context == "MOSA") and ("4of5" == conf.samples):
+if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
@@ -397,16 +389,17 @@ for context in contexts:
             subconf, samples_train[conf.samples], samples_val[conf.samples]
         )
     else:
-        input_train, features_all = load_data(
+        input_train, features_all, transform = load_data(
             contextualization=context,
             samples=samples_train[conf.samples],
             features=None,
             **petab_base_files,
         )
-        input_val, _ = load_data(
+        input_val, _, _ = load_data(
             contextualization=context,
             samples=samples_val[conf.samples],
             features=features_all,
+            transform=transform,
             **petab_base_files,
         )
 
@@ -427,7 +420,7 @@ for context in contexts:
     input_train -= mean_train
     input_val -= mean_train
 
-    output_train, features_output_train = load_data(
+    output_train, features_output_train, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train[conf.samples],
         features=None,
@@ -455,7 +448,7 @@ for context in contexts:
     # Transform and save per split
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
-            dict(**subconf.__dict__, dataset=dataset)
+            dict(**subconf.to_dict(), dataset=dataset)
         )
         Path(outfile).parent.mkdir(exist_ok=True, parents=True)
         print(f"Preprocessing {dataset} data for split {conf.samples}...")
@@ -482,7 +475,7 @@ for context in contexts:
 if conf.context == "multimodal":
     for dataset in ["train", "val"]:
         outfile = FEATURES_OUTFILE.format_map(
-            dict(**conf.__dict__, dataset=dataset)
+            dict(**conf.to_dict(), dataset=dataset)
         )
         concat_df = pd.concat(multimodal_dfs[dataset], axis=1)
         print(f"Saving {dataset} data for split {conf.samples} to {outfile}")

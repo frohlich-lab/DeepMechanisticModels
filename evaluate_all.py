@@ -41,7 +41,7 @@ def process_reference(
     ref = pd.read_csv(
         EVALUATION_REFERENCE.format(
             **{
-                **conf.__dict__,
+                **conf.to_dict(),
                 "samples": samples,
                 "dataset": dataset,
             },
@@ -183,7 +183,7 @@ for samples in sorted(SPLITS):
                 pd.read_csv(
                     EVALUATION_REGRESSOR.format(
                         **{
-                            **conf.__dict__,
+                            **conf.to_dict(),
                             "samples": samples,
                             "dataset": dataset,
                             "context": ctxt,
@@ -277,7 +277,9 @@ reg_params = [
     "sparse_threshold_perc",
 ]
 num_unique_regs = [
-    len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params
+    len(df[df.ref == "DMM"][reg_param].unique())
+    for reg_param in reg_params
+    if reg_param in df.columns
 ]
 reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
 

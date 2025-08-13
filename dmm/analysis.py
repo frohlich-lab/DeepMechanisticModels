@@ -2,6 +2,8 @@ import os
 import re
 from pathlib import Path
 
+import equinox as eqx
+import jax.random as jr
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -12,7 +14,7 @@ from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS
 from pypesto.store import OptimizationResultHDF5Reader
 
-from .config_options import default_attributes
+from .config_options import scan_attributes
 from .plotting import plot_cross_samples
 from .training_helper_funcs import (
     model_output_to_petab_input,
@@ -66,12 +68,8 @@ def process_simulation(
         else:
             condition = r[petab.SIMULATION_CONDITION_ID]
 
-        # Subset conf
-        # TODO @GiacomoFabrini - are all the defaults needed?
-        subset_hyperparams = default_attributes
-
         subset_conf_dict = {
-            k: v for k, v in conf.__dict__.items() if k in subset_hyperparams
+            k: v for k, v in conf.to_dict().items() if k in scan_attributes
         }
         evaluations.append(
             {
@@ -133,27 +131,13 @@ def simulate_dmm(
     else:
         fn = model_output_to_petab_input_nojit
 
-    res = obj(fn(model, input_features), mode=MODE_RES, return_dict=True)
+    res = obj(
+        fn(eqx.nn.inference_mode(model), input_features, jr.PRNGKey(0)),
+        mode=MODE_RES,
+        return_dict=True,
+    )
 
     amici_model = obj.amici_model
-
-    # if isinstance(obj, pypesto.objective.AggregatedObjective):
-    #     amici_model = obj._objectives[0].amici_model
-    #     amici_solver = obj._objectives[0].amici_solver
-    # else:
-    #     amici_model = obj.amici_model
-    #     amici_solver = obj.amici_solver
-
-    # for r in res["rdatas"]:
-    #     if r["status"] != amici.AMICI_SUCCESS:
-    #         print(f'AMICI failed for {r["id"]}')
-    #         x = jnp.ones((1,), dtype=jnp.float64)
-    #         print(f"JAX dtype: {x.dtype} ")
-    #         print(
-    #             f"AMICI solver options: {amici_solver.getAbsoluteTolerance():.2e} atol, "
-    #             f"{amici_solver.getRelativeTolerance():.2e} rtol"
-    #         )
-    #         return
 
     try:
         simulation_df = rdatas_to_simulation_df(

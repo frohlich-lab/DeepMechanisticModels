@@ -41,7 +41,9 @@ rmse_cols = [
 
 df_rmse["method"] = df_rmse.apply(
     lambda r: "_".join(
-        r[x] for x in rmse_cols if isinstance(r[x], str) or not np.isnan(r[x])
+        str(r[x])
+        for x in rmse_cols
+        if isinstance(r[x], str) or not np.isnan(r[x])
     ),
     axis=1,
 )
@@ -71,8 +73,9 @@ plt.savefig(outdir / "performance.pdf")
 # average over jobs+samples
 gb = [
     k
-    for k in conf.__dict__.keys()
-    if (k not in ["job", "samples", "sample"]) and (k in df.columns)
+    for k in conf.to_dict()
+    if (k not in ["job", "samples", "sample", "model", "data"])
+    and (k in df.columns)
 ]
 
 for group, df_run in df.groupby(["ref"] + gb, dropna=False):

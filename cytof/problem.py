@@ -13,6 +13,7 @@ import pysb
 import pysb.export
 import sympy as sp
 
+from dmm.mechanistic_model import MechanisticModel
 from dmm.problem import ParameterBounds, Problem
 from dmm.training_helper_funcs import Chi2Objective
 
@@ -25,19 +26,13 @@ pathway_dir = base_dir
 logger = logging.getLogger("cytof_problem")
 
 BOUNDS = ParameterBounds(
-    kdeg=(-6, -1, "log10"),  # [1/[t]]
+    kdeg=(-4, 0, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
-    kcat=(-4, 4, "log10"),  # [1/([t]*[c])]
-    kr=(-4, 4, "log10"),  # [-]
-    scale=(0, 3, "log10"),  # [1/[c]]
-    offset=(-2, 2, "log10"),  # [[c]]
-    weight=(-0.5, 0.5, "lin"),  # [-]
-    koff=(-3, 2, "log10"),  # [1/[t]]
-    kd=(-3, 3, "log10"),  # [[c]]
-    kw=(-4, 4, "log10"),  # [1/[c]]
-    tau=(-4, 2, "log10"),  # [t]
-    amp=(-4, 0, "log10"),  # [c]
-    p0=(-4, 0, "log10"),  # [c]
+    kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
+    scale=(-2, 3, "log10"),  # [1/[c]]
+    offset=(-4, 3, "log10"),  # [[c]]
+    kw=(-3, 3, "log10"),  # [1/[c]]
+    bact=(-5, 3, "log10"),  # [1]
 )
 
 
@@ -98,23 +93,15 @@ class CytofProblem(Problem):
         return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
-        pathway = self.model_name.split("__")[0]
-        model_file = pathway_dir / f"pw_{pathway}.py"
-        if not model_file.exists():
-            raise ValueError(
-                f"{pathway} is not a valid pathway name for this problem class. Please specify"
-                f" a valid name via the `pathway_name` keyword argument when instantiating the problem."
-            )
-        logger.debug(f"loading pathway from {model_file}")
-        model = amici.pysb_import.pysb_model_from_path(model_file)
+        mechanistic_model = MechanisticModel(self.model_name)
+
+        model = mechanistic_model.construct_pysb(self.model_name)
 
         pysb_dir.mkdir(exist_ok=True, parents=True)
         pysb_file = pysb_dir / f"{model.name}.py"
         with open(pysb_file, "w") as file:
             logger.debug(f"writing pysb model to {pysb_file}")
             file.write(pysb.export.export(model, "pysb_flat"))
-
-        model.name = self.model_name
 
         return model
 
@@ -123,8 +110,8 @@ class CytofProblem(Problem):
         solver.setNewtonMaxSteps(int(100))
         solver.setAbsoluteTolerance(1e-10)
         solver.setRelativeTolerance(1e-10)
-        solver.setAbsoluteToleranceSteadyState(1e-8)
-        solver.setRelativeToleranceSteadyState(1e-8)
+        solver.setAbsoluteToleranceSteadyState(1e-6)
+        solver.setRelativeToleranceSteadyState(1e-6)
         solver.setNewtonStepSteadyStateCheck(True)
 
     def apply_objective_settings(self, objective, n_threads: int = 1):

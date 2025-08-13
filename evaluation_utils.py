@@ -1,7 +1,9 @@
 import itertools as itt
 from typing import Any, Dict, List, Tuple, Union
 
+import equinox as eqx
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
@@ -21,9 +23,9 @@ from common import (
     REGRESSION_MODES,
     TRAINED_MODEL,
     Wildcards,
-    default_attributes,
     evaluations_dir,
     hardest_cell_lines,
+    scan_attributes,
     training_samples,
     val_samples,
 )
@@ -49,10 +51,10 @@ from training_configuration import HP_RUN_MODE, SPLITS
 
 def get_measurements_and_obervables(conf: Conf):
     df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
+        MEASUREMENTS_FILE.format(**conf.to_dict()), sep="\t", index_col=0
     )
     df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
+        OBSERVABLES_FILE.format(**conf.to_dict()), sep="\t", index_col=0
     )
     df_meas = df_meas[
         df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
@@ -63,26 +65,30 @@ def get_measurements_and_obervables(conf: Conf):
 def load_model_and_obj(
     conf: Conf,
     petab_base_files: Dict[str, pd.DataFrame],
-    dataset: str,
+    features: pd.DataFrame,
 ) -> tuple[DeepMechanisticModel, Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
     # Define filepaths for serialized models
-    trained_model_file = TRAINED_MODEL.format(**conf.__dict__)
+    trained_model_file = TRAINED_MODEL.format(**conf.to_dict())
 
-    # Load ensemble member model
+    petab_importer = load_petab(
+        problem=cytof_problem,
+        dataset=conf.data,
+        **petab_base_files,
+        samples=list(features.index),
+    )
+    pypesto_subproblem = petab_importer.create_problem()
+
     model = DeepMechanisticModel.load(
         filename=trained_model_file,
-        problem=cytof_problem,
-        dataset=dataset,
-        petab_base_files=petab_base_files,
+        pypesto_problem=pypesto_subproblem,
     )
-    # Create pypesto problem from any of the loaded models to extract objective
-    pypesto_problem = create_pypesto_problem(model)
-    obj = pypesto_problem.objective.base_objective.base_objective
 
-    return model, obj
+    pypesto_problem = create_pypesto_problem(pypesto_subproblem)
+
+    return model, pypesto_problem
 
 
 def process_per_sample_pretrain(
@@ -198,48 +204,42 @@ def process_avg_model_simulation(
     avg_model = avg_model[
         avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
+    df_meas = df_meas[df_meas["measurementType"] == "cytof"]
+    avg_model = avg_model[avg_model["measurementType"] == "cytof"]
     return avg_model, df_meas
 
 
 def get_embedding_and_params_df(
     dmm_model: DeepMechanisticModel,
-    input_features: Union[np.ndarray, jnp.ndarray],
+    input_features: np.ndarray | jnp.ndarray,
     context: str,
     split: str,
     dataset: str,
     job: int,
+    samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
     temp_latent_embeddings = vmap(
-        dmm_model.deep_encoder, 
-        in_axes=(0, None)
-    )(
-        input_features, 
-        dmm_model.model_key
-    )
+        eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
+    )(input_features, jr.PRNGKey(0))
     latent_embeddings_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             "L1": temp_latent_embeddings[:, 0],
             "L2": temp_latent_embeddings[:, 1],
         }
     ).assign(context=context, samples=split, dataset=dataset, job=job)
 
-    # Get cell-line specific kinetic parameter names for dataframe column names
-    specific_param_names = [
-        param.replace("MED_", "")
-        for param in dmm_model.pypesto_subproblem.x_names
-        if "MED" in param
-    ]
-
     # Parameter deviations
     param_deviations_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             **dict(
                 zip(
-                    specific_param_names,
-                    vmap(dmm_model)(input_features)["inflated"].T,
+                    dmm_model.parameter_deviation_names,
+                    eqx.nn.inference_mode(dmm_model)
+                    .inflate_params(input_features, jr.PRNGKey(0))
+                    .T,
                 )
             ),
         }
@@ -248,14 +248,16 @@ def get_embedding_and_params_df(
     # Full parameters (deviations + medians)
     params_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             **dict(
                 zip(
-                    specific_param_names,
+                    dmm_model.parameter_deviation_names,
                     (
-                        vmap(dmm_model)(input_features)["inflated"]
+                        eqx.nn.inference_mode(dmm_model).inflate_params(
+                            input_features, jr.PRNGKey(0)
+                        )
                         + dmm_model.kin_params_combiner.learned_global_kin_params[
-                            : len(specific_param_names)
+                            : len(dmm_model.parameter_deviation_names)
                         ]
                     ).T,
                 )
@@ -700,6 +702,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "job",
     ]
     for col in cols:
+        if col not in df.columns:
+            continue
         df[col] = pd.to_numeric(df[col], downcast="integer")
     additional_cols = [
         "l1reg_encode",
@@ -715,6 +719,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "momentum",  # parameters that can be pruned by generate_run_configs
     ]
     for col in additional_cols:
+        if col not in df.columns:
+            continue
         if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
             df[col] = pd.to_numeric(df[col], downcast="integer")
         else:
@@ -724,12 +730,16 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "use_layer_bias",
         "last_layer_activation",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(str)
     for col in [
         "reconstruct",
         "use_simple_linear_schedule",
         "use_early_stopping",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(bool)
     return df
 
@@ -765,7 +775,7 @@ def aggregate_and_log(
 ):
     outdir = evaluations_dir / conf.model / conf.data
     # Define aggregation groups for DMM and refs
-    gbs_dmm = ["dataset", "ref"] + default_attributes
+    gbs_dmm = ["dataset", "ref"] + scan_attributes
 
     df["res"] = df["res"].astype(float)
 
@@ -779,7 +789,7 @@ def aggregate_and_log(
             "dataset",
             "ref",
         ]
-        + default_attributes,
+        + scan_attributes,
         "refs": ["dataset", "context", "features", "samples", "ref"],
     }.items():
         if ref_subset != "BY_CL_COND_OBS":
@@ -990,14 +1000,6 @@ def aggregate_and_log(
             outdir / f"top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
         )
 
-    # # Log via W&B -- DISABLED WANDB FOR EVALS
-    # wandb.init(
-    #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    #     config={
-    #         **conf.__dict__,
-    #     },
-    # )
-
     evaluation_dfs = [
         data,
     ]
@@ -1010,27 +1012,6 @@ def aggregate_and_log(
     for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
         # Save dataframes to CSV
         evaluation_df.to_csv(outdir / f"{evaluation_tag}.csv")
-
-        # DISABLED WANDB ARTIFACTS
-        # # Instantiate artifact
-        # evaluation_artifact = wandb.Artifact(
-        #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
-        #     description=evaluation_tag,
-        #     type="evaluation",
-        # )
-        # # Add and log artifact
-        # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
-        # wandb.log_artifact(evaluation_artifact)
-
-    # Close W&B session and upload artifacts -- DISABLED WANDB FOR EVALS
-    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
-    # command = f"wandb sync {wandb_stripped_dir}"
-    # wandb.finish()
-    # TODO @GiacomoFabrini: restore WANDB?
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
 
     if return_stat_tests:
         return (

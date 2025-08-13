@@ -232,10 +232,14 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
             lambda x: file_id_table.loc[x, "time_course"]
         )
 
-        # df_tidy = df.melt(id_vars=['treatment','cell_line', 'time', 'cellID', 'fileID', 'date', 'time_course'])
-        # markers = ('p.MEK', 'p.ERK', 'p.HER2', 'p.p90RSK', 'p.S6', 'p.p38', 'p.MAP2K3', 'p.MAPKAPK2', 'p.PDPK1')
-        # df_plot = df_tidy[df_tidy.variable.str.startswith(markers)]
-        # df_plot = df_plot[df_plot.treatment != 'full']
+        # import seaborn as sns
+        # import matplotlib.pyplot as plt
+        #
+        # markers = ['p.MEK', 'p.ERK', 'p.HER2', 'p.p90RSK', 'p.S6', 'p.p38', 'p.MAP2K3', 'p.MAPKAPK2', 'p.PDPK1', 'p.Akt.Ser473.', 'p.AKT.Thr308.', 'p.JNK', 'p.MKK3.MKK6', 'p.MKK4', 'p.S6K']
+        # df_plot = df[df.treatment != 'full'].melt(
+        #     id_vars=['treatment','cell_line', 'time', 'cellID', 'fileID', 'date', 'time_course'],
+        #     value_vars=markers
+        # )
         #
         # g = sns.FacetGrid(
         #     df_plot, col='treatment', row='variable'
@@ -546,18 +550,11 @@ def build_condition_table(
                 condition_table[par_name] = condition_table[
                     petab.CONDITION_ID
                 ].apply(fcl)
-            else:
-                condition_table[par_name] = 0.0
 
-        # baseline activations
-        elif par_name.startswith("b_"):
-            if par_name.replace("_", "").lower() in modifications:
-                condition_table[par_name] = 1.0
-            else:
-                condition_table[par_name] = 0.0
         # expression levels
         elif par_name.endswith("_eq"):
-            for gene in [
+            gene = par_name.split("_")[-2]
+            if gene in [
                 "EGFR",
                 "ERBB2",
                 "TGFA",
@@ -566,13 +563,12 @@ def build_condition_table(
                 "NRG1",
                 "NRG2",
             ]:
-                if not par_name.startswith(gene):
-                    continue
-
                 if f"p{gene.lower()}" in modifications:
                     measurement_type = "proteomics"
                 elif f"t{gene.lower()}" in modifications:
                     measurement_type = "transcriptomics"
+                elif f"f{gene.lower()}" in modifications:
+                    continue
                 else:
                     condition_table[par_name] = float(
                         gene in ["EGFR", "ERBB2"]
@@ -602,6 +598,9 @@ def build_condition_table(
                     2 ** prot_log2fc.get(c.split("__")[0], 0.0)
                     for c in condition_table[petab.CONDITION_ID]
                 ]
+                continue
+            else:
+                condition_table[par_name] = 1.0
         elif par_name.endswith("_eq") and not par_name.startswith(
             ("DEV_", "MED_")
         ):

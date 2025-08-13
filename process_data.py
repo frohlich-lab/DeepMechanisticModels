@@ -180,13 +180,13 @@ if __name__ == "__main__":
         measurement_table[petab.MEASUREMENT].notna()
     ]
 
-    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.__dict__)
+    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.to_dict())
     measurement_table.to_csv(measurement_file, sep="\t")
 
-    condition_file = data_dir / CONDITIONS_FILE.format(**conf.__dict__)
+    condition_file = data_dir / CONDITIONS_FILE.format(**conf.to_dict())
     condition_table.set_index(petab.CONDITION_ID, inplace=True)
     condition_table.to_csv(condition_file, sep="\t")
 
-    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.__dict__)
+    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.to_dict())
     observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
     observable_table.to_csv(observable_file, sep="\t")

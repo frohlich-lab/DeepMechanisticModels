@@ -16,19 +16,31 @@ modifications = [
     # "mbraf",
     # "mkras",
     # observable function
-    "logobs",
+    # "logobs",
 ]
 
 PATHWAYS = (
     [
-        "EGFR_MAPK",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
+        # "EGFR_MAPK",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
-        "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
+        # "EGFR_MAPK__logobs_tegfr",
+        # "EGFR_MAPK__logobs_tegfr_terbb2",
+        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
+        # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
+        # "EGFR_MAPK__logobs_fegfr_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        # "EGFR_MAPK",
+        # "EGFR_MAPK__tegfr",
+        # "EGFR_MAPK__tegfr_aggavg",
+        # "EGFR_MAPK__tegfr_terbb2_aggavg",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
+        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
     ]
     # + [
     #     f"EGFR_MAPK__{'_'.join(sorted(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'tegfr', 'ttgfa', 'tbtc', 'tereg', 'tnrg1', 'tnrg2'] + list(combo)))}"
@@ -41,17 +53,13 @@ PATHWAYS = (
 )
 
 DATASETS = ("dream_cytof",)
-# DATASETS = {
-#    'synthetic_16_0.2_0.0',
-#     'synthetic_32_0.2_0.0',
-#     'synthetic_64_0.2_0.0',
-#     'synthetic_128_0.2_0.0',
-# }
 
 # Input contexts/features & feature selection strategy
-CONTEXTS_FEATURES = tuple(
+CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
-    # ("cytof_init", "RFE_6_permute"),
+    ("cytof_init", "RFE_10_permute"),
+    # ("cytof_dynamic", "RFE_10_permute"),
+    # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
     # ("proteomics", "HVGRFE_6_permute"),
@@ -125,30 +133,26 @@ CONTEXTS_FEATURES = tuple(
     # if not (
     #     context == "proteomics" and genomic_features == "MPAS"
     # )  # not enough features
-    (
-        context,
-        f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
-    )
-    for n_features in range(4, 33, 4)
-    for context in [
-        "transcriptomics",
-        "proteomics",
-        "cytof_init",
-        "cytof_dynamic",
-    ]
-)
+    # (
+    #     context,
+    #     f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
+    # )
+    # for n_features in range(4, 4, 4)
+    # for context in [
+    #     # "transcriptomics",
+    #     # "proteomics",
+    #     "cytof_init",
+    #     # "cytof_dynamic",
+    # ]
+]
 
 # Cross-validation splits
 SPLITS = {
-    "0of5",
-    "1of5",
-    "2of5",
-    "3of5",
-    "4of5",
-}
-
-PRETRAIN = {
-    "True",
+    "MCF7",
+    "BT20",
+    "HCC1500",
+    "EVSAT",
+    "UACC3199",
 }
 
 STANDARDISE_FEATURES = {
@@ -156,11 +160,6 @@ STANDARDISE_FEATURES = {
     False,
 }
 
-# INITIALISATION STRATEGY FOR MEDIAN KINETIC PARAMETERS
-MEDIAN_INIT = {
-    # "per_sample",
-    "avg_model",
-}
 
 # Train/freeze median kinetic parameters
 FREEZE_MEDIANS = {
@@ -239,14 +238,6 @@ NN_INIT_FN = (
     # "XN",  # Xavier/Glorot Normal
     # "XU",  # Xavier/Glorot Uniform
 )
-
-
-# RECONSTRUCT: whether to add a second head to the autoencoder or not
-RECONSTRUCT = (
-    True,
-    # False,
-)
-
 
 # Training Hyperparameters
 # Activation Functions: activation_fn_name
@@ -372,15 +363,12 @@ DELTAS = {
 # previously centered at 1e7, but now excluded from scanned values
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
-# 1e-4 seems to help with both rmse_train and rmse_val on all contexts -> using this as central value
-# to scan switching epoch
-# 09.01.2024 - added pre-multiplier in DMM = 1e-6. Therefore, 1 -> 1e-6; 1e2 -> 1e-4
-# OMEGAS = {'range': (0, 1e-4, 1e-3), 'central_value': 0}
-# OMEGAS = {'range': (1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
-# OMEGAS = {'range': (0, 1e0, 1e1, 1e2, 1e3, ), 'central_value': 1e2}
 OMEGAS = {
-    "range": ("optimal",),
-    "central_value": "optimal",
+    "range": (
+        0,
+        1e-4,
+    ),
+    "central_value": 1e-4,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
@@ -418,8 +406,8 @@ ETAS = {"range": (0,), "central_value": 0}
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (100,),
-    "central_value": 100,
+    "range": (200,),
+    "central_value": 200,
 }
 
 # Percentage thresholds for sparsity
@@ -489,7 +477,7 @@ WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
 #     10,
 # }
 # Linear scan range for opt_steps
-OPT_STEPS = {"range": (1, 2, 5, 10, 100), "central_value": 10}
+OPT_STEPS = {"range": (10,), "central_value": 10}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
 # OPT_MULT = {
@@ -498,7 +486,7 @@ OPT_STEPS = {"range": (1, 2, 5, 10, 100), "central_value": 10}
 #     # 3,
 # }
 # Linear scan range for opt_mult
-OPT_MULT = {"range": (1, 2, 5, 10), "central_value": 2}
+OPT_MULT = {"range": (2,), "central_value": 2}
 
 # Weight-decay for AdamW / schedule-free AdamW
 # WEIGHT_DECAY = {
@@ -527,6 +515,20 @@ MOMENTUM = {
     "central_value": 0.9,
 }
 
+NEPOCH = {
+    "range": (1000,),
+    "central_value": 1000,
+}
+
+INFLATER_BOUND = {
+    "range": (
+        2,
+        3,
+        4,
+        5,
+    ),
+    "central_value": 3,
+}
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
 # with the given max learning rate, warm-up and decay
@@ -553,10 +555,6 @@ MIN_IMPROVEMENT = 0
 
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
-
-# Maximum number of epochs for training - not varied between individual runs, just globally set here
-N_EPOCHS = 500
-PRETRAIN_N_EPOCHS = 0
 
 # Type of run
 HP_RUN_MODE = "linear_scans"

@@ -1,5 +1,3 @@
-from typing import List, Union
-
 import equinox as eqx
 import jax.numpy as jnp
 from jax import nn, random
@@ -97,12 +95,12 @@ class DeepComponent(eqx.Module):
         dropout rate.
     """
 
-    layers: List[Union[eqx.nn.Linear, CustomInitLinear]]
-    component_name: str = eqx.field(static=True)
-    activation_fn_name: str = eqx.field(static=True)
-    last_layer_activation: bool = eqx.field(static=True)
+    layers: list[eqx.nn.Linear | CustomInitLinear]
+    component_name: str
+    activation_fn_name: str
+    last_layer_activation: bool
     dropout_rate: float = eqx.field(static=True)
-    dropout_layers: Union[List[eqx.nn.Dropout], None] = eqx.field(static=True)
+    dropout_layers: list[eqx.nn.Dropout] | None
 
     def __init__(
         self,

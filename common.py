@@ -3,10 +3,8 @@ from collections import namedtuple
 from pathlib import Path
 from typing import List
 
-import numpy as np
-
 from cytof import get_samples
-from dmm.config_options import default_attributes
+from dmm.config_options import scan_attributes
 from training_configuration import CONTEXTS_FEATURES
 
 
@@ -63,7 +61,9 @@ FEATURES_PIPELINE = str(
     / "{context}__{samples}__{features}__trained_pca_pipeline.joblib"
 )
 
-defaults = {x: f"{{{x}}}" for x in default_attributes}
+defaults = {
+    x: f"{{{x}}}" for x in scan_attributes if x not in ["model", "data"]
+}
 
 tpl_results_file = "__".join(defaults.values())
 
@@ -183,32 +183,13 @@ EVALUATE_ALL_CSVS = str(
 hardest_cell_lines = ["cMCF7", "cBT20", "cHCC1500", "cEVSAT", "cUACC3199"]
 
 
-def training_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
+def training_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
-    split, n_splits = wildcards.samples.split("of")
-    if mode != "leave_one_out":
-        splits = np.array_split(np.asarray(samples), int(n_splits))
-        return list(
-            np.concatenate(
-                [s for i, s in enumerate(splits) if i != int(split)]
-            )
-        )
-    else:
-        return [
-            sample
-            for sample in samples
-            if sample != hardest_cell_lines[int(split)]
-        ]
+    return [sample for sample in samples if sample != f"c{wildcards.samples}"]
 
 
-def val_samples(wildcards, mode: str = "leave_one_out") -> List[str]:
-    samples = get_samples(wildcards.data)
-    split, n_splits = wildcards.samples.split("of")
-    if mode != "leave_one_out":
-        splits = np.array_split(np.asarray(samples), int(n_splits))
-        return list(splits[int(split)])
-    else:
-        return [hardest_cell_lines[int(split)]]
+def val_samples(wildcards) -> List[str]:
+    return [f"c{wildcards.samples}"]
 
 
 def per_sample_pretraining_train(wildcards) -> List[str]:

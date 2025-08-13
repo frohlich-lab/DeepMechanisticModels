@@ -1,4 +1,4 @@
-from typing import Any, Union
+from typing import Any
 
 import equinox as eqx
 from jax import config, random
@@ -40,12 +40,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
 
     deep_encoder: DeepComponent
     deep_inflater: DeepComponent
-    deep_decoder: Union[eqx.Module, DeepComponent]
-
-    encoder_params: ModuleParams = eqx.field(static=True)
-    inflater_params: ModuleParams = eqx.field(static=True)
-    decoder_params: ModuleParams = eqx.field(static=True)
-    reconstruct: bool = eqx.field(static=True)
+    deep_decoder: eqx.Module | DeepComponent
 
     def __init__(
         self,
@@ -53,10 +48,9 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         inflater_params: ModuleParams,
         decoder_params: ModuleParams,
         key: Any,
-        activation_fn_name: str,  # default activation_fn_name is ReLU if more than one layer is present
-        reconstruct: bool,  # current default behaviour uses a single head (encoder->inflater),
+        activation_fn_name: str,
+        reconstruct: bool,
     ):
-        # CHECKS
         # encoder layers must shrink towards bottleneck/latent representation -- by default - remove?
         if encoder_params.layer_sizes[-1] > encoder_params.layer_sizes[0]:
             raise ValueError(
@@ -67,64 +61,58 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 "Latent space size cannot be larger than output/kinetic parameters feature space size!"
             )
 
-        # Set module parameters
-        self.encoder_params = encoder_params
-        self.inflater_params = inflater_params
-        self.decoder_params = decoder_params
-
-        # Set reconstruct flag
-        self.reconstruct = reconstruct
-
         # Split random key
         key_encoder, key_inflater, key_decoder = random.split(key, num=3)
 
         # Instantiate encoder component
         self.deep_encoder = DeepComponent(
             component_name="encoder",
-            layer_sizes=self.encoder_params.layer_sizes,
-            biases=self.encoder_params.layer_biases,
+            layer_sizes=encoder_params.layer_sizes,
+            biases=encoder_params.layer_biases,
             key=key_encoder,
             activation_fn_name=activation_fn_name,
-            last_layer_activation=self.encoder_params.last_layer_activation,
-            weight_init_fn=self.encoder_params.weight_init_fn,
-            bias_init_fn=self.encoder_params.bias_init_fn,
-            dropout_rate=self.encoder_params.dropout_rate,
+            last_layer_activation=encoder_params.last_layer_activation,
+            weight_init_fn=encoder_params.weight_init_fn,
+            bias_init_fn=encoder_params.bias_init_fn,
+            dropout_rate=encoder_params.dropout_rate,
         )
 
         # Instantiate inflater component
         self.deep_inflater = DeepComponent(
             component_name="inflater",
-            layer_sizes=self.inflater_params.layer_sizes,
-            biases=self.inflater_params.layer_biases,
+            layer_sizes=inflater_params.layer_sizes,
+            biases=inflater_params.layer_biases,
             key=key_inflater,
             activation_fn_name=activation_fn_name,
-            last_layer_activation=self.inflater_params.last_layer_activation,
-            weight_init_fn=self.inflater_params.weight_init_fn,
-            bias_init_fn=self.inflater_params.bias_init_fn,
-            # no dropout
-            dropout_rate=0.0,
+            last_layer_activation=inflater_params.last_layer_activation,
+            weight_init_fn=inflater_params.weight_init_fn,
+            bias_init_fn=inflater_params.bias_init_fn,
+            dropout_rate=0.0,  # no dropout
         )
 
         # Instantiate decoder component if two-headed autoencoder
-        if self.reconstruct:
+        if reconstruct:
             self.deep_decoder = DeepComponent(
                 component_name="decoder",
-                layer_sizes=self.decoder_params.layer_sizes,
-                biases=self.decoder_params.layer_biases,
+                layer_sizes=decoder_params.layer_sizes,
+                biases=decoder_params.layer_biases,
                 key=key_decoder,
                 activation_fn_name=activation_fn_name,
-                last_layer_activation=self.decoder_params.last_layer_activation,
-                weight_init_fn=self.decoder_params.weight_init_fn,
-                bias_init_fn=self.decoder_params.bias_init_fn,
-                # no dropout
-                dropout_rate=0.0,
+                last_layer_activation=decoder_params.last_layer_activation,
+                weight_init_fn=decoder_params.weight_init_fn,
+                bias_init_fn=decoder_params.bias_init_fn,
+                dropout_rate=0.0,  # no dropout
             )
         else:
             self.deep_decoder = eqx.nn.Identity()  # no decoder head
 
-    def __call__(self, x, key):
-        encoded = self.deep_encoder(x, key)
-        inflated = self.deep_inflater(encoded, None)
-        # If using decoding head, pass encoding through decoder, else just leave second output blank (None)
-        decoded = self.deep_decoder(encoded, None) if self.reconstruct else None
-        return {"inflated": inflated, "decoded": decoded}
+    def encode(self, x, key):
+        return self.deep_encoder(x, key)
+
+    def decode(self, x, key):
+        key_encoder, key_decoder = random.split(key, num=2)
+        return self.deep_decoder(self.encode(x, key_encoder), key_decoder)
+
+    def inflate(self, x, key):
+        key_encoder, key_inflater = random.split(key, num=2)
+        return self.deep_inflater(self.encode(x, key_encoder), key_inflater)

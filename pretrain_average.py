@@ -66,7 +66,7 @@ optimizer = FidesOptimizer(
         fides.Options.FATOL: 1e-8,
         fides.Options.XTOL: 1e-8,
         fides.Options.MAXTIME: 7200,
-        fides.Options.MAXITER: 150,
+        fides.Options.MAXITER: 200,
     }
 )
 amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
