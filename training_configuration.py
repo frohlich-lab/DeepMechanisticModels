@@ -364,8 +364,11 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (0, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
-    "central_value": 1e-1,
+    "range": (
+        0,
+        1e-4,
+    ),
+    "central_value": 1e-4,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
@@ -518,8 +521,13 @@ NEPOCH = {
 }
 
 INFLATER_BOUND = {
-    "range": (5.0,),
-    "central_value": 5.0,
+    "range": (
+        2,
+        3,
+        4,
+        5,
+    ),
+    "central_value": 3,
 }
 
 # LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule

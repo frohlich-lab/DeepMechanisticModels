@@ -138,7 +138,8 @@ def init_wandb(
         # v47: features selection revisited
         # v49: refactored model
         # v50: code refactor, scan inflater output reg
-        project=f"DeepMechanisticModels.v50.{conf.data}",
+        # v51: output reg + inflater bound scan
+        project=f"DeepMechanisticModels.v51.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
