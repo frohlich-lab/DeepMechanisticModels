@@ -74,7 +74,8 @@ plt.savefig(outdir / "performance.pdf")
 gb = [
     k
     for k in conf.to_dict()
-    if (k not in ["job", "samples", "sample"]) and (k in df.columns)
+    if (k not in ["job", "samples", "sample", "model", "data"])
+    and (k in df.columns)
 ]
 
 for group, df_run in df.groupby(["ref"] + gb, dropna=False):

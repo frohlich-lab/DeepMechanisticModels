@@ -217,12 +217,8 @@ def get_embedding_and_params_df(
     samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
-    temp_latent_embeddings = vmap(
-        dmm_model.deep_encoder, 
-        in_axes=(0, None)
-    )(
-        input_features, 
-        dmm_model.model_key
+    temp_latent_embeddings = vmap(dmm_model.deep_encoder, in_axes=(0, None))(
+        input_features, dmm_model.model_key
     )
     latent_embeddings_df = pd.DataFrame(
         {
@@ -700,6 +696,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "job",
     ]
     for col in cols:
+        if col not in df.columns:
+            continue
         df[col] = pd.to_numeric(df[col], downcast="integer")
     additional_cols = [
         "l1reg_encode",
@@ -715,6 +713,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "momentum",  # parameters that can be pruned by generate_run_configs
     ]
     for col in additional_cols:
+        if col not in df.columns:
+            continue
         if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
             df[col] = pd.to_numeric(df[col], downcast="integer")
         else:
@@ -724,12 +724,16 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "use_layer_bias",
         "last_layer_activation",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(str)
     for col in [
         "reconstruct",
         "use_simple_linear_schedule",
         "use_early_stopping",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(bool)
     return df
 
