@@ -237,7 +237,9 @@ def get_embedding_and_params_df(
             **dict(
                 zip(
                     dmm_model.parameter_deviation_names,
-                    dmm_model.inflate_params(input_features).T,
+                    eqx.nn.inference_mode(dmm_model)
+                    .inflate_params(input_features, jr.PRNGKey(0))
+                    .T,
                 )
             ),
         }
@@ -251,7 +253,9 @@ def get_embedding_and_params_df(
                 zip(
                     dmm_model.parameter_deviation_names,
                     (
-                        dmm_model.inflate_params(input_features)
+                        eqx.nn.inference_mode(dmm_model).inflate_params(
+                            input_features, jr.PRNGKey(0)
+                        )
                         + dmm_model.kin_params_combiner.learned_global_kin_params[
                             : len(dmm_model.parameter_deviation_names)
                         ]
