@@ -14,5 +14,5 @@ importer = load_petab(
     conf.data,
     **load_petab_base_files(conf),
 )
-
-importer.create_model(force_compile=True)
+creator = importer.create_objective_creator()
+creator.create_model(force_compile=True)

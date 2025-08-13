@@ -44,10 +44,10 @@ def generate_synthetic_data(
     model.setParameterScale(
         amici.parameterScalingFromIntVector(
             [
-                    amici.ParameterScaling.none
-                    if bounds[par_id.split("_")[-1]][2] == "lin"
-                    else amici.ParameterScaling.log10
-                    for par_id in model.getParameterIds()
+                amici.ParameterScaling.none
+                if bounds[par_id.split("_")[-1]][2] == "lin"
+                else amici.ParameterScaling.log10
+                for par_id in model.getParameterIds()
             ]
         )
     )
@@ -90,32 +90,32 @@ def generate_synthetic_data(
         model.setParameterById(par_id, 0.0)
 
     # generate static parameters that are consistent across samples
-    parameter_means = dict()
+    parameter_means = {}
 
     avg_model_vars = {
-        'MED_EGFR__Y1173_p_sus_amp': -2.0,
-        'MED_EGF_0_trans_tau': 0.0,
-        'ERBB2_eq': 1.0,
-        'MED_ERBB2_dephosphorylation_Y1248_base_kcat': 4.0,
-        'MED_ERBB2_phosphorylation_Y1248_base_kr': 0.0,
-        'MED_ERBB2_phosphorylation_Y1248_kr': 2.0,
-        'MEK_eq': 1.0,
-        'MED_MEK_dephosphorylation_S222_base_kcat': 0.0,
-        'MED_MEK_phosphorylation_S222_base_kr': -4.0,
-        'ERK_eq': 1.0,
-        'MED_ERK_dephosphorylation_Y204_base_kcat': 0.0,
-        'MED_MEK_phosphorylation_S222_kr': 4.0,
-        'MED_MEK_dephosphorylation_S222_ERK__Y204_p_kw': 3.5,
-        'MED_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw': -4.0,
-        'MED_iMEK_MEK__S222_p_obs_kd': -0.5,
-        'MED_iEGFR_EGFR__Y1173_p_kd': 0.0,
+        "MED_EGFR__Y1173_p_sus_amp": -2.0,
+        "MED_EGF_0_trans_tau": 0.0,
+        "ERBB2_eq": 1.0,
+        "MED_ERBB2_dephosphorylation_Y1248_base_kcat": 4.0,
+        "MED_ERBB2_phosphorylation_Y1248_base_kr": 0.0,
+        "MED_ERBB2_phosphorylation_Y1248_kr": 2.0,
+        "MEK_eq": 1.0,
+        "MED_MEK_dephosphorylation_S222_base_kcat": 0.0,
+        "MED_MEK_phosphorylation_S222_base_kr": -4.0,
+        "ERK_eq": 1.0,
+        "MED_ERK_dephosphorylation_Y204_base_kcat": 0.0,
+        "MED_MEK_phosphorylation_S222_kr": 4.0,
+        "MED_MEK_dephosphorylation_S222_ERK__Y204_p_kw": 3.5,
+        "MED_ERK_phosphorylation_Y204_EGFR__Y1173_p_kw": -4.0,
+        "MED_iMEK_MEK__S222_p_obs_kd": -0.5,
+        "MED_iEGFR_EGFR__Y1173_p_kd": 0.0,
         # following parameters have slightly different names due to petab import
-        'pERBB2_Y1248_offset': 1.8,
-        'pERBB2_Y1248_scale': 1.5,
-        'pERK_Y204_offset': -2.0,
-        'pERK_Y204_scale': 3.0,
-        'pMEK_S222_offset': 1.0,
-        'pMEK_S222_scale': 0.5,
+        "pERBB2_Y1248_offset": 1.8,
+        "pERBB2_Y1248_scale": 1.5,
+        "pERK_Y204_offset": -2.0,
+        "pERK_Y204_scale": 3.0,
+        "pMEK_S222_offset": 1.0,
+        "pMEK_S222_scale": 0.5,
     }
     for par_id in avg_model_vars:
         assert par_id in model.getParameterIds(), par_id
@@ -147,9 +147,7 @@ def generate_synthetic_data(
     )
 
     # generate sparse encoder/decoder parameters
-    tt_pars = np.random.random(
-        encoder.n_encoder_pars
-    )
+    tt_pars = np.random.random(encoder.n_encoder_pars)
     for ip, name in enumerate(encoder.x_names):
         # xavier glorot initialization
         if name.startswith("encoder"):
@@ -164,8 +162,7 @@ def generate_synthetic_data(
         tt_pars, (encoder.n_encode_weights,)
     )
     pd.Series(dict(zip(encoder.x_names, tt_pars))).to_csv(
-        data_dir
-        / f"{problem.pathway_name}__{data_name}__reference_weights.csv"
+        data_dir / f"{problem.model_name}__{data_name}__reference_weights.csv"
     )
 
     samples = []
@@ -179,14 +176,17 @@ def generate_synthetic_data(
         embedding = np.random.random(latent_dimension) * 2 - 1
         sample_data = np.array(decode(embedding, encode_weights))
         mat = encode_weights.reshape((n_features, latent_dimension))
-        assert np.allclose(sample_data, embedding.dot(np.linalg.pinv(mat)), atol=1e-6)
+        assert np.allclose(
+            sample_data, embedding.dot(np.linalg.pinv(mat)), atol=1e-6
+        )
         assert np.allclose(sample_data.dot(mat), embedding, atol=1e-6)
         assert np.allclose(
             embedding, embedding.dot(np.linalg.pinv(mat)).dot(mat), atol=1e-6
         )
         assert np.allclose(
             np.asarray(encode_sample(sample_data, encode_weights)),
-            embedding, atol=1e-6
+            embedding,
+            atol=1e-6,
         )
 
         deviations = np.array(inflate(embedding, inflate_weights))
@@ -199,7 +199,7 @@ def generate_synthetic_data(
 
         # run simulations, only add to samples if no integration error
         rdatas = amici.runAmiciSimulations(model, solver, edatas)
-        if all([r.status == amici.AMICI_SUCCESS for r in rdatas]):
+        if all(r.status == amici.AMICI_SUCCESS for r in rdatas):
             sample = amici.getSimulationObservablesAsDataFrame(
                 model, edatas, rdatas
             )
@@ -235,10 +235,8 @@ def generate_synthetic_data(
         list(model.getObservableIds()),
     ].rename(
         columns={o: o.replace("_obs", "") for o in model.getObservableIds()}
-    ).boxplot(
-        rot=90
-    )
-    plot_and_save_fig(f"{problem.pathway_name}__{data_name}.pdf", data_dir)
+    ).boxplot(rot=90)
+    plot_and_save_fig(f"{problem.model_name}__{data_name}.pdf", data_dir)
 
     fig, ax = plt.subplots(1, 1)
     embeddings = np.vstack(embeddings)
@@ -247,10 +245,10 @@ def generate_synthetic_data(
     pd.DataFrame(
         embeddings,
         index=[f"sample_{isample}" for isample in range(embeddings.shape[0])],
-    ).to_csv(data_dir / f"{problem.pathway_name}__{data_name}__embeddings.csv")
+    ).to_csv(data_dir / f"{problem.model_name}__{data_name}__embeddings.csv")
 
     plot_and_save_fig(
-        f"{problem.pathway_name}__{data_name}__embedding.pdf", data_dir
+        f"{problem.model_name}__{data_name}__embedding.pdf", data_dir
     )
 
     inputs = df.loc[
@@ -279,13 +277,13 @@ def generate_synthetic_data(
     plot_pca_inputs(inputs.values, ax)
 
     plot_and_save_fig(
-        f"{problem.pathway_name}__{data_name}__input_pca.pdf", data_dir
+        f"{problem.model_name}__{data_name}__input_pca.pdf", data_dir
     )
     inputs.to_csv(
-        data_dir / f"{problem.pathway_name}__{data_name}__reference_inputs.csv"
+        data_dir / f"{problem.model_name}__{data_name}__reference_inputs.csv"
     )
     pd.Series(parameter_means).to_csv(
-        data_dir / f"{problem.pathway_name}__{data_name}__reference_pars.csv"
+        data_dir / f"{problem.model_name}__{data_name}__reference_pars.csv"
     )
 
     fig, axes = plt.subplots(1, 2)
@@ -293,7 +291,7 @@ def generate_synthetic_data(
         df[list(model.getObservableIds())].values, axes[0], axes[1]
     )
     plot_and_save_fig(
-        f"{problem.pathway_name}__{data_name}__data_pca.pdf", data_dir
+        f"{problem.model_name}__{data_name}__data_pca.pdf", data_dir
     )
 
     # create petab & save to csv
@@ -407,9 +405,11 @@ def generate_synthetic_data(
                 lambda x: float("__" in x)
             )
         else:
-            conditions[fp] = conditions[petab.CONDITION_ID].apply(
+            conditions[fp] = conditions[
+                petab.CONDITION_ID
+            ].apply(
                 lambda x: float(
-                    fp.replace("_0", "")
+                    fp.replace("_0", "")  # noqa: B023
                     in (cond for cond in x.split("__")[1:])
                 )
             )

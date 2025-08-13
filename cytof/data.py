@@ -1,3 +1,4 @@
+from functools import partial
 from pathlib import Path
 from typing import List, Tuple
 
@@ -7,6 +8,8 @@ import petab.v1 as petab
 import pysb
 
 from . import get_samples
+
+figdir = Path(__file__).parent / "figures"
 
 SYNAPSE_FILES = [
     # Subchallenge 4
@@ -206,10 +209,50 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     files = SYNAPSE_FILES
     mean_data = []
     std_data = []
-    group_ids = ["treatment", "cell_line", "time", "fileID"]
+    group_ids = [
+        "treatment",
+        "cell_line",
+        "time",
+        "fileID",
+        "date",
+        "time_course",
+    ]
+
+    # figdir.mkdir(parents=True, exist_ok=True)
+
+    file_id_table = pd.read_csv(
+        syn.get("syn20631269").path, index_col=0
+    ).set_index("fileID")
+
     # file_id_table = pd.read_csv(syn.get("syn20631269").path, index_col=0)
     for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
+        df["date"] = df["fileID"].apply(lambda x: file_id_table.loc[x, "date"])
+        df["time_course"] = df["fileID"].apply(
+            lambda x: file_id_table.loc[x, "time_course"]
+        )
+
+        # import seaborn as sns
+        # import matplotlib.pyplot as plt
+        #
+        # markers = ['p.MEK', 'p.ERK', 'p.HER2', 'p.p90RSK', 'p.S6', 'p.p38', 'p.MAP2K3', 'p.MAPKAPK2', 'p.PDPK1', 'p.Akt.Ser473.', 'p.AKT.Thr308.', 'p.JNK', 'p.MKK3.MKK6', 'p.MKK4', 'p.S6K']
+        # df_plot = df[df.treatment != 'full'].melt(
+        #     id_vars=['treatment','cell_line', 'time', 'cellID', 'fileID', 'date', 'time_course'],
+        #     value_vars=markers
+        # )
+        #
+        # g = sns.FacetGrid(
+        #     df_plot, col='treatment', row='variable'
+        # )
+        # g.map_dataframe(
+        #     sns.boxenplot,
+        #     data=df_plot,
+        #     x='time',
+        #     y='value',
+        #     hue='time_course',
+        # )
+        # plt.savefig(str(figdir / df_plot.cell_line.values[0]) + '.pdf')
+
         for ids, data in df.groupby(group_ids):
             if f"c{ids[1]}" not in get_samples("dream_cytof"):
                 continue
@@ -225,6 +268,8 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 sdf["cell_line"] = ids[1]
                 sdf["time"] = ids[2]
                 sdf["fileID"] = ids[3]
+                sdf["date"] = ids[4]
+                sdf["time_course"] = ids[5]
             mean_data.append(m)
             # std[std.isna()] = 1.0
             std_data.append(std)
@@ -233,7 +278,14 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
         desc: pd.concat(data, axis=1).T
         for desc, data in (("mean", mean_data), ("std", std_data))
     }
-    id_vars = ["cell_line", "treatment", "time", "fileID"]
+    id_vars = [
+        "cell_line",
+        "treatment",
+        "time",
+        "fileID",
+        "date",
+        "time_course",
+    ]
     df_phospho_condition = d["mean"][id_vars]
     for sdf in d.values():
         sdf.drop(columns=id_vars, inplace=True)
@@ -469,18 +521,58 @@ def build_condition_table(
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
-    for eq_par in model.parameters.keys():
-        if eq_par in ["EGFR_eq", "ERBB2_eq"]:
-            for gene in ["EGFR", "ERBB2"]:
-                if not eq_par.startswith(gene):
-                    continue
+    if "__" in model.name:
+        modifications = model.name.split("__")[1].split("_")
+    else:
+        modifications = ()
 
-                if f"p{gene.lower()}" in model.name.split("_"):
-                    measurement_type = "proteomics"
-                elif f"t{gene.lower()}" in model.name.split("_"):
-                    measurement_type = "transcriptomics"
+    for par_name in model.parameters.keys():
+        # mutations
+        if par_name.startswith("m_"):
+            if par_name.replace("_", "").lower() in modifications:
+                if par_name == "m_BRAF":
+                    cell_lines = ["cDU4475"]
+                elif par_name == "m_KRAS":
+                    cell_lines = [
+                        "cMDAMB134VI",
+                        "cMDAMB231",
+                        "cMDAMB453",
+                        "cMPE600",
+                    ]
                 else:
-                    condition_table[eq_par] = 1.0
+                    cell_lines = []
+
+                def filter_cl(x, cls):
+                    return float(x.split("__")[0] in cls)
+
+                fcl = partial(filter_cl, cls=cell_lines)
+
+                condition_table[par_name] = condition_table[
+                    petab.CONDITION_ID
+                ].apply(fcl)
+
+        # expression levels
+        elif par_name.endswith("_eq"):
+            gene = par_name.split("_")[-2]
+            if gene in [
+                "EGFR",
+                "ERBB2",
+                "TGFA",
+                "BTC",
+                "EREG",
+                "NRG1",
+                "NRG2",
+            ]:
+                if f"p{gene.lower()}" in modifications:
+                    measurement_type = "proteomics"
+                elif f"t{gene.lower()}" in modifications:
+                    measurement_type = "transcriptomics"
+                elif f"f{gene.lower()}" in modifications:
+                    continue
+                else:
+                    condition_table[par_name] = float(
+                        gene in ["EGFR", "ERBB2"]
+                    )
                     continue
 
                 prot_data = measurement_table[
@@ -502,14 +594,17 @@ def build_condition_table(
                     .agg("mean")[petab.MEASUREMENT]
                 )
                 prot_log2fc -= prot_log2fc.mean()
-                condition_table[eq_par] = [
+                condition_table[par_name] = [
                     2 ** prot_log2fc.get(c.split("__")[0], 0.0)
                     for c in condition_table[petab.CONDITION_ID]
                 ]
-        elif eq_par.endswith("_eq") and not eq_par.startswith(
+                continue
+            else:
+                condition_table[par_name] = 1.0
+        elif par_name.endswith("_eq") and not par_name.startswith(
             ("DEV_", "MED_")
         ):
-            condition_table[eq_par] = 1.0
+            condition_table[par_name] = 1.0
     return condition_table
 
 
@@ -517,35 +612,14 @@ def load_dream_data(model: pysb.Model) -> Tuple[pd.DataFrame, pd.DataFrame]:
     # table_SNP, SNP_mapping = load_snp_from_synapse()
     # table_cna = load_cna_from_synapse()
 
-    measurement_table_cytof, id_vars = load_cytof_from_synapse()
-    measurement_table_cytof = process_petab_cytof(
-        measurement_table_cytof, id_vars
+    measurement_table_cytof = pd.read_csv("./data/cytof.csv", index_col=0)
+
+    measurement_table_proteomics = pd.read_csv(
+        "./data/proteomics.csv", index_col=0
     )
 
-    measurement_table_proteomics = load_proteomics_from_synapse()
-    up_ids = load_ids_from_uniprot(
-        measurement_table_proteomics["UPID"].unique()
-    )
-    # missing gene names: A2VCL2, A8MUA0, O00370, Q6ZSR9
-    # A2VCL2: dropped from uniprot, CCDC162P https://varsome.com/gene/hg19/CCDC162P
-    # A8MUA0: Putative UPF0607 protein, SPATA6: https://varsome.com/gene/hg19/SPATA6
-    # O00370: ORF2p: https://www.uniprot.org/uniprotkb/O00370/entry
-    # Q6ZSR9: Uncharacterized protein FLJ45252: https://www.uniprot.org/uniprotkb/Q6ZSR9/entry
-    up_ids["A2VCL2"] = "CCDC162P"
-    up_ids["A8MUA0"] = "SPATA6"
-    up_ids["O00370"] = "ORF2P"
-    up_ids["Q6ZSR9"] = "FLJ45252"
-
-    measurement_table_proteomics.loc[
-        :, "GENENAME"
-    ] = measurement_table_proteomics["UPID"].apply(lambda x: up_ids.get(x))
-    measurement_table_proteomics = process_petab_proteomics(
-        measurement_table_proteomics
-    )
-
-    measurement_table_transcriptomics = load_transcriptomics_from_synapse()
-    measurement_table_transcriptomics = process_petab_transcriptomics(
-        measurement_table_transcriptomics
+    measurement_table_transcriptomics = pd.read_csv(
+        "./data/transcriptomics.csv", index_col=0
     )
 
     measurement_table = pd.concat(

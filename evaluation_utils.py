@@ -1,7 +1,9 @@
 import itertools as itt
 from typing import Any, Dict, List, Tuple, Union
 
+import equinox as eqx
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
@@ -21,9 +23,9 @@ from common import (
     REGRESSION_MODES,
     TRAINED_MODEL,
     Wildcards,
-    default_attributes,
     evaluations_dir,
     hardest_cell_lines,
+    scan_attributes,
     training_samples,
     val_samples,
 )
@@ -49,10 +51,10 @@ from training_configuration import HP_RUN_MODE, SPLITS
 
 def get_measurements_and_obervables(conf: Conf):
     df_meas = pd.read_csv(
-        MEASUREMENTS_FILE.format(**conf.__dict__), sep="\t", index_col=0
+        MEASUREMENTS_FILE.format(**conf.to_dict()), sep="\t", index_col=0
     )
     df_obs = pd.read_csv(
-        OBSERVABLES_FILE.format(**conf.__dict__), sep="\t", index_col=0
+        OBSERVABLES_FILE.format(**conf.to_dict()), sep="\t", index_col=0
     )
     df_meas = df_meas[
         df_meas[petab.OBSERVABLE_ID].apply(lambda x: x in df_obs.index)
@@ -63,26 +65,30 @@ def get_measurements_and_obervables(conf: Conf):
 def load_model_and_obj(
     conf: Conf,
     petab_base_files: Dict[str, pd.DataFrame],
-    dataset: str,
+    features: pd.DataFrame,
 ) -> tuple[DeepMechanisticModel, Any]:
     # Get cytof problem
     cytof_problem = CytofProblem(conf.model)
 
     # Define filepaths for serialized models
-    trained_model_file = TRAINED_MODEL.format(**conf.__dict__)
+    trained_model_file = TRAINED_MODEL.format(**conf.to_dict())
 
-    # Load ensemble member model
+    petab_importer = load_petab(
+        problem=cytof_problem,
+        dataset=conf.data,
+        **petab_base_files,
+        samples=list(features.index),
+    )
+    pypesto_subproblem = petab_importer.create_problem()
+
     model = DeepMechanisticModel.load(
         filename=trained_model_file,
-        problem=cytof_problem,
-        dataset=dataset,
-        petab_base_files=petab_base_files,
+        pypesto_problem=pypesto_subproblem,
     )
-    # Create pypesto problem from any of the loaded models to extract objective
-    pypesto_problem = create_pypesto_problem(model)
-    obj = pypesto_problem.objective.base_objective.base_objective
 
-    return model, obj
+    pypesto_problem = create_pypesto_problem(pypesto_subproblem)
+
+    return model, pypesto_problem
 
 
 def process_per_sample_pretrain(
@@ -93,9 +99,6 @@ def process_per_sample_pretrain(
     petab_base_files: Dict[str, pd.DataFrame],
 ):
     rfile = indir / f"{sample}.csv"
-    if not rfile.exists():
-        return None
-
     petab_base_importer = load_petab(
         problem,
         conf.data,
@@ -166,15 +169,23 @@ def simulate_avg_model(
             df.values[0, :], problem_sample.x_free_indices
         )
         res = problem_sample.objective(x, return_dict=True)
-        ress.append(res)
-        fvals.append(res["fval"])
+        if np.isfinite(res["fval"]):
+            ress.append(res)
+            fvals.append(res["fval"])
 
     # Convert the simulation to PEtab format.
-    avg_model = rdatas_to_simulation_df(
-        ress[np.argmin(fvals)]["rdatas"],
-        model=problem_sample.objective.amici_model,
-        measurement_df=importer.petab_problem.measurement_df,
-    )
+    if fvals:
+        avg_model = rdatas_to_simulation_df(
+            ress[np.argmin(fvals)]["rdatas"],
+            model=problem_sample.objective.amici_model,
+            measurement_df=importer.petab_problem.measurement_df,
+        )
+    else:
+        avg_model = importer.petab_problem.measurement_df.copy().rename(
+            columns={petab.MEASUREMENT: petab.SIMULATION}
+        )
+        avg_model[petab.SIMULATION] = np.nan
+
     return avg_model
 
 
@@ -193,42 +204,42 @@ def process_avg_model_simulation(
     avg_model = avg_model[
         avg_model[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset])
     ]
+    df_meas = df_meas[df_meas["measurementType"] == "cytof"]
+    avg_model = avg_model[avg_model["measurementType"] == "cytof"]
     return avg_model, df_meas
 
 
 def get_embedding_and_params_df(
     dmm_model: DeepMechanisticModel,
-    input_features: Union[np.ndarray, jnp.ndarray],
+    input_features: np.ndarray | jnp.ndarray,
     context: str,
     split: str,
     dataset: str,
     job: int,
+    samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     # Latent embeddings
-    temp_latent_embeddings = vmap(dmm_model.deep_encoder)(input_features)
+    temp_latent_embeddings = vmap(
+        eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
+    )(input_features, jr.PRNGKey(0))
     latent_embeddings_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             "L1": temp_latent_embeddings[:, 0],
             "L2": temp_latent_embeddings[:, 1],
         }
     ).assign(context=context, samples=split, dataset=dataset, job=job)
 
-    # Get cell-line specific kinetic parameter names for dataframe column names
-    specific_param_names = [
-        param.replace("MED_", "")
-        for param in dmm_model.pypesto_subproblem.x_names
-        if "MED" in param
-    ]
-
     # Parameter deviations
     param_deviations_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             **dict(
                 zip(
-                    specific_param_names,
-                    vmap(dmm_model)(input_features)["inflated"].T,
+                    dmm_model.parameter_deviation_names,
+                    eqx.nn.inference_mode(dmm_model)
+                    .inflate_params(input_features, jr.PRNGKey(0))
+                    .T,
                 )
             ),
         }
@@ -237,14 +248,16 @@ def get_embedding_and_params_df(
     # Full parameters (deviations + medians)
     params_df = pd.DataFrame(
         {
-            "cell_line": dmm_model.sample_name_list,
+            "cell_line": samples,
             **dict(
                 zip(
-                    specific_param_names,
+                    dmm_model.parameter_deviation_names,
                     (
-                        vmap(dmm_model)(input_features)["inflated"]
+                        eqx.nn.inference_mode(dmm_model).inflate_params(
+                            input_features, jr.PRNGKey(0)
+                        )
                         + dmm_model.kin_params_combiner.learned_global_kin_params[
-                            : len(specific_param_names)
+                            : len(dmm_model.parameter_deviation_names)
                         ]
                     ).T,
                 )
@@ -689,6 +702,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "job",
     ]
     for col in cols:
+        if col not in df.columns:
+            continue
         df[col] = pd.to_numeric(df[col], downcast="integer")
     additional_cols = [
         "l1reg_encode",
@@ -704,6 +719,8 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "momentum",  # parameters that can be pruned by generate_run_configs
     ]
     for col in additional_cols:
+        if col not in df.columns:
+            continue
         if (len(df[col].unique()) == 1) and (df[col].unique()[0] == 0):
             df[col] = pd.to_numeric(df[col], downcast="integer")
         else:
@@ -713,12 +730,16 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "use_layer_bias",
         "last_layer_activation",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(str)
     for col in [
         "reconstruct",
         "use_simple_linear_schedule",
         "use_early_stopping",
     ]:
+        if col not in df.columns:
+            continue
         df[col] = df[col].astype(bool)
     return df
 
@@ -752,16 +773,26 @@ def aggregate_and_log(
     return_stat_tests: bool,
     num_best: int = 10,
 ):
+    outdir = evaluations_dir / conf.model / conf.data
     # Define aggregation groups for DMM and refs
-    gbs_dmm = ["dataset", "ref"] + default_attributes
-    gbs_dmm_cl = ["sample", "dataset", "ref"] + default_attributes
-    gbs_refs = ["dataset", "context", "features", "samples", "ref"]
+    gbs_dmm = ["dataset", "ref"] + scan_attributes
+
+    df["res"] = df["res"].astype(float)
 
     temp_dfs = []
-    for ref_subset, group_cols in zip(
-        ["DMM", "DMM_CL", "refs"], [gbs_dmm, gbs_dmm_cl, gbs_refs]
-    ):
-        if ref_subset != "DMM_CL":
+    for ref_subset, group_cols in {
+        "DMM": gbs_dmm,
+        "BY_CL_COND_OBS": [
+            "sample",
+            "condition",
+            "observable",
+            "dataset",
+            "ref",
+        ]
+        + scan_attributes,
+        "refs": ["dataset", "context", "features", "samples", "ref"],
+    }.items():
+        if ref_subset != "BY_CL_COND_OBS":
             if ref_subset == "DMM":
                 subset_df = df[df.ref == "DMM"]
             else:
@@ -778,14 +809,13 @@ def aggregate_and_log(
                 )
             )
         else:
-            subset_df = df[df.ref == "DMM"]
-            dmm_by_cl = pd.DataFrame(
+            by_cl_cond_obs = pd.DataFrame(
                 [
                     dict(
                         zip(group_cols, group),
                         rmse=np.sqrt(np.square(group_df["res"]).mean()),
                     )
-                    for group, group_df in subset_df.groupby(group_cols)
+                    for group, group_df in df.groupby(group_cols, dropna=False)
                 ]
             )
 
@@ -896,12 +926,7 @@ def aggregate_and_log(
         on=list(data.columns.difference(["rmse", "dataset", "ref"])),
         suffixes=("_train", "_test"),
     )
-    unified_dmm_results.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test.csv"
-    )
+    unified_dmm_results.to_csv(outdir / "unified_dmm_rmse_train_test.csv")
     print("Finished saving unified (train/test) DMM RMSE results.")
 
     # Restrict DMM results to top 10 jobs for each configuration according to training performance
@@ -917,18 +942,9 @@ def aggregate_and_log(
     )
     # Ensure same dtypes as original dataframe
     top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
-    # Subset results at the cell-line granularity
-    top_n_results_by_cl = convert_dataframe_dtypes(dmm_by_cl).merge(
-        top_n_dmm_train, how="inner", on=default_attributes
-    )[dmm_by_cl.columns]
     # Plot and store
     # plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
-    top_n_results_by_cl.to_csv(
-        evaluations_dir
-        / f"{conf.model}"
-        / f"{conf.data}"
-        / f"{conf.model}.{conf.data}.unified_dmm_rmse_train_test_by_cl_top10train.csv"
-    )
+    by_cl_cond_obs.to_csv(outdir / "by_cl_cond_obs.csv")
     # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
     top_n_dmm_train_cv = (
         top_n_dmm_train.groupby(config_cols)
@@ -954,12 +970,7 @@ def aggregate_and_log(
             .groupby("context")
             .head(1)
         )
-        best_configs_dmm.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.top1_best_dmm_{HP_RUN_MODE}.csv"
-        )
+        best_configs_dmm.to_csv(outdir / f"top1_best_dmm_{HP_RUN_MODE}.csv")
 
         # Get the top 10 jobs corresponding to best validation config
         best_configs_dmm_jobs = (
@@ -986,19 +997,8 @@ def aggregate_and_log(
             ]
         barplot_df = pd.concat([unified_nodmm_results, best_configs_dmm_jobs])
         barplot_df.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{conf.model}.{conf.data}.top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
+            outdir / f"top_{num_best}_best_dmm_with_refs.{cvsplit_label}.csv"
         )
-
-    # # Log via W&B -- DISABLED WANDB FOR EVALS
-    # wandb.init(
-    #     project=f"DeepMechanisticModels.{conf.data}.{conf.model}",
-    #     config={
-    #         **conf.__dict__,
-    #     },
-    # )
 
     evaluation_dfs = [
         data,
@@ -1011,33 +1011,7 @@ def aggregate_and_log(
         evaluation_tags.append("stat_tests_all")
     for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
         # Save dataframes to CSV
-        evaluation_df.to_csv(
-            evaluations_dir
-            / f"{conf.model}"
-            / f"{conf.data}"
-            / f"{evaluation_tag}.csv"
-        )
-
-        # DISABLED WANDB ARTIFACTS
-        # # Instantiate artifact
-        # evaluation_artifact = wandb.Artifact(
-        #     name=f"{evaluation_tag}_{conf.model}_{conf.data}",
-        #     description=evaluation_tag,
-        #     type="evaluation",
-        # )
-        # # Add and log artifact
-        # evaluation_artifact.add(wandb.Table(dataframe=data), f"{evaluation_tag}.csv")
-        # wandb.log_artifact(evaluation_artifact)
-
-    # Close W&B session and upload artifacts -- DISABLED WANDB FOR EVALS
-    # wandb_stripped_dir = wandb.run.dir.rsplit('/files', 1)[0]
-    # command = f"wandb sync {wandb_stripped_dir}"
-    # wandb.finish()
-    # TODO @GiacomoFabrini: restore WANDB?
-    # try:
-    #     _ = subprocess.run(command, shell=True)
-    # except subprocess.CalledProcessError as e:
-    #     raise ValueError(f"Error syncing wandb directory: {e}")
+        evaluation_df.to_csv(outdir / f"{evaluation_tag}.csv")
 
     if return_stat_tests:
         return (

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, replace
+from dataclasses import replace
 from pathlib import Path
 
 import fire
@@ -11,6 +11,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
+from dmm.config_options import Conf
 from dmm.feature_selection import (
     build_preprocessor,
     load_data,
@@ -18,15 +19,6 @@ from dmm.feature_selection import (
 )
 from training_configuration import SPLITS
 from util import load_petab_base_files
-
-
-@dataclass(init=True)
-class MinimalConf(dict):
-    model: str
-    data: str
-    context: str
-    features: str
-    samples: str
 
 
 def get_feature_importances(model, X, y, method="auto"):
@@ -285,7 +277,7 @@ def get_selected_features(
 
     elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
         reduce_factor = 0.80
-        # drop nans
+        # drop nans, this shouldnt do anything
         input_data = input_data.dropna(axis=1, how="any")
         if features.startswith("HVG") and context in [
             "proteomics",
@@ -347,11 +339,11 @@ def get_selected_features(
     ]
 
 
-conf = fire.Fire(MinimalConf)
+conf = fire.Fire(Conf)
 petab_base_files = load_petab_base_files(conf)
 del petab_base_files["condition_table"]
 
-if (conf.context == "MOSA") and ("4of5" == conf.samples):
+if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
@@ -397,27 +389,45 @@ for context in contexts:
             subconf, samples_train[conf.samples], samples_val[conf.samples]
         )
     else:
-        input_train, features_all = load_data(
+        input_train, features_all, transform = load_data(
             contextualization=context,
             samples=samples_train[conf.samples],
             features=None,
             **petab_base_files,
         )
-        input_val, _ = load_data(
+        input_val, _, _ = load_data(
             contextualization=context,
             samples=samples_val[conf.samples],
             features=features_all,
+            transform=transform,
             **petab_base_files,
         )
 
-    output_train, features_output_train = load_data(
+    imputer_input = KNNImputer()
+    filled = imputer_input.fit_transform(input_train)
+    input_train = pd.DataFrame(
+        filled,
+        index=input_train.index,
+        columns=input_train.columns,
+    )
+    input_val = pd.DataFrame(
+        imputer_input.transform(input_val),
+        index=input_val.index,
+        columns=input_val.columns,
+    )
+
+    mean_train = input_train.mean()
+    input_train -= mean_train
+    input_val -= mean_train
+
+    output_train, features_output_train, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train[conf.samples],
         features=None,
         **petab_base_files,
     )
-    imputer = KNNImputer()
-    filled = imputer.fit_transform(output_train)
+    imputer_output = KNNImputer()
+    filled = imputer_output.fit_transform(output_train)
     output_train = pd.DataFrame(
         filled,
         index=output_train.index,
@@ -435,18 +445,22 @@ for context in contexts:
     print(
         f"Selected {len(selected_features)} features for split {conf.samples} for {subconf.context}: {selected_features}"
     )
-
     # Transform and save per split
     for dataset, inputs in zip(("train", "val"), (input_train, input_val)):
         outfile = FEATURES_OUTFILE.format_map(
-            dict(**subconf.__dict__, dataset=dataset)
+            dict(**subconf.to_dict(), dataset=dataset)
         )
         Path(outfile).parent.mkdir(exist_ok=True, parents=True)
         print(f"Preprocessing {dataset} data for split {conf.samples}...")
         df_inputs = pd.DataFrame(
             inputs[selected_features].values,
             index=inputs.index,
-            columns=selected_features,
+            columns=[
+                col
+                if isinstance(col, str)
+                else "#".join([str(level) for level in col])
+                for col in selected_features
+            ],
         )
         if not (conf.context == "multimodal"):
             print(
@@ -461,7 +475,7 @@ for context in contexts:
 if conf.context == "multimodal":
     for dataset in ["train", "val"]:
         outfile = FEATURES_OUTFILE.format_map(
-            dict(**conf.__dict__, dataset=dataset)
+            dict(**conf.to_dict(), dataset=dataset)
         )
         concat_df = pd.concat(multimodal_dfs[dataset], axis=1)
         print(f"Saving {dataset} data for split {conf.samples} to {outfile}")

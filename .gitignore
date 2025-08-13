@@ -181,3 +181,4 @@ pretraining_test_new_model/*
 features/*/dream_cytof/cellosaurus.txt
 features_*/*/dream_cytof/cellosaurus.txt
 features_*/cellosaurus.txt
+features/cellosaurus.txt

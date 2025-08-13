@@ -68,7 +68,7 @@ def observable_id_to_model_expr(
     site_pattern = r"_([S|Y|T][0-9]+)"
 
     monomer = re.sub(site_pattern, "", obs_id)
-    sites = sorted(list(re.findall(site_pattern, obs_id)))
+    sites = sorted(re.findall(site_pattern, obs_id))
 
     name = f'p{monomer}_{"_".join(sites)}' if sites else f"t{obs_id}"
 
@@ -86,9 +86,14 @@ if __name__ == "__main__":
 
     from cytof.problem import CytofProblem
 
-    problem = CytofProblem(pathway_name=conf.model)
+    problem = CytofProblem(model_name=conf.model)
     model = problem.load_pysb()
     data_dir.mkdir(exist_ok=True, parents=True)
+
+    if "__" in conf.model:
+        modifications = conf.model.split("__")[-1].split("_")
+    else:
+        modifications = []
 
     if conf.data == "dream_cytof":
         (
@@ -150,6 +155,9 @@ if __name__ == "__main__":
     observable_table[petab.OBSERVABLE_FORMULA] = [
         f"log(observableParameter1_{obs}_obs * {obs} "
         f"+ observableParameter2_{obs}_obs)"
+        if (obs.startswith("t") or "logobs" in modifications)
+        else f"observableParameter1_{obs}_obs * {obs} "
+        f"+ observableParameter2_{obs}_obs"
         for obs in observable_obs
     ]
     observable_table[petab.NOISE_DISTRIBUTION] = petab.NORMAL
@@ -172,13 +180,13 @@ if __name__ == "__main__":
         measurement_table[petab.MEASUREMENT].notna()
     ]
 
-    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.__dict__)
+    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.to_dict())
     measurement_table.to_csv(measurement_file, sep="\t")
 
-    condition_file = data_dir / CONDITIONS_FILE.format(**conf.__dict__)
+    condition_file = data_dir / CONDITIONS_FILE.format(**conf.to_dict())
     condition_table.set_index(petab.CONDITION_ID, inplace=True)
     condition_table.to_csv(condition_file, sep="\t")
 
-    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.__dict__)
+    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.to_dict())
     observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
     observable_table.to_csv(observable_file, sep="\t")

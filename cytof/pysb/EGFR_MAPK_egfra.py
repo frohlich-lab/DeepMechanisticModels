@@ -112,3 +112,4 @@ Initial(ERBB2(Y1248='u'), ERBB2_init)
 Initial(EGFR(Y1173='u', compartment='pm'), EGFR_init)
 Initial(MEK(S222='u'), MEK_init)
 Initial(ERK(Y204='u'), ERK_init)
+

@@ -2,34 +2,31 @@ import dataclasses
 from typing import Dict, List, Optional
 
 
-@dataclasses.dataclass(repr=True, init=True)
+@dataclasses.dataclass(repr=True, init=True, frozen=True, eq=True)
 class Conf(dict):
-    model: str
-    data: str
-    context: str = None
-    features: str = None
-    samples: str = None
-    pretrain: bool = False
-    sample: str = None
+    model: str = ""
+    data: str = "dream_cytof"
+    context: str = ""
+    features: str = ""
+    samples: str = ""
+    sample: str = ""
     # Standard scaling
     standardise_features: bool = False
-    # Initialisation
-    median_init: str = "None"  # can be either `per_sample` or `avg_model` -> initialises params of KinParamsCombiner
     # Train/freeze medians
     freeze_medians: bool = False
     # Network structure
-    n_hidden: int = 0
-    nn_structure_multiplier: int = 0
+    n_hidden: int = 2
+    nn_structure_multiplier: int = 2
     depth: int = 0
-    use_layer_bias: List[bool] = False
+    use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
-    nn_init_fn: str = "None"
-    reconstruct: bool = False
+    nn_init_fn: str = "custom"
+    dropout_rate: float = 0.0  # default: no entries set to 0
     # Training
-    activation_fn_name: str = "None"
-    optimiser: str = "None"
+    activation_fn_name: str = "swish"
+    optimiser: str = "adam"
     # Regularisation
-    orth_reg_strategy: str = "None"
+    orth_reg_strategy: str = "L2"
     l1reg_encode: float = 0.0
     oreg_encode: float = 0.0
     l1reg_inflate: float = 0.0
@@ -40,30 +37,28 @@ class Conf(dict):
         200  # after, regularisation is lifted but the sparsity pattern is kept
     )
     sparse_threshold_perc: str = "gmm"  # specified as top percentage to keep as cell-line specific, default: keep top 50%
-    recon_loss: float = 0.0
+    recon_loss: float = 0.01
     symm_reg: float = 0.0
     median_reg: float = 0.0
     # Learning schedule hyperparameters
-    max_lrate: Optional[
-        float
-    ] = 0.01  # maximum learning rate (max in first schedule or in all without decay)
-    lrate_span: Optional[
-        float
-    ] = 1e0  # ratio between max and min learning rates in a given schedule
-    lrate_decay: Optional[
-        float
-    ] = 0.98  # if < 1, the learning rate decays between schedules.
+    max_lrate: float = 0.01  # maximum learning rate (max in first schedule or in all without decay)
+    lrate_span: float = (
+        1e0  # ratio between max and min learning rates in a given schedule
+    )
+    lrate_decay: float = (
+        1.0  # if < 1, the learning rate decays between schedules.
+    )
     # # 0.98 will reduce 1e-2 to 1e-3 in 100 epochs, similarly to our original linear schedule
-    warmup_fct: Optional[
-        float
-    ] = 0.0  # fraction of schedule epochs to be used for warmup
-    opt_steps: Optional[int] = 0  # Number of steps in the first schedule
-    opt_mult: Optional[
-        int
-    ] = 0  # Multiplier for the number of steps in each schedule
-    momentum: Optional[float] = 0.9  # momentum for AdamW
-    weight_decay: Optional[float] = 1e-4  # controls weight decay for AdamW
+    warmup_fct: float = (
+        0.0  # fraction of schedule epochs to be used for warmup
+    )
+    opt_steps: int = 10  # Number of steps in the first schedule
+    opt_mult: int = 2  # Multiplier for the number of steps in each schedule
+    momentum: float = 0.9  # momentum for AdamW
+    weight_decay: float = 0.0  # controls weight decay for AdamW
     use_simple_linear_schedule: bool = False
+    n_epoch: int = 1000
+    inflater_bound: float = 5.0
     # Early-stopping
     use_early_stopping: bool = False
     # Other hyperparams
@@ -73,9 +68,26 @@ class Conf(dict):
     run_mode_tag: str = None
     date_tag: str = None
 
+    def to_dict(self) -> dict:
+        """
+        Convert the configuration to a dictionary.
+        """
+        return {
+            field.name: getattr(self, field.name)
+            for field in dataclasses.fields(self)
+        }
+
+    def __getitem__(self, key):
+        """
+        Custom __getitem__ to allow access to configuration parameters as dict.
+        """
+        if key in self.__dict__:
+            return self.__dict__[key]
+        raise AttributeError(f"Conf has no attribute '{key}")
+
     def __str__(
         self,
-        replace: Optional[Dict[str, str]] = None,
+        replace: Dict[str, str] | None = None,
     ):
         """
         Return string representation with selected hyperparameters.
@@ -99,7 +111,6 @@ class Conf(dict):
             "context",
             "features",
             "pretrain",
-            "median_init",
             "freeze_medians",
             "use_layer_bias",
             "linear_benchmark",
@@ -140,6 +151,7 @@ class ModuleParams(dict):
     last_layer_activation: bool = (
         "False"  # no activation function in last layer of each module
     )
+    dropout_rate: float = 0.0
 
 
 @dataclasses.dataclass
@@ -148,22 +160,6 @@ class EarlyStoppingParams(dict):
     patience: int = 9
     min_improvement: float = 0
 
-
-unwanted_attributes = [
-    "model",
-    "data",
-    "sample",
-    "threads",
-    "n_starts",
-    "run_mode_tag",
-    "date_tag",
-]
-
-default_attributes = [
-    k
-    for k, v in vars(Conf).items()
-    if not k.startswith("__") and k not in unwanted_attributes
-]
 
 # define abbreviations/labels for logging of loss terms
 L1EREG = "l1reg_encode"
@@ -178,3 +174,27 @@ IO_SPARSITY = "inflater_output_sparsity"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"
 MEDIAN_REG = "median_reg"
+
+scan_attributes = [
+    "model",
+    "samples",
+    "context",
+    "features",
+    # 'n_hidden',
+    # 'depth',
+    # 'activation_fn_name',
+    # L1IREG,
+    # OIREG,
+    # L1EREG,
+    # OEREG,
+    L1REG_IO,
+    # L2REG_IO,
+    RECON_LOSS,
+    "inflater_output_reg_epoch",
+    "job",
+    "n_epoch",
+    "inflater_bound",
+]
+
+for attr in scan_attributes:
+    assert hasattr(Conf, attr), f"Conf does not have attribute {attr}"

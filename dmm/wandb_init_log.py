@@ -1,20 +1,20 @@
+import os
+
 import equinox as eqx
 import git
 import jax.numpy as jnp
+import jax.random as jr
 import numpy as np
-from jax import vmap
 
 import wandb
 
 from .config_options import (
     IO_SPARSITY,
-    L1DREG,
     L1EREG,
     L1IREG,
     L1REG_IO,
     L2REG_IO,
     MEDIAN_REG,
-    ODREG,
     OEREG,
     OIREG,
     RECON_LOSS,
@@ -22,8 +22,50 @@ from .config_options import (
     Conf,
     EarlyStoppingParams,
 )
-from .custom_layers_eqx import CustomInitLinear
 from .dmm_autoencoder_eqx import DeepMechanisticModel
+
+
+def log_performance(df, dataset, rmse):
+    gbs = ["sample", "condition", "observable"]
+    df_rmse = df[gbs + ["rmse"]].groupby(gbs).agg("mean").reset_index()
+    tab_rmse = wandb.Table(data=df_rmse)
+    wandb.log({f"rmse_{dataset}": rmse, f"rmses_{dataset}": tab_rmse})
+
+
+def init_wandb_ltt(
+    conf: Conf,
+    type: str,
+):
+    """
+    Initialise W&B run. Run name = chosen hyperparameters in configuration string representation.
+    """
+    repo = git.Repo(search_parent_directories=True)
+
+    # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
+    activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
+    group = f"{conf.model}_{conf.context}_{conf.features}"
+
+    wandb.init(
+        project="DeepMechanisticModels",
+        group=group,
+        config={
+            "model": conf.model,
+            "features": conf.features,
+            "context": conf.context,
+            "type": type,
+            "samples": conf.samples,
+            "commit": repo.head.object.hexsha,
+        },
+        name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
+        settings=wandb.Settings(
+            git_commit=repo.head.object.hexsha,
+            git_remote_url=repo.remotes.origin.url,
+        ),
+        mode="online",  # to run more jobs simultaneously on the cluster
+    )
+
+    for metric in ["rmse_train", "rmse_val"]:
+        wandb.define_metric(metric, summary="min")
 
 
 def init_wandb(
@@ -40,7 +82,15 @@ def init_wandb(
     activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
     group = f"{conf.context}_{conf.features}"
 
-    # Init wandb (default: new 'core' backend)
+    base_model = conf.model.split("__")[0]
+    if "__" in conf.model:
+        modifications = conf.model.split("__")[1].split("_")
+    else:
+        modifications = []
+
+    job_id = os.environ.get("SLURM_JOB_ID", "0")
+    node_name = os.environ.get("SLURMD_NODENAME", "local")
+
     wandb.init(
         # v2: Equinox
         # v3: Equinox, back to basics -- no decoder, simple decay learning rate schedule, first local attempts
@@ -79,10 +129,20 @@ def init_wandb(
         # v39: cytof+px+tx linear scan over n_features
         # v40: re-running 'base' features with added regressor evaluations (with 'features' saved)
         # v40c: same as v40, but with input features centred around 0 (mean subtracted)
-        project=f"DeepMechanisticModels.v40c.{conf.data}",
+        # v41: added p90RSK to EGFR_MAPK, removed ERBB2 from freeeq model and fixed EGFR_MAPK_AKT model
+        # v42: clean slate with p90RSK added, minimal setup with new directories
+        # v43: faster initialisation for tegfr model, add baseline activation for EGFR and p90RSK, linear cytof observables
+        # v44: revert faster initialisation (took too long, will revisit)
+        # v45: model variants
+        # v46: updated model, add HER2 signaling + inhibition by lapatinib
+        # v47: features selection revisited
+        # v49: refactored model
+        # v50: code refactor, scan inflater output reg
+        # v51: output reg + inflater bound scan
+        project=f"DeepMechanisticModels.v51.{conf.data}",
         group=group,
         config={
-            **conf.__dict__,
+            **conf.to_dict(),
             "use_early_stopping": conf.use_early_stopping,  # early-stopping enabled/disabled
             "patience": early_stopping_params.patience
             if conf.use_early_stopping
@@ -93,10 +153,14 @@ def init_wandb(
             "scheduler": "linear"
             if conf.use_simple_linear_schedule
             else "custom",
+            "commit": repo.head.object.hexsha,
+            "base_model": base_model,
+            **{mod: 1 for mod in modifications},
+            "job_id": job_id,
+            "node": node_name,
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
-            start_method="fork",
             git_commit=repo.head.object.hexsha,
             git_remote_url=repo.remotes.origin.url,
         ),
@@ -106,7 +170,7 @@ def init_wandb(
             conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag,  # label experiment with date of experiment start
         ],
-        mode="online",  # to run more jobs simultaneously on the cluster
+        mode="online",
     )
 
     # Define W&B metrics
@@ -116,14 +180,17 @@ def init_wandb(
             "loss",
             "fval_train",
             "fval_val",
-            "rmse_test",
+            "rmse_train",
             "rmse_val",
-            "max_abs_par_dev",
-            "par_dev_frob_norm",
-            "max_abs_par_median",
-            "par_median_frob_norm",
+            "par_dev_max",
+            "par_dev_norm",
             "log_parameter_std",
             "log_parameter_mean",
+            L1EREG,
+            L1IREG,
+            L1REG_IO,
+            L2REG_IO,
+            MEDIAN_REG,
         ]
     }
 
@@ -135,163 +202,12 @@ def init_wandb(
     metrics["final_rmse_val"] = "none"
     metrics["integration_error"] = "none"
     # optional metrics depending on the presence of decoder head
-    if model.reconstruct:
+    if conf.recon_loss:
         metrics[RECON_LOSS] = "last"
         metrics[SYMM_LOSS] = "last"
 
-    reg_metrics = {
-        metric: "last"
-        for metric in [L1EREG, L1IREG, L1REG_IO, L2REG_IO, MEDIAN_REG]
-    }
-    # Add decoder regularisation terms if the model has a decoder head
-    if model.reconstruct:
-        reg_metrics[L1DREG] = "last"
-        reg_metrics[ODREG] = "last"
-
-    # Get final metrics
-    metrics = {**metrics, **reg_metrics}
-
     for metric, summary in metrics.items():
         wandb.define_metric(metric, summary=summary)
-
-    model_modules = {
-        "encoder": model.deep_encoder,
-        "inflater": model.deep_inflater,
-    }
-    if model.reconstruct:
-        model_modules["decoder"] = model.deep_decoder
-
-    # Iterate over the modules to define metrics based on the presence of layers and biases
-    for module, model_module in model_modules.items():
-        num_layers = len(
-            model_module.layers
-        )  # Dynamically get the number of layers
-        for layer_index in range(num_layers):
-            # Check for weights; assume weights always exist
-            for val_type in ["vals", "grads"]:
-                metric_name = f"{module}.layer{layer_index}.w_{val_type}"
-                wandb.define_metric(metric_name)
-
-            # Check if bias exists and is not None before defining bias metrics
-            if (
-                hasattr(model_module.layers[layer_index], "bias")
-                and model_module.layers[layer_index].bias is not None
-            ):
-                for val_type in ["vals", "grads"]:
-                    metric_name = f"{module}.layer{layer_index}.b_{val_type}"
-                    wandb.define_metric(metric_name)
-
-
-def log_model_stats(
-    model: DeepMechanisticModel,
-    grad: DeepMechanisticModel,
-):
-    """
-    Log parameter values (vals) and grads (grads) to wandb.
-
-    :param model: DeepMechanisticModel containing parameter values
-    :param grad: DeepMechanisticModel containing parameter gradients
-    """
-
-    model_modules = {
-        "encoder": model.deep_encoder,
-        "inflater": model.deep_inflater,
-    }
-    grad_modules = {
-        "encoder": grad.deep_encoder,
-        "inflater": grad.deep_inflater,
-    }
-    if model.reconstruct:
-        model_modules["decoder"] = model.deep_decoder
-        grad_modules["decoder"] = grad.deep_decoder
-
-    layers = {
-        key: [
-            (par_layer, grad_layer)
-            for par_layer, grad_layer in zip(
-                model_module.layers,
-                grad_modules[key].layers,
-            )
-            if isinstance(
-                par_layer, (eqx.nn.Linear, CustomInitLinear)
-            )  # Check for both Linear and CustomInitLinear
-        ]
-        for key, model_module in model_modules.items()
-    }
-
-    layer_stats = {}
-    for module, layer_list in layers.items():
-        for ilayer, (par_layer, grad_layer) in enumerate(layer_list):
-            # Handle weights
-            weight_vals = par_layer.weight.ravel()
-            grad_weight_vals = grad_layer.weight.ravel()
-            layer_stats[f"{module}.layer{ilayer}.w_vals"] = wandb.Histogram(
-                list(weight_vals)
-            )
-            layer_stats[f"{module}.layer{ilayer}.w_grads"] = wandb.Histogram(
-                np.log10(
-                    np.abs(np.array(grad_weight_vals[grad_weight_vals != 0]))
-                )
-            )
-
-            # Handle biases, if they exist
-            if hasattr(par_layer, "bias") and par_layer.bias is not None:
-                bias_vals = par_layer.bias.ravel()
-                grad_bias_vals = grad_layer.bias.ravel()
-                layer_stats[
-                    f"{module}.layer{ilayer}.b_vals"
-                ] = wandb.Histogram(list(bias_vals))
-                layer_stats[
-                    f"{module}.layer{ilayer}.b_grads"
-                ] = wandb.Histogram(
-                    np.log10(
-                        np.abs(np.array(grad_bias_vals[grad_bias_vals != 0]))
-                    )
-                )
-
-    # First approach: two plots (value, grad) per parameter, but hists do not make much sense in that case
-    # kin_params_stats = {
-    #     f'global_kin_param.{par_label}_{value_label}': wandb.Histogram(
-    #         np.log10(np.abs(np.array(par_val[par_val != 0])))
-    #     )
-    #     if value_label == 'grads'
-    #     else wandb.Histogram(par_val)
-    #     for value_label, par_vals in zip(
-    #         ('vals', 'grads'),
-    #         (
-    #             model.kin_params_combiner.learned_global_kin_params,
-    #             grad.kin_params_combiner.learned_global_kin_params
-    #         ),
-    #     )
-    #     for par_label, par_val in zip(
-    #         range(len(model.kin_params_combiner.learned_global_kin_params)),
-    #         np.array(par_vals).ravel(),
-    #     )
-    # }
-
-    # Second approach: log values and grads altogether (2 histograms overall)
-    kin_params_stats = {
-        f"global_kin_params.{value_label}": wandb.Histogram(
-            np.log10(np.abs(np.array(par_vals[par_vals != 0])))
-        )
-        if value_label == "grads"
-        else wandb.Histogram(par_vals)
-        for value_label, par_vals in zip(
-            ("vals", "grads"),
-            (
-                np.array(
-                    model.kin_params_combiner.learned_global_kin_params
-                ).ravel(),
-                np.array(
-                    grad.kin_params_combiner.learned_global_kin_params
-                ).ravel(),
-            ),
-        )
-    }
-    # Augment stats with global kinetic parameters
-    stats = {**layer_stats, **kin_params_stats}
-
-    return stats
 
 
 def log_param_norms(
@@ -299,14 +215,24 @@ def log_param_norms(
     input_data: jnp.ndarray,
     epoch: int,
 ):
-    par_dev = vmap(model)(input_data)["inflated"]
-    par_medians = model.kin_params_combiner.learned_global_kin_params
+    # put in inference mode and use dummy key
+    par_dev = eqx.nn.inference_mode(model).inflate_params(
+        input_data, jr.PRNGKey(0)
+    )
+    stds = par_dev.std(axis=0)
+    # compute the biggest gap in std values across parameters, this is a cheap
+    # proxy for the separation of modes in a gmm model that we use for
+    # sparsification
+    log_std_diff = jnp.diff(jnp.log10(stds[stds > 0]).sort())
+    if log_std_diff.size:
+        par_dev_log_std_sep = log_std_diff.max()
+    else:  # only one non-zero std
+        par_dev_log_std_sep = 0
     wandb.log(
         {
-            "max_abs_par_dev": jnp.max(jnp.abs(par_dev)),
-            "par_dev_frob_norm": jnp.linalg.norm(x=par_dev, ord=None),
-            "max_abs_par_median": jnp.max(jnp.abs(par_medians)),
-            "par_median_frob_norm": jnp.linalg.norm(x=par_medians, ord=None),
+            "par_dev_max": jnp.max(jnp.abs(par_dev)),
+            "par_dev_norm": jnp.linalg.norm(x=par_dev, ord=None),
+            "par_dev_log_std_sep": par_dev_log_std_sep,
         },
         step=epoch,
     )

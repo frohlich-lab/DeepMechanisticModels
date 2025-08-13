@@ -1,14 +1,13 @@
-import seaborn as sns
-import matplotlib.colors as mcolors
-import matplotlib.patches as patches
-import matplotlib.pyplot as plt
-import numpy as np
-import pandas as pd
-
-from common import fig_dir, EVALUATE_ALL, CONTEXT_SET, hardest_cell_lines
 from pathlib import Path
 from typing import List, Union
 
+import matplotlib.colors as mcolors
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+import seaborn as sns
+
+from common import CONTEXT_SET, EVALUATE_ALL, fig_dir, hardest_cell_lines
 
 # subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
 # subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
@@ -29,15 +28,19 @@ from typing import List, Union
 # }
 
 
-cv_samples_mapping = {
-    f"{i}of5": hardest_cell_lines[i]
-    for i in range(5)
-}
+cv_samples_mapping = {f"{i}of5": hardest_cell_lines[i] for i in range(5)}
 shared_category_colors = {
-    "LA": "gold", "LB": "darkorange", "Basal": "cornflowerblue", "HER2": "firebrick",
-    "Normal": "purple", "Other": "slategray",
-    1: "navy", 2: "darkorange", 3: "cornflowerblue",
-    4: "lightgray", 5: "purple"
+    "LA": "gold",
+    "LB": "darkorange",
+    "Basal": "cornflowerblue",
+    "HER2": "firebrick",
+    "Normal": "purple",
+    "Other": "slategray",
+    1: "navy",
+    2: "darkorange",
+    3: "cornflowerblue",
+    4: "lightgray",
+    5: "purple",
 }
 
 pam50_labels = ["LA", "LB", "HER2", "Basal", "Normal", "Other"]
@@ -48,6 +51,7 @@ lb_to_shared = {
     "Normal": "Normal",
     "Other": "Other",
 }
+
 
 # Base plotting functions for FacetGrid
 def lineplot_methods(data, *args, **kwargs):
@@ -69,34 +73,37 @@ ref_palette_dict = {
     "DMM": ref_cmap[3],
 }
 ref_linestyle_dict = {
-    "avg_model": 'dotted',
-    "linreg": 'dashed',
-    "lasso": 'dashed',
-    "elasticnet": 'dashed',
-    "sample": 'dotted',
-    "DMM": 'solid',
+    "avg_model": "dotted",
+    "linreg": "dashed",
+    "lasso": "dashed",
+    "elasticnet": "dashed",
+    "sample": "dotted",
+    "DMM": "solid",
 }
 
 
 def group_plots(
-        dataframe: pd.DataFrame,
-        conf,
+    dataframe: pd.DataFrame,
+    conf,
 ):
-
     # Compute mean 'rmse' for each reference/baseline
-    rmse_refs = dataframe[dataframe['ref'].isin(
-        ['avg_model', 'linreg', 'lasso', 'elasticnet', 'sample']
-    )].groupby(
-        ['dataset', 'ref', 'context']
-    )['rmse'].mean()
+    rmse_refs = (
+        dataframe[
+            dataframe["ref"].isin(
+                ["avg_model", "linreg", "lasso", "elasticnet", "sample"]
+            )
+        ]
+        .groupby(["dataset", "ref", "context"])["rmse"]
+        .mean()
+    )
 
     for group in (
-            "orth_reg_strategy",
-            "l1reg_inflate",
-            "oreg_inflate",
-            "l1reg_encode",
-            "oreg_encode",
-            "job",
+        "orth_reg_strategy",
+        "l1reg_inflate",
+        "oreg_inflate",
+        "l1reg_encode",
+        "oreg_encode",
+        "job",
     ):
         _ = plt.figure()
         g = sns.FacetGrid(
@@ -122,21 +129,27 @@ def group_plots(
 
         # Apply plt.axhline to each subplot
         for (dataset, ref, context), rmse in rmse_refs.items():
-            g.axes_dict[dataset, context].axhline(y=rmse,
-                                                  color=ref_palette_dict[ref],
-                                                  linestyle=ref_linestyle_dict[ref],
-                                                  label=ref)
+            g.axes_dict[dataset, context].axhline(
+                y=rmse,
+                color=ref_palette_dict[ref],
+                linestyle=ref_linestyle_dict[ref],
+                label=ref,
+            )
         # Once done, add legend to last examined dataset and context
-        g.axes_dict[dataset, context].legend(frameon=False, bbox_to_anchor=[1, 1])
+        g.axes_dict[dataset, context].legend(
+            frameon=False, bbox_to_anchor=[1, 1]
+        )
 
         if (group == "job") or (group == "orth_reg_strategy"):
             g.set(ylim=(0, 1.1))  # symlog for unregularised settings;
         else:
             # g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0.1, 0.7))  # symlog to include unregularised settings
-            g.set(xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1))  # symlog to include unregularised settings
+            g.set(
+                xscale="symlog", xlim=(0, 1e10), ylim=(0, 1.1)
+            )  # symlog to include unregularised settings
         # g.add_legend()
         plt.tight_layout()
-        rfile = EVALUATE_ALL.format(**conf.__dict__, group=group)
+        rfile = EVALUATE_ALL.format(**conf.to_dict(), group=group)
         plt.savefig(rfile)
         plt.savefig(rfile.replace(".pdf", ".svg"))
         plt.close()  # ensure figure is closed
@@ -145,9 +158,9 @@ def group_plots(
 
 
 def performance_barplot(
-        dataframe: pd.DataFrame,
-        conf,
-        group_name: str,
+    dataframe: pd.DataFrame,
+    conf,
+    group_name: str,
 ):
     # PERFORMANCE BARPLOT
     _ = plt.figure()
@@ -161,44 +174,47 @@ def performance_barplot(
 
     g.map_dataframe(
         sns.barplot,
-        x='ref',  # various regressors on x_axis
+        x="ref",  # various regressors on x_axis
         y="rmse",  # rmse on y axis
         hue="ref",  # color by method/reference/baseline
-        hue_order=["avg_model",
-                   "linreg", "lasso", "elasticnet",
-                   "DMM", "sample"],
-        errorbar=lambda x: (x.min(), x.max()),  # display performance range between various jobs using
+        hue_order=[
+            "avg_model",
+            "linreg",
+            "lasso",
+            "elasticnet",
+            "DMM",
+            "sample",
+        ],
+        errorbar=lambda x: (
+            x.min(),
+            x.max(),
+        ),  # display performance range between various jobs using
         palette=ref_palette_dict,
     )
 
     g.set(ylim=(0.1, 1.1))
     # rotate xlabels
-    g.tick_params(axis='x', rotation=90)
+    g.tick_params(axis="x", rotation=90)
     g.add_legend()
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group=group_name)
+    rfile = EVALUATE_ALL.format(**conf.to_dict(), group=group_name)
     plt.savefig(rfile)
-    plt.savefig(rfile.replace('pdf', 'svg'))
+    plt.savefig(rfile.replace("pdf", "svg"))
     # plt.show(
     plt.close()  # ensure figure is closed
 
 
 # Volcano plots for significance of various hyperparameter values
 def volcano_hyperparameter_significance(
-        dataframe: pd.DataFrame,
-        conf,
+    dataframe: pd.DataFrame,
+    conf,
 ):
-
     _ = plt.figure(figsize=(30, 10))
     g = sns.FacetGrid(
         data=dataframe,
         row="context",
         col="hyperparameter",
-        row_order=(
-            "cytof_init",
-            "proteomics",
-            "transcriptomics"
-        ),
+        row_order=("cytof_init", "proteomics", "transcriptomics"),
         sharey=True,
     )
 
@@ -208,29 +224,27 @@ def volcano_hyperparameter_significance(
         y="-log10_adj_Wilcoxon_p-value",
         hue="n_hidden",
         hue_order=[2, 4, 6, 8],
-        size="log10hp_value",   # changed to log10 scale to distinguish 1e2 from 1e4 (identical in linear scale)
+        size="log10hp_value",  # changed to log10 scale to distinguish 1e2 from 1e4 (identical in linear scale)
         palette="tab10",
         style="stat-significant",
         style_order=[True, False],
     )
 
-    for (_, col) in g.axes_dict.keys():
+    for _, col in g.axes_dict.keys():
         # Only add legend to the first row, spread it across two columns
-        g.axes_dict['cytof_init', col].legend(frameon=False, ncols=2)
+        g.axes_dict["cytof_init", col].legend(frameon=False, ncols=2)
 
     g.set_titles("{row_name} | {col_name}")
-    g.tick_params(direction='in', length=5)
+    g.tick_params(direction="in", length=5)
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group="volcano_plot_stat_test")
+    rfile = EVALUATE_ALL.format(
+        **conf.to_dict(), group="volcano_plot_stat_test"
+    )
     plt.savefig(rfile)
-    plt.savefig(rfile.replace('pdf', 'svg'))
+    plt.savefig(rfile.replace("pdf", "svg"))
 
 
-def n_hidden_pairwise_heatmap(
-        dataframe: pd.DataFrame,
-        conf
-):
-
+def n_hidden_pairwise_heatmap(dataframe: pd.DataFrame, conf):
     num_contexts = len(CONTEXT_SET)
     plt.subplots(num_contexts, 2, figsize=(12, num_contexts * 4))
     plt.subplots_adjust(wspace=0.5, hspace=0.25)
@@ -239,25 +253,41 @@ def n_hidden_pairwise_heatmap(
         plt.subplot(num_contexts, 2, index)
         ax = sns.heatmap(
             dataframe[dataframe.context == context][
-                ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
+                [
+                    "n_hidden1",
+                    "n_hidden2",
+                    "Wilcoxon_statistic",
+                    "adj_Wilcoxon_p-value",
+                ]
             ].pivot(
-                index='n_hidden1', columns='n_hidden2', values='adj_Wilcoxon_p-value'
+                index="n_hidden1",
+                columns="n_hidden2",
+                values="adj_Wilcoxon_p-value",
             ),
             annot=True,
             square=True,
-            vmin=0, vmax=1
+            vmin=0,
+            vmax=1,
         )
         plt.title(f"adjusted p-value | {context}")
         plt.subplot(num_contexts, 2, index + 1)
         ax2 = sns.heatmap(
             dataframe[dataframe.context == context][
-                ['n_hidden1', 'n_hidden2', 'Wilcoxon_statistic', 'adj_Wilcoxon_p-value']
+                [
+                    "n_hidden1",
+                    "n_hidden2",
+                    "Wilcoxon_statistic",
+                    "adj_Wilcoxon_p-value",
+                ]
             ].pivot(
-                index='n_hidden1', columns='n_hidden2', values='Wilcoxon_statistic'
+                index="n_hidden1",
+                columns="n_hidden2",
+                values="Wilcoxon_statistic",
             ),
             annot=True,
             square=True,
-            vmin=1e5, vmax=1.2e7
+            vmin=1e5,
+            vmax=1.2e7,
         )
         for axis in [ax, ax2]:
             axis.invert_yaxis()
@@ -267,17 +297,19 @@ def n_hidden_pairwise_heatmap(
         index += 2  # increase subplot index
     # Finally, save the whole figure combining all contexts
     plt.tight_layout()
-    rfile = EVALUATE_ALL.format(**conf.__dict__, group="heatmaps_n_hidden_pairwise")
+    rfile = EVALUATE_ALL.format(
+        **conf.to_dict(), group="heatmaps_n_hidden_pairwise"
+    )
     plt.savefig(rfile)
-    plt.savefig(rfile.replace('pdf', 'svg'))
+    plt.savefig(rfile.replace("pdf", "svg"))
 
 
 def plot_latent_embeddings(
-        le_df: pd.DataFrame,
-        df_label: str,
-        reg_param: str,
-        save_path: str,
-        which_cells: str
+    le_df: pd.DataFrame,
+    df_label: str,
+    reg_param: str,
+    save_path: str,
+    which_cells: str,
 ):
     plot_df = le_df.copy()
 
@@ -297,14 +329,28 @@ def plot_latent_embeddings(
         )
         g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="cell_line")
         g.add_legend()
-        plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="samples"))
+        plt.savefig(
+            save_path.format(
+                context=context,
+                df_label=df_label,
+                which_cells=which_cells,
+                plot_by="samples",
+            )
+        )
         plt.close()
 
         for subtype_scheme in [
-            col for col in [
-                "PAM50", "LB", "HR_Status", "HER2_Status",
-                "Site", "MS_Status", "Disease"
-            ] if col in sub_df.columns
+            col
+            for col in [
+                "PAM50",
+                "LB",
+                "HR_Status",
+                "HER2_Status",
+                "Site",
+                "MS_Status",
+                "Disease",
+            ]
+            if col in sub_df.columns
         ]:
             g = sns.FacetGrid(
                 sub_df,
@@ -313,10 +359,18 @@ def plot_latent_embeddings(
                 col=reg_param,
                 col_order=sorted(sub_df[reg_param].unique()),
             )
-            g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue=subtype_scheme)
+            g.map_dataframe(
+                sns.scatterplot, x="L1", y="L2", hue=subtype_scheme
+            )
             g.add_legend()
             plt.savefig(
-                save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by=subtype_scheme))
+                save_path.format(
+                    context=context,
+                    df_label=df_label,
+                    which_cells=which_cells,
+                    plot_by=subtype_scheme,
+                )
+            )
             plt.close()
 
         if which_cells == "val_only":
@@ -328,28 +382,42 @@ def plot_latent_embeddings(
             )
             g.map_dataframe(sns.scatterplot, x="L1", y="L2", hue="samples")
             g.add_legend()
-            plt.savefig(save_path.format(context=context, df_label=df_label, which_cells=which_cells, plot_by="cell_line"))
+            plt.savefig(
+                save_path.format(
+                    context=context,
+                    df_label=df_label,
+                    which_cells=which_cells,
+                    plot_by="cell_line",
+                )
+            )
             plt.close()
 
+
 def plot_val_param_dev_spread(
-        param_dev_df: pd.DataFrame,
-        param_cols: List,
-        top_reg_param: str,
-        reg_params: List,
-        figure_filepath: Union[str, Path],
+    param_dev_df: pd.DataFrame,
+    param_cols: List,
+    top_reg_param: str,
+    reg_params: List,
+    figure_filepath: Union[str, Path],
 ):
     param_val_df = param_dev_df[param_dev_df.dataset == "test"]
     # Melt the dataframe to get a boxplot
     param_val_df = pd.melt(
-        param_val_df
-        .drop(columns=[col for col in param_val_df.columns if
-                       col not in param_cols + reg_params + ["cell_line"]]),
+        param_val_df.drop(
+            columns=[
+                col
+                for col in param_val_df.columns
+                if col not in param_cols + reg_params + ["cell_line"]
+            ]
+        ),
         id_vars=["cell_line"] + reg_params,
-        var_name='Parameter',
-        value_name='value'
+        var_name="Parameter",
+        value_name="value",
     )
     # Create FacetGrid with one column per parameter, one CV split per row
-    g = sns.FacetGrid(param_val_df, row="cell_line", col=top_reg_param, aspect=4, sharey=True)
+    g = sns.FacetGrid(
+        param_val_df, row="cell_line", col=top_reg_param, aspect=4, sharey=True
+    )
     g.map_dataframe(sns.boxplot, x="Parameter", y="value")
     # g.map_dataframe(sns.stripplot, x="Parameter", y="value")
     plt.ylim([-4, 4])
@@ -362,205 +430,104 @@ def plot_val_param_dev_spread(
 
 
 def plot_parameter_heatmaps(
-        param_df: pd.DataFrame,
-        param_cols: List,
-        group_cols: List,
-        top_reg_param: str,
-        samples_train: List[str],
-        samples_val: List[str],
-        plot_label: str,
-        figure_filepath: Union[str, Path],
-        figure_fmt: str = ".pdf",
-        val_only: bool = False,
-        add_avg_to_val: bool = False,
-        plot_type: str = "heatmap"
+    param_df: pd.DataFrame,
+    param_cols: List,
+    figure_filepath: Union[str, Path],
 ):
-    # Adds an extra row in each heatmap corresponding to average cell-line
-    if val_only and add_avg_to_val:
-        # Create "average" rows for each unique group
-        avg_df = (
-            param_df.groupby(
-                [col for col in group_cols if col not in ["cell_line", "dataset"]],
-                dropna=False
-            )[param_cols]
-            .mean()
-            .reset_index()
-        ).assign(cell_line="average")  # Add label for average cell line
-        param_df = pd.concat([param_df, avg_df], ignore_index=True)
-
     # Set colorbar range
-    if plot_label == "param_dev":
-        min_dev, max_dev = param_df[param_cols].min().min(), param_df[param_cols].max().max()
-        abs_largest = max(abs(min_dev), abs(max_dev))
-        vmin, vmax = -abs_largest, abs_largest
-    elif plot_label == "param":
-        vmin, vmax = -10, 10
-    else:
-        raise ValueError(f"Invalid plot_label: {plot_label}")
+    for samples in param_df.index.get_level_values("samples").unique():
+        df = param_df.loc[
+            param_df.index.get_level_values("samples") == samples
+        ]
+        df = df.droplevel("samples", axis="index")
+        vlim = df[param_cols].abs().max().max()
+        vmin, vmax = -vlim, vlim
 
-    if plot_type == "heatmap":
-        def plot_heatmap_with_highlight(data, val_only, **kwargs):
-            ax = plt.gca()  # Get the current axis
-            sns.heatmap(
-                data.set_index("cell_line")[param_cols].reindex(samples_train + samples_val) if not val_only
-                else data.set_index("cell_line")[param_cols],
-                vmin=vmin, vmax=vmax, cmap="vlag",
-                xticklabels=True, yticklabels=True, ax=ax, **kwargs
-            )
-            # Highlight the validation cell line
-            if val_only:
-                # Get the correct validation cell line for the current split
-                current_sample = data.samples.unique()[0]  # Extract the sample for this facet
-                split_index = int(current_sample.split("of")[0])  # Parse the split index (e.g., 0of5 -> 0)
-                val_cell_line = hardest_cell_lines[split_index]  # Adjust for the current split
+        # row_colors = pd.DataFrame(
+        #     {
+        #         annotation: param_df[annotation].map(
+        #             {
+        #                 category: color
+        #                 for category, color in zip(
+        #                 sorted(param_df[annotation].unique()),
+        #                 sns.color_palette(palette, param_df[annotation].nunique())
+        #             )
+        #             }
+        #         )
+        #         for annotation, palette in zip(
+        #         ["PAM50", "LB", "HR_Status", "HER2_Status", "Site", "Disease", "MS_Status"],
+        #         ["deep", "viridis", "Blues", "Reds", "mako", "inferno", "plasma"]
+        #     )
+        #     },
+        #     index=param_df.index
+        # )
 
-                if val_cell_line in data.cell_line.values:
-                    idx = data.cell_line.tolist().index(val_cell_line)
-                    rect = patches.Rectangle(
-                        (0, idx),  # Bottom-left corner of the rectangle
-                        len(param_cols),  # Width of the rectangle (number of columns)
-                        1,  # Height of the rectangle (1 row)
-                        linewidth=2, edgecolor="gold", facecolor="none"
-                    )
-                    ax.add_patch(rect)
-            else:
-                # Highlight ALL validation cell-lines -- rectangle len(samples_val) high at the bottom of the heatmap
-                train_count = len(samples_train)
-                val_count = len(samples_val)
-
-                if val_count > 0:
-                    rect = patches.Rectangle(
-                        (0, train_count),  # Start at the first validation sample row
-                        len(param_cols),  # Full width of the heatmap
-                        val_count,  # Height covering all validation samples
-                        linewidth=2, edgecolor="gold", facecolor="none"
-                    )
-                    ax.add_patch(rect)
-
-        g = sns.FacetGrid(
-            param_df,
-            row="samples", row_order=sorted(param_df.samples.unique()),
-            col=top_reg_param, col_order=sorted(param_df[top_reg_param].unique()),
-            margin_titles=True, height=5, aspect=1.5
+        sns.clustermap(
+            data=df[
+                df[param_cols].abs().max()[lambda x: x > 0.0].index.tolist()
+            ],
+            # row_colors=row_colors,
+            col_cluster=True,
+            vmin=vmin,
+            vmax=vmax,
+            cmap="vlag",
+            xticklabels=True,
+            yticklabels=True,
+            figsize=(6, 12),
         )
-        g.map_dataframe(plot_heatmap_with_highlight, val_only=val_only)
-        g.fig.tight_layout()
-        plt.savefig(str(figure_filepath) + ".h" + figure_fmt)
+        # Create the legend handles
+        # legend_patches = []
+        # for annotation in row_colors.columns:
+        #     unique_categories = param_df[annotation].unique()
+        #     colors = row_colors[annotation].dropna().unique()
+        #
+        #     # Ensure alignment between unique categories and colors
+        #     category_color_map = dict(zip(unique_categories, colors))
+        #
+        #     # Create patches for legend
+        #     for category, color in category_color_map.items():
+        #         legend_patches.append(patches.Patch(color=color, label=f"{annotation}: {category}"))
+
+        # Plot the legend
+        # plt.legend(
+        #     handles=legend_patches,
+        #     loc="upper right",
+        #     bbox_to_anchor=(5, 1),
+        #     # ncol=1,
+        #     frameon=False,
+        #     fontsize=5
+        # )
+        figure_filepath.parent.mkdir(exist_ok=True, parents=True)
+        plt.tight_layout()
+        plt.savefig(str(figure_filepath) + f"_{samples}.pdf")
         plt.close()
-    elif plot_type == "clustermap":
-        samples = sorted(param_df.samples.unique())
-        reg_params = sorted(param_df[top_reg_param].unique())
-        # Plot individually - cannot assign ax to Clustermap, so incompatible with FacetGrid and subplots
-        for i, sample in enumerate(samples):
-            for j, reg_param in enumerate(reg_params):
-                subset = param_df[
-                    (param_df["samples"] == sample) & (param_df[top_reg_param] == reg_param)
-                    ].set_index("cell_line")
-                if subset.empty:
-                    continue
-                # for annotation in ["molecular_subtypes", "cellosaurus"]:
-                #     if annotation == "molecular_subtypes":
-                #         row_colors = pd.DataFrame({
-                #             sb_label: subset.index.map({
-                #                 cell_line: colours[subtypes[cell_line]]
-                #                 for cell_line in subtypes.keys()
-                #             })
-                #             for sb_label, colours, subtypes in zip(
-                #                 ["PAM50", "LB"],
-                #                 [colours_pam50, colours_lb],
-                #                 [subtypes_pam50, subtypes_lb]
-                #             )
-                #         }, index=subset.index)
-                #     else:
-                row_colors = pd.DataFrame(
-                    {
-                        annotation: subset[annotation].map(
-                            {
-                                category: color
-                                for category, color in zip(
-                                sorted(subset[annotation].unique()),
-                                sns.color_palette(palette, subset[annotation].nunique())
-                            )
-                            }
-                        )
-                        for annotation, palette in zip(
-                        ["PAM50", "LB", "HR_Status", "HER2_Status", "Site", "Disease", "MS_Status"],
-                        ["deep", "viridis", "Blues", "Reds", "mako", "inferno", "plasma"]
-                    )
-                    },
-                    index=subset.index
-                )
-                sns.clustermap(
-                    data=subset[param_cols],
-                    row_colors=row_colors,
-                    col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
-                    xticklabels=True, yticklabels=True,
-                )
-                # Create the legend handles
-                legend_patches = []
-                for annotation in row_colors.columns:
-                    unique_categories = subset[annotation].unique()
-                    colors = row_colors[annotation].dropna().unique()
-
-                    # Ensure alignment between unique categories and colors
-                    category_color_map = dict(zip(unique_categories, colors))
-
-                    # Create patches for legend
-                    for category, color in category_color_map.items():
-                        legend_patches.append(patches.Patch(color=color, label=f"{annotation}: {category}"))
-
-                # Plot the legend
-                plt.legend(
-                    handles=legend_patches,
-                    loc="upper right",
-                    bbox_to_anchor=(5, 1),
-                    # ncol=1,
-                    frameon=False,
-                    fontsize=5
-                )
-                plt.tight_layout()
-                plt.savefig(
-                    str(figure_filepath) + f".c.{sample}.{reg_param}" + figure_fmt
-                )
-                plt.close()
-                # for sb_label, subtypes, colours in zip(
-                #         ["PAM50", "LB"],
-                #         [subtypes_pam50, subtypes_lb],
-                #         [colours_pam50, colours_lb]):
-                #     sns.clustermap(
-                #         data=subset[param_cols],
-                #         row_colors=subset.index.map({
-                #             cell_line: colours[subtypes[cell_line]]
-                #             for cell_line in subtypes.keys()
-                #         }),
-                #         col_cluster=False, vmin=vmin, vmax=vmax, cmap="vlag",
-                #         xticklabels=True, yticklabels=True,
-                #     )
-                #     plt.tight_layout()
-                #     plt.savefig(
-                #         str(figure_filepath) + f".c.{sample}.{reg_param}.{sb_label}" + figure_fmt
-                #     )
-                #     plt.close()
 
 
-def random_forest_importance_plot(results_dfs: dict[str, pd.DataFrame], conf, save_or_show: str = "show"):
+def random_forest_importance_plot(
+    results_dfs: dict[str, pd.DataFrame], conf, save_or_show: str = "show"
+):
     plt.subplots(1, len(list(results_dfs.keys())), figsize=(14, 6))
 
     for ind, dataset in enumerate(["train", "val"]):
         plt.subplot(1, 2, ind + 1)
-        sns.barplot(data=results_dfs[dataset], x='features', y='importances')
-        plt.title(f'Feature Importances - {dataset}')
-        plt.xlabel('Features')
-        plt.ylabel('Importance')
+        sns.barplot(data=results_dfs[dataset], x="features", y="importances")
+        plt.title(f"Feature Importances - {dataset}")
+        plt.xlabel("Features")
+        plt.ylabel("Importance")
         xticks = plt.gca().get_xticks()
-        plt.xticks(xticks, rotation=90, labels=results_dfs[dataset]['features'])
+        plt.xticks(
+            xticks, rotation=90, labels=results_dfs[dataset]["features"]
+        )
 
     plt.tight_layout()
     if save_or_show == "show":
         plt.show()
     else:
         plt.savefig(
-            fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
+            fig_dir
+            / f"{conf.model}"
+            / f"{conf.data}"
+            / f"{conf.model}.{conf.data}.top_10_feature_importances.svg"
         )
     plt.close()
 
@@ -568,58 +535,95 @@ def random_forest_importance_plot(results_dfs: dict[str, pd.DataFrame], conf, sa
 def plot_rmse_val_cell_lines(df, conf, reg_param):
     g = sns.FacetGrid(
         df[df["sample"].isin(hardest_cell_lines)],
-        row="sample", row_order=hardest_cell_lines[:len(df.samples.unique())],
-        col=reg_param, col_order=sorted(df[reg_param].unique()),
+        row="sample",
+        row_order=hardest_cell_lines[: len(df.samples.unique())],
+        col=reg_param,
+        col_order=sorted(df[reg_param].unique()),
         hue="dataset",
-        sharex=True, sharey=True
+        sharex=True,
+        sharey=True,
     )
     g.map_dataframe(sns.histplot, x="rmse")
     plt.tight_layout()
     plt.legend()
-    figure_filepath = fig_dir / f"{conf.model}" / f"{conf.data}" / f"{conf.model}.{conf.data}.RMSE_top10train_by_cl.svg"
+    figure_filepath = (
+        fig_dir
+        / f"{conf.model}"
+        / f"{conf.data}"
+        / f"{conf.model}.{conf.data}.RMSE_top10train_by_cl.svg"
+    )
     if not figure_filepath.parent.exists():
         figure_filepath.parent.mkdir(parents=True)
     plt.savefig(figure_filepath)
 
 
-def plot_mse_param_dev_val_across_splits(diffs: pd.DataFrame, conf, context: str, reg_param: str):
+def plot_mse_param_dev_val_across_splits(
+    diffs: pd.DataFrame, conf, context: str, reg_param: str
+):
     g = sns.FacetGrid(
-        diffs, col="cell_line", col_order=hardest_cell_lines[:len(diffs.cell_line.unique())], hue="samples",
+        diffs,
+        col="cell_line",
+        col_order=hardest_cell_lines[: len(diffs.cell_line.unique())],
+        hue="samples",
     )
     # Disable auto legend handling and add to each subplot
-    g.map_dataframe(sns.lineplot, x=reg_param, y="MSE", marker='o', legend=False)
+    g.map_dataframe(
+        sns.lineplot, x=reg_param, y="MSE", marker="o", legend=False
+    )
     for ax in g.axes.flat:
         handles, labels = ax.get_legend_handles_labels()
         # Order labels in legend by CV number
-        sorted_pairs = sorted(zip(labels, handles), key=lambda x: int(x[0].split("of")[0]))
-        sorted_labels, sorted_handles = zip(*sorted_pairs) if sorted_pairs else ([], [])
+        sorted_pairs = sorted(
+            zip(labels, handles), key=lambda x: int(x[0].split("of")[0])
+        )
+        sorted_labels, sorted_handles = (
+            zip(*sorted_pairs) if sorted_pairs else ([], [])
+        )
         if sorted_handles:
             ax.legend(sorted_handles, sorted_labels, title="Samples")
     plt.tight_layout()
     plt.savefig(
-        fig_dir / conf.model / conf.data / f"{context}.param_dev_mse.vs.{reg_param}.pdf"
+        fig_dir
+        / conf.model
+        / conf.data
+        / f"{context}.param_dev_mse.vs.{reg_param}.pdf"
     )
     plt.close()
 
 
-def plot_param_dev_hist_min_max(param_dev_df: pd.DataFrame, reg_param: str, param_cols: list[str], conf, fig_name: str):
+def plot_param_dev_hist_min_max(
+    param_dev_df: pd.DataFrame,
+    reg_param: str,
+    param_cols: list[str],
+    conf,
+    fig_name: str,
+):
     for fig_label in ["single_jobs", "median"]:
         plt.subplots(param_dev_df[reg_param].nunique(), 1, sharex=True)
-        for i, reg_param_value in enumerate(sorted(param_dev_df[reg_param].unique())):
+        for i, reg_param_value in enumerate(
+            sorted(param_dev_df[reg_param].unique())
+        ):
             if fig_label == "single_jobs":
-                sub_df = param_dev_df[param_dev_df[reg_param] == reg_param_value][param_cols]
+                sub_df = param_dev_df[
+                    param_dev_df[reg_param] == reg_param_value
+                ][param_cols]
             elif fig_label == "median":
-                sub_df = param_dev_df[param_dev_df[reg_param] == reg_param_value].groupby(
-                    "cell_line"
-                )[param_cols].median().reset_index()[param_cols]
+                sub_df = (
+                    param_dev_df[param_dev_df[reg_param] == reg_param_value]
+                    .groupby("cell_line")[param_cols]
+                    .median()
+                    .reset_index()[param_cols]
+                )
             plt.subplot(param_dev_df.sparse_threshold_perc.nunique(), 1, i + 1)
-            plt.hist(sub_df.min(), label="min", color='blue')
-            plt.hist(sub_df.max(), label="max", color='orange')
+            plt.hist(sub_df.min(), label="min", color="blue")
+            plt.hist(sub_df.max(), label="max", color="orange")
             plt.title(reg_param_value)
         plt.legend()
         plt.tight_layout()
-        plt.savefig(str(fig_dir / conf.model / conf.data / fig_name) + f".vs_{reg_param}.{fig_label}.pdf")
-
+        plt.savefig(
+            str(fig_dir / conf.model / conf.data / fig_name)
+            + f".vs_{reg_param}.{fig_label}.pdf"
+        )
 
 
 def get_annotation_palette(hue_var: str) -> dict:
@@ -634,8 +638,11 @@ def get_annotation_palette(hue_var: str) -> dict:
     else:
         return {}  # fallback: let seaborn pick default palette
 
+
 # Plotting function factory
-def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: dict):
+def make_annotation_scatter(
+    hue_var: str, is_categorical: bool, context_limits: dict
+):
     def scatter(data, color, **kwargs):
         ax = plt.gca()
         context = data["context"].iloc[0]
@@ -647,15 +654,22 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
 
         # Split data
         data_missing = data[data[hue_var].isna()]
-        data_main = data[data[hue_var].notna() & (data["cell_line"] != hardest)]
-        hardest_data = data[(data["cell_line"] == hardest) & data[hue_var].notna()]
-        hardest_missing = data[(data["cell_line"] == hardest) & data[hue_var].isna()]
+        data_main = data[
+            data[hue_var].notna() & (data["cell_line"] != hardest)
+        ]
+        hardest_data = data[
+            (data["cell_line"] == hardest) & data[hue_var].notna()
+        ]
+        hardest_missing = data[
+            (data["cell_line"] == hardest) & data[hue_var].isna()
+        ]
 
         # 1. Plot missing data as gray dots
         if not data_missing.empty:
             sns.scatterplot(
                 data=data_missing,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 color="lightgray",
                 alpha=1.0,
                 edgecolor="black",
@@ -663,13 +677,14 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 s=20,
                 marker="X",
                 ax=ax,
-                legend=False
+                legend=False,
             )
 
         if not hardest_missing.empty:
             sns.scatterplot(
                 data=hardest_missing,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 color="lightgray",
                 alpha=1.0,
                 edgecolor="black",
@@ -677,7 +692,7 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 s=40,
                 marker="s",
                 ax=ax,
-                legend=False
+                legend=False,
             )
 
         # 2. Plot valid annotated points
@@ -685,7 +700,8 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
             palette = get_annotation_palette(hue_var)
             sns.scatterplot(
                 data=data_main,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 hue=hue_var,
                 palette=palette,
                 alpha=1.0,
@@ -693,11 +709,12 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 linewidth=0.3,
                 s=20,
                 ax=ax,
-                legend="auto"
+                legend="auto",
             )
             sns.scatterplot(
                 data=hardest_data,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 hue=hue_var,
                 palette=palette,
                 marker="s",
@@ -705,7 +722,7 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 linewidth=0.3,
                 s=40,
                 ax=ax,
-                legend="auto"
+                legend="auto",
             )
         else:
             vmin = data[hue_var].replace([np.inf, -np.inf], np.nan).min()
@@ -714,7 +731,8 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
             cmap = "coolwarm"
             sns.scatterplot(
                 data=data_main,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 hue=hue_var,
                 palette=cmap,
                 hue_norm=norm,
@@ -723,11 +741,12 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 linewidth=0.3,
                 s=20,
                 ax=ax,
-                legend=False
+                legend=False,
             )
             sns.scatterplot(
                 data=hardest_data,
-                x="L1", y="L2",
+                x="L1",
+                y="L2",
                 hue=hue_var,
                 palette=cmap,
                 hue_norm=norm,
@@ -736,7 +755,7 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                 linewidth=0.3,
                 s=40,
                 ax=ax,
-                legend=False
+                legend=False,
             )
 
         # Annotate all hardest
@@ -748,18 +767,18 @@ def make_annotation_scatter(hue_var: str, is_categorical: bool, context_limits: 
                     row["L2"].values[0] + 0.1,
                     cl,
                     fontsize=8,
-                    color="black"
+                    color="black",
                 )
 
         # Axis style
-        ax.axhline(0, color='black', lw=0.5)
-        ax.axvline(0, color='black', lw=0.5)
+        ax.axhline(0, color="black", lw=0.5)
+        ax.axvline(0, color="black", lw=0.5)
         ax.set_xlim(-L1_max * 1.1, L1_max * 1.1)
         ax.set_ylim(-L2_max * 1.1, L2_max * 1.1)
         ax.set_xticks([])
         ax.set_yticks([])
-        ax.set_xlabel('')
-        ax.set_ylabel('')
+        ax.set_xlabel("")
+        ax.set_ylabel("")
         ax.grid(False)
         for spine in ax.spines.values():
             spine.set_visible(False)

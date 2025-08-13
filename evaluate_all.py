@@ -1,13 +1,13 @@
 import os
 
 import fire
-import numpy as np
 import pandas as pd
 
 # import subprocess
 # import wandb
 from common import (
     CONTEXT_SET,
+    EVALUATE_ALL_CSVS,
     EVALUATION_EMBEDDING,
     EVALUATION_FULL_PARAMETERS,
     EVALUATION_PARAMETER_DEVIATIONS,
@@ -41,7 +41,7 @@ def process_reference(
     ref = pd.read_csv(
         EVALUATION_REFERENCE.format(
             **{
-                **conf.__dict__,
+                **conf.to_dict(),
                 "samples": samples,
                 "dataset": dataset,
             },
@@ -183,7 +183,7 @@ for samples in sorted(SPLITS):
                 pd.read_csv(
                     EVALUATION_REGRESSOR.format(
                         **{
-                            **conf.__dict__,
+                            **conf.to_dict(),
                             "samples": samples,
                             "dataset": dataset,
                             "context": ctxt,
@@ -210,10 +210,11 @@ for samples in sorted(SPLITS):
             ]:
                 avg_ps_df = rdf.copy()
                 avg_ps_df = avg_ps_df.assign(
-                    context=context, samples=samples, dataset=dataset, features="None"
-                ).replace(
-                    np.nan, "N/A"
-                )  # replace NaNs with "N/A" to avoid FutureWarning re. empty/NaN entries
+                    context=context,
+                    samples=samples,
+                    dataset=dataset,
+                    features="None",
+                )
                 avg_ps_dfs.append(avg_ps_df)
                 # Once appended, this can be deleted
                 del avg_ps_df
@@ -241,9 +242,19 @@ df = pd.concat(dfs, ignore_index=True)
 del dfs
 
 le_df = pd.concat(le_dfs, ignore_index=True)
+le_df.to_csv(
+    EVALUATE_ALL_CSVS.format(
+        model=conf.model, data=conf.data, filename="embeddings"
+    )
+)
 del le_dfs
 
 param_dev_df = pd.concat(param_dev_dfs, ignore_index=True)
+param_dev_df.to_csv(
+    EVALUATE_ALL_CSVS.format(
+        model=conf.model, data=conf.data, filename="param_devs"
+    )
+)
 del param_dev_dfs
 
 param_df = pd.concat(param_dfs, ignore_index=True)
@@ -266,7 +277,9 @@ reg_params = [
     "sparse_threshold_perc",
 ]
 num_unique_regs = [
-    len(df[df.ref == "DMM"][reg_param].unique()) for reg_param in reg_params
+    len(df[df.ref == "DMM"][reg_param].unique())
+    for reg_param in reg_params
+    if reg_param in df.columns
 ]
 reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
 

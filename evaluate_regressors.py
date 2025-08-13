@@ -1,24 +1,16 @@
 import warnings
-
-# test_samples,
-# training_samples,
 from dataclasses import replace
-from pathlib import Path
 from typing import List
 
 import fire
 import numpy as np
 import pandas as pd
 import petab
-from joblib import dump
 from sklearn.pipeline import Pipeline
 
 from common import (
     EVALUATION_REGRESSOR,
     FEATURES_OUTFILE,
-    REGR_FEATURES_TRAIN,
-    REGR_TRAINED_PIPELINE,
-    # Wildcards,
     fig_dir,
     pretrain_dir,
 )
@@ -231,40 +223,17 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     ]
 
     # Load output features
-    output_data_train, output_columns_train = load_data(
+    output_data_train, output_columns_train, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_train,
         features=None,
         **petab_base_files,
     )
-    output_data_val, _ = load_data(
+    output_data_val, _, _ = load_data(
         contextualization="cytof_dynamic",
         samples=samples_val,
         features=output_columns_train,
         **petab_base_files,
-    )
-
-    # Check whether the trained pipeline exists
-    trained_pipeline_file = Path(
-        REGR_TRAINED_PIPELINE.format(
-            model=conf.model,
-            data=conf.data,
-            samples=conf.samples,
-            mode=mode,
-            context=conf.context,
-            features=conf.features,
-        )
-    )
-
-    features_train_file = Path(
-        REGR_FEATURES_TRAIN.format(
-            model=conf.model,
-            data=conf.data,
-            samples=conf.samples,
-            mode=mode,
-            context=conf.context,
-            features=conf.features,
-        )
     )
 
     print(
@@ -275,9 +244,6 @@ for mode in ["linreg", "lasso", "elasticnet"]:
         output_data_train=output_data_train,
         pipeline_steps=[mode],
     )
-    trained_pipeline_file.parent.mkdir(exist_ok=True, parents=True)
-    dump(trained_pipeline, trained_pipeline_file)
-    dump(features_train, features_train_file)
 
     for dataset in ["train", "val"]:
         df = evaluate_standard_regression(
@@ -290,9 +256,7 @@ for mode in ["linreg", "lasso", "elasticnet"]:
             samples=input_features_dict[dataset].index,
             mode=mode,
             trained_pipeline=trained_pipeline,
-        ).assign(
-            features=conf.features
-        )
+        ).assign(features=conf.features)
 
         df.to_csv(
             EVALUATION_REGRESSOR.format(
@@ -315,6 +279,4 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     del (
         trained_pipeline,
         features_train,
-        trained_pipeline_file,
-        features_train_file,
     )

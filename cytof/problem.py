@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Tuple
 
 import amici
+import amici.petab.conditions
 import amici.pysb_import
 import pandas as pd
 import pypesto.objective
@@ -12,6 +13,7 @@ import pysb
 import pysb.export
 import sympy as sp
 
+from dmm.mechanistic_model import MechanisticModel
 from dmm.problem import ParameterBounds, Problem
 from dmm.training_helper_funcs import Chi2Objective
 
@@ -24,19 +26,13 @@ pathway_dir = base_dir
 logger = logging.getLogger("cytof_problem")
 
 BOUNDS = ParameterBounds(
-    kdeg=(-6, -1, "log10"),  # [1/[t]]
+    kdeg=(-4, 0, "log10"),  # [1/[t]]
     eq=(-4, 4, "log10"),  # [[c]]
-    kcat=(-4, 4, "log10"),  # [1/([t]*[c])]
-    kr=(-4, 4, "log10"),  # [-]
-    scale=(0, 3, "log10"),  # [1/[c]]
-    offset=(-2, 2, "log10"),  # [[c]]
-    weight=(-0.5, 0.5, "lin"),  # [-]
-    koff=(-3, 2, "log10"),  # [1/[t]]
-    kd=(-3, 3, "log10"),  # [[c]]
-    kw=(-4, 4, "log10"),  # [1/[c]]
-    tau=(-4, 2, "log10"),  # [t]
-    amp=(-4, 0, "log10"),  # [c]
-    p0=(-4, 0, "log10"),  # [c]
+    kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
+    scale=(-2, 3, "log10"),  # [1/[c]]
+    offset=(-4, 3, "log10"),  # [[c]]
+    kw=(-3, 3, "log10"),  # [1/[c]]
+    bact=(-5, 3, "log10"),  # [1]
 )
 
 
@@ -97,14 +93,9 @@ class CytofProblem(Problem):
         return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
-        model_file = pathway_dir / f"pw_{self.pathway_name}.py"
-        if not model_file.exists():
-            raise ValueError(
-                f"{self.pathway_name} is not a valid pathway name for this problem class. Please specify"
-                f" a valid name via the `pathway_name` keyword argument when instantiating the problem."
-            )
-        logger.debug(f"loading pathway from {model_file}")
-        model = amici.pysb_import.pysb_model_from_path(model_file)
+        mechanistic_model = MechanisticModel(self.model_name)
+
+        model = mechanistic_model.construct_pysb(self.model_name)
 
         pysb_dir.mkdir(exist_ok=True, parents=True)
         pysb_file = pysb_dir / f"{model.name}.py"
@@ -117,10 +108,10 @@ class CytofProblem(Problem):
     def apply_solver_settings(self, solver):
         solver.setMaxSteps(int(2e4))
         solver.setNewtonMaxSteps(int(100))
-        solver.setAbsoluteTolerance(1e-12)
+        solver.setAbsoluteTolerance(1e-10)
         solver.setRelativeTolerance(1e-10)
-        solver.setAbsoluteToleranceSteadyState(1e-12)
-        solver.setRelativeToleranceSteadyState(1e-12)
+        solver.setAbsoluteToleranceSteadyState(1e-6)
+        solver.setRelativeToleranceSteadyState(1e-6)
         solver.setNewtonStepSteadyStateCheck(True)
 
     def apply_objective_settings(self, objective, n_threads: int = 1):
@@ -172,15 +163,15 @@ class CytofProblem(Problem):
 
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
-            if self.pathway_name.startswith("EGFR"):
-                fp = list(e.fixedParameters)
+            fp = list(e.fixedParameters)
+            if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
                 fp[
                     amiobjective.amici_model.getFixedParameterIds().index(
                         "EGF_0"
                     )
                 ] = 0
-                e.fixedParametersPresimulation = tuple(fp)
-                e.t_presim = 15
+            e.fixedParametersPresimulation = tuple(fp)
+            e.t_presim = 15
 
     @staticmethod
     def load_preprocess_petab_tables(
