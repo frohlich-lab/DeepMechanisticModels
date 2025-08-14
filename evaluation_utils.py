@@ -46,7 +46,7 @@ from evaluation_plotting import (
     random_forest_importance_plot,
 )
 from stat_test import statistical_significance_test
-from training_configuration import HP_RUN_MODE, SPLITS
+from training_configuration import SPLITS
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -944,7 +944,7 @@ def aggregate_and_log(
     top_n_dmm_train = convert_dataframe_dtypes(top_n_dmm_train)
     # Plot and store
     # plot_rmse_val_cell_lines(top_n_results_by_cl, conf, top_reg_param)
-    by_cl_cond_obs.to_csv(outdir / "by_cl_cond_obs.csv")
+    by_cl_cond_obs.to_csv(outdir / f"by_cl_cond_obs_{conf.figure}.csv")
     # Average over jobs, then over CV splits and get top (1) configuration per context based on validation performance
     top_n_dmm_train_cv = (
         top_n_dmm_train.groupby(config_cols)
@@ -970,7 +970,7 @@ def aggregate_and_log(
             .groupby("context")
             .head(1)
         )
-        best_configs_dmm.to_csv(outdir / f"top1_best_dmm_{HP_RUN_MODE}.csv")
+        best_configs_dmm.to_csv(outdir / f"top1_best_dmm_{conf.figure}.csv")
 
         # Get the top 10 jobs corresponding to best validation config
         best_configs_dmm_jobs = (
@@ -1004,11 +1004,11 @@ def aggregate_and_log(
         data,
     ]
     evaluation_tags = [
-        "evaluate_all",
+        f"evaluate_all_{conf.figure}",
     ]
     if return_stat_tests:
         evaluation_dfs.append(stat_test_res_df)
-        evaluation_tags.append("stat_tests_all")
+        evaluation_tags.append(f"stat_tests_all_{conf.figure}")
     for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
         # Save dataframes to CSV
         evaluation_df.to_csv(outdir / f"{evaluation_tag}.csv")

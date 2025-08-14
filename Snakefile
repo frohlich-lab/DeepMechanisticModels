@@ -11,7 +11,7 @@ from common import (
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
     EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
-    CONTEXT_SET, FEATURES_SET, SafeDict,
+    SafeDict,
     fig_dir
 )
 from generate_run_configs import generate_run_configs
@@ -335,7 +335,7 @@ rule evaluate_all:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        ) + ' --n_starts={N_STARTS}'
+        ) + ' --n_starts={N_STARTS} --figure={FIGURE}'
 
 
 
@@ -355,7 +355,7 @@ rule report_all:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        )
+        ) + ' --figure={FIGURE}'
 
 rule train_and_evaluate:
     input:
@@ -365,20 +365,21 @@ rule train_and_evaluate:
          )
 
 
-# Only run references and regressors + whole data processing, feature selection, etc.
-rule evaluate_baselines:
-    input:
-         evaluation=expand(
-             rules.evaluate_references.output.csv,
-             model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS, samples=SPLITS,
-         ) + expand(
-             rules.evaluate_regressors.output.csv,
-             model=PATHWAYS_BY_FIGURE[FIGURE],
-             data=DATASETS,
-             samples=SPLITS,
-             context=CONTEXTS_FEATURES_BY_FIGURE[FIGURE],
-             features=FEATURES_SET,
-         )
+# # Only run references and regressors + whole data processing, feature selection, etc.
+# rule evaluate_baselines:
+#     input:
+#          evaluation=expand(
+#              rules.evaluate_references.output.csv,
+#              model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS, samples=SPLITS,
+#          ) + expand(
+#              rules.evaluate_regressors.output.csv,
+#              model=PATHWAYS_BY_FIGURE[FIGURE],
+#              data=DATASETS,
+#              samples=SPLITS,
+#              context=[c for c, _ in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
+#              features=[f for _, f in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
+#              zip_keys=["context", "features"]
+#          )
 
 
 ruleorder: pretrain_average_model > pretrain_per_sample

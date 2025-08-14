@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 
-from common import CONTEXT_SET, EVALUATE_ALL, fig_dir, hardest_cell_lines
+from common import EVALUATE_ALL, fig_dir, hardest_cell_lines
 
 # subtypes_pam50 = {cl: subtypes_tognetti[cl]["PAM50"] for cl in subtypes_tognetti.keys()}
 # subtypes_lb = {cl: subtypes_tognetti[cl]["Luminal/Basal"] for cl in subtypes_tognetti.keys()}
@@ -169,7 +169,7 @@ def performance_barplot(
         row="dataset",  # top: train, bottom: test
         col="context",  # columns: cytof_init, proteomics, transcriptomics
         row_order=("train", "test"),
-        col_order=sorted(CONTEXT_SET),
+        col_order=sorted(dataframe.context.unique()),
     )
 
     g.map_dataframe(
@@ -245,11 +245,11 @@ def volcano_hyperparameter_significance(
 
 
 def n_hidden_pairwise_heatmap(dataframe: pd.DataFrame, conf):
-    num_contexts = len(CONTEXT_SET)
+    num_contexts = len(dataframe.context.unique())
     plt.subplots(num_contexts, 2, figsize=(12, num_contexts * 4))
     plt.subplots_adjust(wspace=0.5, hspace=0.25)
     index = 1
-    for context in CONTEXT_SET:
+    for context in sorted(dataframe.context.unique()):
         plt.subplot(num_contexts, 2, index)
         ax = sns.heatmap(
             dataframe[dataframe.context == context][

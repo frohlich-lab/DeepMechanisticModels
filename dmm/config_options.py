@@ -66,6 +66,7 @@ class Conf(dict):
     threads: int = 1
     n_starts: int = None
     date_tag: str = None
+    figure: str = None
 
     def to_dict(self) -> dict:
         """
@@ -127,6 +128,7 @@ class Conf(dict):
             "threads",
             "n_starts",
             "date_tag",
+            "figure",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
