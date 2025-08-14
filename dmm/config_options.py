@@ -65,7 +65,6 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
-    run_mode_tag: str = None
     date_tag: str = None
 
     def to_dict(self) -> dict:
@@ -127,7 +126,6 @@ class Conf(dict):
             "use_early_stopping",
             "threads",
             "n_starts",
-            "run_mode_tag",
             "date_tag",
         ]
 

@@ -516,16 +516,16 @@ MOMENTUM = {
 }
 
 NEPOCH = {
-    "range": (1000,),
-    "central_value": 1000,
+    "range": (500,),
+    "central_value": 500,
 }
 
 INFLATER_BOUND = {
     "range": (
-        2,
+        # 2,
         3,
-        4,
-        5,
+        # 4,
+        # 5,
     ),
     "central_value": 3,
 }
@@ -556,16 +556,80 @@ MIN_IMPROVEMENT = 0
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
 
-# Type of run
-HP_RUN_MODE = "linear_scans"
-
-# If HP_RUN_MODE = 'refined_tuning', need to specify REFINE_HPS
-# can use options above and simply pack it into a dictionary
-# If not, leave None
-REFINE_HPS = None
-# REFINE_HPS = {
-#     "use_early_stopping": USE_EARLY_STOP,
-#     "last_layer_activation": LAST_LAYER_ACTIVATION,
-# }
-
 SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters
+
+
+# Figure 1A
+CONTEXTS_FEATURES_1A = [
+    ("cytof_init", "RFE_10_permute"),
+    ("proteomics", "HVGRFE_10_permute"),
+    ("transcriptomics", "HVGRFE_10_permute"),
+    ("multimodal", "best_RFE_10_permute"),
+    ("multimodal", "RFE_10_permute"),
+]
+
+PATHWAYS_1A = (
+    [
+        "EGFR_MAPK__logobs",
+    ]
+)
+
+
+# Figure 1B
+CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
+
+PATHWAYS_1B = PATHWAYS_1A
+
+
+# Figure 2
+CONTEXTS_FEATURES_2 = [
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_tEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+]
+
+PATHWAYS_2 = (
+    [
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_fegfr_aggavg",
+    ]
+)
+
+
+# Figure 3
+CONTEXTS_FEATURES_3 = [
+    ("cytof_init", "RFE_10_permute"),
+]
+
+PATHWAYS_3 = (
+    [
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr_aggavg",  # or do we want _pobs? Does that help?
+    ]
+)
+
+
+# Master Suite for figures
+CONTEXTS_FEATURES_BY_FIGURE = {
+    "default": CONTEXTS_FEATURES,
+    "figure1a": CONTEXTS_FEATURES_1A,
+    "figure1b": CONTEXTS_FEATURES_1B,
+    "figure2": CONTEXTS_FEATURES_2,
+    "figure3": CONTEXTS_FEATURES_3,
+}
+
+PATHWAYS_BY_FIGURE = {
+    "default": PATHWAYS,
+    "figure1a": PATHWAYS_1A,
+    "figure1b": PATHWAYS_1B,
+    "figure2": PATHWAYS_2,
+    "figure3": PATHWAYS_3,
+}
+
+SELECT_CENTRAL_VALUES_BY_FIGURE = {
+    "default": False,  # ML param scans
+    "figure1a": True,
+    "figure1b": False,  # ML param scans
+    "figure2": True,
+    "figure3": True,
+}
