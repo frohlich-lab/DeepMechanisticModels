@@ -4,6 +4,7 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
+import re
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import KNNImputer
 from sklearn.inspection import permutation_importance
@@ -348,35 +349,67 @@ def get_selected_features(
 def build_context_feature_recipe(conf) -> list:
     """
     Returns a list of (context, feature_spec) describing the desired stack.
-    New combos:
-      - cytof_init_plus_tEGFR: cytof_init + transcriptomics EGFR only
-      - cytof_init_plus_pEGFR: cytof_init + proteomics EGFR only
-    Keeps existing 'multimodal' behaviors (including 'optimal' and 'best_RFE_*').
-    """
-    if conf.context == "cytof_init_plus_tEGFR":
-        return [("cytof_init", conf.features), ("transcriptomics", "genes:EGFR")]
-    if conf.context == "cytof_init_plus_pEGFR":
-        return [("cytof_init", conf.features), ("proteomics", "genes:EGFR")]
 
-    if conf.context == "multimodal":
+    Supports dynamic patterns like:
+      - cytof_init_plus_tEGFR                 -> cytof_init + transcriptomics [EGFR]
+      - cytof_init_plus_pEGFR                 -> cytof_init + proteomics [EGFR]
+      - cytof_init_plus_tEGFR_tERBB2          -> cytof_init + transcriptomics [EGFR, ERBB2]
+      - cytof_init_plus_tEGFR_pERBB2          -> cytof_init + transcriptomics [EGFR] + proteomics [ERBB2]
+
+    The suffix after `cytof_init_plus_` is underscore-separated tokens of the
+    form `[t|p]<GENE>`, where `t` = transcriptomics, `p` = proteomics.
+
+    Keeps existing 'multimodal' behaviors (including 'optimal' and 'best_RFE_*').
+    Falls back to single-context otherwise.
+    """
+    ctx = conf.context
+
+    # Generalized "cytof_init_plus_" parser
+    if isinstance(ctx, str) and ctx.startswith("cytof_init_plus_"):
+        suffix = ctx[len("cytof_init_plus_"):]
+        tokens = [tok for tok in suffix.split("_") if tok]
+
+        genes_by_modality = {"transcriptomics": [], "proteomics": []}
+        for tok in tokens:
+            m = re.fullmatch(r"([tp])([A-Za-z0-9_]+)", tok)
+            if not m:
+                # Ignore unknown tokens; switch to ValueError if you prefer strictness
+                continue
+            which, gene = m.groups()
+            modality = "transcriptomics" if which == "t" else "proteomics"
+            genes_by_modality[modality].append(gene)
+
+        recipe = [("cytof_init", conf.features)]
+        if genes_by_modality["transcriptomics"]:
+            recipe.append(
+                ("transcriptomics", "genes:" + ",".join(genes_by_modality["transcriptomics"]))
+            )
+        if genes_by_modality["proteomics"]:
+            recipe.append(
+                ("proteomics", "genes:" + ",".join(genes_by_modality["proteomics"]))
+            )
+        return recipe
+
+    # Existing multimodal semantics
+    if ctx == "multimodal":
         if conf.features == "optimal":
             return [
                 ("cytof_init", "RFE_10_permute"),
                 ("proteomics", "HVGRFE_20_permute"),
                 ("transcriptomics", "HVGRFE_15_permute"),
             ]
-        if conf.features.startswith("best_RFE_"):
-            # Pre-filter proteomics/transcriptomics with HVG then do a single global RFE
+        if isinstance(conf.features, str) and conf.features.startswith("best_RFE_"):
+            # HVG prefilter then global RFE on concatenated inputs
             return [
                 ("cytof_init", "all"),
                 ("proteomics", "HVG_all"),
                 ("transcriptomics", "HVG_all"),
             ]
-        # Plain multimodal with same spec across contexts
+        # Plain multimodal, add HVG on omics unless already requested
         return [
             ("cytof_init", conf.features),
-            ("proteomics", conf.features),
-            ("transcriptomics", conf.features),
+            ("proteomics", "HVG" + conf.features if "HVG" not in conf.features else conf.features),
+            ("transcriptomics", "HVG" + conf.features if "HVG" not in conf.features else conf.features),
         ]
 
     # Single-context fallback
