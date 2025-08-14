@@ -7,10 +7,8 @@ import amici.logging
 import amici.petab.parameter_mapping
 import fides
 import fire
-import matplotlib.pyplot as plt
 import numpy as np
 from pypesto.optimize import FidesOptimizer
-from pypesto.visualize import parameters, waterfall
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
@@ -91,10 +89,3 @@ pars_file = Path(
     )
 )
 store_and_plot_pretraining(result, pfile=pars_file, rfile=results_file)
-parameters(result)
-plt.tight_layout()
-plt.savefig("parameters_avg.pdf")
-
-waterfall(result, scale_y="lin")
-plt.tight_layout()
-plt.savefig("waterfall_avg.pdf")
