@@ -164,14 +164,15 @@ class CytofProblem(Problem):
         for e in amiobjective.edatas:
             e.reinitializeFixedParameterInitialStates = True
             fp = list(e.fixedParameters)
-            if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
-                fp[
-                    amiobjective.amici_model.getFixedParameterIds().index(
-                        "EGF_0"
-                    )
-                ] = 0
-            e.fixedParametersPresimulation = tuple(fp)
-            e.t_presim = 15
+            if "__" in e.id.split("+")[0]:
+                if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
+                    fp[
+                        amiobjective.amici_model.getFixedParameterIds().index(
+                            "EGF_0"
+                        )
+                    ] = 0
+                e.fixedParametersPresimulation = tuple(fp)
+                e.t_presim = 15
 
     @staticmethod
     def load_preprocess_petab_tables(
