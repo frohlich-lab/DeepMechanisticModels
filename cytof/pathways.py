@@ -1,9 +1,9 @@
-active_rtks = [
+active_rtks = (
     "EGFR__Y1173_p",
     "ERBB2__Y1248_p",
-]
-rtk_feedback = ["ERK__Y204_p"]
-active_akt = ["AKT__T308_p"]
+)
+rtk_feedback = ("ERK__Y204_p",)
+active_akt = ("AKT__T308_p",)
 
 
 def add_egfr(model):
@@ -49,24 +49,31 @@ def add_egfr(model):
 
 
 def add_mapk(model):
-    mek_activators = [*active_rtks]
+    mek_activators = list(active_rtks)
     for mut in ["KRAS", "BRAF"]:
         if model.has_modification(f"m{mut.lower()}"):
             par = f"m_{mut}"
             model.parameters.add(par)
             mek_activators.append(par)
-    model.pathway_elements["MEK"] = {"S222": (mek_activators, rtk_feedback)}
+
+    model.pathway_elements["RAS"] = {
+        "GTP": (mek_activators, ["iRAS_0"]),
+    }
+
+    model.pathway_elements["MEK"] = {
+        "S222": (mek_activators, list(rtk_feedback))
+    }
     model.pathway_elements["ERK"] = {
         "Y204": (["MEK__S222_p", *active_rtks], ["iMEK_0"])
     }
-    model.pathway_elements["RPS6KA1"] = {"S380": ["ERK__Y204_p", *active_rtks]}
+    model.pathway_elements["RPS6KA1"] = {"S380": ["ERK__Y204_p"]}
     model.delays["MEK_S222"] = 3
 
 
 def add_mtor_akt(model):
-    # AKT
+    # https://doi.org/10.4161/trla.28174
     model.pathway_elements["PDPK1"] = {
-        "S241": (active_rtks, ["iPI3K", *rtk_feedback])
+        "S241": (list(active_rtks), ["iPI3K_0", *rtk_feedback])
     }
     model.pathway_elements["AKT"] = {
         "T308": ["PDPK1__S241_p"],
@@ -91,6 +98,37 @@ def add_mtor_akt(model):
     #     [],
     #     site_states=["c0", "c1"],
     # )
+
+
+def add_p38(model):
+    mkk_activators = list(active_rtks)
+    for mut in ["KRAS"]:
+        if model.has_modification(f"m{mut.lower()}"):
+            par = f"m_{mut}"
+            model.parameters.add(par)
+            mkk_activators.append(par)
+    model.pathway_elements["MKK4"] = {
+        "S257": (list(active_rtks), list(rtk_feedback))
+    }
+    model.pathway_elements["MKK36"] = {
+        "S218": (mkk_activators, list(rtk_feedback))
+    }
+    model.pathway_elements["p38"] = {
+        "T180": [
+            "MKK4__S257_p",
+            "MKK36__S218_p" * active_rtks,
+        ],
+    }
+    # add P38 as MEK inhibitor (https://doi.org/10.1016/j.cellsig.2005.05.023)
+    model.pathway_elements["MEK"]["S222"][1].append("p38__T180_p")
+    # add P38 as ERK inhibitor (https://doi.org/10.1039/D2CB00157H)
+    model.pathway_elements["ERK"]["Y204"][1].append("p38__T180_p")
+    # model.pathway_elements["JNK"] = {
+    #     "T183": ["MKK4__S257_p", "MKK36__S218_p"],
+    # }
+    model.pathway_elements["MAPKAPK2"] = {"T334": ["p38__T180_p"]}
+    # add MAPKAPK2 as RPS6KA1 activator
+    model.pathway_elements["RPS6KA1"]["S380"].append("MAPKAPK2__T334_p")
 
 
 def add_stat(model):

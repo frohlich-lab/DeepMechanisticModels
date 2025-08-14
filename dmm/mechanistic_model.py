@@ -14,23 +14,21 @@ from pysb import (
     Rule,
 )
 
-from cytof.pathways import add_egfr, add_mapk, add_mtor_akt
+from cytof.pathways import add_egfr, add_mapk, add_mtor_akt, add_p38
 
 
 class MechanisticModel:
-    pysb_model: Model
-
-    species_with_synth: list[str] = []
-    species_with_free_levels: list[str] = []
-    pathway_elements: dict[str, dict] = {}
-    delays: dict[str, int] = {}
-    require_phosphorylation: dict[str, str] = {}
-    require_compartment: dict[str, str] = {}
-    parameters: set[str] = set()
-    components: tuple[str, ...] = ()
-    modifications: tuple[str, ...] = ()
-
     def __init__(self, model_name: str):
+        self.species_with_synth: list[str] = []
+        self.species_with_free_levels: list[str] = []
+        self.pathway_elements: dict[str, dict] = {}
+        self.delays: dict[str, int] = {}
+        self.require_phosphorylation: dict[str, str] = {}
+        self.require_compartment: dict[str, str] = {}
+        self.parameters: set[str] = set()
+        self.components: tuple[str, ...] = ()
+        self.modifications: tuple[str, ...] = ()
+
         self.components = tuple(model_name.split("__")[0].split("_"))
         if "__" in model_name:
             self.modifications = tuple(model_name.split("__")[1].split("_"))
@@ -43,6 +41,9 @@ class MechanisticModel:
 
         if "AKT" in self.components:
             add_mtor_akt(self)
+
+        if "P38" in self.components:
+            add_p38(self)
 
     def construct_pysb(self, model_name):
         pysb_model = Model(model_name)

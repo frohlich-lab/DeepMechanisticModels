@@ -480,11 +480,7 @@ def build_condition_table(
 
     # ignore "full" for now
     condition_table = condition_table.loc[
-        condition_table[petab.CONDITION_ID].apply(
-            lambda x: ("full" not in x)
-            and ("iPI3K" not in x or "iPI3K_0" in model.parameters.keys())
-            and ("iPKC" not in x or "iPKC_0" in model.parameters.keys())
-        ),
+        condition_table[petab.CONDITION_ID].apply(lambda x: ("full" not in x)),
         :,
     ]
 
