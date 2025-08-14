@@ -592,6 +592,7 @@ PATHWAYS_2 = (
     [
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_fegfr_aggavg",
+        "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
     ]
 )
 
@@ -604,7 +605,8 @@ CONTEXTS_FEATURES_3 = [
 PATHWAYS_3 = (
     [
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_tegfr_aggavg",  # or do we want _pobs? Does that help?
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
     ]
 )
 
