@@ -139,7 +139,8 @@ def init_wandb(
         # v49: refactored model
         # v50: code refactor, scan inflater output reg
         # v51: output reg + inflater bound scan
-        project=f"DeepMechanisticModels.v51.{conf.data}",
+        # v52: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model)
+        project=f"DeepMechanisticModels.v52.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
