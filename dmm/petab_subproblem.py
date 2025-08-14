@@ -124,10 +124,11 @@ def load_petab(
             # dynamic cytof data
             measurement_table[petab.SIMULATION_CONDITION_ID]
             != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID],
-            # proteomics
+            # proteomics for pobs
             measurement_table[petab.OBSERVABLE_ID].str.startswith(
                 ("tEGFR_obs",)
-            ),
+            )
+            & (measurement_table["measurementType"] == "proteomics"),
         )
     ]
 
