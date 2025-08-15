@@ -91,7 +91,7 @@ subtypes_her2 = {
 
 # Compute run configurations and arrange by CV split
 hyperparam_configs = generate_run_configs(
-    contexts_features=CONTEXT_SET,
+    contexts_features=CONTEXTS_FEATURES_BY_FIGURE[conf.figure],
     n_starts=conf.n_starts,
     select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[conf.figure],
 )
@@ -179,7 +179,7 @@ for samples in sorted(SPLITS):
 
         # Process regressors - linreg, lasso, elasticnet
         regressor_dfs = {
-            mode: pd.concat(
+            mode: pd.concat([
                 pd.read_csv(
                     EVALUATION_REGRESSOR.format(
                         **{
@@ -193,8 +193,8 @@ for samples in sorted(SPLITS):
                     ),
                     index_col=0,
                 ).assign(features=features)
-                for ctxt, features in CONTEXTS_FEATURES_BY_FIGURE[conf.figure],
-            ).assign(ref=mode, samples=samples, dataset=dataset)
+                for ctxt, features in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]
+            ]).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
         }
         print(f"Finished processing regressors for {samples}, {dataset}")
