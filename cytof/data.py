@@ -29,7 +29,7 @@ SYNAPSE_FILES = [
     "syn20613696",  # HCC1419
     "syn20613702",  # HCC1500
     "syn20613708",  # HCC1569
-    # "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
+    "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
     "syn20613719",  # HCC1937
     "syn20613739",  # HCC1954
     "syn20613793",  # HCC2157
@@ -208,6 +208,7 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     syn.login()
     files = SYNAPSE_FILES
     mean_data = []
+    min_data = []
     std_data = []
     group_ids = [
         "treatment",
@@ -260,10 +261,11 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 c for c in data.columns if c not in group_ids + ["cellID"]
             ]
             m = data[markers].mean()
+            n = data[markers].min()
             # std = data[markers].std()
             # Create a Series of ones for std with same index (i.e., same markers) -- same weight
             std = pd.Series(1.0, index=m.index)
-            for sdf in [m, std]:
+            for sdf in [m, std, n]:
                 sdf["treatment"] = ids[0]
                 sdf["cell_line"] = ids[1]
                 sdf["time"] = ids[2]
@@ -271,12 +273,17 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 sdf["date"] = ids[4]
                 sdf["time_course"] = ids[5]
             mean_data.append(m)
+            min_data.append(n)
             # std[std.isna()] = 1.0
             std_data.append(std)
 
     d = {
         desc: pd.concat(data, axis=1).T
-        for desc, data in (("mean", mean_data), ("std", std_data))
+        for desc, data in (
+            ("mean", mean_data),
+            ("std", std_data),
+            ("min", min_data),
+        )
     }
     id_vars = [
         "cell_line",

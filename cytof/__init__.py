@@ -21,7 +21,7 @@ def get_samples(data_name):
             "cHCC1419",
             "cHCC1500",
             "cHCC1569",
-            # "cHCC1599", outlier
+            "cHCC1599",  # outlier
             "cHCC1937",
             "cHCC1954",
             # "cHCC2157", no transcriptomic data
