@@ -365,7 +365,7 @@ DELTAS = {
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
     "range": (
-        0,
+        # 0,
         1e-4,
     ),
     "central_value": 1e-4,
@@ -581,18 +581,35 @@ CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
 PATHWAYS_1B = PATHWAYS_1A
 
 
-# Figure 2
-CONTEXTS_FEATURES_2 = [
+# Figure 2A
+CONTEXTS_FEATURES_2A = [
     ("cytof_init", "RFE_10_permute"),
     ("cytof_init_plus_tEGFR", "RFE_10_permute"),
     ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
 ]
 
-PATHWAYS_2 = (
+PATHWAYS_2A = (
     [
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_fegfr_aggavg",
         "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
+    ]
+)
+
+# Figure 2B
+CONTEXTS_FEATURES_2B = [
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_tERBB2", "RFE_10_permute"),
+    ("cytof_init_plus_pERBB2", "RFE_10_permute"),
+    ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
+]
+
+PATHWAYS_2B = (
+    [
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_ferbb2_aggavg",
+        "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
     ]
 )
 
@@ -616,7 +633,8 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "default": CONTEXTS_FEATURES,
     "figure1a": CONTEXTS_FEATURES_1A,
     "figure1b": CONTEXTS_FEATURES_1B,
-    "figure2": CONTEXTS_FEATURES_2,
+    "figure2a": CONTEXTS_FEATURES_2A,
+    "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
 }
 
@@ -624,7 +642,8 @@ PATHWAYS_BY_FIGURE = {
     "default": PATHWAYS,
     "figure1a": PATHWAYS_1A,
     "figure1b": PATHWAYS_1B,
-    "figure2": PATHWAYS_2,
+    "figure2a": PATHWAYS_2A,
+    "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
 }
 
@@ -632,6 +651,7 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "default": False,  # ML param scans
     "figure1a": True,
     "figure1b": False,  # ML param scans
-    "figure2": True,
+    "figure2a": True,
+    "figure2b": True,
     "figure3": True,
 }
