@@ -179,7 +179,7 @@ def sort_features(
     # extract sample names, ordering of those is important since samples
     # must match when reshaping the inflated matrix
     if pypesto_problem is None:
-        return features
+        return features.values
     ref_par = pypesto_problem.x_names[0].replace(MEDIAN_FEATURE_PREFIX, "")
     samples = [
         par.split("__")[-1]
