@@ -169,6 +169,7 @@ def init_wandb(
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
             conf.date_tag,  # label experiment with date of experiment start
+            conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
         ],
         mode="online",
     )

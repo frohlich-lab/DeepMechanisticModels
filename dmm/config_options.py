@@ -65,6 +65,7 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
+    run_mode_tag: str = None
     date_tag: str = None
 
     def to_dict(self) -> dict:
