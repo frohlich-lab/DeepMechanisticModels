@@ -154,11 +154,12 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "MCF7",
-    "BT20",
-    "HCC1500",
-    "EVSAT",
-    "UACC3199",
+    "all",
+    # "MCF7",
+    # "BT20",
+    # "HCC1500",
+    # "EVSAT",
+    # "UACC3199",
 }
 
 STANDARDISE_FEATURES = {
