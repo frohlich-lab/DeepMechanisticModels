@@ -1,6 +1,6 @@
 import warnings
 from dataclasses import replace
-from typing import List
+from pathlib import Path
 
 import fire
 import numpy as np
@@ -32,10 +32,13 @@ def evaluate_standard_regression(
     output_data: pd.DataFrame,
     dataset: str,
     conf: Conf,
-    samples: List,
+    samples: list,
     mode: str,  # 'linreg', 'lasso', 'elasticnet'
     trained_pipeline: Pipeline,
 ) -> pd.DataFrame:
+    if not len(input_data):
+        return pd.DataFrame([])
+
     # Check the regressors have been trained
     if trained_pipeline is None:
         raise ValueError("No trained_pipeline provided for this regressor!")
@@ -46,7 +49,7 @@ def evaluate_standard_regression(
     # Finally drop index and rename column from 0 to 'simulation' to use in process_simulation()
     reg_pred = (
         pd.DataFrame(
-            trained_pipeline.predict(input_data),
+            trained_pipeline.predict(input_data) if len(input_data) else [],
             index=output_data.index,
             columns=output_data.columns,
         )
@@ -258,7 +261,7 @@ for mode in ["linreg", "lasso", "elasticnet"]:
             trained_pipeline=trained_pipeline,
         ).assign(features=conf.features)
 
-        df.to_csv(
+        file = Path(
             EVALUATION_REGRESSOR.format(
                 model=conf.model,
                 data=conf.data,
@@ -269,12 +272,15 @@ for mode in ["linreg", "lasso", "elasticnet"]:
                 features=conf.features,
             )
         )
+        file.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(file)
 
         # Added printout of RMSE on train/val datasets for each regressor (mode)
-        rmse = np.sqrt(np.mean(np.square(df["res"])))
-        print(
-            f"RMSE for {mode} on {conf.samples}, {conf.context}, {dataset}, using {conf.features} features = {rmse}"
-        )
+        if "res" in df.columns:
+            rmse = np.sqrt(np.mean(np.square(df["res"])))
+            print(
+                f"RMSE for {mode} on {conf.samples}, {conf.context}, {dataset}, using {conf.features} features = {rmse}"
+            )
 
     del (
         trained_pipeline,
