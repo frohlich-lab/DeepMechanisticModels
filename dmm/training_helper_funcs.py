@@ -576,6 +576,8 @@ def compute_simulation_from_model(
 
 
 def rmse(pp, model: DeepMechanisticModel, input_data: np.ndarray):
+    if pp is None:
+        return np.nan
     try:
         simulation_df, petab_problem = compute_simulation_from_model(
             pp=pp,

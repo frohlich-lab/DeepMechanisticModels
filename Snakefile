@@ -34,9 +34,9 @@ DATE_TAG = str(datetime.date.today())
 
 singularity: "docker://fabfroehlich/generic_parameter_estimation:main"
 
-# envvars:
-#     "SYNAPSE_AUTH_TOKEN",
-#     "WANDB_API_KEY"
+envvars:
+    "SYNAPSE_AUTH_TOKEN",
+    "WANDB_API_KEY"
 
 
 rule load_data:
