@@ -371,10 +371,7 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (
-        0,
-        1e-4,
-    ),
+    "range": (1e-4,),
     "central_value": 1e-4,
 }
 
@@ -528,12 +525,7 @@ NEPOCH = {
 }
 
 INFLATER_BOUND = {
-    "range": (
-        2,
-        3,
-        4,
-        5,
-    ),
+    "range": (3,),
     "central_value": 3,
 }
 
