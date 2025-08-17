@@ -139,7 +139,8 @@ def init_wandb(
         # v49: refactored model
         # v50: code refactor, scan inflater output reg
         # v51: output reg + inflater bound scan
-        project=f"DeepMechanisticModels.v51.{conf.data}",
+        # v54: p38 model
+        project=f"DeepMechanisticModels.v54.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
@@ -167,7 +168,6 @@ def init_wandb(
         tags=[
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
-            conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
             conf.date_tag,  # label experiment with date of experiment start
         ],
         mode="online",

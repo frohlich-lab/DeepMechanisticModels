@@ -354,6 +354,8 @@ samples_val = {
     split: sorted(val_samples(Wildcards(conf.data, split)))
     for split in sorted(SPLITS)
 }
+samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all")))
+samples_val["all"] = []
 
 
 # Handle multimodality
@@ -410,11 +412,12 @@ for context in contexts:
         index=input_train.index,
         columns=input_train.columns,
     )
-    input_val = pd.DataFrame(
-        imputer_input.transform(input_val),
-        index=input_val.index,
-        columns=input_val.columns,
-    )
+    if len(input_val):
+        input_val = pd.DataFrame(
+            imputer_input.transform(input_val),
+            index=input_val.index,
+            columns=input_val.columns,
+        )
 
     mean_train = input_train.mean()
     input_train -= mean_train

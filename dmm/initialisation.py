@@ -60,7 +60,7 @@ def process_features_and_setup_models(
 ) -> tuple[
     DeepMechanisticModel,
     CytofProblem,
-    dict[str, pypesto.Problem],
+    dict[str, pypesto.Problem | None],
     dict[str, pd.DataFrame],
 ]:
     problem = CytofProblem(conf.model)
@@ -84,11 +84,15 @@ def process_features_and_setup_models(
     pypesto_problems = {}
     for dataset in datasets:
         features_dataset = features[dataset]
+        samples = list(features_dataset.index)
+        if not samples:
+            pypesto_problems[dataset] = None
+            continue
         petab_importer = load_petab(
             problem=problem,
             dataset=conf.data,
             **petab_base_files,
-            samples=list(features_dataset.index),
+            samples=samples,
         )
         factory = petab_importer.create_objective_creator()
         objective = factory.create_objective()
@@ -97,8 +101,8 @@ def process_features_and_setup_models(
             objective=objective,
         )
     dmm = DeepMechanisticModel(
-        pypesto_problem=pypesto_problems[datasets[0]],
-        n_input_features=features[datasets[0]].shape[1],
+        pypesto_problem=pypesto_problems["train"],
+        n_input_features=features["train"].shape[1],
         conf=conf,
         key=jr.PRNGKey(conf.job),
     )
@@ -170,10 +174,12 @@ def get_kin_params_median_deviation(
 
 def sort_features(
     features: pd.DataFrame,
-    pypesto_problem: pypesto.Problem,
+    pypesto_problem: pypesto.Problem | None,
 ) -> np.ndarray:
     # extract sample names, ordering of those is important since samples
     # must match when reshaping the inflated matrix
+    if pypesto_problem is None:
+        return features
     ref_par = pypesto_problem.x_names[0].replace(MEDIAN_FEATURE_PREFIX, "")
     samples = [
         par.split("__")[-1]

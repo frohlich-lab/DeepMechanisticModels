@@ -37,6 +37,7 @@ def contextualize_measurements(
         "transcriptomics",
         "proteomics",
         "cytof_init",
+        "cytof_init_pca",
         "cytof_dynamic",
         "cytof_dynamic_pca",
         "cytof_dynamic_full",
@@ -77,7 +78,9 @@ def contextualize_measurements(
             petab.TIME,
         )
         # For cytof_dynamic_full, keep all observables
-        if contextualization == "cytof_dynamic":
+        if contextualization.startswith(
+            "cytof_dynamic"
+        ) and not contextualization.endswith("_full"):
             # For cytof_dynamic, subset observables to those within the model (ERK, MEK, ERBB2)
             input_measurements = input_measurements[
                 input_measurements[petab.OBSERVABLE_ID].isin(
@@ -341,16 +344,16 @@ def load_data(
     if not transform and contextualization.endswith("_pca"):
 
         class DropNaN(BaseEstimator, TransformerMixin):
-            _isna: pd.Series
+            _isnotna: pd.Series
 
-            def __init__(self, _isna):
-                self._isna = _isna
+            def __init__(self, _isnotna):
+                self._isnotna = _isnotna
 
             def fit(self, X, y=None):
                 return self
 
             def transform(self, X):
-                return X.loc[:, self._isna]
+                return X.loc[:, self._isnotna]
 
         class ConvertDataFrame(BaseEstimator, TransformerMixin):
             def fit(self, X, y=None):
@@ -359,16 +362,15 @@ def load_data(
             def transform(self, X):
                 return pd.DataFrame(
                     X,
-                    columns=[f"pca_{i}" for i in range(input_data.shape[0])],
+                    columns=[f"pca_{i}" for i in range(X.shape[1])],
                 )
 
-        _isna = input_data.isna().mean() < nan_threshold
+        _isnotna = input_data.isna().mean() == 0.0
 
         pipeline = Pipeline(
             [
-                ("dropnan", DropNaN(_isna)),
-                ("impute", KNNImputer()),
-                ("pca", PCA()),
+                ("dropnan", DropNaN(_isnotna)),
+                ("pca", PCA(n_components=0.95)),
                 ("df", ConvertDataFrame()),
             ]
         )
@@ -378,14 +380,16 @@ def load_data(
         transform = pipeline.transform
     elif not transform:
         transform = lambda x: x
-    else:
+    elif len(input_data):
         index = input_data.index
         input_data = transform(input_data)
         input_data.index = index
 
-    if features:
+    if features and len(input_data):
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
+    elif features:
+        input_data = pd.DataFrame(columns=features, data=[])
     else:
         features = list(input_data.columns)
 

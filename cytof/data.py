@@ -29,7 +29,10 @@ SYNAPSE_FILES = [
     "syn20613696",  # HCC1419
     "syn20613702",  # HCC1500
     "syn20613708",  # HCC1569
-    "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
+    # strange cell line, extreme chromosomal rearrangements/loss, all the markers
+    # are pretty low, similar to EVSAT and HCC1500, but they have really high
+    # basal pMEK levels
+    # "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
     "syn20613719",  # HCC1937
     "syn20613739",  # HCC1954
     "syn20613793",  # HCC2157

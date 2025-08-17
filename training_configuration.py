@@ -26,9 +26,9 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK_AKT__logobs",
+        # "EGFR_MAPK_AKT__logobs",
         "EGFR_MAPK_P38__logobs",
-        "EGFR_MAPK_P38_AKT__logobs",
+        # "EGFR_MAPK_P38_AKT__logobs",
         # "EGFR_MAPK__logobs_tegfr",
         # "EGFR_MAPK__logobs_tegfr_terbb2",
         # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
@@ -61,6 +61,9 @@ DATASETS = ("dream_cytof",)
 CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_pca", "RFE_10_permute"),
+    ("cytof_dynamic", "RFE_10_permute"),
+    ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "RFE_10_permute"),
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)

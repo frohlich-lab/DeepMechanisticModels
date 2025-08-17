@@ -127,7 +127,11 @@ def generate_pathway(
         add_monomer_synth_deg(
             model,
             p_name,
-            sites=[s for s in site_modulators.keys() if s != "degradation"],
+            sites=[
+                s if s != "endocytosis" else "compartment"
+                for s in site_modulators.keys()
+                if s != "degradation"
+            ],
             with_synth=p_name in species_with_synth,
             compartments=["pm", "e"],
             species_with_free_levels=species_with_free_levels,
@@ -195,8 +199,13 @@ def add_monomer_synth_deg(
             site: [
                 states[0],
                 *[
-                    f"u{d}"
-                    for d in range(add_delay.get(f"{m_name}_{site}", 0))
+                    f"e{d}" if site == "compartment" else f"u{d}"
+                    for d in range(
+                        add_delay.get(
+                            f"{m_name}_{site.replace('compartment', 'endocytosis')}",
+                            0,
+                        )
+                    )
                 ],
                 states[1],
             ]
@@ -250,10 +259,10 @@ def add_monomer_synth_deg(
         )
 
     if "compartment" in sites:
-        site = "compartment"
         Rule(
             f"{m_name}_recycling",
-            m(**{site: compartments[1]}) >> m(**{site: compartments[0]}),
+            m(**{"compartment": compartments[1]})
+            >> m(**{"compartment": compartments[0]}),
             add_parameter(f"{m_name}_recycle_kcat", model),
         )
 
@@ -356,11 +365,12 @@ def add_activation(
     mono = model.monomers[m_name]
 
     activation_types = {
-        "compartment": "endo",
+        "endocytosis": "endo",
         "degradation": "deg",
     }
 
     activation_type = activation_types.get(site, "phospho")
+    site = "compartment" if activation_type == "endo" else site
 
     if activation_type == "phospho":
         forward = "p"
@@ -405,6 +415,7 @@ def add_activation(
         kref = model.expressions[f"{m_name}_{reverse}_{site}_kcat"]
 
     activations = [add_parameter(f"{forward_name}_bact", model)]
+
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         weight = add_parameter(f"{forward_name}_{activator}_kw", model)
@@ -453,20 +464,22 @@ def add_activation(
     rate = Expression(f"{forward_name}_activation_rate", kref * kr)
 
     if n_delays:
+        prefix = "e" if activation_type == "endo" else "u"
         Rule(
             f"{forward_name}_activation",
-            mono(**fstate) >> mono(**{site: "u0", **dstate}),
+            mono(**fstate) >> mono(**{site: f"{prefix}0", **dstate}),
             rate,
         )
         for idelay in range(n_delays - 1):
             Rule(
                 f"{forward_name}_activation_d{idelay}",
-                mono(**{site: f"u{idelay}"}) >> mono(**{site: f"u{idelay+1}"}),
+                mono(**{site: f"{prefix}{idelay}"})
+                >> mono(**{site: f"{prefix}{idelay+1}"}),
                 kref,
             )
         Rule(
             f"{forward_name}_activation_d{n_delays-1}",
-            mono(**{site: f"u{n_delays-1}"}) >> mono(**rstate),
+            mono(**{site: f"{prefix}{n_delays-1}"}) >> mono(**rstate),
             kref,
         )
     elif activation_type == "deg":

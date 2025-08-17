@@ -336,8 +336,8 @@ def generate_pypesto_objective(pypesto_subproblem) -> JaxObjective:
 
 
 def create_pypesto_problem(
-    subproblem: pypesto.Problem,
-) -> pypesto.Problem:
+    subproblem: pypesto.Problem | None,
+) -> pypesto.Problem | None:
     """Creates a pypesto.Problem that defines the optimization problem to solve
     for the training of the provided DeepMechanisticModel/Autoencoder (ae).
 
@@ -347,6 +347,8 @@ def create_pypesto_problem(
     :returns:
         Optimization pypesto_problem that needs to be solved for training.
     """
+    if subproblem is None:
+        return None
     objective = generate_pypesto_objective(subproblem)
     return pypesto.Problem(
         objective=objective,
