@@ -150,13 +150,19 @@ def simulate_avg_model(
         **petab_base_files,
     )
 
+    samples = (
+        training_samples(Wildcards(conf.data, conf.samples))
+        if dataset == "train"
+        else val_samples(Wildcards(conf.data, conf.samples))
+    )
+    if not len(samples):
+        return pd.DataFrame([])
+
     importer = generate_average_pretraining_problem(
         petab_base_importer,
         problem,
         conf.data,
-        training_samples(Wildcards(conf.data, conf.samples))
-        if dataset == "train"
-        else val_samples(Wildcards(conf.data, conf.samples)),
+        samples,
     )
     problem_sample = importer.create_problem()
     df = pd.read_csv(rfile, index_col=[0])

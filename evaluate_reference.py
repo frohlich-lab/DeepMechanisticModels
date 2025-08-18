@@ -152,6 +152,8 @@ def evaluate_average_model(
 
     # Simulate avg_model
     avg_model = simulate_avg_model(conf, indir, petab_base_files, dataset)
+    if not len(avg_model):
+        return pd.DataFrame([])
 
     # Prepare avg_model simulation for plotting and processing
     avg_model, df_meas = process_avg_model_simulation(
@@ -192,8 +194,9 @@ for dataset in ["train", "val"]:
     )
     Path(filepath).parent.mkdir(exist_ok=True, parents=True)
     df.to_csv(filepath)
-    rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
-    print(f"avg_model on {dataset} - RMSE = {rmse_avg_model}")
+    if len(df):
+        rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
+        print(f"avg_model on {dataset} - RMSE = {rmse_avg_model}")
 
     # average -- this looks NOT to be in use at the moment (only avg_model)
     # df = evaluate_average(dataset, conf, samples)
@@ -216,5 +219,6 @@ for dataset in ["train", "val"]:
             mode="per_sample",
         )
     )
-    rmse_per_sample = np.sqrt(np.mean(np.square(df["res"])))
-    print(f"per_sample on {dataset} - RMSE = {rmse_per_sample}")
+    if len(df):
+        rmse_per_sample = np.sqrt(np.mean(np.square(df["res"])))
+        print(f"per_sample on {dataset} - RMSE = {rmse_per_sample}")
