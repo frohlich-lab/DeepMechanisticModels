@@ -108,8 +108,7 @@ hyperparam_configs = {
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(SPLITS):
     for dataset in ["train", "val"]:
-        # DMM evaluations
-        training = pd.concat(
+        dfs = [
             pd.read_csv(efile, index_col=0)
             for hyperparam_configuration in hyperparam_configs[samples]
             if os.path.exists(
@@ -123,7 +122,12 @@ for samples in sorted(SPLITS):
                     }
                 )
             )
-        ).assign(
+        ]
+        if not len(dfs):
+            continue
+
+        # DMM evaluations
+        training = pd.concat(dfs).assign(
             ref="DMM",  # previously called "meth"
             dataset=dataset,
         )
