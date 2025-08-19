@@ -25,7 +25,7 @@ from dmm.initialisation import (
     process_features_and_setup_models,
 )
 from dmm.training_helper_funcs import create_pypesto_problem
-from evaluation_utils import get_embedding_and_params_df
+from evaluation_utils import get_embedding_and_params_df, load_model
 from util import load_petab_base_files
 
 conf = fire.Fire(Conf)
@@ -85,7 +85,7 @@ petab_base_files = load_petab_base_files(conf)
 features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
 
 (
-    model,
+    _,
     problem,
     pypesto_subproblems,
     features,
@@ -95,6 +95,8 @@ features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
     petab_base_files=petab_base_files,
     dataset="train+val",
 )
+
+model = load_model(conf, pypesto_subproblems["train"])
 
 pypesto_problems = {
     dataset: create_pypesto_problem(pypesto_subproblems[dataset])
