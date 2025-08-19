@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Dict
 
 import fire
-import equinox as eqx
 import jax
 import pandas as pd
 
@@ -23,10 +22,10 @@ from dmm.analysis import evaluate_simulations
 from dmm.config_options import Conf
 from dmm.initialisation import (
     get_features_filepath,
-    process_features,
-    sort_features,
+    process_features_and_setup_models,
 )
-from evaluation_utils import get_embedding_and_params_df, load_model_and_obj
+from dmm.training_helper_funcs import create_pypesto_problem
+from evaluation_utils import get_embedding_and_params_df
 from util import load_petab_base_files
 
 conf = fire.Fire(Conf)
@@ -41,33 +40,20 @@ samples = {
 
 
 def evaluate_training(
+    model,
     dataset: str,
     features: Dict[str, pd.DataFrame],
     conf: Conf,
     samples: dict,
-    petab_base_files: Dict[str, pd.DataFrame],
+    pypesto_problem,
 ) -> tuple[pd.DataFrame, ...]:
     # Initialise list to store evaluations
     evaluations = []
 
-    # Load ensemble models and objectives
-    model, pypesto_problem = load_model_and_obj(
-        conf, petab_base_files, features[dataset]
-    )
-
-    # Set model to inference mode (essential for evaluation if dropout is applied to the encoder)
-    model = eqx.nn.inference_mode(model)
-
-    # Extract needed features from input dictionary
-    input_features = sort_features(
-        features=features[dataset],
-        pypesto_problem=pypesto_problem,
-    )
-
     # Get latent embeddings and parameter dataframes
     le_df, params_dev_df, params_df = get_embedding_and_params_df(
         dmm_model=model,
-        input_features=input_features,
+        input_features=features,
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
@@ -77,7 +63,7 @@ def evaluate_training(
 
     evaluate_simulations(
         model=model,
-        input_features=input_features,
+        input_features=features,
         obj=pypesto_problem.objective.base_objective.base_objective,
         conf=conf,
         samples=samples[dataset],
@@ -99,12 +85,22 @@ petab_base_files = load_petab_base_files(conf)
 # Get filepaths for features and feature transformation pipeline
 features_filepath = get_features_filepath(conf, FEATURES_OUTFILE)
 
-features = process_features(
+(
+    model,
+    problem,
+    pypesto_subproblems,
+    features,
+) = process_features_and_setup_models(
     conf=conf,
     features_filepath=features_filepath,
-    datasets=["train", "val"],
+    petab_base_files=petab_base_files,
+    dataset="train+val",
 )
 
+pypesto_problems = {
+    dataset: create_pypesto_problem(pypesto_subproblems[dataset])
+    for dataset in ["train", "val"]
+}
 
 for dataset in [
     "val",
@@ -115,11 +111,11 @@ for dataset in [
     # which differs from test
     jax.clear_caches()
     df, le_df, params_dev_df, params_df = evaluate_training(
+        model=model,
         dataset=dataset,
-        features=features,
+        features=features[dataset],
         conf=conf,
-        samples=samples,
-        petab_base_files=petab_base_files,
+        pypesto_problem=pypesto_problems[dataset],
     )
     for results, path_format in zip(
         [df, le_df, params_dev_df, params_df],
