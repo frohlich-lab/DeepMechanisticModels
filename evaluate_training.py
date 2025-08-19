@@ -44,7 +44,6 @@ def evaluate_training(
     dataset: str,
     features: Dict[str, pd.DataFrame],
     conf: Conf,
-    samples: dict,
     pypesto_problem,
 ) -> tuple[pd.DataFrame, ...]:
     # Initialise list to store evaluations
@@ -113,7 +112,7 @@ for dataset in [
     df, le_df, params_dev_df, params_df = evaluate_training(
         model=model,
         dataset=dataset,
-        features=features[dataset],
+        features=features,
         conf=conf,
         pypesto_problem=pypesto_problems[dataset],
     )
