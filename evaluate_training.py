@@ -52,7 +52,7 @@ def evaluate_training(
     # Get latent embeddings and parameter dataframes
     le_df, params_dev_df, params_df = get_embedding_and_params_df(
         dmm_model=model,
-        input_features=features[dataset],
+        input_features=features[dataset].values,
         context=conf.context,
         split=conf.samples,
         dataset=dataset,
@@ -62,7 +62,7 @@ def evaluate_training(
 
     evaluate_simulations(
         model=model,
-        input_features=features[dataset],
+        input_features=features[dataset].values,
         obj=pypesto_problem.objective.base_objective.base_objective,
         conf=conf,
         samples=list(features[dataset].index),
