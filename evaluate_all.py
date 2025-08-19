@@ -280,12 +280,6 @@ reg_params = [
     "inflater_output_reg_epoch",  # param dev, param medians
     "sparse_threshold_perc",
 ]
-num_unique_regs = [
-    len(df[df.ref == "DMM"][reg_param].unique())
-    for reg_param in reg_params
-    if reg_param in df.columns
-]
-reg_param = reg_params[num_unique_regs.index(max(num_unique_regs))]
 
 # ########################################################################### #
 # ############################### Aggregation ############################### #
@@ -296,7 +290,6 @@ num_best = 10
 aggregated_results = aggregate_and_log(
     df=df,
     conf=conf,
-    top_reg_param=reg_param,
     return_stat_tests=RETURN_STAT_TESTS,
     num_best=num_best,
 )
