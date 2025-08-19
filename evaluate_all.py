@@ -108,7 +108,7 @@ hyperparam_configs = {
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
 for samples in sorted(SPLITS):
     for dataset in ["train", "val"]:
-        dfs = [
+        dfs_sample_dataset = [
             pd.read_csv(efile, index_col=0)
             for hyperparam_configuration in hyperparam_configs[samples]
             if os.path.exists(
@@ -123,11 +123,11 @@ for samples in sorted(SPLITS):
                 )
             )
         ]
-        if not len(dfs):
+        if not len(dfs_sample_dataset):
             continue
 
         # DMM evaluations
-        training = pd.concat(dfs).assign(
+        training = pd.concat(dfs_sample_dataset).assign(
             ref="DMM",  # previously called "meth"
             dataset=dataset,
         )
@@ -267,20 +267,6 @@ del param_dfs
 for results_df in (le_df, param_dev_df, param_df):
     results_df["job"] = results_df["job"].astype(int)
 
-
-# Select reg_param for plotting based on the number of unique investigated values
-reg_params = [
-    "l1reg_inflate",
-    "oreg_inflate",  # inflater
-    "l1reg_encode",
-    "oreg_encode",  # encoder
-    "l1reg_inflater_output",
-    "l2reg_inflater_output",
-    "median_reg",
-    "inflater_output_reg_epoch",  # param dev, param medians
-    "sparse_threshold_perc",
-]
-
 # ########################################################################### #
 # ############################### Aggregation ############################### #
 # ########################################################################### #
@@ -293,23 +279,6 @@ aggregated_results = aggregate_and_log(
     return_stat_tests=RETURN_STAT_TESTS,
     num_best=num_best,
 )
-if RETURN_STAT_TESTS:
-    (
-        data,
-        stat_test_res_df,
-        top_n_dmm_train,
-        best_hyperparam_dmm,
-        best_regressors,
-        unified_dmm_results,
-    ) = aggregated_results
-else:
-    (
-        data,
-        top_n_dmm_train,
-        best_hyperparam_dmm,
-        best_regressors,
-        unified_dmm_results,
-    ) = aggregated_results
 
 #
 # # ########################################################################### #
