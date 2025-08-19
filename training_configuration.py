@@ -154,12 +154,12 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "all",
-    # "MCF7",
-    # "BT20",
-    # "HCC1500",
-    # "EVSAT",
-    # "UACC3199",
+    # "all",
+    "MCF7",
+    "BT20",
+    "HCC1500",
+    "EVSAT",
+    "UACC3199",
 }
 
 STANDARDISE_FEATURES = {
@@ -371,7 +371,7 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (1e-4,),
+    "range": (1e-4, 1e-3, 1e-2, 1e-1, 1e0),
     "central_value": 1e-4,
 }
 
@@ -389,8 +389,8 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (1e-2,),
-    "central_value": 1e-2,
+    "range": (1e-4,),
+    "central_value": 1e-4,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
@@ -520,8 +520,8 @@ MOMENTUM = {
 }
 
 NEPOCH = {
-    "range": (1000,),
-    "central_value": 1000,
+    "range": (500,),
+    "central_value": 500,
 }
 
 INFLATER_BOUND = {

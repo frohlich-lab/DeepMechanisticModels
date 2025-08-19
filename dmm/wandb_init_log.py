@@ -140,7 +140,8 @@ def init_wandb(
         # v50: code refactor, scan inflater output reg
         # v51: output reg + inflater bound scan
         # v54: p38 model
-        project=f"DeepMechanisticModels.v54.{conf.data}",
+        # v55: new model cv splits and l1 inflater scan, no recon loss
+        project=f"DeepMechanisticModels.v55.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
