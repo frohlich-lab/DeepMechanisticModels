@@ -60,20 +60,21 @@ def evaluate_training(
         samples=list(features[dataset].index),
     )
 
-    evaluate_simulations(
-        model=model,
-        input_features=features[dataset].values,
-        obj=pypesto_problem.objective.base_objective.base_objective,
-        conf=conf,
-        samples=list(features[dataset].index),
-        petab_problem=pypesto_problem.objective.base_objective.amici_object_builder.petab_problem,
-        dataset=dataset,
-        outdir=outdir / "simulation",
-        evaluations=evaluations,
-        plot_file_prefix=EVALUATION_PLOT_FILE.format(
-            dataset=dataset, **conf.to_dict()
-        ),
-    )
+    if pypesto_problem is not None:
+        evaluate_simulations(
+            model=model,
+            input_features=features[dataset].values,
+            obj=pypesto_problem.objective.base_objective.base_objective,
+            conf=conf,
+            samples=list(features[dataset].index),
+            petab_problem=pypesto_problem.objective.base_objective.amici_object_builder.petab_problem,
+            dataset=dataset,
+            outdir=outdir / "simulation",
+            evaluations=evaluations,
+            plot_file_prefix=EVALUATION_PLOT_FILE.format(
+                dataset=dataset, **conf.to_dict()
+            ),
+        )
 
     return pd.DataFrame(evaluations), le_df, params_dev_df, params_df
 
