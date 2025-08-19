@@ -224,8 +224,6 @@ def get_embedding_and_params_df(
     job: int,
     samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    if not input_features.shape[0]:
-        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     # Latent embeddings
     temp_latent_embeddings = vmap(
         eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
