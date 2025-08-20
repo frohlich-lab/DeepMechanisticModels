@@ -26,6 +26,7 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr",
         # "EGFR_MAPK_AKT__logobs",
         "EGFR_MAPK_P38__logobs",
         # "EGFR_MAPK_P38_AKT__logobs",

@@ -357,7 +357,7 @@ rule report_all:
 rule train_and_evaluate:
     input:
          evaluation=expand(
-             rules.report_all.output.performance,  # changed it to CSV as plots might not be generated without stat tests
+             rules.evaluate_all.output.csv,
              model=PATHWAYS, data=DATASETS
          )
 
