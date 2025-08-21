@@ -37,6 +37,19 @@ def generate_parameter_table(
             }
         )
 
+        if "pobs" in model.name:
+            if "egfr" in model.name:
+                if "tEGFR_obs_offset" not in params:
+                    params.append("tEGFR_obs_offset")
+                if "tEGFR_obs_scale" not in params:
+                    params.append("tEGFR_obs_scale")
+            if "erbb2" in model.name:
+                if "tERBB2_obs_offset" not in params:
+                    params.append("tERBB2_obs_offset")
+                if "tERBB2_obs_scale" not in params:
+                    params.append("tERBB2_obs_scale")
+
+
     transforms = {"lin": lambda x: x, "log10": lambda x: np.power(10.0, x)}
 
     # base definition of id, upper and lower bounds, scale and value
@@ -233,4 +246,9 @@ def filter_observables(petab_problem: petab.Problem):
         if not par.endswith("_scale") and not par.endswith("_offset"):
             continue
         if par not in obs_pars:
+            if "pobs" in petab_problem.model.model.name:
+                if ("egfr" in petab_problem.model.model.name) and ("tEGFR" in par):
+                    continue
+                if ("erbb2" in petab_problem.model.model.name) and ("tERBB2" in par):
+                    continue
             petab_problem.parameter_df.drop(index=par, inplace=True)
