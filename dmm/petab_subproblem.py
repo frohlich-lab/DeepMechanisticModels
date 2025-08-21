@@ -44,7 +44,7 @@ def generate_parameter_table(
 
         if "pobs" in modifications:
             for marker in ["EGFR", "ERBB2"]:
-                if f"f{marker.lower()}" in modifications:
+                if (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications):
                     for param_type in ["offset", "scale"]:
                         param_check = f"t{marker}_obs_{param_type}"
                         if param_check not in params:
@@ -255,6 +255,8 @@ def filter_observables(petab_problem: petab.Problem):
         if par not in obs_pars:
             if "pobs" in modifications:
                 marker = par.split("_")[0][1:]
-                if (f"f{marker.lower()}" in modifications) and (f"t{marker}" in par):
+                if (
+                        (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications)
+                ) and (f"t{marker}" in par):
                     continue
             petab_problem.parameter_df.drop(index=par, inplace=True)
