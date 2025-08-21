@@ -38,12 +38,12 @@ def generate_parameter_table(
         )
 
         if "pobs" in model.name:
-            if "egfr" in model.name:
+            if "fegfr" in model.name:
                 if "tEGFR_obs_offset" not in params:
                     params.append("tEGFR_obs_offset")
                 if "tEGFR_obs_scale" not in params:
                     params.append("tEGFR_obs_scale")
-            if "erbb2" in model.name:
+            if "ferbb2" in model.name:
                 if "tERBB2_obs_offset" not in params:
                     params.append("tERBB2_obs_offset")
                 if "tERBB2_obs_scale" not in params:
