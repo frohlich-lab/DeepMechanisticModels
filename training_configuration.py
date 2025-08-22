@@ -627,6 +627,52 @@ PATHWAYS_3 = (
     ]
 )
 
+# Figure 4
+CONTEXTS_FEATURES_4 = [
+    ("cytof_init", "RFE_10_permute"),
+]
+
+PATHWAYS_4 = (
+    [
+        # Base
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        # Baselines
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
+        # Growth Factors
+        "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+        "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+        # Mutations
+        "EGFR_MAPK__logobs_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
+        # All components
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
+    ]
+)
+
+modifications = [
+    # baselines
+    # "begfr",
+    # "berbb2",
+    # "bmek",
+    # "brps6ka1",
+    # transcriptional individualisation
+    # "tegfr",
+    # "terbb2",
+    # "ttgfa",
+    # "tbtc",
+    # "tereg",
+    # "tnrg1",
+    # "tnrg2",
+    # mutations
+    # "mbraf",
+    # "mkras",
+    # observable function
+    # "logobs",
+]
+
 
 # Master Suite for figures
 CONTEXTS_FEATURES_BY_FIGURE = {
@@ -636,6 +682,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure2a": CONTEXTS_FEATURES_2A,
     "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
+    "figure4": CONTEXTS_FEATURES_4,
 }
 
 PATHWAYS_BY_FIGURE = {
@@ -645,6 +692,7 @@ PATHWAYS_BY_FIGURE = {
     "figure2a": PATHWAYS_2A,
     "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
+    "figure4": PATHWAYS_4,
 }
 
 SELECT_CENTRAL_VALUES_BY_FIGURE = {
@@ -654,4 +702,5 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure2a": True,
     "figure2b": True,
     "figure3": True,
+    "figure4": True,
 }
