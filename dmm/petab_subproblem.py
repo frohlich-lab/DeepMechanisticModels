@@ -19,12 +19,23 @@ def generate_parameter_table(
     observable_table: pd.DataFrame,
     features: List[pysb.Parameter],
 ) -> pd.DataFrame:
+
+    if "__" in model.name:
+        modifications = model.name.split("__")[1].split("_")
+    else:
+        modifications = []
+
     # this defines the full set of parameters including boundaries, nominal
     # values, scale, priors and whether they will be estimated or not.
     params = [
         par.name
         for par in model.parameters
-        if par.name not in condition_table.columns and par.name != "__k_t"
+        if (par.name not in condition_table.columns and par.name != "__k_t")
+        # Avoid dropping mutation parameters for validation cell-lines (none of which exhibits those mutations)
+        or (
+            ("m_BRAF_kw" in par.name and "mbraf" in modifications) or
+            ("m_KRAS_kw" in par.name and "mkras" in modifications)
+        )
     ]
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
@@ -36,11 +47,6 @@ def generate_parameter_table(
                 if par and any(obs in par for obs in observable_table.index)
             }
         )
-
-        if "__" in model.name:
-            modifications = model.name.split("__")[1].split("_")
-        else:
-            modifications = []
 
         if "pobs" in modifications:
             for marker in ["EGFR", "ERBB2"]:
