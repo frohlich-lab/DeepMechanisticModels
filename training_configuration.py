@@ -647,11 +647,11 @@ PATHWAYS_4 = (
         "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
         "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
         # # Mutations
-        # "EGFR_MAPK__logobs_mbraf_mkras",
-        # "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
+        "EGFR_MAPK__logobs_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
         # # All components
-        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
-        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
     ]
 )
 
