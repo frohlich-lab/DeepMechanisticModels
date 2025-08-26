@@ -588,26 +588,32 @@ PATHWAYS_1A = (
 
 
 # Figure 1B
-CONTEXTS_FEATURES_1B = [
+CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
+
+PATHWAYS_1B = PATHWAYS_1A
+
+
+# Figure 1C
+CONTEXTS_FEATURES_1C = [
     (context, features)
     for N in [5, 10, 15, 20, 25, 30]
     for context, features in zip(
         [
             "cytof_init",
-            # "proteomics",
-            # "transcriptomics",
-            # "multimodal"
+            "proteomics",
+            "transcriptomics",
+            "multimodal"
         ],
         [
             f"RFE_{N}_permute",
-            # f"HVGRFE_{N}_permute",
-            # f"HVGRFE_{N}_permute",
-            # f"best_RFE_{N}_permute"
+            f"HVGRFE_{N}_permute",
+            f"HVGRFE_{N}_permute",
+            f"best_RFE_{N}_permute"
         ]
     )
 ]
 
-PATHWAYS_1B = PATHWAYS_1A
+PATHWAYS_1C = PATHWAYS_1A
 
 
 # Figure 2A
@@ -711,6 +717,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "default": CONTEXTS_FEATURES,
     "figure1a": CONTEXTS_FEATURES_1A,
     "figure1b": CONTEXTS_FEATURES_1B,
+    "figure1c": CONTEXTS_FEATURES_1C,
     "figure2a": CONTEXTS_FEATURES_2A,
     "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
@@ -721,6 +728,7 @@ PATHWAYS_BY_FIGURE = {
     "default": PATHWAYS,
     "figure1a": PATHWAYS_1A,
     "figure1b": PATHWAYS_1B,
+    "figure1c": PATHWAYS_1C,
     "figure2a": PATHWAYS_2A,
     "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
@@ -731,6 +739,7 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "default": False,  # ML param scans
     "figure1a": True,
     "figure1b": False,  # ML param scans
+    "figure1c": True,  # feature scan only
     "figure2a": True,
     "figure2b": True,
     "figure3": True,
