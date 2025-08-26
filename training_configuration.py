@@ -148,12 +148,12 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    # "MCF7",
-    # "BT20",
-    # "HCC1500",
-    # "EVSAT",
-    # "UACC3199",
-    "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
+    "MCF7",
+    "BT20",
+    "HCC1500",
+    "EVSAT",
+    "UACC3199",
+    # "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
 }
 
 STANDARDISE_FEATURES = {
@@ -187,10 +187,11 @@ LATENT_DIMS = {
     "range": (
         2,
         # 3,
-        # 4,
+        4,
         # 6,
-        # 8,
+        8,
         # 10,
+        12
     ),
     "central_value": 2,
 }
@@ -202,8 +203,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2,
+        1,
+        2,
+        3
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -366,15 +368,24 @@ DELTAS = {
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
     "range": (
-        # 0,
+        0,
         1e-4,
+        1e-3,
+        1e-2,
+        1e-1
     ),
     "central_value": 1e-4,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0,),
+    "range": (
+        0,
+        1e-4,
+        1e-3,
+        1e-2,
+        1e-1
+    ),
     "central_value": 0,
 }
 
@@ -577,7 +588,24 @@ PATHWAYS_1A = (
 
 
 # Figure 1B
-CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
+CONTEXTS_FEATURES_1B = [
+    (context, features)
+    for N in [5, 10, 15, 20, 25, 30]
+    for context, features in zip(
+        [
+            "cytof_init",
+            # "proteomics",
+            # "transcriptomics",
+            # "multimodal"
+        ],
+        [
+            f"RFE_{N}_permute",
+            # f"HVGRFE_{N}_permute",
+            # f"HVGRFE_{N}_permute",
+            # f"best_RFE_{N}_permute"
+        ]
+    )
+]
 
 PATHWAYS_1B = PATHWAYS_1A
 
