@@ -148,11 +148,12 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "MCF7",
-    "BT20",
-    "HCC1500",
-    "EVSAT",
-    "UACC3199",
+    # "MCF7",
+    # "BT20",
+    # "HCC1500",
+    # "EVSAT",
+    # "UACC3199",
+    "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
 }
 
 STANDARDISE_FEATURES = {

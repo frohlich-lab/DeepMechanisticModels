@@ -143,7 +143,8 @@ def init_wandb(
         # v53: figure 2a (cytof_init + tEGFR / pEGFR / both), __logobs, __fegfr and __fegfr_pobs (both logobs & aggavg)
         # v56_fig3: figure 3 (cytof_init), __logobs, __tegfr and __tegfr_pobs (both logobs & aggavg)
         # v57_fig4: figure 4 (cytof_init), __logobs_tegfr with or without mutations, growth factors and baselines
-        project=f"DeepMechanisticModels.v57_fig4.{conf.data}",
+        # v52_fig1aext: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model) - MDA-MB-468
+        project=f"DeepMechanisticModels.v52_fig1aext.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
