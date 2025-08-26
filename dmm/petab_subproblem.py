@@ -25,6 +25,13 @@ def generate_parameter_table(
     else:
         modifications = []
 
+    conds = measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].unique()
+
+    missing_params =  [
+        'MED_ERBB2_p_Y1248_iEGFR_0_kw',
+        'MED_EGFR_p_Y1173_iEGFR_0_kw',
+    ]
+
     # this defines the full set of parameters including boundaries, nominal
     # values, scale, priors and whether they will be estimated or not.
     params = [
@@ -36,17 +43,27 @@ def generate_parameter_table(
             ("m_BRAF_kw" in par.name and "mbraf" in modifications) or
             ("m_KRAS_kw" in par.name and "mkras" in modifications)
         )
+        # Handle MDA-MB-468
+        or (
+            len(conds) == 1 and "cMDAMB468" in conds and par.name in missing_params
+           )
     ]
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
-        params += sorted(
-            {
-                par
-                for pars in measurement_table[petab.OBSERVABLE_PARAMETERS]
-                for par in pars.split(";")
-                if par and any(obs in par for obs in observable_table.index)
-            }
-        )
+        if len(conds) == 1 and "cMDAMB468" in conds:
+            # Add all scaling and offsets (missing ERBB2)
+            params += sorted(
+                [f"{obs}_{par_type}" for obs in observable_table.index for par_type in ["offset", "scale"]]
+            )
+        else:
+            params += sorted(
+                {
+                    par
+                    for pars in measurement_table[petab.OBSERVABLE_PARAMETERS]
+                    for par in pars.split(";")
+                    if par and any(obs in par for obs in observable_table.index)
+                }
+            )
 
         if "pobs" in modifications:
             for marker in ["EGFR", "ERBB2"]:
@@ -87,9 +104,7 @@ def generate_parameter_table(
     ]
 
     # add additional input parameters for every base condition
-    for cond in measurement_table[
-        petab.PREEQUILIBRATION_CONDITION_ID
-    ].unique():
+    for cond in conds:
         param_defs.extend(
             [
                 {
@@ -249,6 +264,11 @@ def filter_observables(petab_problem: petab.Problem):
         if petab.OBSERVABLE_PARAMETERS in r
         for p in r[petab.OBSERVABLE_PARAMETERS].split(";")
     }
+
+    cell_lines = petab_problem.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique()
+    if len(cell_lines) == 1 and "cMDAMB468" in cell_lines:
+        obs_pars.add("pERBB2_Y1248_obs_offset")
+        obs_pars.add("pERBB2_Y1248_obs_scale")
 
     if "__" in petab_problem.model.model.name:
         modifications = petab_problem.model.model.name.split("__")[1].split("_")
