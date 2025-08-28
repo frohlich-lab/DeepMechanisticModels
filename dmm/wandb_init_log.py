@@ -144,7 +144,8 @@ def init_wandb(
         # v56_fig3: figure 3 (cytof_init), __logobs, __tegfr and __tegfr_pobs (both logobs & aggavg)
         # v57_fig4: figure 4 (cytof_init), __logobs_tegfr with or without mutations, growth factors and baselines
         # v52_fig1aext: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model) - MDA-MB-468
-        # v58_fig1b: scan over n_hidden, depth, features, l1/l2 inflater regularisation
+        # v58_fig1b: scan over n_hidden, depth, l1/l2 inflater regularisation (fixed feature number = 10)
+        # v58_fig1c: scan over features (without remaining ML scan)
         project=f"DeepMechanisticModels.v58_fig1b.{conf.data}",
         group=group,
         config={
