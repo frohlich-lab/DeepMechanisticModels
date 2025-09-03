@@ -769,7 +769,6 @@ def get_best_regressor(
 def aggregate_and_log(
     df: pd.DataFrame,
     conf: Conf,
-    top_reg_param: str,
     return_stat_tests: bool,
     num_best: int = 10,
 ):
