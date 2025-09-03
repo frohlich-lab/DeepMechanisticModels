@@ -22,6 +22,7 @@ from training_configuration import SPLITS
 from util import load_petab_base_files
 
 
+
 def get_feature_importances(model, X, y, method="auto"):
     """
     Get feature importances for RandomForest or ElasticNet/LogisticRegression models.
@@ -345,6 +346,70 @@ def get_selected_features(
     ]
 
 
+# -----------------------
+# Subtype feature helpers
+# -----------------------
+
+def _load_marcotte_subtypes(samples: list[str]) -> pd.DataFrame:
+    """
+    Load and normalize Marcotte molecular subtypes to index by 'c<CELL>' IDs,
+    aligned and subset to the provided samples list and order.
+    """
+    subtypes_marcotte = pd.read_csv("cell_line_subtypes.txt", delimiter="\t")
+    subtypes_marcotte["cell_line"] = subtypes_marcotte["cell_line"].apply(lambda x: "c" + str(x).upper())
+    # Canonicalize a couple of known IDs to match our data
+    subtypes_marcotte.cell_line.replace("cHS578T", "cHs578T", inplace=True)
+    subtypes_marcotte.cell_line.replace("c600MPE", "cMPE600", inplace=True)
+    # Explicit fix DU4475 - appears as NA in subtype_intrinsic, but is classified elsewhere as triple-negative-basal
+    subtypes_marcotte.loc[subtypes_marcotte["cell_line"] == "cDU4475", "subtype_intrinsic"] = "Basal"
+    subtypes_marcotte.sort_values(by="cell_line", inplace=True)
+    subtypes_marcotte.set_index("cell_line", inplace=True)
+    # Reindex to requested sample order (drop missing)
+    idx = [s for s in samples if s in subtypes_marcotte.index]
+    subtypes_marcotte = subtypes_marcotte.loc[idx]
+    return subtypes_marcotte
+
+
+def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
+    """
+    One-hot encode the 'subtype_intrinsic' column for the given samples.
+    Columns will be named like 'intr_LuminalA', 'intr_Basal', etc.
+    """
+    df = _load_marcotte_subtypes(samples)
+    ser = df["subtype_intrinsic"].astype(str).fillna("Unknown")
+    X = pd.get_dummies(ser, prefix="intr", dtype=float)
+    # Preserve order; drop any absent samples
+    X = X.reindex([s for s in samples if s in X.index])
+    if len(X) == 1:
+        for subtype in ["LuminalA", "LuminalB", "HER2", "CL", "Basal", "Normal"]:
+            if f"intr_{subtype}" not in X.columns:
+                X[f"intr_{subtype}"] = 0.0
+    X = X[["intr_Basal", "intr_CL", "intr_HER2", "intr_LuminalA", "intr_LuminalB", "intr_Normal"]]
+    return X
+
+
+def _onehot_lb(samples: list[str]) -> pd.DataFrame:
+    """
+    Collapse intrinsic subtypes to Luminal/Basal buckets, then one-hot encode.
+      LuminalA/LuminalB/HER2 → Luminal
+      CL → Basal
+    """
+    df = _load_marcotte_subtypes(samples).copy()
+    lb = df["subtype_intrinsic"].astype(str)
+    lb = lb.replace(["LuminalA", "LuminalB"], "Luminal")
+    lb = lb.replace(["CL"], "Basal")
+    lb = lb.replace(["HER2"], "Luminal")
+    lb = lb.fillna("Unknown")
+    X = pd.get_dummies(lb, prefix="lb", dtype=float)
+    X = X.reindex([s for s in samples if s in X.index])
+    if len(X) == 1:
+        for subtype in ["Luminal", "Basal", "Normal"]:
+            if f"lb_{subtype}" not in X.columns:
+                X[f"lb_{subtype}"] = 0.0
+    # Ensure consistent one-hot-encoded feature ordering
+    X = X[["lb_Basal", "lb_Luminal", "lb_Normal"]]
+    return X
+
 
 def build_context_feature_recipe(conf) -> list:
     """
@@ -370,16 +435,26 @@ def build_context_feature_recipe(conf) -> list:
         tokens = [tok for tok in suffix.split("_") if tok]
 
         genes_by_modality = {"transcriptomics": [], "proteomics": []}
+        use_intr = False
+        use_lb = False
         for tok in tokens:
-            m = re.fullmatch(r"([tp])([A-Za-z0-9_]+)", tok)
-            if not m:
-                # Ignore unknown tokens; switch to ValueError if you prefer strictness
-                continue
-            which, gene = m.groups()
-            modality = "transcriptomics" if which == "t" else "proteomics"
-            genes_by_modality[modality].append(gene)
+            if tok in ("intr", "lb"):
+                use_intr = use_intr or (tok == "intr")
+                use_lb = use_lb or (tok == "lb")
+            else:
+                m = re.fullmatch(r"([tp])([A-Za-z0-9_]+)", tok)
+                if not m:
+                    # Ignore unknown tokens; switch to ValueError if you prefer strictness
+                    continue
+                which, gene = m.groups()
+                modality = "transcriptomics" if which == "t" else "proteomics"
+                genes_by_modality[modality].append(gene)
 
         recipe = [("cytof_init", conf.features)]
+        if use_intr:
+            recipe.append(("subtype_intr", "onehot"))
+        if use_lb:
+            recipe.append(("subtype_lb", "onehot"))
         if genes_by_modality["transcriptomics"]:
             recipe.append(
                 ("transcriptomics", "genes:" + ",".join(genes_by_modality["transcriptomics"]))
@@ -423,7 +498,7 @@ def prefix_for_context(ctx: str) -> str:
     elif ctx == "transcriptomics":
         return "t"
     else:
-        return ""  # cytof / MOSA
+        return ""  # cytof / subtypes / MOSA
 
 
 def parse_feature_spec(feature_spec: str):
@@ -462,6 +537,14 @@ def prepare_inputs_for_context(
         input_train, input_val, features_all = preprocess_mosa_latent(
             subconf, samples_train_split, samples_val_split
         )
+    elif subconf.context == "subtype_intr":
+        input_train = _onehot_intrinsic(samples_train_split)
+        input_val = _onehot_intrinsic(samples_val_split)
+        features_all = input_train.columns.tolist()
+    elif subconf.context == "subtype_lb":
+        input_train = _onehot_lb(samples_train_split)
+        input_val = _onehot_lb(samples_val_split)
+        features_all = input_train.columns.tolist()
     else:
         input_train, features_all, _ = load_data(
             contextualization=subconf.context,
@@ -476,23 +559,24 @@ def prepare_inputs_for_context(
             **petab_base_files,
         )
 
-    # Impute missing input values
-    imputer_input = KNNImputer()
-    input_train = pd.DataFrame(
-        imputer_input.fit_transform(input_train),
-        index=input_train.index,
-        columns=input_train.columns,
-    )
-    input_val = pd.DataFrame(
-        imputer_input.transform(input_val),
-        index=input_val.index,
-        columns=input_val.columns,
-    )
+    if "subtype" not in subconf.context:
+        # Impute missing input values
+        imputer_input = KNNImputer()
+        input_train = pd.DataFrame(
+            imputer_input.fit_transform(input_train),
+            index=input_train.index,
+            columns=input_train.columns,
+        )
+        input_val = pd.DataFrame(
+            imputer_input.transform(input_val),
+            index=input_val.index,
+            columns=input_val.columns,
+        )
 
-    # Mean-center by train mean
-    mean_train = input_train.mean()
-    input_train -= mean_train
-    input_val -= mean_train
+        # Mean-center by train mean
+        mean_train = input_train.mean()
+        input_train -= mean_train
+        input_val -= mean_train
 
     # Feature selection
     if spec["kind"] == "genes":
@@ -503,7 +587,16 @@ def prepare_inputs_for_context(
         input_val = input_val[selected]
     else:
         native = spec["spec"]
-        if native == "HVG_all":
+        # For subtype pseudo-contexts, the features are already one-hot-encoded
+        if subconf.context in ("subtype_intr", "subtype_lb"):
+            selected = input_train.columns.tolist()
+            # ensure val has same columns as train
+            input_val = input_val.reindex(columns=selected, fill_value=0.0)
+        elif native == "HVG_all":
+            # Quick unsupervised HVG prefilter, then keep all remaining
+            input_train = get_hvg(input_train)
+            selected = input_train.columns.tolist()
+            input_val = input_val.reindex(columns=selected, fill_value=0.0)
             # Quick unsupervised HVG prefilter, then keep all remaining
             input_train = get_hvg(input_train)
             selected = input_train.columns.tolist()
