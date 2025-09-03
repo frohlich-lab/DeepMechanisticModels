@@ -146,7 +146,8 @@ def init_wandb(
         # v52_fig1aext: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model) - MDA-MB-468
         # v58_fig1b: scan over n_hidden, depth, l1/l2 inflater regularisation (fixed feature number = 10)
         # v58_fig1c: scan over features (without remaining ML scan)
-        project=f"DeepMechanisticModels.v53.{conf.data}",
+        # v60_fig2a: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2A runs with added subtype-augmented cytof_init
+        project=f"DeepMechanisticModels.v60_fig2a.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
