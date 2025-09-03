@@ -153,7 +153,7 @@ SPLITS = {
     "HCC1500",
     "EVSAT",
     "UACC3199",
-    "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
+    # "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
 }
 
 STANDARDISE_FEATURES = {
@@ -374,7 +374,7 @@ OMEGAS = {
         1e-2,
         1e-1
     ),
-    "central_value": 1e-4,
+    "central_value": 1e-2,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
