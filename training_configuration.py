@@ -654,6 +654,8 @@ PATHWAYS_2B = (
 # Figure 3
 CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
 ]
 
 PATHWAYS_3 = (
