@@ -4,6 +4,7 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
+import petab
 import re
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import KNNImputer
@@ -379,7 +380,7 @@ def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
     ser = df["subtype_intrinsic"].astype(str).fillna("Unknown")
     X = pd.get_dummies(ser, prefix="intr", dtype=float)
     # Preserve order; drop any absent samples
-    X = X.reindex([s for s in samples if s in X.index])
+    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
     if len(X) == 1:
         for subtype in ["LuminalA", "LuminalB", "HER2", "CL", "Basal", "Normal"]:
             if f"intr_{subtype}" not in X.columns:
@@ -401,7 +402,7 @@ def _onehot_lb(samples: list[str]) -> pd.DataFrame:
     lb = lb.replace(["HER2"], "Luminal")
     lb = lb.fillna("Unknown")
     X = pd.get_dummies(lb, prefix="lb", dtype=float)
-    X = X.reindex([s for s in samples if s in X.index])
+    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
     if len(X) == 1:
         for subtype in ["Luminal", "Basal", "Normal"]:
             if f"lb_{subtype}" not in X.columns:
