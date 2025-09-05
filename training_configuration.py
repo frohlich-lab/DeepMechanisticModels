@@ -647,6 +647,7 @@ CONTEXTS_FEATURES_2B = [
 PATHWAYS_2B = (
     [
         "EGFR_MAPK__logobs",
+        # ERBB2 models
         "EGFR_MAPK__logobs_ferbb2_aggavg",
         "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
     ]
@@ -663,8 +664,14 @@ CONTEXTS_FEATURES_3 = [
 PATHWAYS_3 = (
     [
         "EGFR_MAPK__logobs",
+        # EGFR models
         "EGFR_MAPK__logobs_tegfr_aggavg",
         "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
+        # Adding ERBB2 models
+        "EGFR_MAPK__logobs_terbb2_aggavg",
+        "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
+        "EGFR_MAPK__logobs_perbb2_aggavg",
+        "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
     ]
 )
 
