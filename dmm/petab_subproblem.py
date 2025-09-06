@@ -67,11 +67,11 @@ def generate_parameter_table(
 
         if "pobs" in modifications:
             for marker in ["EGFR", "ERBB2"]:
-                if (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications):
-                    for param_type in ["offset", "scale"]:
-                        param_check = f"t{marker}_obs_{param_type}"
-                        if param_check not in params:
-                            params.append(param_check)
+                # if (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications):
+                for param_type in ["offset", "scale"]:
+                    param_check = f"t{marker}_obs_{param_type}"
+                    if param_check not in params:
+                        params.append(param_check)
 
 
     transforms = {"lin": lambda x: x, "log10": lambda x: np.power(10.0, x)}
@@ -161,7 +161,7 @@ def load_petab(
             != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID],
             # proteomics for pobs
             measurement_table[petab.OBSERVABLE_ID].str.startswith(
-                ("tEGFR_obs",)
+                ("tEGFR_obs", "tERBB2_obs", )
             )
             & (measurement_table["measurementType"] == "proteomics"),
         )
@@ -280,9 +280,9 @@ def filter_observables(petab_problem: petab.Problem):
             continue
         if par not in obs_pars:
             if "pobs" in modifications:
-                marker = par.split("_")[0][1:]
-                if (
-                        (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications)
-                ) and (f"t{marker}" in par):
-                    continue
+                # marker = par.split("_")[0][1:]
+                # if (
+                #         (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications)
+                # ) and (f"t{marker}" in par):
+                continue
             petab_problem.parameter_df.drop(index=par, inplace=True)
