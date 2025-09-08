@@ -149,7 +149,8 @@ def init_wandb(
         # v60_fig2a: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2A runs with added subtype-augmented cytof_init
         # v61_fig3: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 3 runs with added subtype-augmented cytof_init
         # v62_fig2b: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2B (ferbb2) runs with added subtype-augmented cytof_init
-        project=f"DeepMechanisticModels.v62_fig2b.{conf.data}",
+        # v63_fig1b: repeating 1B centred around new l1reg_inflater_output value (1e-2)
+        project=f"DeepMechanisticModels.v63_fig1b.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
