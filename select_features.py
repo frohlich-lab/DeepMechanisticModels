@@ -598,10 +598,6 @@ def prepare_inputs_for_context(
             input_train = get_hvg(input_train)
             selected = input_train.columns.tolist()
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
-            # Quick unsupervised HVG prefilter, then keep all remaining
-            input_train = get_hvg(input_train)
-            selected = input_train.columns.tolist()
-            input_val = input_val[selected]
         else:
             # Supervised (or curated/MSIG) selection reusing existing function
             selected = get_selected_features(
