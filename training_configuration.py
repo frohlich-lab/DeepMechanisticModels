@@ -630,7 +630,7 @@ PATHWAYS_2A = (
     [
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_fegfr_aggavg",
-        "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
+        # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
     ]
 )
 
@@ -649,7 +649,7 @@ PATHWAYS_2B = (
         "EGFR_MAPK__logobs",
         # ERBB2 models
         "EGFR_MAPK__logobs_ferbb2_aggavg",
-        "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
+        # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
     ]
 )
 
@@ -666,12 +666,12 @@ PATHWAYS_3 = (
         "EGFR_MAPK__logobs",
         # EGFR models
         "EGFR_MAPK__logobs_tegfr_aggavg",
-        "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
+        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
         # Adding ERBB2 models
         "EGFR_MAPK__logobs_terbb2_aggavg",
-        "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
+        # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
         "EGFR_MAPK__logobs_perbb2_aggavg",
-        "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
+        # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
     ]
 )
 
@@ -694,10 +694,10 @@ PATHWAYS_4 = (
         # Baselines and Growth Factors
         "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
         "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
-        # # Mutations
+        # Mutations
         "EGFR_MAPK__logobs_mbraf_mkras",
         "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
-        # # All components
+        # All components
         "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
         "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
     ]
