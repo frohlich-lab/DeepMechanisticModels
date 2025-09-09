@@ -41,7 +41,6 @@ from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
-from dmm.training_helper_funcs import create_pypesto_problem
 from evaluation_plotting import (
     random_forest_importance_plot,
 )
@@ -62,33 +61,18 @@ def get_measurements_and_obervables(conf: Conf):
     return df_meas, df_obs
 
 
-def load_model_and_obj(
+def load_model(
     conf: Conf,
-    petab_base_files: Dict[str, pd.DataFrame],
-    features: pd.DataFrame,
+    pypesto_subproblem,
 ) -> tuple[DeepMechanisticModel, Any]:
-    # Get cytof problem
-    cytof_problem = CytofProblem(conf.model)
-
     # Define filepaths for serialized models
     trained_model_file = TRAINED_MODEL.format(**conf.to_dict())
-
-    petab_importer = load_petab(
-        problem=cytof_problem,
-        dataset=conf.data,
-        **petab_base_files,
-        samples=list(features.index),
-    )
-    pypesto_subproblem = petab_importer.create_problem()
 
     model = DeepMechanisticModel.load(
         filename=trained_model_file,
         pypesto_problem=pypesto_subproblem,
     )
-
-    pypesto_problem = create_pypesto_problem(pypesto_subproblem)
-
-    return model, pypesto_problem
+    return model
 
 
 def process_per_sample_pretrain(
