@@ -150,7 +150,12 @@ def init_wandb(
         # v61_fig3: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 3 runs with added subtype-augmented cytof_init
         # v62_fig2b: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2B (ferbb2) runs with added subtype-augmented cytof_init
         # v63_fig1b: repeating 1B centred around new l1reg_inflater_output value (1e-2)
-        project=f"DeepMechanisticModels.v63_fig1b.{conf.data}",
+        # v64_fig1c: repeating 1C centred around new l1reg_inflater_output value (1e-2)
+        # v65_fig4: repeating 4 centred around new l1reg_inflater_output value (1e-2), only base, tEGFR and mutations
+        # v61_fig3missing: rerunning runs for which .eqx models were deleted
+        # v64_fig1cext: extending 1C with curated feature sets
+        # v65_fig1bext: extending 1B with ML scans around best features for proteomics/transcriptomics
+        project=f"DeepMechanisticModels.v65_fig1bext.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
