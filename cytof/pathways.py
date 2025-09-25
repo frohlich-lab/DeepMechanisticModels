@@ -136,9 +136,9 @@ def add_p38(model):
         ],
     }
     # add P38 as MEK inhibitor (https://doi.org/10.1016/j.cellsig.2005.05.023)
-    model.pathway_elements["MEK"]["S222"][1].append("p38__T180_p")
+    # model.pathway_elements["MEK"]["S222"][1].append("p38__T180_p")
     # add P38 as ERK inhibitor (https://doi.org/10.1039/D2CB00157H)
-    model.pathway_elements["ERK"]["Y204"][1].append("p38__T180_p")
+    # model.pathway_elements["ERK"]["Y204"][1].append("p38__T180_p")
     # model.pathway_elements["JNK"] = {
     #     "T183": ["MKK4__S257_p", "MKK36__S218_p"],
     # }
