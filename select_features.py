@@ -287,10 +287,8 @@ def get_selected_features(
             means = np.mean(input_data, axis=0)
             threshold = np.percentile(means, 20)
             input_data = input_data.loc[:, means >= threshold]
-            # Keep top 500 features with highest variance
-            var_threshold = sorted(
-                np.nanvar(input_data, axis=0), reverse=True
-            )[500]
+            # Keep top 50% features with highest variance
+            var_threshold = np.percentile(np.nanvar(input_data, axis=0), 50)
             input_data = input_data.loc[
                 :, np.nanvar(input_data, axis=0) >= var_threshold
             ]
@@ -312,7 +310,10 @@ def get_selected_features(
             y_pred = pipeline.predict(input_data)
             rmse = np.sqrt(np.mean(np.square(output_data.values - y_pred)))
             importances = get_feature_importances(
-                pipeline, input_data, output_data, method=method
+                pipeline,
+                input_data,
+                output_data,
+                method=method if input_data.shape[1] <= 500 else "tree",
             )
 
             n_features_target = int(np.ceil(len(importances) * reduce_factor))
