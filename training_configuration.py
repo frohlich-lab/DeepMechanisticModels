@@ -26,7 +26,8 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_tegfr",
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
         # "EGFR_MAPK_AKT__logobs",
         "EGFR_MAPK_P38__logobs",
         # "EGFR_MAPK_P38_AKT__logobs",
@@ -63,15 +64,15 @@ CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
     ("cytof_init_pca", "RFE_10_permute"),
-    ("cytof_dynamic", "RFE_10_permute"),
-    ("cytof_dynamic_pca", "RFE_10_permute"),
+    # ("cytof_dynamic", "RFE_10_permute"),
+    # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "RFE_10_permute"),
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "HVGRFE_6_permute"),
+    ("proteomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "all"),
-    # ("transcriptomics", "HVGRFE_6_permute"),
+    ("transcriptomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "PAM50"),
     # ("transcriptomics", "IHC"),
     # ("transcriptomics", "KRT"),
@@ -372,8 +373,8 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (1e-4, 1e-3, 1e-2, 1e-1, 1e0),
-    "central_value": 1e-4,
+    "range": (1e-2,),
+    "central_value": 1e-2,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
