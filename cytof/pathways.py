@@ -7,15 +7,21 @@ active_akt = ("AKT__T308_p",)
 
 
 def add_egfr(model):
-    erbb2_activators = ["ERBB2", "EGFR__Y1173_p"]
+    erbb3_activators = ["EGF_0"]
     for gf in ["NRG1", "NRG2"]:
         if model.has_modification(f"t{gf.lower}"):
             par = f"{gf}_eq"
-            erbb2_activators.append(f"{gf}_eq")
+            erbb3_activators.append(f"{gf}_eq")
             model.parameters.add(par)
+    model.pathway_elements["ERBB3"] = {
+        "Y1289": (
+            erbb3_activators,
+            [],
+        ),
+    }
     model.pathway_elements["ERBB2"] = {
         "Y1248": (
-            erbb2_activators,
+            ["ERBB2", "EGFR__Y1173_p", "ERBB3__Y1289_p"],
             ["iEGFR_0"],
         ),
     }
@@ -46,6 +52,8 @@ def add_egfr(model):
         model.species_with_free_levels.append("EGFR")
     if model.has_modification("ferbb2"):
         model.species_with_free_levels.append("ERBB2")
+    if model.has_modification("ferbb3"):
+        model.species_with_free_levels.append("ERBB3")
 
 
 def add_mapk(model):

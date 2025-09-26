@@ -27,7 +27,7 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_tegfr_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
         # "EGFR_MAPK_AKT__logobs",
         "EGFR_MAPK_P38__logobs",
         # "EGFR_MAPK_P38_AKT__logobs",
@@ -70,9 +70,9 @@ CONTEXTS_FEATURES = [
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
     # ("cytof_dynamic_full", "all"),  # all observables
-    ("proteomics", "HVGRFE_6_permute"),
+    # ("proteomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "all"),
-    ("transcriptomics", "HVGRFE_6_permute"),
+    # ("transcriptomics", "HVGRFE_6_permute"),
     # ("transcriptomics", "PAM50"),
     # ("transcriptomics", "IHC"),
     # ("transcriptomics", "KRT"),
