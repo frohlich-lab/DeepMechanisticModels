@@ -92,7 +92,7 @@ def contextualize_measurements(
                 petab.SIMULATION_CONDITION_ID,
                 petab.TIME,
             )
-        elif contextualization == "cytof_init":
+        elif contextualization.startswith("cytof_init"):
             if impute:
                 # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
                 # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
@@ -334,14 +334,14 @@ def load_data(
         0.5 if contextualization.startswith("cytof_dynamic") else 0.3
     )
 
-    if not features and not contextualization.endswith("_pca"):
+    if not features and not contextualization.split("_")[-1] == "pca":
         # for training, compute feature set, filtering out too many nans
         # this does not affect "seqvar", which has 0/0.5/1 values
         input_data = input_data.loc[
             :, input_data.isna().mean() < nan_threshold
         ]
 
-    if not transform and contextualization.endswith("_pca"):
+    if not transform and contextualization.split("_")[-1] == "pca":
 
         class DropNaN(BaseEstimator, TransformerMixin):
             _isnotna: pd.Series
