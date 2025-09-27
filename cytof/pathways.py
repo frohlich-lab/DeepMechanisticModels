@@ -29,7 +29,7 @@ def add_egfr(model):
     egfr_activators = ["EGF_0"]
     model.parameters.add("EGF_0")
     for gf in ["TGFA", "BTC", "EREG"]:
-        if model.has_modification(f"t{gf.lower}"):
+        if model.has_modification(f"t{gf.lower()}"):
             par = f"{gf}_eq"
             egfr_activators.append(f"{gf}_eq")
             model.parameters.add(par)
