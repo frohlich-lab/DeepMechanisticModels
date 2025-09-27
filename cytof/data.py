@@ -563,7 +563,7 @@ def build_condition_table(
             if gene in [
                 "EGFR",
                 "ERBB2",
-                "TGFA",
+                "ERBB3" "TGFA",
                 "BTC",
                 "EREG",
                 "NRG1",
@@ -577,7 +577,7 @@ def build_condition_table(
                     continue
                 else:
                     condition_table[par_name] = float(
-                        gene in ["EGFR", "ERBB2"]
+                        gene in ["EGFR", "ERBB2", "ERBB3"]
                     )
                     continue
 
