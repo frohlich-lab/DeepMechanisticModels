@@ -1,6 +1,7 @@
 active_rtks = (
     "EGFR__Y1173_p",
     "ERBB2__Y1248_p",
+    "ERBB3__Y1289_p",
 )
 rtk_feedback = ("ERK__Y204_p",)
 active_akt = ("AKT__T308_p",)

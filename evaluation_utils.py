@@ -769,7 +769,7 @@ def aggregate_and_log(
     gbs_dmm = ["dataset", "ref"] + scan_attributes
 
     df["res"] = df["res"].astype(float)
-    df["res"] = df[np.isfinite(df["res"])]
+    df = df[np.isfinite(df["res"])]
 
     temp_dfs = []
     for ref_subset, group_cols in {
