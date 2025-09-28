@@ -28,7 +28,11 @@ PATHWAYS = (
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_tegfr_aggavg",
         "EGFR_MAPK__logobs_tegfr_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_tnrg1_tnrg2_aggavg",
         "EGFR_MAPK__logobs_terbb3_aggavg",
+        "EGFR_MAPK__logobs_terbb3_tnrg1_tnrg2_aggavg",
         # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
         # "EGFR_MAPK_AKT__logobs",
         # "EGFR_MAPK_P38__logobs",
@@ -65,7 +69,7 @@ DATASETS = ("dream_cytof",)
 CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
-    ("cytof_init_pca", "RFE_10_permute"),
+    # ("cytof_init_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "RFE_10_permute"),
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "RFE_10_permute"),
@@ -524,8 +528,8 @@ MOMENTUM = {
 }
 
 NEPOCH = {
-    "range": (500,),
-    "central_value": 500,
+    "range": (1000,),
+    "central_value": 1000,
 }
 
 INFLATER_BOUND = {
