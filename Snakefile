@@ -41,7 +41,8 @@ envvars:
 
 rule load_data:
     input:
-        script='load_data.py'
+        script='load_data.py',
+        data_code=cytof_dir / 'data.py',
     output:
         cytof='data/cytof.csv',
         proteomics='data/proteomics.csv',
