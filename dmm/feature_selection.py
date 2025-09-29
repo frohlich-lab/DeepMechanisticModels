@@ -59,7 +59,14 @@ def contextualize_measurements(
         ]
     elif contextualization.split("_")[0] == "cytof":
         input_measurements = input_measurements[
-            input_measurements["measurementType"] == "cytof"
+            (input_measurements["measurementType"] == "cytof")
+            & (
+                np.logical_not(
+                    input_measurements[
+                        petab.SIMULATION_CONDITION_ID
+                    ].str.endswith("__full")
+                )
+            )
         ]
     # For transcriptomics and proteomics, only keep time 0
     if contextualization in ("transcriptomics", "proteomics"):
@@ -226,6 +233,9 @@ def harmonise_cytof_dynamic(input_data):
 
     for marker in markers:
         for pert in perturbations:
+            if pert == "full":
+                continue
+
             # Impute 13.0 from 12.0 then 14.0 (order matters!)
             for source_time in (12.0, 14.0):
                 input_data = impute_missing(
@@ -260,6 +270,9 @@ def harmonise_cytof_dynamic(input_data):
     #  linear interpolation of intermediate missing timepoints
     for marker in markers:
         for pert in perturbations:
+            if pert == "full":
+                continue
+
             for missing_time, [time_before, time_after] in zip(
                 [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
             ):
