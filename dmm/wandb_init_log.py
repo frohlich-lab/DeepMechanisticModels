@@ -143,7 +143,8 @@ def init_wandb(
         # v55: new model cv splits and l1 inflater scan, no recon loss
         # ff.v0: more contexts, updated feature selection, simplified model
         # ff.v1: add HER3
-        project=f"DeepMechanisticModels.ff.v1.{conf.data}",
+        # ff.v2: implement serum
+        project=f"DeepMechanisticModels.ff.v2.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
