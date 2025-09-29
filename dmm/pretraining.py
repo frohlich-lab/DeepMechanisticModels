@@ -255,7 +255,7 @@ def generate_average_pretraining_problem(
         ].copy()
         for col in cdf.columns:
             if col.endswith("_eq"):
-                cdf[col] = 1.0
+                cdf[col] = pp.condition_df[col].mean()
         cdf.index = [
             name.replace(samples[0] + "__", "__").replace(
                 samples[0], "baseline"
