@@ -8,9 +8,10 @@ active_akt = ("AKT__T308_p",)
 
 
 def add_egfr(model):
-    erbb3_activators = ["EGF_0"]
+    erbb3_activators = ["serum_0"]
+    model.parameters.add("serum_0")
     for gf in ["NRG1", "NRG2"]:
-        if model.has_modification(f"t{gf.lower}"):
+        if model.has_modification(f"t{gf.lower()}"):
             par = f"{gf}_eq"
             erbb3_activators.append(f"{gf}_eq")
             model.parameters.add(par)
@@ -22,11 +23,11 @@ def add_egfr(model):
     }
     model.pathway_elements["ERBB2"] = {
         "Y1248": (
-            ["ERBB2", "EGFR__Y1173_p", "ERBB3__Y1289_p"],
+            ["ERBB2", "EGFR__Y1173_p", "ERBB3__Y1289_p", "serum_0"],
             ["iEGFR_0"],
         ),
     }
-    egfr_activators = ["EGF_0"]
+    egfr_activators = ["EGF_0", "serum_0"]
     model.parameters.add("EGF_0")
     for gf in ["TGFA", "BTC", "EREG"]:
         if model.has_modification(f"t{gf.lower()}"):

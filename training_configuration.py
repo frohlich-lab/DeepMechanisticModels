@@ -528,8 +528,8 @@ MOMENTUM = {
 }
 
 NEPOCH = {
-    "range": (1000,),
-    "central_value": 1000,
+    "range": (500,),
+    "central_value": 500,
 }
 
 INFLATER_BOUND = {

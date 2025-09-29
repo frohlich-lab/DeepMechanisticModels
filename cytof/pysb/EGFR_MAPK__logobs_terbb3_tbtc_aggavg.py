@@ -1,4 +1,4 @@
-# exported from PySB model 'EGFR_MAPK__logobs_tegfr_tbtc_aggavg'
+# exported from PySB model 'EGFR_MAPK__logobs_terbb3_tbtc_aggavg'
 
 from pysb import Model, Monomer, Parameter, Expression, Compartment, Rule, Observable, Initial, MatchOnce, EnergyPattern, Annotation, MultiState, Tag, ANY, WILD, as_complex_pattern, time
 
@@ -12,8 +12,8 @@ Monomer('TOPK', ['Y74'], {'Y74': ['u', 'p']})
 Monomer('ERK', ['Y204'], {'Y204': ['u', 'p']})
 Monomer('RPS6KA1', ['S380'], {'S380': ['u', 'p']})
 
-Parameter('BTC_eq', 0.0)
 Parameter('EGF_0', 0.0)
+Parameter('BTC_eq', 0.0)
 Parameter('serum_0', 0.0)
 Parameter('ERBB3_eq', 100.0)
 Parameter('MED_ERBB3_dp_Y1289_kcat', 1.0)

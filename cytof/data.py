@@ -341,14 +341,19 @@ def process_petab_cytof(
 
     measurement_table_phospho[
         petab.PREEQUILIBRATION_CONDITION_ID
-    ] = measurement_table_phospho[petab.PREEQUILIBRATION_CONDITION_ID].apply(
-        lambda x: f"c{x}"
+    ] = measurement_table_phospho.apply(
+        lambda x: f"c{x[petab.PREEQUILIBRATION_CONDITION_ID]}"
+        if x.treatment != "full"
+        else f"c{x[petab.PREEQUILIBRATION_CONDITION_ID]}__full",
+        axis=1,
     )
 
     measurement_table_phospho[
         petab.SIMULATION_CONDITION_ID
     ] = measurement_table_phospho.apply(
-        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}",
+        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}"
+        if x.treatment != "full"
+        else f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}",
         axis=1,
     )
     measurement_table_phospho.drop(
@@ -488,12 +493,6 @@ def build_condition_table(
         }
     )
 
-    # ignore "full" for now
-    condition_table = condition_table.loc[
-        condition_table[petab.CONDITION_ID].apply(lambda x: ("full" not in x)),
-        :,
-    ]
-
     perturbations = np.unique(
         [
             p
@@ -507,7 +506,7 @@ def build_condition_table(
         def not_part_of_condition(c: str, pert=pert) -> bool:
             return pert not in c.split("__")
 
-        if model.parameters.get(f"{pert}_0") is None:
+        if model.parameters.get(f"{pert}_0") is None and pert != "full":
             # remove condition
             condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
@@ -525,8 +524,73 @@ def build_condition_table(
         ].apply(part_of_condition)
 
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
+        lambda x: float("__" in x and "full" not in x.split("__"))
+    )
+    condition_table["serum_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
+    # full media conditions
+    # 20% serum: BT483, CAL148, CAL51, EFM192A, HCC1143, MDAMB134VI, MDAMB361
+    condition_table["serum_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [
+                    f"c{cell_line}__full"
+                    for cell_line in (
+                        "BT483",
+                        "CAL148",
+                        "CAL51",
+                        "EFM192A",
+                        "HCC1143",
+                        "MDAMB134VI",
+                        "MDAMB361",
+                    )
+                ]
+            )
+        )
+        * 1.0
+    )
+    # 15% serum: MDAMB415, MFM223
+    condition_table["serum_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [f"c{cell_line}__full" for cell_line in ("MDAMB415", "MFM223")]
+            )
+        )
+        * 0.5
+    )
+    # 10% serum: all others = 1.0
+    # 5% serum: HCC2157, MX1, UACC3199
+    condition_table["serum_0"] -= (
+        condition_table["conditionId"].isin(
+            tuple(
+                [
+                    f"c{cell_line}__full"
+                    for cell_line in ("HCC2157", "MX1", "UACC3199")
+                ]
+            )
+        )
+        * 0.5
+    )
+    # 0% serum: 184A1, 184B5
+    condition_table["serum_0"] -= (
+        condition_table["conditionId"].isin(
+            tuple([f"c{cell_line}__full" for cell_line in ("184A1", "184B5")])
+        )
+        * 1.0
+    )
+    # EGF in media: MCF10F, MCF12A 20ng/ml
+    condition_table["EGF_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [f"c{cell_line}__full" for cell_line in ("MCF10F", "MCF10A")]
+            )
+        )
+        * 0.2
+    )
+
+    condition_table = condition_table.drop(columns="full_0")
+
     if "__" in model.name:
         modifications = model.name.split("__")[1].split("_")
     else:
@@ -563,7 +627,8 @@ def build_condition_table(
             if gene in [
                 "EGFR",
                 "ERBB2",
-                "ERBB3" "TGFA",
+                "ERBB3",
+                "TGFA",
                 "BTC",
                 "EREG",
                 "NRG1",
