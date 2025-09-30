@@ -161,25 +161,10 @@ def load_petab(
     # CONDITION TABLE
     # this defines the different samples. here we define the mapping from
     # input parameters to model parameters
-
-    preeq_conds = {}
-    for cond in list(condition_table.index):
-        candidates = measurement_table[
-            measurement_table[petab.SIMULATION_CONDITION_ID] == cond
-        ][petab.PREEQUILIBRATION_CONDITION_ID].unique()
-        if len(candidates) > 1:
-            raise RuntimeError(
-                f"Found multiple different preequilibration conditions {candidates} for condition {cond}, which is not "
-                f"supported."
-            )
-        if len(candidates) == 0:
-            preeq_conds[cond] = cond
-        else:
-            preeq_conds[cond] = candidates[0]
-
     for feature in features:
         condition_table[feature.name] = [
-            f"{feature.name}__{preeq_conds[s]}" for s in condition_table.index
+            f"{feature.name}__{s.split("__")[0]}"
+            for s in condition_table.index
         ]
 
     # PARAMETER TABLE
