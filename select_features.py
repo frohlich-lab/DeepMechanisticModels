@@ -19,6 +19,7 @@ from dmm.feature_selection import (
     load_data,
     preprocess_mosa_latent,
 )
+from typing import Union
 from training_configuration import SPLITS
 from util import load_petab_base_files
 
@@ -54,18 +55,26 @@ def get_feature_importances(model, X, y, method="auto"):
         raise ValueError(f"Unknown method: {method}")
 
 
-def get_hvg(input_df: pd.DataFrame, top_n: int = 500) -> pd.DataFrame:
+def get_hvg(input_df: pd.DataFrame, top_n: Union[int, float] = 0.5) -> pd.DataFrame:
     # remove 20% of features with the lowest mean:
     means = np.mean(input_df, axis=0)
     threshold = np.percentile(means, 20)
     input_df = input_df.loc[:, means >= threshold]
-    # Keep top N (default 500) features with the highest variance
-    var_threshold = sorted(
-        np.nanvar(input_df, axis=0), reverse=True
-    )[top_n]
-    input_df = input_df.loc[
-                 :, np.nanvar(input_df, axis=0) >= var_threshold
-                 ]
+    if isinstance(top_n, int):
+        # Keep top N features with the highest variance
+        var_threshold = sorted(
+            np.nanvar(input_df, axis=0), reverse=True
+        )[top_n]
+        input_df = input_df.loc[
+                     :, np.nanvar(input_df, axis=0) >= var_threshold
+                     ]
+    elif isinstance(top_n, float):
+        perc = 100 * top_n
+        # Keep top 50% features with the highest variance (default)
+        var_threshold = np.percentile(np.nanvar(input_df, axis=0), perc)
+        input_df = input_df.loc[
+                     :, np.nanvar(input_df, axis=0) >= var_threshold
+                     ]
     return input_df
 
 
@@ -301,15 +310,7 @@ def get_selected_features(
             "proteomics",
             "transcriptomics",
         ]:
-            # remove 20% of features with lowest mean:
-            means = np.mean(input_data, axis=0)
-            threshold = np.percentile(means, 20)
-            input_data = input_data.loc[:, means >= threshold]
-            # Keep top 50% features with highest variance
-            var_threshold = np.percentile(np.nanvar(input_data, axis=0), 50)
-            input_data = input_data.loc[
-                :, np.nanvar(input_data, axis=0) >= var_threshold
-            ]
+            input_data = get_hvg(input_data)
 
         output_data -= output_data.mean(axis=0)  # center output data
 
