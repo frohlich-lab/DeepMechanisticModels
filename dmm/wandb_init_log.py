@@ -155,6 +155,11 @@ def init_wandb(
         # v61_fig3missing: rerunning runs for which .eqx models were deleted
         # v64_fig1cext: extending 1C with curated feature sets
         # v65_fig1bext: extending 1B with ML scans around best features for proteomics/transcriptomics
+        # v54: p38 model
+        # v55: new model cv splits and l1 inflater scan, no recon loss
+        # ff.v0: more contexts, updated feature selection, simplified model
+        # ff.v1: add HER3
+        # ff.v2: implement serum
         project=f"DeepMechanisticModels.v65_fig1bext.{conf.data}",
         group=group,
         config={
@@ -184,6 +189,7 @@ def init_wandb(
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
             conf.date_tag,  # label experiment with date of experiment start
+            conf.run_mode_tag,  # label run type (linear scans, grid search, refinement/tuning of best runs
         ],
         mode="online",
     )

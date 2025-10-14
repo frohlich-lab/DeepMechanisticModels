@@ -134,13 +134,19 @@ def simulate_avg_model(
         **petab_base_files,
     )
 
+    samples = (
+        training_samples(Wildcards(conf.data, conf.samples))
+        if dataset == "train"
+        else val_samples(Wildcards(conf.data, conf.samples))
+    )
+    if not len(samples):
+        return pd.DataFrame([])
+
     importer = generate_average_pretraining_problem(
         petab_base_importer,
         problem,
         conf.data,
-        training_samples(Wildcards(conf.data, conf.samples))
-        if dataset == "train"
-        else val_samples(Wildcards(conf.data, conf.samples)),
+        samples,
     )
     problem_sample = importer.create_problem()
     df = pd.read_csv(rfile, index_col=[0])
@@ -202,10 +208,12 @@ def get_embedding_and_params_df(
     job: int,
     samples: list[str],
 ) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    if not len(input_features):
+        return pd.DataFrame(), pd.DataFrame(), pd.DataFrame()
     # Latent embeddings
     temp_latent_embeddings = vmap(
         eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
-    )(input_features, jr.PRNGKey(0))
+    )(jnp.array(input_features), jr.PRNGKey(0))
     latent_embeddings_df = pd.DataFrame(
         {
             "cell_line": samples,
@@ -222,7 +230,7 @@ def get_embedding_and_params_df(
                 zip(
                     dmm_model.parameter_deviation_names,
                     eqx.nn.inference_mode(dmm_model)
-                    .inflate_params(input_features, jr.PRNGKey(0))
+                    .inflate_params(jnp.array(input_features), jr.PRNGKey(0))
                     .T,
                 )
             ),
@@ -238,7 +246,7 @@ def get_embedding_and_params_df(
                     dmm_model.parameter_deviation_names,
                     (
                         eqx.nn.inference_mode(dmm_model).inflate_params(
-                            input_features, jr.PRNGKey(0)
+                            jnp.array(input_features), jr.PRNGKey(0)
                         )
                         + dmm_model.kin_params_combiner.learned_global_kin_params[
                             : len(dmm_model.parameter_deviation_names)
@@ -761,6 +769,7 @@ def aggregate_and_log(
     gbs_dmm = ["dataset", "ref"] + scan_attributes
 
     df["res"] = df["res"].astype(float)
+    df = df[np.isfinite(df["res"])]
 
     temp_dfs = []
     for ref_subset, group_cols in {

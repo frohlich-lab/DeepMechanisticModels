@@ -157,7 +157,7 @@ def make_step(
 def train(
     model: DeepMechanisticModel,
     problem_train: pypesto.Problem,
-    problem_test: pypesto.Problem,
+    problem_test: pypesto.Problem | None,
     input_features_train,
     input_features_test,
     # rfile: Path,
@@ -260,7 +260,6 @@ def train(
                     f"selected out of {len(model.parameter_deviation_names)} total features. features: {selected_features}"
                 )
 
-        # lift regularisation after this epoch
         next_model, model, opt_state, loss_train, fval, reg, grads = make_step(
             model=model,
             opt=opt,
@@ -295,17 +294,16 @@ def train(
         # Log RMSE values + check early-stopping criteria + check for invalid metrics
         if epoch in log_epochs:
             rmse_train, rmse_val = (
-                rmse(problem, rmse_model, input_data)
-                for problem, rmse_model, input_data in zip(
+                rmse(problem, model, input_data)
+                for problem, input_data in zip(
                     [problem_train, problem_test],
-                    [model, model],
                     [input_features_train, input_features_test],
                 )
             )
 
             # Handle invalid loss_train (fval_train) and RMSE
             should_break = metric_handler.handle_invalid_metrics(
-                metrics=[loss_train, rmse_train, rmse_val],
+                metrics=[loss_train, rmse_train],
                 epoch=epoch,
             )
             if should_break:

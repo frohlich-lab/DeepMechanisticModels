@@ -53,8 +53,13 @@ def observable_id_to_model_expr(
             r"^P\.p.PLCG2": "PLCG2_Y759",
             r"^P\.BTK": "BTK_Y551",
             r"^P\.CREB": "CREB1_S133",
+            r"^P\.MAPKAPK2": "MAPKAPK2_T334",
+            r"^P\.MKK3.MKK6": "MKK36_S218",
+            r"^P\.MKK4": "MKK4_S257",
+            r"^P\.P38": "p38_T180",
+            r"^P\.JNK": "JNK_T183",
         }
-    elif re.match(r"synthetic_[0-9]+_[0-9\.]+_[0-9\.]+$", dataset):
+    elif re.match(r"synthetic_[0-9]+_[0-9.]+_[0-9.]+$", dataset):
         palias = {}
     else:
         raise ValueError("Dataset not supported!")
@@ -119,12 +124,10 @@ if __name__ == "__main__":
     # filter measurements for removed conditions
     condition_ids = condition_table[petab.CONDITION_ID].unique()
     measurement_table = measurement_table.loc[
-        measurement_table.apply(
-            lambda x: x[petab.SIMULATION_CONDITION_ID] in condition_ids
-            and x[petab.PREEQUILIBRATION_CONDITION_ID] in condition_ids,
-            axis=1,
-        ),
-        :,
+        measurement_table[petab.SIMULATION_CONDITION_ID].isin(condition_ids)
+        & measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(
+            condition_ids
+        )
     ]
 
     observable_ids = [
@@ -147,8 +150,8 @@ if __name__ == "__main__":
     measurement_table[petab.OBSERVABLE_ID] = measurement_table[
         petab.OBSERVABLE_ID
     ].apply(
-        lambda x: observable_id_to_model_expr(x, conf.data, model) + "_obs"
-        if observable_id_to_model_expr(x, conf.data, model) != ""
+        lambda x: obs + "_obs"
+        if (obs := observable_id_to_model_expr(x, conf.data, model)) != ""
         else x
     )
 

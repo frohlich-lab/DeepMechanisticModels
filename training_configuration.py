@@ -26,13 +26,24 @@ PATHWAYS = (
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
         # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
         "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        "EGFR_MAPK__logobs_tegfr_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_aggavg",
+        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_tnrg1_tnrg2_aggavg",
+        "EGFR_MAPK__logobs_terbb3_aggavg",
+        "EGFR_MAPK__logobs_terbb3_tnrg1_tnrg2_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
+        # "EGFR_MAPK_AKT__logobs",
+        # "EGFR_MAPK_P38__logobs",
+        # "EGFR_MAPK_P38_AKT__logobs",
         # "EGFR_MAPK__logobs_tegfr",
         # "EGFR_MAPK__logobs_tegfr_terbb2",
         # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
         # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
         # "EGFR_MAPK__logobs_fegfr_aggavg",
         # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
-        "EGFR_MAPK__logobs_tegfr_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_aggavg",
         # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
         # "EGFR_MAPK",
         # "EGFR_MAPK__tegfr",
@@ -58,6 +69,9 @@ DATASETS = ("dream_cytof",)
 CONTEXTS_FEATURES = [
     # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
+    # ("cytof_init_pca", "RFE_10_permute"),
+    # ("cytof_dynamic", "RFE_10_permute"),
+    # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "RFE_10_permute"),
     # ("cytof_dynamic_pca", "RFE_10_permute"),
     # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
@@ -148,6 +162,7 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
+    # "all",
     "MCF7",
     "BT20",
     "HCC1500",
@@ -397,8 +412,8 @@ THETAS = {
 #     1e7,
 # )
 EPSILONS = {
-    "range": (1e-2,),
-    "central_value": 1e-2,
+    "range": (1e-4,),
+    "central_value": 1e-4,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter

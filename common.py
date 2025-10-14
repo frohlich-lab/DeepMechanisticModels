@@ -186,7 +186,7 @@ def training_samples(wildcards) -> List[str]:
 
 
 def val_samples(wildcards) -> List[str]:
-    return [f"c{wildcards.samples}"]
+    return [f"c{wildcards.samples}"] if wildcards.samples != "all" else []
 
 
 def per_sample_pretraining_train(wildcards) -> List[str]:

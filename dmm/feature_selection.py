@@ -37,6 +37,7 @@ def contextualize_measurements(
         "transcriptomics",
         "proteomics",
         "cytof_init",
+        "cytof_init_pca",
         "cytof_dynamic",
         "cytof_dynamic_pca",
         "cytof_dynamic_full",
@@ -58,7 +59,14 @@ def contextualize_measurements(
         ]
     elif contextualization.split("_")[0] == "cytof":
         input_measurements = input_measurements[
-            input_measurements["measurementType"] == "cytof"
+            (input_measurements["measurementType"] == "cytof")
+            & (
+                np.logical_not(
+                    input_measurements[
+                        petab.SIMULATION_CONDITION_ID
+                    ].str.endswith("__full")
+                )
+            )
         ]
     # For transcriptomics and proteomics, only keep time 0
     if contextualization in ("transcriptomics", "proteomics"):
@@ -77,7 +85,9 @@ def contextualize_measurements(
             petab.TIME,
         )
         # For cytof_dynamic_full, keep all observables
-        if contextualization == "cytof_dynamic":
+        if contextualization.startswith(
+            "cytof_dynamic"
+        ) and not contextualization.endswith("_full"):
             # For cytof_dynamic, subset observables to those within the model (ERK, MEK, ERBB2)
             input_measurements = input_measurements[
                 input_measurements[petab.OBSERVABLE_ID].isin(
@@ -89,7 +99,7 @@ def contextualize_measurements(
                 petab.SIMULATION_CONDITION_ID,
                 petab.TIME,
             )
-        elif contextualization == "cytof_init":
+        elif contextualization.startswith("cytof_init"):
             if impute:
                 # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
                 # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
@@ -223,6 +233,9 @@ def harmonise_cytof_dynamic(input_data):
 
     for marker in markers:
         for pert in perturbations:
+            if pert == "full":
+                continue
+
             # Impute 13.0 from 12.0 then 14.0 (order matters!)
             for source_time in (12.0, 14.0):
                 input_data = impute_missing(
@@ -257,6 +270,9 @@ def harmonise_cytof_dynamic(input_data):
     #  linear interpolation of intermediate missing timepoints
     for marker in markers:
         for pert in perturbations:
+            if pert == "full":
+                continue
+
             for missing_time, [time_before, time_after] in zip(
                 [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
             ):
@@ -331,26 +347,26 @@ def load_data(
         0.5 if contextualization.startswith("cytof_dynamic") else 0.3
     )
 
-    if not features and not contextualization.endswith("_pca"):
+    if not features and not contextualization.split("_")[-1] == "pca":
         # for training, compute feature set, filtering out too many nans
         # this does not affect "seqvar", which has 0/0.5/1 values
         input_data = input_data.loc[
             :, input_data.isna().mean() < nan_threshold
         ]
 
-    if not transform and contextualization.endswith("_pca"):
+    if not transform and contextualization.split("_")[-1] == "pca":
 
         class DropNaN(BaseEstimator, TransformerMixin):
-            _isna: pd.Series
+            _isnotna: pd.Series
 
-            def __init__(self, _isna):
-                self._isna = _isna
+            def __init__(self, _isnotna):
+                self._isnotna = _isnotna
 
             def fit(self, X, y=None):
                 return self
 
             def transform(self, X):
-                return X.loc[:, self._isna]
+                return X.loc[:, self._isnotna]
 
         class ConvertDataFrame(BaseEstimator, TransformerMixin):
             def fit(self, X, y=None):
@@ -359,16 +375,15 @@ def load_data(
             def transform(self, X):
                 return pd.DataFrame(
                     X,
-                    columns=[f"pca_{i}" for i in range(input_data.shape[0])],
+                    columns=[f"pca_{i}" for i in range(X.shape[1])],
                 )
 
-        _isna = input_data.isna().mean() < nan_threshold
+        _isnotna = input_data.isna().mean() == 0.0
 
         pipeline = Pipeline(
             [
-                ("dropnan", DropNaN(_isna)),
-                ("impute", KNNImputer()),
-                ("pca", PCA()),
+                ("dropnan", DropNaN(_isnotna)),
+                ("pca", PCA(n_components=0.95)),
                 ("df", ConvertDataFrame()),
             ]
         )
@@ -378,14 +393,16 @@ def load_data(
         transform = pipeline.transform
     elif not transform:
         transform = lambda x: x
-    else:
+    elif len(input_data):
         index = input_data.index
         input_data = transform(input_data)
         input_data.index = index
 
-    if features:
+    if features and len(input_data):
         # for prediction, use feature set computed on training data
         input_data = input_data[features]
+    elif features:
+        input_data = pd.DataFrame(columns=features, data=[])
     else:
         features = list(input_data.columns)
 

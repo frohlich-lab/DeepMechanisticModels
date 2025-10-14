@@ -301,7 +301,15 @@ def get_selected_features(
             "proteomics",
             "transcriptomics",
         ]:
-            input_data = get_hvg(input_data)
+            # remove 20% of features with lowest mean:
+            means = np.mean(input_data, axis=0)
+            threshold = np.percentile(means, 20)
+            input_data = input_data.loc[:, means >= threshold]
+            # Keep top 50% features with highest variance
+            var_threshold = np.percentile(np.nanvar(input_data, axis=0), 50)
+            input_data = input_data.loc[
+                :, np.nanvar(input_data, axis=0) >= var_threshold
+            ]
 
         output_data -= output_data.mean(axis=0)  # center output data
 
@@ -320,7 +328,10 @@ def get_selected_features(
             y_pred = pipeline.predict(input_data)
             rmse = np.sqrt(np.mean(np.square(output_data.values - y_pred)))
             importances = get_feature_importances(
-                pipeline, input_data, output_data, method=method
+                pipeline,
+                input_data,
+                output_data,
+                method=method if input_data.shape[1] <= 500 else "tree",
             )
 
             n_features_target = int(np.ceil(len(importances) * reduce_factor))
@@ -498,21 +509,25 @@ def prepare_inputs_for_context(
     if "subtype" not in subconf.context:
         # Impute missing input values
         imputer_input = KNNImputer()
+        filled = imputer_input.fit_transform(input_train)
         input_train = pd.DataFrame(
-            imputer_input.fit_transform(input_train),
+            filled,
             index=input_train.index,
             columns=input_train.columns,
         )
-        input_val = pd.DataFrame(
-            imputer_input.transform(input_val),
-            index=input_val.index,
-            columns=input_val.columns,
-        )
-
-        # Mean-center by train mean
+        # Mean-center
         mean_train = input_train.mean()
         input_train -= mean_train
-        input_val -= mean_train
+        
+        if len(input_val):
+            input_val = pd.DataFrame(
+                imputer_input.transform(input_val),
+                index=input_val.index,
+                columns=input_val.columns,
+            )
+
+            # Mean-center using training mean
+            input_val -= mean_train
 
     # Feature selection
     if spec["kind"] == "genes":
@@ -574,6 +589,9 @@ samples_val = {
     split: sorted(val_samples(Wildcards(conf.data, split)))
     for split in sorted(SPLITS)
 }
+# Add support for "all", i.e. train on all samples, validate on none
+samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all")))
+samples_val["all"] = []
 
 recipe = build_context_feature_recipe(conf)
 

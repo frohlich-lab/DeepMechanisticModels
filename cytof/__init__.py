@@ -21,7 +21,7 @@ def get_samples(data_name):
             "cHCC1419",
             "cHCC1500",
             "cHCC1569",
-            # "cHCC1599", outlier
+            # "cHCC1599",  # outlier
             "cHCC1937",
             "cHCC1954",
             # "cHCC2157", no transcriptomic data
@@ -63,7 +63,7 @@ def get_samples(data_name):
             "cUACC3199",
             "cZR751",
         ]
-    elif m := re.match(r"synthetic_([0-9]+)_[0-9\.]+_[0-9\.]+$", data_name):
+    elif m := re.match(r"synthetic_([0-9]+)_[0-9.]+_[0-9.]+$", data_name):
         return [f"sample_{isample}" for isample in range(int(m.group(1)))]
 
     raise ValueError(f"{data_name} is not a valid data name")

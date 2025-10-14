@@ -37,14 +37,15 @@ FIGURE = str(config.get("figure", "default"))
 
 singularity: "docker://fabfroehlich/generic_parameter_estimation:main"
 
-# envvars:
-#     "SYNAPSE_AUTH_TOKEN",
-#     "WANDB_API_KEY"
+envvars:
+    "SYNAPSE_AUTH_TOKEN",
+    "WANDB_API_KEY"
 
 
 rule load_data:
     input:
-        script='load_data.py'
+        script='load_data.py',
+        data_code=cytof_dir / 'data.py',
     output:
         cytof='data/cytof.csv',
         proteomics='data/proteomics.csv',

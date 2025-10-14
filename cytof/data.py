@@ -29,6 +29,9 @@ SYNAPSE_FILES = [
     "syn20613696",  # HCC1419
     "syn20613702",  # HCC1500
     "syn20613708",  # HCC1569
+    # strange cell line, extreme chromosomal rearrangements/loss, all the markers
+    # are pretty low, similar to EVSAT and HCC1500, but they have really high
+    # basal pMEK levels
     # "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
     "syn20613719",  # HCC1937
     "syn20613739",  # HCC1954
@@ -208,6 +211,7 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     syn.login()
     files = SYNAPSE_FILES
     mean_data = []
+    min_data = []
     std_data = []
     group_ids = [
         "treatment",
@@ -260,10 +264,11 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 c for c in data.columns if c not in group_ids + ["cellID"]
             ]
             m = data[markers].mean()
+            n = data[markers].min()
             # std = data[markers].std()
             # Create a Series of ones for std with same index (i.e., same markers) -- same weight
             std = pd.Series(1.0, index=m.index)
-            for sdf in [m, std]:
+            for sdf in [m, std, n]:
                 sdf["treatment"] = ids[0]
                 sdf["cell_line"] = ids[1]
                 sdf["time"] = ids[2]
@@ -271,12 +276,17 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
                 sdf["date"] = ids[4]
                 sdf["time_course"] = ids[5]
             mean_data.append(m)
+            min_data.append(n)
             # std[std.isna()] = 1.0
             std_data.append(std)
 
     d = {
         desc: pd.concat(data, axis=1).T
-        for desc, data in (("mean", mean_data), ("std", std_data))
+        for desc, data in (
+            ("mean", mean_data),
+            ("std", std_data),
+            ("min", min_data),
+        )
     }
     id_vars = [
         "cell_line",
@@ -331,14 +341,19 @@ def process_petab_cytof(
 
     measurement_table_phospho[
         petab.PREEQUILIBRATION_CONDITION_ID
-    ] = measurement_table_phospho[petab.PREEQUILIBRATION_CONDITION_ID].apply(
-        lambda x: f"c{x}"
+    ] = measurement_table_phospho.apply(
+        lambda x: f"c{x[petab.PREEQUILIBRATION_CONDITION_ID]}"
+        if x.treatment != "full"
+        else f"c{x[petab.PREEQUILIBRATION_CONDITION_ID]}__full",
+        axis=1,
     )
 
     measurement_table_phospho[
         petab.SIMULATION_CONDITION_ID
     ] = measurement_table_phospho.apply(
-        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}",
+        lambda x: f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}__{x.treatment}"
+        if x.treatment != "full"
+        else f"{x[petab.PREEQUILIBRATION_CONDITION_ID]}",
         axis=1,
     )
     measurement_table_phospho.drop(
@@ -478,16 +493,6 @@ def build_condition_table(
         }
     )
 
-    # ignore "full" for now
-    condition_table = condition_table.loc[
-        condition_table[petab.CONDITION_ID].apply(
-            lambda x: ("full" not in x)
-            and ("iPI3K" not in x or "iPI3K_0" in model.parameters.keys())
-            and ("iPKC" not in x or "iPKC_0" in model.parameters.keys())
-        ),
-        :,
-    ]
-
     perturbations = np.unique(
         [
             p
@@ -501,7 +506,7 @@ def build_condition_table(
         def not_part_of_condition(c: str, pert=pert) -> bool:
             return pert not in c.split("__")
 
-        if model.parameters.get(f"{pert}_0") is None:
+        if model.parameters.get(f"{pert}_0") is None and pert != "full":
             # remove condition
             condition_table = condition_table.loc[
                 condition_table[petab.CONDITION_ID].apply(
@@ -519,8 +524,73 @@ def build_condition_table(
         ].apply(part_of_condition)
 
     condition_table["EGF_0"] = condition_table[petab.CONDITION_ID].apply(
+        lambda x: float("__" in x and "full" not in x.split("__"))
+    )
+    condition_table["serum_0"] = condition_table[petab.CONDITION_ID].apply(
         lambda x: float("__" in x)
     )
+    # full media conditions
+    # 20% serum: BT483, CAL148, CAL51, EFM192A, HCC1143, MDAMB134VI, MDAMB361
+    condition_table["serum_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [
+                    f"c{cell_line}__full"
+                    for cell_line in (
+                        "BT483",
+                        "CAL148",
+                        "CAL51",
+                        "EFM192A",
+                        "HCC1143",
+                        "MDAMB134VI",
+                        "MDAMB361",
+                    )
+                ]
+            )
+        )
+        * 1.0
+    )
+    # 15% serum: MDAMB415, MFM223
+    condition_table["serum_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [f"c{cell_line}__full" for cell_line in ("MDAMB415", "MFM223")]
+            )
+        )
+        * 0.5
+    )
+    # 10% serum: all others = 1.0
+    # 5% serum: HCC2157, MX1, UACC3199
+    condition_table["serum_0"] -= (
+        condition_table["conditionId"].isin(
+            tuple(
+                [
+                    f"c{cell_line}__full"
+                    for cell_line in ("HCC2157", "MX1", "UACC3199")
+                ]
+            )
+        )
+        * 0.5
+    )
+    # 0% serum: 184A1, 184B5
+    condition_table["serum_0"] -= (
+        condition_table["conditionId"].isin(
+            tuple([f"c{cell_line}__full" for cell_line in ("184A1", "184B5")])
+        )
+        * 1.0
+    )
+    # EGF in media: MCF10F, MCF12A 20ng/ml
+    condition_table["EGF_0"] += (
+        condition_table["conditionId"].isin(
+            tuple(
+                [f"c{cell_line}__full" for cell_line in ("MCF10F", "MCF10A")]
+            )
+        )
+        * 0.2
+    )
+
+    condition_table = condition_table.drop(columns="full_0")
+
     if "__" in model.name:
         modifications = model.name.split("__")[1].split("_")
     else:
@@ -557,6 +627,7 @@ def build_condition_table(
             if gene in [
                 "EGFR",
                 "ERBB2",
+                "ERBB3",
                 "TGFA",
                 "BTC",
                 "EREG",
@@ -571,7 +642,7 @@ def build_condition_table(
                     continue
                 else:
                     condition_table[par_name] = float(
-                        gene in ["EGFR", "ERBB2"]
+                        gene in ["EGFR", "ERBB2", "ERBB3"]
                     )
                     continue
 
