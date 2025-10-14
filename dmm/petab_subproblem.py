@@ -199,7 +199,7 @@ def load_petab(
     # input parameters to model parameters
     for feature in features:
         condition_table[feature.name] = [
-            f"{feature.name}__{s.split("__")[0]}"
+            f"{feature.name}__{s.split('__')[0]}"
             for s in condition_table.index
         ]
 
