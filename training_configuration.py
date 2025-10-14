@@ -186,18 +186,6 @@ FREEZE_MEDIANS = {
 # Network Structure and Initialisation Hyperparameters
 
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
-# From W&B, it does not seem to matter much, but it is slightly positively correlated with rmse_val.min - lower
-# appears to be better? -- stat tests show the same.
-# LATENT_DIMS = (
-#     2,
-#     3,
-#     4,
-#     6,
-#     8,
-#     10,
-#     # 14  # inflater does not inflate, rather simply processes same shape input
-# )
-# Define linear scan for LATENT_DIMS
 LATENT_DIMS = {
     "range": (
         2,
@@ -225,14 +213,7 @@ NETWORK_DEPTH = {
     "central_value": 0,  # no hidden layers
 }
 
-# NETWORK_DEPTH = (
-#     0,
-#     1,
-#     2,
-# )
-
-# For now: encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS
-# hyperparameter
+# Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
 USE_BIAS = (
     # "True",
     "False",
@@ -244,11 +225,11 @@ LAST_LAYER_ACTIVATION = (
     "False",
 )
 
-# For now: encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
+# Encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
 # NN_INIT_FN hyperparameter
 NN_INIT_FN = (
     # "eqx_default",
-    "custom",  # custom initialisation with small scale (0.01)
+    "custom",  # custom initialisation with small scale (0.1)
     # "HN",  # He Normal
     # "HU",  # He Uniform
     # "LN",  # LeCun Normal
@@ -281,104 +262,30 @@ ORTH_REG_STRATEGIES = (
     "L2",
 )
 
-
-# Define common linear scan range for regularisation scaling hyperparameters
-LINEAR_SCAN_RANGE_L1REG = (
-    0,
-    # 1e-6,
-    # 1e-5,
-    # 1e-4,
-    # 1e-3,
-    # 10**(-2.5),
-    # 1e-2,
-    # 10**(-1.5),
-    # 1e-1,
-    # 10**(-0.5),
-    # 1e0
-)
-
-LINEAR_SCAN_RANGE_OREG = (
-    0,
-    # 1e-3,
-    # 1e-2,
-    # 1e-1,
-    # 1e0,
-    # 1e1,
-    # 10**(1.5),
-    # 1e2,
-    # 10**(2.5),
-    # 1e3,
-)
-LINEAR_SCAN_CENTRAL = 0  # previously 1e2
-
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
-# From W&B, it seems that rmse_val.min is positively correlated with `l1reg` params
-# i.e. the lower the regularisation, the lower the rmse -- this does not hold for transcriptomics.
-# ALPHAS = (
-#     # 0,  # tested
-#     # 1e1,
-#     # 5e1,
-#     # 1e2, # tested
-#     1e3,
-#     # 1e4, # tested
-#     1e5,  # reenable
-#     # 1e6,
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
 ALPHAS = {
     "range": (0,),
     "central_value": 0,
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
-# From W&B, it seems like oreg params are negatively correlated with rmse_val.min, i.e. the higher the params,
-# the lower the rmse_val.min
-# BETAS = (
-#     # 0,  # tested
-#     1e2,  # reenable -- restricting to 1e2 only as it does not seem to have much of an impact!
-#     # 1e4, # tested
-#     # 1e5,
-#     # 1e6, # tested
-#     1e7,
-#     # 1e8,
-# )
-BETAS = {"range": (0,), "central_value": 0}
-# previously centred at 1e7, but now excluded from scanned values
+BETAS = {
+    "range": (0,),
+    "central_value": 0
+}
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
-# GAMMAS = (
-#     # 0,  # tested
-#     # 1e1,
-#     # 5e1,
-#     # 1e2,  # tested
-#     1e3,
-#     # 1e4,  # tested
-#     # 1e5,
-#     # 1e6,  # tested
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
 GAMMAS = {
     "range": (0,),
     "central_value": 0,
 }
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
-# DELTAS = (
-#     # 0,  # tested
-#     # 1e2, # tested
-#     # 1e4, # tested
-#     # 1e6,  # tested
-#     1e7,
-#     # 1e8,
-#     # 1e10,  # increasing values
-# )
 DELTAS = {
     "range": (0,),
     "central_value": 0,
 }
-# previously centered at 1e7, but now excluded from scanned values
+
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
@@ -405,29 +312,22 @@ THETAS = {
 }
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
-# EPSILONS = (
-#     # 0,
-#     # 1.0,
-#     1e5,
-#     1e7,
-# )
 EPSILONS = {
     "range": (1e-4,),
     "central_value": 1e-4,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
-# ZETAS = (
-#     # 0,
-#     # 1.0,
-#     1e5,
-#     # 1e8,
-# )
-ZETAS = {"range": (0,), "central_value": 0}
+ZETAS = {
+    "range": (0,),
+    "central_value": 0
+}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
-# ETAS = {'range': (0, 1e-4, 1e-3, 1e-2, 1e-1, 1, 10, 100), 'central_value': 0}
-ETAS = {"range": (0,), "central_value": 0}
+ETAS = {
+    "range": (0,),
+    "central_value": 0
+}
 
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
@@ -440,16 +340,12 @@ INFLATER_OUTPUT_REG_EPOCHS = {
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {"range": ("gmm",), "central_value": "gmm"}
+SPARSE_THRESH_PERCS = {
+    "range": ("gmm",),
+    "central_value": "gmm"
+}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
-# MAX_LEARNING_RATES: max_lrate, maximum learning rate at the start of the learning schedule
-# MAX_LEARNING_RATES = {
-#     1e-1,
-#     1e-2,
-#     # 1e-3,
-# }
-# Linear scan range for max_lrate
 MAX_LEARNING_RATES = {
     "range": (
         # 1e-3,
@@ -457,26 +353,15 @@ MAX_LEARNING_RATES = {
         1e-2,
     ),
     "central_value": 1e-2,
-}  # increased central value by one OOM
+}
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
-# LEARNING_RATE_SPANS = {
-#     1e0,
-#     # 1e1,  # ratio of 10
-#     # 1e2,  # ratio of 100
-#     # 1e3,
-# }
-# Linear scan range for lrate_span
-LEARNING_RATE_SPANS = {"range": (1e0,), "central_value": 1e0}
+LEARNING_RATE_SPANS = {
+    "range": (1e0,),
+    "central_value": 1e0
+}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
-# LEARNING_RATE_DECAYS = {
-#     0.9**0,  # no decay
-#     # 0.9**1,
-#     # 0.9**2,
-#     # 0.9**3,
-# }
-# Linear scan range for lrate_decay
 LEARNING_RATE_DECAYS = {
     "range": (
         0.9**0,
@@ -486,39 +371,24 @@ LEARNING_RATE_DECAYS = {
 }
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
-# WARMUP_FCTS = {
-#     # 0.4,
-#     # 0.2,
-#     0.1,
-#     # 0.05,
-#     # 1e-2,
-#     # 1e-3,
-# }
-# Linear scan range for warmup_fct
-WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
+WARMUP_FCTS = {
+    "range": (0.0,),
+    "central_value": 0.0
+}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
-# OPT_STEPS = {
-#     # 1,
-#     # 2,
-#     10,
-# }
-# Linear scan range for opt_steps
-OPT_STEPS = {"range": (10,), "central_value": 10}
+OPT_STEPS = {
+    "range": (10,),
+    "central_value": 10
+}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
-# OPT_MULT = {
-#     # 1,
-#     2,
-#     # 3,
-# }
-# Linear scan range for opt_mult
-OPT_MULT = {"range": (2,), "central_value": 2}
+OPT_MULT = {
+    "range": (2,),
+    "central_value": 2
+}
 
 # Weight-decay for AdamW / schedule-free AdamW
-# WEIGHT_DECAY = {
-#     1e-4, # default in AdamW - optax implementation
-# }
 WEIGHT_DECAY = {
     "range": (
         0.0,
@@ -529,11 +399,6 @@ WEIGHT_DECAY = {
 }
 
 # Momentum for AdamW / schedule-free AdamW
-# MOMENTUM = {
-#     0.9,
-#     0.98,  # in Schedule-Free Learning paper they test 0.9 and 0.98
-#     # 0.99,
-# }
 MOMENTUM = {
     "range": (
         0.9,
@@ -626,6 +491,23 @@ CONTEXTS_FEATURES_1C = [
             f"best_RFE_{N}_permute"
         ]
     )
+] + [
+    # Curated feature sets
+    # MPAS
+    ("transcriptomics", "MPAS"),
+] + [
+    (context, genomic_features)
+    # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
+    for genomic_features in [
+        "MSIGDB_KEGG_MAPK",
+        "MSIGDB_BIOCARTA_MAPK",
+        "MSIGDB_PID_MAPK",
+        "MSIGDB_REACTOME_MAPK",
+        "MSIGDB_REACTOME_MAPK_CANCER",
+        "MSIGDB_WP_MAPK",
+        "PAM50",
+    ]
+    for context in ["transcriptomics", "proteomics"]
 ]
 
 PATHWAYS_1C = PATHWAYS_1A
@@ -674,6 +556,8 @@ CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_10_permute"),
     ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
     ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    ("multimodal", "best_RFE_10_permute"),
+    ("multimodal", "best_RFE_15_permute"),
 ]
 
 PATHWAYS_3 = (
@@ -700,21 +584,21 @@ PATHWAYS_4 = (
         # Base
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_tegfr_aggavg",
-        # Baselines
-        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
-        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
-        # Growth Factors
-        "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-        "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
-        # Baselines and Growth Factors
-        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+        # # Baselines
+        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
+        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
+        # # Growth Factors
+        # "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+        # "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+        # # Baselines and Growth Factors
+        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
         # Mutations
         "EGFR_MAPK__logobs_mbraf_mkras",
         "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
-        # All components
-        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
-        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
+        # # All components
+        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
+        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
     ]
 )
 
