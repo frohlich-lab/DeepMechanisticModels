@@ -65,8 +65,8 @@ class Conf(dict):
     job: int = 0
     threads: int = 1
     n_starts: int = None
-    run_mode_tag: str = None
     date_tag: str = None
+    figure: str = None
 
     def to_dict(self) -> dict:
         """
@@ -127,8 +127,8 @@ class Conf(dict):
             "use_early_stopping",
             "threads",
             "n_starts",
-            "run_mode_tag",
             "date_tag",
+            "figure",
         ]
 
         # Create a list of values for the fields that are not in the unwanted list
@@ -180,15 +180,15 @@ scan_attributes = [
     "samples",
     "context",
     "features",
-    # 'n_hidden',
-    # 'depth',
+    'n_hidden',
+    'depth',
     # 'activation_fn_name',
     # L1IREG,
     # OIREG,
     # L1EREG,
     # OEREG,
     L1REG_IO,
-    # L2REG_IO,
+    L2REG_IO,
     RECON_LOSS,
     "inflater_output_reg_epoch",
     "job",

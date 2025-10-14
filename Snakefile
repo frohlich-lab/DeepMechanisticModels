@@ -11,13 +11,14 @@ from common import (
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
     EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
     MEASUREMENTS_FILE, FEATURES_OUTFILE, EVALUATE_ALL_CSVS,
-    CONTEXT_SET, FEATURES_SET, SafeDict,
+    SafeDict,
     fig_dir
 )
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    CONTEXTS_FEATURES, PATHWAYS, DATASETS, SPLITS, HP_RUN_MODE, REFINE_HPS
+    DATASETS, SPLITS,
+    CONTEXTS_FEATURES_BY_FIGURE, PATHWAYS_BY_FIGURE, SELECT_CENTRAL_VALUES_BY_FIGURE
 )
 from dmm.config_options import scan_attributes
 
@@ -31,6 +32,8 @@ N_STARTS = int(config.get("num_starts", "5"))
 STARTS = [str(i) for i in range(N_STARTS)]
 
 DATE_TAG = str(datetime.date.today())
+
+FIGURE = str(config.get("figure", "default"))
 
 singularity: "docker://fabfroehlich/generic_parameter_estimation:main"
 
@@ -208,7 +211,7 @@ rule estimate_parameters:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in scan_attributes
-        ) + ' --threads={resources.threads} --run_mode_tag={HP_RUN_MODE} --date_tag={DATE_TAG}'
+        ) + ' --threads={resources.threads} --date_tag={DATE_TAG}'
 
 rule evaluate_training:
     input:
@@ -285,9 +288,9 @@ rule evaluate_all:
             y
             for x in rules.evaluate_training.output.csv
             for hyperparam_configuration in generate_run_configs(
+                contexts_features=CONTEXTS_FEATURES_BY_FIGURE[FIGURE],
                 n_starts=N_STARTS,
-                hp_run_mode=HP_RUN_MODE,  # set in training_configuration.py
-                refine_hps=REFINE_HPS,  # set in training_configuration.py
+                select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[FIGURE],
             )
             for y in expand(
                 x.format_map(SafeDict(**hyperparam_configuration)),
@@ -303,7 +306,7 @@ rule evaluate_all:
                 model='{model}', data='{data}', samples=SPLITS,
                 context=context, features=features
             )
-            for context, features in CONTEXTS_FEATURES
+            for context, features in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]
         ]
     output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
         # plot=[
@@ -320,7 +323,7 @@ rule evaluate_all:
         csv=[
             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
             for filename in (
-                'evaluate_all',
+                f'evaluate_all_{FIGURE}',
                 # 'stat_tests_all',
             )
         ]
@@ -333,7 +336,7 @@ rule evaluate_all:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        ) + ' --n_starts={N_STARTS}'
+        ) + ' --n_starts={N_STARTS} --figure={FIGURE}'
 
 
 
@@ -343,7 +346,7 @@ rule report_all:
         script='report_all.py',
         evaluation=rules.evaluate_all.output.csv,
     output:
-        performance=fig_dir / '{model}' / '{data}' / 'performance.pdf'
+        performance=fig_dir / '{model}' / '{data}' / f'performance_{FIGURE}.pdf'
     resources:
         mem="8GB",
         runtime="2h",
@@ -353,27 +356,31 @@ rule report_all:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in ('model', 'data')
-        )
+        ) + ' --figure={FIGURE}'
 
 rule train_and_evaluate:
     input:
          evaluation=expand(
-             rules.evaluate_all.output.csv,
-             model=PATHWAYS, data=DATASETS
+             rules.report_all.output.performance,  # changed it to CSV as plots might not be generated without stat tests
+             model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS
          )
 
 
-# Only run references and regressors + whole data processing, feature selection, etc.
-rule evaluate_baselines:
-    input:
-         evaluation=expand(
-            rules.evaluate_references.output.csv,
-            model=PATHWAYS, data=DATASETS, samples=SPLITS,
-         ) + expand(
-            rules.evaluate_regressors.output.csv,
-            model=PATHWAYS, data=DATASETS, samples=SPLITS, context=CONTEXT_SET,
-            features=FEATURES_SET,
-         )
+# # Only run references and regressors + whole data processing, feature selection, etc.
+# rule evaluate_baselines:
+#     input:
+#          evaluation=expand(
+#              rules.evaluate_references.output.csv,
+#              model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS, samples=SPLITS,
+#          ) + expand(
+#              rules.evaluate_regressors.output.csv,
+#              model=PATHWAYS_BY_FIGURE[FIGURE],
+#              data=DATASETS,
+#              samples=SPLITS,
+#              context=[c for c, _ in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
+#              features=[f for _, f in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
+#              zip_keys=["context", "features"]
+#          )
 
 
 ruleorder: pretrain_average_model > pretrain_per_sample

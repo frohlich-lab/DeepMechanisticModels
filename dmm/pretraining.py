@@ -229,10 +229,9 @@ def generate_average_pretraining_problem(
     can_be_aggregated = not any(
         pp.condition_df[s].nunique() > 1
         for s in pp.condition_df
-        if s.endswith("_eq")
+        if s.endswith("_eq") and not s.startswith(MODEL_FEATURE_PREFIX)
     )
 
-    # temp disable to reduce runtime
     if "__" in pp.model.model_id:
         modifications = pp.model.model_id.split("__")[1].split("_")
     else:

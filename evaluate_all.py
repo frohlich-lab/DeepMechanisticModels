@@ -6,7 +6,6 @@ import pandas as pd
 # import subprocess
 # import wandb
 from common import (
-    CONTEXT_SET,
     EVALUATE_ALL_CSVS,
     EVALUATION_EMBEDDING,
     EVALUATION_FULL_PARAMETERS,
@@ -26,10 +25,9 @@ from evaluation_utils import (
 )
 from generate_run_configs import generate_run_configs
 from training_configuration import (
-    CONTEXTS_FEATURES,
-    HP_RUN_MODE,
-    REFINE_HPS,
+    CONTEXTS_FEATURES_BY_FIGURE,
     RETURN_STAT_TESTS,
+    SELECT_CENTRAL_VALUES_BY_FIGURE,
     SPLITS,
 )
 
@@ -58,6 +56,8 @@ conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 JOBS = tuple(i for i in range(conf.n_starts))
+# Compute figure-specific set of unique contexts
+CONTEXT_SET = sorted({context for context, _ in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]})
 
 # Compute subtype dictionaries
 subtypes_pam50, subtypes_lb = (
@@ -91,9 +91,9 @@ subtypes_her2 = {
 
 # Compute run configurations and arrange by CV split
 hyperparam_configs = generate_run_configs(
+    contexts_features=CONTEXTS_FEATURES_BY_FIGURE[conf.figure],
     n_starts=conf.n_starts,
-    hp_run_mode=HP_RUN_MODE,
-    refine_hps=REFINE_HPS,
+    select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[conf.figure],
 )
 hyperparam_configs = {
     samples: [
@@ -183,7 +183,7 @@ for samples in sorted(SPLITS):
 
         # Process regressors - linreg, lasso, elasticnet
         regressor_dfs = {
-            mode: pd.concat(
+            mode: pd.concat([
                 pd.read_csv(
                     EVALUATION_REGRESSOR.format(
                         **{
@@ -197,8 +197,8 @@ for samples in sorted(SPLITS):
                     ),
                     index_col=0,
                 ).assign(features=features)
-                for ctxt, features in CONTEXTS_FEATURES
-            ).assign(ref=mode, samples=samples, dataset=dataset)
+                for ctxt, features in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]
+            ]).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
         }
         print(f"Finished processing regressors for {samples}, {dataset}")
@@ -248,7 +248,7 @@ del dfs
 le_df = pd.concat(le_dfs, ignore_index=True)
 le_df.to_csv(
     EVALUATE_ALL_CSVS.format(
-        model=conf.model, data=conf.data, filename="embeddings"
+        model=conf.model, data=conf.data, filename=f"embeddings_{conf.figure}"
     )
 )
 del le_dfs
@@ -256,7 +256,7 @@ del le_dfs
 param_dev_df = pd.concat(param_dev_dfs, ignore_index=True)
 param_dev_df.to_csv(
     EVALUATE_ALL_CSVS.format(
-        model=conf.model, data=conf.data, filename="param_devs"
+        model=conf.model, data=conf.data, filename=f"param_devs_{conf.figure}"
     )
 )
 del param_dev_dfs
@@ -279,3 +279,4 @@ aggregated_results = aggregate_and_log(
     return_stat_tests=RETURN_STAT_TESTS,
     num_best=num_best,
 )
+print("Done.")

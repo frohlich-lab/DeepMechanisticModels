@@ -14,20 +14,20 @@ conf = fire.Fire(Conf)
 
 df = pd.read_csv(
     EVALUATE_ALL_CSVS.format(
-        model=conf.model, data=conf.data, filename="by_cl_cond_obs"
+        model=conf.model, data=conf.data, filename=f"by_cl_cond_obs_{conf.figure}"
     ),
     index_col=0,
 )
 df_rmse = pd.read_csv(
     EVALUATE_ALL_CSVS.format(
-        model=conf.model, data=conf.data, filename="evaluate_all"
+        model=conf.model, data=conf.data, filename=f"evaluate_all_{conf.figure}"
     ),
     index_col=0,
 )
 df_rmse = df_rmse[df_rmse.rmse.apply(np.isfinite)]
 df_par_dev = pd.read_csv(
     EVALUATE_ALL_CSVS.format(
-        model=conf.model, data=conf.data, filename="param_devs"
+        model=conf.model, data=conf.data, filename=f"param_devs_{conf.figure}"
     ),
     index_col=0,
 )
@@ -68,7 +68,7 @@ g.map_dataframe(
 )
 outdir = fig_dir / conf.model / conf.data
 outdir.mkdir(parents=True, exist_ok=True)
-plt.savefig(outdir / "performance.pdf")
+plt.savefig(outdir / f"performance_{conf.figure}.pdf")
 
 # average over jobs+samples
 gb = [
@@ -125,7 +125,7 @@ for group, df_run in df.groupby(["ref"] + gb, dropna=False):
             / conf.data
             / conf_run.context
             / conf_run.features
-            / f"par_dev__{conf_run}",
+            / f"par_dev__{conf_run}__{conf.figure}",
         )
 
     wandb.finish()

@@ -139,12 +139,28 @@ def init_wandb(
         # v49: refactored model
         # v50: code refactor, scan inflater output reg
         # v51: output reg + inflater bound scan
+        # v52: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model)
+        # v53: figure 2a (cytof_init + tEGFR / pEGFR / both), __logobs, __fegfr and __fegfr_pobs (both logobs & aggavg)
+        # v56_fig3: figure 3 (cytof_init), __logobs, __tegfr and __tegfr_pobs (both logobs & aggavg)
+        # v57_fig4: figure 4 (cytof_init), __logobs_tegfr with or without mutations, growth factors and baselines
+        # v52_fig1aext: figure 1a (snakemake figure logic, no ML scans, all contexts and splits, base __logobs model) - MDA-MB-468
+        # v58_fig1b: scan over n_hidden, depth, l1/l2 inflater regularisation (fixed feature number = 10)
+        # v58_fig1c: scan over features (without remaining ML scan)
+        # v60_fig2a: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2A runs with added subtype-augmented cytof_init
+        # v61_fig3: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 3 runs with added subtype-augmented cytof_init
+        # v62_fig2b: fix up evaluate_all, new 1e-2 central value for l1reg_inflater_output, 2B (ferbb2) runs with added subtype-augmented cytof_init
+        # v63_fig1b: repeating 1B centred around new l1reg_inflater_output value (1e-2)
+        # v64_fig1c: repeating 1C centred around new l1reg_inflater_output value (1e-2)
+        # v65_fig4: repeating 4 centred around new l1reg_inflater_output value (1e-2), only base, tEGFR and mutations
+        # v61_fig3missing: rerunning runs for which .eqx models were deleted
+        # v64_fig1cext: extending 1C with curated feature sets
+        # v65_fig1bext: extending 1B with ML scans around best features for proteomics/transcriptomics
         # v54: p38 model
         # v55: new model cv splits and l1 inflater scan, no recon loss
         # ff.v0: more contexts, updated feature selection, simplified model
         # ff.v1: add HER3
         # ff.v2: implement serum
-        project=f"DeepMechanisticModels.ff.v2.{conf.data}",
+        project=f"DeepMechanisticModels.v65_fig1bext.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
