@@ -261,7 +261,7 @@ for mode in ["linreg", "lasso", "elasticnet"]:
             trained_pipeline=trained_pipeline,
         ).assign(features=conf.features)
 
-        file = Path(
+        filepath = Path(
             EVALUATION_REGRESSOR.format(
                 model=conf.model,
                 data=conf.data,
@@ -272,8 +272,8 @@ for mode in ["linreg", "lasso", "elasticnet"]:
                 features=conf.features,
             )
         )
-        file.parent.mkdir(parents=True, exist_ok=True)
-        df.to_csv(file)
+        filepath.parent.mkdir(parents=True, exist_ok=True)
+        df.to_csv(filepath)
 
         # Added printout of RMSE on train/val datasets for each regressor (mode)
         if "res" in df.columns:
