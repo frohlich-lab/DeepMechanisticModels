@@ -23,10 +23,10 @@ Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
 fig_dir = basedir / "figures"
-evaluations_dir = basedir / "eval"
-results_dir = basedir / "res"
+evaluations_dir = basedir / "eval_p38"
+results_dir = basedir / "res_p38"
 data_dir = basedir / "data"
-pretrain_dir = basedir / "pretrain"
+pretrain_dir = basedir / "pretrain_p38"
 features_dir = basedir / "features"
 
 PER_SAMPLE_OUTFILE_PARS = str(
