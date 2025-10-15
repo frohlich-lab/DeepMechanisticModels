@@ -62,6 +62,13 @@ def get_samples(data_name):
             "cSKBR3",
             "cUACC3199",
             "cZR751",
+            # Subchallenge 1 (added 14.10.2025)
+            "cAU565",
+            "cEFM19",
+            "cHCC2218",
+            "cLY2",
+            "cMACLS2",
+            "cMDAMB436"
         ]
     elif m := re.match(r"synthetic_([0-9]+)_[0-9.]+_[0-9.]+$", data_name):
         return [f"sample_{isample}" for isample in range(int(m.group(1)))]
