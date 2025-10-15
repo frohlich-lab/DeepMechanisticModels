@@ -160,7 +160,8 @@ def init_wandb(
         # ff.v0: more contexts, updated feature selection, simplified model
         # ff.v1: add HER3
         # ff.v2: implement serum
-        project=f"DeepMechanisticModels.v65_fig1bext.{conf.data}",
+        # v66_fig1a: repeating MAPK runs after merging with p38 and adding subchallenge I cell-lines + subchallenge II gold standard
+        project=f"DeepMechanisticModels.v66_fig1a.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
