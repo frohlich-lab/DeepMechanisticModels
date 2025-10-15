@@ -343,7 +343,6 @@ def process_petab_cytof(
         .agg(first_non_na)
     )
 
-    # then continue with:
     measurement_table_phospho = (
         measurement_table_phospho
         .set_index(["type", petab.OBSERVABLE_ID] + id_vars)
