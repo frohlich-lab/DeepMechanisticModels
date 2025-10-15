@@ -47,7 +47,7 @@ def generate_per_sample_pretraining_problems(
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     ]
     cdf = pp.condition_df[
-        [name.startswith(sample) for name in pp.condition_df.index]
+        [name.split("__")[0] == sample for name in pp.condition_df.index]
     ]
     spars = (
         {
