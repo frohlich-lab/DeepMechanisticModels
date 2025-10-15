@@ -3,7 +3,7 @@ import pandas as pd
 import petab
 import synapseclient
 
-from common import subtypes_tognetti
+from common import subtypes_tognetti, basedir
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from util import load_petab_base_files
@@ -159,6 +159,67 @@ def generate_subtype_annotations(
         if cell_line in subtypes_tognetti
     }
     return subtypes_pam50, subtypes_lb
+
+
+def load_marcotte_subtypes(samples: list[str]) -> pd.DataFrame:
+    """
+    Load and normalize Marcotte molecular subtypes to index by 'c<CELL>' IDs,
+    aligned and subset to the provided samples list and order.
+    """
+    subtypes_marcotte = pd.read_csv(basedir / "cell_line_subtypes.txt", delimiter="\t")
+    subtypes_marcotte["cell_line"] = subtypes_marcotte["cell_line"].apply(lambda x: "c" + str(x).upper())
+    # Canonicalize a couple of known IDs to match our data
+    subtypes_marcotte.cell_line.replace("cHS578T", "cHs578T", inplace=True)
+    subtypes_marcotte.cell_line.replace("c600MPE", "cMPE600", inplace=True)
+    # Explicit fix DU4475 - appears as NA in subtype_intrinsic, but is classified elsewhere as triple-negative-basal
+    subtypes_marcotte.loc[subtypes_marcotte["cell_line"] == "cDU4475", "subtype_intrinsic"] = "Basal"
+    subtypes_marcotte.sort_values(by="cell_line", inplace=True)
+    subtypes_marcotte.set_index("cell_line", inplace=True)
+    # Reindex to requested sample order (drop missing)
+    idx = [s for s in samples if s in subtypes_marcotte.index]
+    subtypes_marcotte = subtypes_marcotte.loc[idx]
+    return subtypes_marcotte
+
+
+def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
+    """
+    One-hot encode the 'subtype_intrinsic' column for the given samples.
+    Columns will be named like 'intr_LuminalA', 'intr_Basal', etc.
+    """
+    df = load_marcotte_subtypes(samples)
+    ser = df["subtype_intrinsic"].astype(str).fillna("Unknown")
+    X = pd.get_dummies(ser, prefix="intr", dtype=float)
+    # Preserve order; drop any absent samples
+    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
+    if len(X) == 1:
+        for subtype in ["LuminalA", "LuminalB", "HER2", "CL", "Basal", "Normal"]:
+            if f"intr_{subtype}" not in X.columns:
+                X[f"intr_{subtype}"] = 0.0
+    X = X[["intr_Basal", "intr_CL", "intr_HER2", "intr_LuminalA", "intr_LuminalB", "intr_Normal"]]
+    return X
+
+
+def _onehot_lb(samples: list[str]) -> pd.DataFrame:
+    """
+    Collapse intrinsic subtypes to Luminal/Basal buckets, then one-hot encode.
+      LuminalA/LuminalB/HER2 → Luminal
+      CL → Basal
+    """
+    df = load_marcotte_subtypes(samples).copy()
+    lb = df["subtype_intrinsic"].astype(str)
+    lb = lb.replace(["LuminalA", "LuminalB"], "Luminal")
+    lb = lb.replace(["CL"], "Basal")
+    lb = lb.replace(["HER2"], "Luminal")
+    lb = lb.fillna("Unknown")
+    X = pd.get_dummies(lb, prefix="lb", dtype=float)
+    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
+    if len(X) == 1:
+        for subtype in ["Luminal", "Basal", "Normal"]:
+            if f"lb_{subtype}" not in X.columns:
+                X[f"lb_{subtype}"] = 0.0
+    # Ensure consistent one-hot-encoded feature ordering
+    X = X[["lb_Basal", "lb_Luminal", "lb_Normal"]]
+    return X
 
 
 def annotate_pca_embeddings_with_metadata(

@@ -8,13 +8,11 @@ from training_configuration import (
     ACTIVATION_FNS,
     ALPHAS,
     BETAS,
-    CONTEXTS_FEATURES,
     DELTAS,
     EPSILONS,
     ETAS,
     FREEZE_MEDIANS,
     GAMMAS,
-    HP_RUN_MODE,
     INFLATER_BOUND,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
@@ -32,7 +30,6 @@ from training_configuration import (
     OPTIMISERS,
     # Regularisation
     ORTH_REG_STRATEGIES,
-    REFINE_HPS,
     SPARSE_THRESH_PERCS,
     SPLITS,
     STANDARDISE_FEATURES,
@@ -146,7 +143,11 @@ product_hyperparameters = {
 }
 
 
-def generate_linear_scan(starts: list[str]):
+def generate_linear_scan(
+        contexts_features: list[tuple],
+        starts: list[str],
+        select_central_values: bool,
+):
     # Check that all hyperparameter options are dicts (central value, range)
     if not all(
         isinstance(hyperparam, dict)
@@ -161,23 +162,23 @@ def generate_linear_scan(starts: list[str]):
         if hyperparam in linear_hyperparameters
     }
 
-    linear_scan_configs = [
-        prune_config({**central_values, **{param: value}})
-        for param in scan_attributes
-        if param in linear_hyperparameters
-        for value in linear_hyperparameters[param]["range"]
-        if linear_hyperparameters[param]["central_value"] != value
-        for start, (context, features) in itt.product(
-            starts, CONTEXTS_FEATURES
-        )
-    ] + [prune_config(central_values)]
+    if select_central_values:
+        linear_scan_configs = [prune_config(central_values)]
+    else:
+        linear_scan_configs = [
+            prune_config({**central_values, **{param: value}})
+            for param in scan_attributes
+            if param in linear_hyperparameters
+            for value in linear_hyperparameters[param]["range"]
+            if linear_hyperparameters[param]["central_value"] != value
+        ] + [prune_config(central_values)]
 
     # product expand for starts, contexts, and features
     linear_scan_configs = [
         {**config, **{"context": context, "features": features, "job": start}}
         for config in linear_scan_configs
         for start, (context, features) in itt.product(
-            starts, CONTEXTS_FEATURES
+            starts, contexts_features
         )
     ]
 
@@ -194,17 +195,13 @@ def generate_linear_scan(starts: list[str]):
 
 
 def generate_run_configs(
-    n_starts: int, hp_run_mode: str, refine_hps: dict = None
+        contexts_features:list[tuple],
+        n_starts: int,
+        select_central_values: bool = False
 ):
     STARTS = [str(i) for i in range(n_starts)]
-    if hp_run_mode == "linear_scans":
-        return generate_linear_scan(starts=STARTS)
-    else:
-        raise ValueError(f"Invalid run mode: {hp_run_mode}")
-
-
-generate_run_configs(
-    n_starts=5,
-    hp_run_mode=HP_RUN_MODE,
-    refine_hps=REFINE_HPS,
-)
+    return generate_linear_scan(
+        contexts_features=contexts_features,
+        starts=STARTS,
+        select_central_values=select_central_values
+    )

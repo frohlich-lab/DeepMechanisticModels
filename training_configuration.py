@@ -168,6 +168,7 @@ SPLITS = {
     "HCC1500",
     "EVSAT",
     "UACC3199",
+    # "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
 }
 
 STANDARDISE_FEATURES = {
@@ -201,10 +202,11 @@ LATENT_DIMS = {
     "range": (
         2,
         # 3,
-        # 4,
-        # 6,
-        # 8,
+        4,
+        6,
+        8,
         # 10,
+        # 12
     ),
     "central_value": 2,
 }
@@ -216,8 +218,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2,
+        1,
+        2,
+        3
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -379,13 +382,25 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (1e-2,),
+    "range": (
+        0,
+        1e-4,
+        1e-3,
+        1e-2,
+        1e-1
+    ),
     "central_value": 1e-2,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0,),
+    "range": (
+        0,
+        1e-4,
+        1e-3,
+        1e-2,
+        1e-1
+    ),
     "central_value": 0,
 }
 
@@ -533,7 +548,12 @@ NEPOCH = {
 }
 
 INFLATER_BOUND = {
-    "range": (3,),
+    "range": (
+        # 2,
+        3,
+        # 4,
+        # 5,
+    ),
     "central_value": 3,
 }
 
@@ -563,16 +583,193 @@ MIN_IMPROVEMENT = 0
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
 
-# Type of run
-HP_RUN_MODE = "linear_scans"
-
-# If HP_RUN_MODE = 'refined_tuning', need to specify REFINE_HPS
-# can use options above and simply pack it into a dictionary
-# If not, leave None
-REFINE_HPS = None
-# REFINE_HPS = {
-#     "use_early_stopping": USE_EARLY_STOP,
-#     "last_layer_activation": LAST_LAYER_ACTIVATION,
-# }
-
 SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters
+
+
+# Figure 1A
+CONTEXTS_FEATURES_1A = [
+    ("cytof_init", "RFE_10_permute"),
+    ("proteomics", "HVGRFE_10_permute"),
+    ("transcriptomics", "HVGRFE_10_permute"),
+    ("multimodal", "best_RFE_10_permute"),
+    ("multimodal", "RFE_10_permute"),
+]
+
+PATHWAYS_1A = (
+    [
+        "EGFR_MAPK__logobs",
+    ]
+)
+
+
+# Figure 1B
+CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
+
+PATHWAYS_1B = PATHWAYS_1A
+
+
+# Figure 1C
+CONTEXTS_FEATURES_1C = [
+    (context, features)
+    for N in [5, 10, 15, 20, 25, 30]
+    for context, features in zip(
+        [
+            "cytof_init",
+            "proteomics",
+            "transcriptomics",
+            "multimodal"
+        ],
+        [
+            f"RFE_{N}_permute",
+            f"HVGRFE_{N}_permute",
+            f"HVGRFE_{N}_permute",
+            f"best_RFE_{N}_permute"
+        ]
+    )
+]
+
+PATHWAYS_1C = PATHWAYS_1A
+
+
+# Figure 2A
+CONTEXTS_FEATURES_2A = [
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_tEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+]
+
+PATHWAYS_2A = (
+    [
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_fegfr_aggavg",
+        # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
+    ]
+)
+
+# Figure 2B
+CONTEXTS_FEATURES_2B = [
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_tERBB2", "RFE_10_permute"),
+    ("cytof_init_plus_pERBB2", "RFE_10_permute"),
+    ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
+    ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+]
+
+PATHWAYS_2B = (
+    [
+        "EGFR_MAPK__logobs",
+        # ERBB2 models
+        "EGFR_MAPK__logobs_ferbb2_aggavg",
+        # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
+    ]
+)
+
+
+# Figure 3
+CONTEXTS_FEATURES_3 = [
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+]
+
+PATHWAYS_3 = (
+    [
+        "EGFR_MAPK__logobs",
+        # EGFR models
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
+        # Adding ERBB2 models
+        "EGFR_MAPK__logobs_terbb2_aggavg",
+        # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
+        "EGFR_MAPK__logobs_perbb2_aggavg",
+        # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
+    ]
+)
+
+# Figure 4
+CONTEXTS_FEATURES_4 = [
+    ("cytof_init", "RFE_10_permute"),
+]
+
+PATHWAYS_4 = (
+    [
+        # Base
+        "EGFR_MAPK__logobs",
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+        # Baselines
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
+        # Growth Factors
+        "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+        "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+        # Baselines and Growth Factors
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+        # Mutations
+        "EGFR_MAPK__logobs_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
+        # All components
+        "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
+        "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
+    ]
+)
+
+modifications = [
+    # baselines
+    # "begfr",
+    # "berbb2",
+    # "bmek",
+    # "brps6ka1",
+    # transcriptional individualisation
+    # "tegfr",
+    # "terbb2",
+    # "ttgfa",
+    # "tbtc",
+    # "tereg",
+    # "tnrg1",
+    # "tnrg2",
+    # mutations
+    # "mbraf",
+    # "mkras",
+    # observable function
+    # "logobs",
+]
+
+
+# Master Suite for figures
+CONTEXTS_FEATURES_BY_FIGURE = {
+    "default": CONTEXTS_FEATURES,
+    "figure1a": CONTEXTS_FEATURES_1A,
+    "figure1b": CONTEXTS_FEATURES_1B,
+    "figure1c": CONTEXTS_FEATURES_1C,
+    "figure2a": CONTEXTS_FEATURES_2A,
+    "figure2b": CONTEXTS_FEATURES_2B,
+    "figure3": CONTEXTS_FEATURES_3,
+    "figure4": CONTEXTS_FEATURES_4,
+}
+
+PATHWAYS_BY_FIGURE = {
+    "default": PATHWAYS,
+    "figure1a": PATHWAYS_1A,
+    "figure1b": PATHWAYS_1B,
+    "figure1c": PATHWAYS_1C,
+    "figure2a": PATHWAYS_2A,
+    "figure2b": PATHWAYS_2B,
+    "figure3": PATHWAYS_3,
+    "figure4": PATHWAYS_4,
+}
+
+SELECT_CENTRAL_VALUES_BY_FIGURE = {
+    "default": False,  # ML param scans
+    "figure1a": True,
+    "figure1b": False,  # ML param scans
+    "figure1c": True,  # feature scan only
+    "figure2a": True,
+    "figure2b": True,
+    "figure3": True,
+    "figure4": True,
+}

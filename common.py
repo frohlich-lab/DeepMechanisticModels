@@ -17,9 +17,6 @@ class SafeDict(dict):
 # Get the DEBUG environment variable
 debug_mode = os.getenv("DEBUG", "false").lower() in ["true", "1", "yes"]
 
-CONTEXT_SET = sorted({context for context, _ in CONTEXTS_FEATURES})
-FEATURES_SET = sorted({features for _, features in CONTEXTS_FEATURES})
-
 MODEL_FEATURE_PREFIX = "INPUT_"
 
 Wildcards = namedtuple("Wildcards", ["data", "samples"])

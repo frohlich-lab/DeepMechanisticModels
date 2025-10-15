@@ -81,10 +81,17 @@ def perform_pca_on_embeddings(
         les_pivot = les.set_index(['job'], append=True).unstack(['job'])
         les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
 
+        # Transform to mean 0 and variance 1
+        vals = les_pivot.values
+        vals -= vals.mean()
+        vals /= vals.std()
+
+        # PCA transform
         pca = PCA(n_components=2)
-        les_pca = pca.fit_transform(les_pivot.values)
+        les_pca = pca.fit_transform(vals)
         explained_var = pca.explained_variance_ratio_.sum()
-        print(f"Explained variance for {context} {samples}: {explained_var:.4f}")
+        # Most variance (often by vast margin, e.g. 80/20%) is captured by first component
+        print(f"Explained variance for {context} {samples}: {pca.explained_variance_ratio_}; Total: {explained_var:.4f}")
         explained_variance_ratios[(context, samples)] = explained_var
 
         results_dfs.append(pd.DataFrame(
