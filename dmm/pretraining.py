@@ -126,7 +126,7 @@ def generate_per_sample_reg_pretraining_problem(
         pp.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID] == sample
     ]
     cdf = pp.condition_df[
-        [name.startswith(sample) for name in pp.condition_df.index]
+        [name.split("__")[0] == sample for name in pp.condition_df.index]
     ]
     spars = (
         {
@@ -250,7 +250,7 @@ def generate_average_pretraining_problem(
         df_train[petab.PREEQUILIBRATION_CONDITION_ID] = "baseline"
 
         cdf = pp.condition_df.loc[
-            [name.startswith(samples[0]) for name in pp.condition_df.index], :
+            [name.split("__")[0] == samples[0] for name in pp.condition_df.index], :
         ].copy()
         for col in cdf.columns:
             if col.endswith("_eq"):
