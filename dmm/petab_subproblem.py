@@ -50,7 +50,7 @@ def generate_parameter_table(
     ]
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
-        if len(conds) == 1 and "cMDAMB468" in conds:
+        if len(conds) == 1 and (("cMDAMB468" in conds) or ("cUACC893" in conds)):
             # Add all scaling and offsets (missing ERBB2)
             params += sorted(
                 [f"{obs}_{par_type}" for obs in observable_table.index for par_type in ["offset", "scale"]]
@@ -251,7 +251,7 @@ def filter_observables(petab_problem: petab.Problem):
     }
 
     cell_lines = petab_problem.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique()
-    if len(cell_lines) == 1 and "cMDAMB468" in cell_lines:
+    if len(cell_lines) == 1 and (("cMDAMB468" in cell_lines) or ("cUACC893" in cell_lines)):
         obs_pars.add("pERBB2_Y1248_obs_offset")
         obs_pars.add("pERBB2_Y1248_obs_scale")
 
