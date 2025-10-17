@@ -55,7 +55,7 @@ def get_feature_importances(model, X, y, method="auto"):
         raise ValueError(f"Unknown method: {method}")
 
 
-def get_hvg(input_df: pd.DataFrame, top_n: Union[int, float] = 0.5) -> pd.DataFrame:
+def get_hvg(input_df: pd.DataFrame, top_n: Union[int, float] = 500) -> pd.DataFrame:
     # remove 20% of features with the lowest mean:
     means = np.mean(input_df, axis=0)
     threshold = np.percentile(means, 20)
