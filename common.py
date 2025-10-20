@@ -5,7 +5,6 @@ from typing import List
 
 from cytof import get_samples
 from dmm.config_options import scan_attributes
-from training_configuration import CONTEXTS_FEATURES
 
 
 # moved from Snakefile
@@ -23,10 +22,10 @@ Wildcards = namedtuple("Wildcards", ["data", "samples"])
 
 basedir: Path = Path(__file__).resolve().parent
 fig_dir = basedir / "figures"
-evaluations_dir = basedir / "eval_p38_debug"
-results_dir = basedir / "res_p38_debug"
+evaluations_dir = basedir / "eval"
+results_dir = basedir / "res"
 data_dir = basedir / "data"
-pretrain_dir = basedir / "pretrain_p38_debug"
+pretrain_dir = basedir / "pretrain"
 features_dir = basedir / "features"
 
 PER_SAMPLE_OUTFILE_PARS = str(
