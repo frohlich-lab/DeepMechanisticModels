@@ -18,6 +18,7 @@ class Conf(dict):
     n_hidden: int = 2
     nn_structure_multiplier: int = 2
     depth: int = 0
+    multiheaded: bool = False
     use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
     nn_init_fn: str = "custom"
@@ -182,6 +183,7 @@ scan_attributes = [
     "features",
     'n_hidden',
     'depth',
+    'multiheaded',
     # 'activation_fn_name',
     # L1IREG,
     # OIREG,

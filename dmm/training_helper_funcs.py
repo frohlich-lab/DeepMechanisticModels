@@ -190,7 +190,8 @@ def get_parameters(module: Union[DeepComponent, eqx.Module]) -> jnp.ndarray:
 
 
 def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
-    encoder_params = get_parameters(model.deep_encoder)
+    encoder_params = get_parameters(model.deep_encoder) if not model.multiheaded \
+        else jnp.concatenate(jnp.array([get_parameters(encoder) for encoder in model.deep_encoder]))
     inflater_params = get_parameters(model.deep_inflater)
     param_array = jnp.concatenate(
         [
@@ -202,7 +203,8 @@ def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
         ]
     )
     if isinstance(model.deep_decoder, DeepComponent):
-        decoder_params = get_parameters(model.deep_decoder)
+        decoder_params = get_parameters(model.deep_decoder) if not model.multiheaded \
+            else jnp.concatenate(jnp.array([get_parameters(decoder) for decoder in model.deep_decoder]))
         param_array = jnp.concatenate(
             [param_array.flatten(), decoder_params.flatten()]
         )
