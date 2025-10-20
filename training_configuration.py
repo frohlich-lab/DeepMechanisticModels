@@ -215,6 +215,11 @@ NETWORK_DEPTH = {
     "central_value": 0,  # no hidden layers
 }
 
+MULTIHEADED = {
+    True,
+    False
+}
+
 # Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
 USE_BIAS = (
     # "True",

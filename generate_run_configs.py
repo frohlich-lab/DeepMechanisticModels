@@ -21,6 +21,7 @@ from training_configuration import (
     LEARNING_RATE_SPANS,
     MAX_LEARNING_RATES,
     MOMENTUM,
+    MULTIHEADED,
     NEPOCH,
     NETWORK_DEPTH,
     NN_INIT_FN,
@@ -135,6 +136,7 @@ product_hyperparameters = {
     "orth_reg_strategy": ORTH_REG_STRATEGIES,
     "use_layer_bias": USE_BIAS,
     "nn_init_fn": NN_INIT_FN,
+    "multiheaded": MULTIHEADED,
     "standardise_features": STANDARDISE_FEATURES,
     "sync_encoder_inflater_reg": SYNC_ENCODER_INFLATER_REG,
     "freeze_medians": FREEZE_MEDIANS,
@@ -190,6 +192,15 @@ def generate_linear_scan(
                 for config in linear_scan_configs
                 for value in product_hyperparameters[param]
             ]
+
+    # Exclude configurations requiring multiheaded without multimodal
+    linear_scan_configs = [
+        cfg for cfg in linear_scan_configs
+        if (not cfg["multiheaded"])
+           or (cfg["multiheaded"]
+               and cfg["context"] == "multimodal"
+               and cfg["features"].startswith("RFE"))
+    ]
 
     return linear_scan_configs
 
