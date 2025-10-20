@@ -163,7 +163,8 @@ def init_wandb(
         # v66_fig1a: repeating MAPK runs after merging with p38 and adding subchallenge I cell-lines + subchallenge II gold standard
         # v67_fig1adebug: rolled back data additions, debugging model
         # v68_fig1adebug: rolled back feature selection, fixed UACC893, debugging model
-        project=f"DeepMechanisticModels.v68_fig1adebug.{conf.data}",
+        # v69_fig1a_p38: repeating Fig 1A with whole data + multiheaded multimodal RFE
+        project=f"DeepMechanisticModels.v69_fig1a_p38.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
