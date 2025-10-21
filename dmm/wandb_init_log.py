@@ -166,7 +166,8 @@ def init_wandb(
         # ffv3 rerun parameter scan
         # v69_fig1a_p38: repeating Fig 1A with whole data + multiheaded multimodal RFE
         # v69_fig1b_p38: same as above, Fig 1B ML scans (added dropout rate + reconstruction loss scans)
-        project=f"DeepMechanisticModels.v69_fig1b_p38.{conf.data}",
+        # ffv4 repeat feature scan with new data
+        project=f"DeepMechanisticModels.ffv4.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
@@ -185,6 +186,7 @@ def init_wandb(
             **{mod: 1 for mod in modifications},
             "job_id": job_id,
             "node": node_name,
+            "n_features": model.n_input_features,
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
