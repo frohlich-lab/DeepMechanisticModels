@@ -184,6 +184,7 @@ scan_attributes = [
     'n_hidden',
     'depth',
     'multiheaded',
+    'dropout_rate',
     # 'activation_fn_name',
     # L1IREG,
     # OIREG,

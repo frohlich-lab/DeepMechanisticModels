@@ -255,6 +255,16 @@ ACTIVATION_FNS = (
     # "softplus",
 )
 
+DROPOUT_RATES = {
+    "range": (
+        0,
+        0.2,
+        0.35,
+        0.5,
+    ),
+    "central_value": 0,
+}
+
 # optimiser to use
 OPTIMISERS = {
     "adam",
@@ -320,7 +330,13 @@ THETAS = {
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
-    "range": (1e-4,),
+    "range": (
+        0,
+        1e-4,
+        1e-3,
+        1e-2,
+        1e-1,
+    ),
     "central_value": 1e-4,
 }
 

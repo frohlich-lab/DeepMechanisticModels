@@ -9,6 +9,7 @@ from training_configuration import (
     ALPHAS,
     BETAS,
     DELTAS,
+    DROPOUT_RATES,
     EPSILONS,
     ETAS,
     FREEZE_MEDIANS,
@@ -108,6 +109,7 @@ def prune_config(run_config: dict):
 linear_hyperparameters = {
     "n_hidden": LATENT_DIMS,
     "depth": NETWORK_DEPTH,
+    "dropout_rate": DROPOUT_RATES,
     "l1reg_inflate": ALPHAS,
     "oreg_inflate": BETAS,
     "l1reg_encode": GAMMAS,
