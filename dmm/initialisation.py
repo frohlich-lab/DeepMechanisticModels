@@ -105,7 +105,6 @@ def process_features_and_setup_models(
         n_input_features=features["train"].shape[1],
         conf=conf,
         key=jr.PRNGKey(conf.job),
-        multiheaded=conf.multiheaded,
     )
     return dmm, problem, pypesto_problems, features
 

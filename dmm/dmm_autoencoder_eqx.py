@@ -66,7 +66,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         conf: Conf,
         key: jax.random.PRNGKey,
         n_input_features: int,
-        multiheaded: bool,
     ):
         self.conf = conf
         self.enable_inflater_output_reg = True
@@ -113,7 +112,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         ).all()
 
         # Generate layer_sizes for whole modules (input, hidden, output)
-        if not multiheaded:
+        if not conf.multiheaded:
             encoder_layer_sizes = [
                 self.n_input_features,
                 *generate_layer_sizes(
@@ -195,7 +194,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             reconstruct=conf.recon_loss > 0.0,
             key=key,
             activation_fn_name=conf.activation_fn_name,
-            multiheaded=multiheaded
+            multiheaded=conf.multiheaded
         )
 
     def inflate_params(self, x, key):
