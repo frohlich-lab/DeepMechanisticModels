@@ -12,7 +12,7 @@ from . import get_samples
 figdir = Path(__file__).parent / "figures"
 
 SYNAPSE_FILES = [
-    # Subchallenge 4
+    # Complete cell-lines
     "syn20613594",  # 184A1
     "syn20613595",  # BT20
     "syn20613596",  # BT474
@@ -74,15 +74,16 @@ SYNAPSE_FILES = [
     "syn20631062",  # UACC3199
     "syn20631063",  # ZR751
     # Subchallenge I (added 14.10.2025)
-    # "syn20631033",  # AU565
-    # "syn20631035",  # EFM19
-    # "syn20631036",  # HCC2218
-    # "syn20631037",  # LY2
-    # "syn20631038",  # MACLS2
-    # "syn20631039",  # MDAMB436
-    # "syn20631271",  # Gold standard subchallenge I (missing markers)
+    "syn20631033",  # AU565
+    "syn20631035",  # EFM19
+    "syn20631036",  # HCC2218
+    "syn20631037",  # LY2
+    "syn20631038",  # MACLS2
+    "syn20631039",  # MDAMB436
+    "syn20631271",  # Gold standard subchallenge I (missing markers)
     # Added missing iMEK condition for Subchallenge II (14.10.2025)
-    # "syn20631273",  # Gold standard subchallenge II (iMEK)
+    "syn20631273",  # Gold standard subchallenge II (iMEK)
+    # TODO: add here subchallenge IV cell-lines (test set, time 0 only)
 ]
 
 
@@ -330,18 +331,18 @@ def process_petab_cytof(
         [petab.OBSERVABLE_ID, "type"]
     ] = measurement_table_phospho[petab.OBSERVABLE_ID].to_list()
 
-    # def first_non_na(s):
-    #     s = s.dropna()
-    #     return s.iloc[0] if len(s) else np.nan
-    #
-    # measurement_table_phospho = (
-    #     measurement_table_phospho
-    #     .groupby(
-    #         ["type", petab.OBSERVABLE_ID] + id_vars,
-    #         as_index=False
-    #     )["value"]
-    #     .agg(first_non_na)
-    # )
+    def first_non_na(s):
+        s = s.dropna()
+        return s.iloc[0] if len(s) else np.nan
+
+    measurement_table_phospho = (
+        measurement_table_phospho
+        .groupby(
+            ["type", petab.OBSERVABLE_ID] + id_vars,
+            as_index=False
+        )["value"]
+        .agg(first_non_na)
+    )
 
     measurement_table_phospho = (
         measurement_table_phospho

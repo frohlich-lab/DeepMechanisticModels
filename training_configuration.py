@@ -210,6 +210,8 @@ NETWORK_DEPTH = {
     "central_value": 0,  # no hidden layers
 }
 
+MULTIHEADED = {True, False}
+
 # Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
 USE_BIAS = (
     # "True",
@@ -244,6 +246,16 @@ ACTIVATION_FNS = (
     "swish",
     # "softplus",
 )
+
+DROPOUT_RATES = {
+    "range": (
+        0,
+        0.2,
+        0.35,
+        0.5,
+    ),
+    "central_value": 0,
+}
 
 # optimiser to use
 OPTIMISERS = {
@@ -295,7 +307,13 @@ THETAS = {
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
-    "range": (1e-4,),
+    "range": (
+        0,
+        1e-4,
+        1e-3,
+        1e-2,
+        1e-1,
+    ),
     "central_value": 1e-4,
 }
 

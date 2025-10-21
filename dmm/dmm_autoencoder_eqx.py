@@ -112,17 +112,30 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         ).all()
 
         # Generate layer_sizes for whole modules (input, hidden, output)
-        encoder_layer_sizes = [
-            self.n_input_features,
-            *generate_layer_sizes(
-                latent_dim=conf.n_hidden,
-                depth=conf.depth,
-                max_width=self.n_input_features,
-                multiplier=conf.nn_structure_multiplier,
-                reverse=True,
-            ),
-            conf.n_hidden,
-        ]
+        if not conf.multiheaded:
+            encoder_layer_sizes = [
+                self.n_input_features,
+                *generate_layer_sizes(
+                    latent_dim=conf.n_hidden,
+                    depth=conf.depth,
+                    max_width=self.n_input_features,
+                    multiplier=conf.nn_structure_multiplier,
+                    reverse=True,
+                ),
+                conf.n_hidden,
+            ]
+        else:
+            encoder_layer_sizes = [
+                int(self.n_input_features/3),  # one encoder per context (3 contexts)
+                *generate_layer_sizes(
+                    latent_dim=conf.n_hidden,
+                    depth=conf.depth,
+                    max_width=int(self.n_input_features/3),
+                    multiplier=conf.nn_structure_multiplier,
+                    reverse=True,
+                ),
+                conf.n_hidden,
+            ]
         inflater_layer_sizes = [
             conf.n_hidden,
             *generate_layer_sizes(
@@ -181,6 +194,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             reconstruct=conf.recon_loss > 0.0,
             key=key,
             activation_fn_name=conf.activation_fn_name,
+            multiheaded=conf.multiheaded
         )
 
     def inflate_params(self, x, key):
@@ -287,18 +301,43 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         L1 regularization of deep encoder weights.
         """
-        return l1reg(self.deep_encoder, self.conf.l1reg_encode)
+        if not self.multiheaded:
+            return l1reg(self.deep_encoder, self.conf.l1reg_encode)
+        else:
+            return jnp.mean(
+                jnp.array(
+                    [
+                        l1reg(encoder, self.conf.l1reg_encode)
+                        for encoder in self.deep_encoder
+                    ]
+                )
+            )
 
     def orth_encode_reg(self):
         """
         Orthogonal regularization of deep encoder weights.
         """
-        return orth_reg(
-            self.deep_encoder,
-            self.conf.orth_reg_strategy,
-            "encoder",
-            self.conf.oreg_encode,
-        )
+        if not self.multiheaded:
+            return orth_reg(
+                self.deep_encoder,
+                self.conf.orth_reg_strategy,
+                "encoder",
+                self.conf.oreg_encode,
+            )
+        else:
+            return jnp.mean(
+                jnp.array(
+                    [
+                        orth_reg(
+                            encoder,
+                            self.conf.orth_reg_strategy,
+                            "encoder",
+                            self.conf.oreg_encode,
+                        )
+                        for encoder in self.deep_encoder
+                    ]
+                )
+            )
 
     def l1_decode_reg(self):
         """
@@ -306,7 +345,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         if self.conf.l1reg_encode == 0.0:
             return 0.0
-        return l1reg(self.deep_decoder, self.conf.l1reg_encode)
+        if not self.multiheaded:
+            return l1reg(self.deep_decoder, self.conf.l1reg_encode)
+        else:
+            return jnp.mean(
+                jnp.array(
+                    [
+                        l1reg(decoder, self.conf.l1reg_encode)
+                        for decoder in self.deep_decoder
+                    ]
+                )
+            )
 
     def orth_decode_reg(self):
         """
@@ -314,12 +363,27 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         """
         if self.conf.oreg_encode == 0.0:
             return 0.0
-        return orth_reg(
-            self.deep_decoder,
-            self.conf.orth_reg_strategy,
-            "decoder",
-            self.conf.oreg_encode,
-        )
+        if not self.multiheaded:
+            return orth_reg(
+                self.deep_decoder,
+                self.conf.orth_reg_strategy,
+                "decoder",
+                self.conf.oreg_encode,
+            )
+        else:
+            return jnp.mean(
+                jnp.array(
+                    [
+                        orth_reg(
+                            decoder,
+                            self.conf.orth_reg_strategy,
+                            "decoder",
+                            self.conf.oreg_encode,
+                        )
+                        for decoder in self.deep_decoder
+                    ]
+                )
+            )
 
     def l1_inflate_reg(self):
         """
@@ -396,19 +460,22 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         if self.conf.symm_reg == 0.0:
             return 0.0
         symmetry_reg = 0
-        num_layers = len(self.deep_encoder.layers)
+        num_layers = len(self.deep_encoder.layers) if not self.multiheaded else len(self.deep_encoder[0].layers)
+        encoders = [self.deep_encoder] if not self.multiheaded else self.deep_encoder
+        decoders = [self.deep_decoder] if not self.multiheaded else self.deep_decoder
         # Iterate over the encoder and decoder layers
-        for encoder_layer, decoder_layer in zip(
-            self.deep_encoder.layers,
-            self.deep_decoder.layers[::-1],  # zip them in reverse order
-        ):
-            # Compute the weight difference for each pair of corresponding layers
-            diff = encoder_layer.weight - decoder_layer.weight.T
-            # Then compute mean squares differences per layer
-            symmetry_reg += jnp.mean(jnp.square(diff))
+        for encoder, decoder in zip(encoders, decoders):
+            for encoder_layer, decoder_layer in zip(
+                encoder.layers,
+                decoder.layers[::-1],  # zip them in reverse order
+            ):
+                # Compute the weight difference for each pair of corresponding layers
+                diff = encoder_layer.weight - decoder_layer.weight.T
+                # Then compute mean squares differences per layer
+                symmetry_reg += jnp.mean(jnp.square(diff))
         return (
-            self.conf.symm_reg * symmetry_reg / num_layers
-        )  # mean across layers - should be on the same order of magnitude as MSE
+            self.conf.symm_reg * symmetry_reg / (len(encoders) * num_layers)
+        )  # mean across number of encoder/decoder & layers - should be on the same order of magnitude as MSE
 
     def constrain_median(self, x: Array):
         """

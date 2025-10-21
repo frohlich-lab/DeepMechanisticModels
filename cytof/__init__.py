@@ -24,7 +24,7 @@ def get_samples(data_name):
             # "cHCC1599",  # outlier
             "cHCC1937",
             "cHCC1954",
-            # "cHCC2157", no transcriptomic data
+            # "cHCC2157",  # no transcriptomic data
             "cHCC2185",
             "cHCC3153",
             "cHCC38",
@@ -32,7 +32,7 @@ def get_samples(data_name):
             "cHDQP1",
             "cJIMT1",
             "cMCF10A",
-            # "cMCF10F", no transcriptomic data
+            # "cMCF10F",  # no transcriptomic data
             "cMCF7",
             "cMDAMB134VI",
             "cMDAMB157",
@@ -40,7 +40,7 @@ def get_samples(data_name):
             "cMDAMB361",
             "cMDAMB415",
             "cMDAMB453",
-            # "cMDAkb2", no transcriptomic data
+            # "cMDAkb2",  # no transcriptomic data
             "cMFM223",
             "cMPE600",
             "cMX1",
@@ -63,12 +63,18 @@ def get_samples(data_name):
             "cUACC3199",
             "cZR751",
             # Subchallenge 1 (added 14.10.2025)
-            # "cAU565",
-            # "cEFM19",
-            # "cHCC2218",
-            # "cLY2",
-            # "cMACLS2",
-            # "cMDAMB436"
+            "cAU565",
+            "cEFM19",
+            "cHCC2218",
+            "cLY2",
+            "cMACLS2",
+            "cMDAMB436",
+            # Subchallenge IV (Sahai analysis / test set)
+            # "cCAL120",
+            # "cCAMA1",
+            # "cHCC1143",
+            # "cKPL1",
+            # "cZR75B"
         ]
     elif m := re.match(r"synthetic_([0-9]+)_[0-9.]+_[0-9.]+$", data_name):
         return [f"sample_{isample}" for isample in range(int(m.group(1)))]

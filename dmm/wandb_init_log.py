@@ -164,7 +164,9 @@ def init_wandb(
         # v67_fig1adebug: rolled back data additions, debugging model
         # v68_fig1adebug: rolled back feature selection, fixed UACC893, debugging model
         # ffv3 rerun parameter scan
-        project=f"DeepMechanisticModels.ffv3.{conf.data}",
+        # v69_fig1a_p38: repeating Fig 1A with whole data + multiheaded multimodal RFE
+        # v69_fig1b_p38: same as above, Fig 1B ML scans (added dropout rate + reconstruction loss scans)
+        project=f"DeepMechanisticModels.v69_fig1b_p38.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
