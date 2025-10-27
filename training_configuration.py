@@ -210,7 +210,9 @@ NETWORK_DEPTH = {
         0,
         1,
         2,
-        3
+        3,
+        4,
+        5
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -262,7 +264,7 @@ DROPOUT_RATES = {
         0.35,
         0.5,
     ),
-    "central_value": 0,
+    "central_value": 0.2,  # updated after v69_fig1b_p38
 }
 
 # optimiser to use
@@ -311,9 +313,11 @@ OMEGAS = {
         1e-4,
         1e-3,
         1e-2,
-        1e-1
+        1e-1,
+        1e0,
+        1e1
     ),
-    "central_value": 1e-2,
+    "central_value": 1e-1,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
@@ -336,6 +340,8 @@ EPSILONS = {
         1e-3,
         1e-2,
         1e-1,
+        1e0,
+        1e1
     ),
     "central_value": 1e-4,
 }
@@ -476,9 +482,9 @@ SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater 
 
 # Figure 1A
 CONTEXTS_FEATURES_1A = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_15_permute"),
     ("proteomics", "HVGRFE_10_permute"),
-    ("transcriptomics", "HVGRFE_10_permute"),
+    ("transcriptomics", "HVGRFE_15_permute"),
     ("multimodal", "best_RFE_10_permute"),
     ("multimodal", "RFE_10_permute"),
 ]
