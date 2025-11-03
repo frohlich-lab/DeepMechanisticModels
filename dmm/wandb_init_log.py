@@ -167,7 +167,9 @@ def init_wandb(
         # v69_fig1a_p38: repeating Fig 1A with whole data + multiheaded multimodal RFE
         # v69_fig1b_p38: same as above, Fig 1B ML scans (added dropout rate + reconstruction loss scans)
         # ffv4 repeat feature scan with new data
-        project=f"DeepMechanisticModels.ffv4.{conf.data}",
+        # v70_fig1b_p38: same as above with updated central values + expanded ranges
+        # ffv5: figure 3 with updated configuration
+        project=f"DeepMechanisticModels.ffv5.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),

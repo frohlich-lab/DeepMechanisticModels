@@ -206,11 +206,14 @@ NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network depths
 NETWORK_DEPTH = {
-    "range": (0, 1, 2, 3),
+    "range": (0, 1, 2, 3, 4, 5),
     "central_value": 0,  # no hidden layers
 }
 
-MULTIHEADED = {True, False}
+MULTIHEADED = {
+    True,
+    # False
+}
 
 # Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
 USE_BIAS = (
@@ -250,11 +253,12 @@ ACTIVATION_FNS = (
 DROPOUT_RATES = {
     "range": (
         0,
+        0.1,
         0.2,
         0.35,
         0.5,
     ),
-    "central_value": 0,
+    "central_value": 0.2,  # updated after v69_fig1b_p38
 }
 
 # optimiser to use
@@ -295,25 +299,19 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1),
-    "central_value": 1e-2,
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "central_value": 1e-1,
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1, 1e2),
     "central_value": 0,
 }
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
-    "range": (
-        0,
-        1e-4,
-        1e-3,
-        1e-2,
-        1e-1,
-    ),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-4,
 }
 
@@ -432,10 +430,10 @@ SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater 
 
 # Figure 1A
 CONTEXTS_FEATURES_1A = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_15_permute"),
     ("proteomics", "HVGRFE_10_permute"),
-    ("transcriptomics", "HVGRFE_10_permute"),
-    ("multimodal", "best_RFE_10_permute"),
+    ("transcriptomics", "HVGRFE_15_permute"),
+    # ("multimodal", "best_RFE_10_permute"),
     ("multimodal", "RFE_10_permute"),
 ]
 
@@ -497,8 +495,8 @@ PATHWAYS_1C = PATHWAYS_1A
 CONTEXTS_FEATURES_2A = [
     ("cytof_init", "RFE_10_permute"),
     ("cytof_init_plus_tEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
+    # ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    # ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
     (
         "cytof_init_plus_lb",
         "RFE_10_permute",
@@ -541,17 +539,18 @@ PATHWAYS_2B = [
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_15_permute"),
     (
         "cytof_init_plus_lb",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
     (
         "cytof_init_plus_intr",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("multimodal", "best_RFE_10_permute"),
-    ("multimodal", "best_RFE_15_permute"),
+    # ("multimodal", "best_RFE_10_permute"),
+    # ("multimodal", "best_RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 PATHWAYS_3 = [
@@ -562,7 +561,7 @@ PATHWAYS_3 = [
     # Adding ERBB2 models
     "EGFR_MAPK__logobs_terbb2_aggavg",
     # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
-    "EGFR_MAPK__logobs_perbb2_aggavg",
+    # "EGFR_MAPK__logobs_perbb2_aggavg",
     # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
 ]
 
