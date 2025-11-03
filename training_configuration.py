@@ -219,7 +219,7 @@ NETWORK_DEPTH = {
 
 MULTIHEADED = {
     True,
-    False
+    # False
 }
 
 # Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
@@ -327,7 +327,10 @@ THETAS = {
         1e-4,
         1e-3,
         1e-2,
-        1e-1
+        1e-1,
+        1e0,
+        1e1,
+        1e2
     ),
     "central_value": 0,
 }
@@ -485,7 +488,7 @@ CONTEXTS_FEATURES_1A = [
     ("cytof_init", "RFE_15_permute"),
     ("proteomics", "HVGRFE_10_permute"),
     ("transcriptomics", "HVGRFE_15_permute"),
-    ("multimodal", "best_RFE_10_permute"),
+    # ("multimodal", "best_RFE_10_permute"),
     ("multimodal", "RFE_10_permute"),
 ]
 
@@ -546,8 +549,8 @@ PATHWAYS_1C = PATHWAYS_1A
 CONTEXTS_FEATURES_2A = [
     ("cytof_init", "RFE_10_permute"),
     ("cytof_init_plus_tEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
+    # ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    # ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
     ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
     ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
 ]
@@ -582,11 +585,12 @@ PATHWAYS_2B = (
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
-    ("cytof_init", "RFE_10_permute"),
-    ("cytof_init_plus_lb", "RFE_10_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_10_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("multimodal", "best_RFE_10_permute"),
-    ("multimodal", "best_RFE_15_permute"),
+    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    # ("multimodal", "best_RFE_10_permute"),
+    # ("multimodal", "best_RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 PATHWAYS_3 = (
@@ -598,7 +602,7 @@ PATHWAYS_3 = (
         # Adding ERBB2 models
         "EGFR_MAPK__logobs_terbb2_aggavg",
         # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
-        "EGFR_MAPK__logobs_perbb2_aggavg",
+        # "EGFR_MAPK__logobs_perbb2_aggavg",
         # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
     ]
 )

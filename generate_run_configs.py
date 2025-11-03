@@ -195,13 +195,10 @@ def generate_linear_scan(
                 for value in product_hyperparameters[param]
             ]
 
-    # Exclude configurations requiring multiheaded without multimodal
+    # Set multiheaded to False if context is not multimodal
     linear_scan_configs = [
-        cfg for cfg in linear_scan_configs
-        if (not cfg["multiheaded"])
-           or (cfg["multiheaded"]
-               and cfg["context"] == "multimodal"
-               and cfg["features"].startswith("RFE"))
+        {**cfg, "multiheaded": False} if cfg["context"] != "multimodal" else cfg
+        for cfg in linear_scan_configs
     ]
 
     return linear_scan_configs
