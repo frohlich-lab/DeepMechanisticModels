@@ -186,6 +186,7 @@ def generate_linear_scan(
         )
     ]
 
+    # TODO: fix this, this does not work! (linear scans ok, cartesian product broken)
     # product expand for product hyperparameters
     for param in scan_attributes:
         if param in product_hyperparameters:
