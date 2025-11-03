@@ -260,6 +260,7 @@ ACTIVATION_FNS = (
 DROPOUT_RATES = {
     "range": (
         0,
+        0.1,
         0.2,
         0.35,
         0.5,
