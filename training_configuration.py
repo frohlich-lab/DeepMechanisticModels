@@ -211,8 +211,8 @@ NETWORK_DEPTH = {
         1,
         2,
         3,
-        4,
-        5
+        # 4,
+        # 5
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -318,20 +318,24 @@ OMEGAS = {
         1e0,
         1e1
     ),
-    "central_value": 1e-1,
+    "central_value": 1e-2,  # re-centering after v70
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 THETAS = {
     "range": (
         0,
-        1e-4,
-        1e-3,
-        1e-2,
-        1e-1,
-        1e0,
-        1e1,
-        1e2
+        # 1e-4,
+        # 1e-3,
+        # 1e-2,
+        # 1e-1,
+        # 1e0,
+        # 1e1,
+        1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
+        1e3,
+        1e4,
+        1e5,
+
     ),
     "central_value": 0,
 }
