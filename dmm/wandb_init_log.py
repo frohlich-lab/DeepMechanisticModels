@@ -169,7 +169,9 @@ def init_wandb(
         # ffv4 repeat feature scan with new data
         # v70_fig1b_p38: same as above with updated central values + expanded ranges
         # ffv5: figure 3 with updated configuration
-        project=f"DeepMechanisticModels.ffv5.{conf.data}",
+        # v71_fig1b_p38: same as above with updated central values + retuned ranges (n_hidden, depth, l2reg_inflater_output)
+        # ffv6: figure 1c rerun
+        project=f"DeepMechanisticModels.ffv6.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
