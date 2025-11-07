@@ -167,7 +167,8 @@ def init_wandb(
         # v69_fig1b_p38: same as above, Fig 1B ML scans (added dropout rate + reconstruction loss scans)
         # v70_fig1b_p38: same as above with updated central values + expanded ranges
         # v71_fig1b_p38: same as above with updated central values + retuned ranges (n_hidden, depth, l2reg_inflater_output)
-        project=f"DeepMechanisticModels.v71_fig1b_p38.{conf.data}",
+        # v72_fig1b_p38: same as above with updated dropout_rate; scanning more n_hidden and dropout_rate (only)
+        project=f"DeepMechanisticModels.v72_fig1b_p38.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),

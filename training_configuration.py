@@ -190,8 +190,9 @@ FREEZE_MEDIANS = {
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
 LATENT_DIMS = {
     "range": (
+        1,
         2,
-        # 3,
+        3,
         4,
         6,
         8,
@@ -208,9 +209,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        1,
-        2,
-        3,
+        # 1,
+        # 2,
+        # 3,
         # 4,
         # 5
     ),
@@ -260,12 +261,15 @@ ACTIVATION_FNS = (
 DROPOUT_RATES = {
     "range": (
         0,
+        0.02,
+        0.05,
         0.1,
+        0.15,
         0.2,
         0.35,
         0.5,
     ),
-    "central_value": 0.2,  # updated after v69_fig1b_p38
+    "central_value": 0.1,  # updated after v71_fig1b_p38
 }
 
 # optimiser to use
@@ -310,13 +314,13 @@ DELTAS = {
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
     "range": (
-        0,
-        1e-4,
-        1e-3,
+        # 0,
+        # 1e-4,
+        # 1e-3,
         1e-2,
-        1e-1,
-        1e0,
-        1e1
+        # 1e-1,
+        # 1e0,
+        # 1e1
     ),
     "central_value": 1e-2,  # re-centering after v70
 }
@@ -331,10 +335,10 @@ THETAS = {
         # 1e-1,
         # 1e0,
         # 1e1,
-        1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
-        1e3,
-        1e4,
-        1e5,
+        # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
+        # 1e3,
+        # 1e4,
+        # 1e5,
 
     ),
     "central_value": 0,
@@ -343,13 +347,13 @@ THETAS = {
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
     "range": (
-        0,
+        # 0,
         1e-4,
-        1e-3,
-        1e-2,
-        1e-1,
-        1e0,
-        1e1
+        # 1e-3,
+        # 1e-2,
+        # 1e-1,
+        # 1e0,
+        # 1e1
     ),
     "central_value": 1e-4,
 }
@@ -525,7 +529,8 @@ CONTEXTS_FEATURES_1C = [
             f"RFE_{N}_permute",
             f"HVGRFE_{N}_permute",
             f"HVGRFE_{N}_permute",
-            f"best_RFE_{N}_permute"
+            # f"best_RFE_{N}_permute",
+            f"RFE_{N}_permute",
         ]
     )
 ] + [
