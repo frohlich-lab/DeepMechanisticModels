@@ -199,7 +199,7 @@ LATENT_DIMS = {
         # 10,
         # 12
     ),
-    "central_value": 2,
+    "central_value": 6,  # updated after v71 and v72
 }
 
 # Network Layout/Architecture
@@ -610,7 +610,7 @@ PATHWAYS_3 = (
         "EGFR_MAPK__logobs_tegfr_aggavg",
         # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
         # Adding ERBB2 models
-        "EGFR_MAPK__logobs_terbb2_aggavg",
+        # "EGFR_MAPK__logobs_terbb2_aggavg",
         # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
         # "EGFR_MAPK__logobs_perbb2_aggavg",
         # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
