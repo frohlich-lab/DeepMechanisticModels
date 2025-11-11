@@ -198,7 +198,7 @@ def generate_linear_scan(
 
     # Set multiheaded to False if context is not multimodal
     linear_scan_configs = [
-        {**cfg, "multiheaded": False} if cfg["context"] != "multimodal" else cfg
+        {**cfg, "multiheaded": False} if ((cfg["context"] != "multimodal") or ("best" in cfg["features"])) else cfg
         for cfg in linear_scan_configs
     ]
 
