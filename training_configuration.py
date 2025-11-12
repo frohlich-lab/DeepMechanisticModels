@@ -617,6 +617,14 @@ PATHWAYS_3 = (
     ]
 )
 
+# Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
+CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
+PATHWAYS_3B = (
+    [
+        "EGFR_MAPK__logobs_tegfr_aggavg",
+    ]
+)
+
 # Figure 4
 CONTEXTS_FEATURES_4 = [
     ("cytof_init", "RFE_10_permute"),
@@ -676,6 +684,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure2a": CONTEXTS_FEATURES_2A,
     "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
+    "figure3b": CONTEXTS_FEATURES_3B,
     "figure4": CONTEXTS_FEATURES_4,
 }
 
@@ -687,6 +696,7 @@ PATHWAYS_BY_FIGURE = {
     "figure2a": PATHWAYS_2A,
     "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
+    "figure3b": PATHWAYS_3B,
     "figure4": PATHWAYS_4,
 }
 
@@ -698,5 +708,18 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure2a": True,
     "figure2b": True,
     "figure3": True,
+    "figure3b": False,  # scan (but subset to n_hidden manually)
     "figure4": True,
+}
+
+PARAMS_TO_SCAN = {
+    "default": None,
+    "figure1a": None,
+    "figure1b": None,
+    "figure1c": None,
+    "figure2a": None,
+    "figure2b": None,
+    "figure3": None,
+    "figure3b": ["n_hidden"], # only n_hidden
+    "figure4": None,
 }

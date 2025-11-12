@@ -28,6 +28,7 @@ from training_configuration import (
     CONTEXTS_FEATURES_BY_FIGURE,
     RETURN_STAT_TESTS,
     SELECT_CENTRAL_VALUES_BY_FIGURE,
+    PARAMS_TO_SCAN,
     SPLITS,
 )
 
@@ -94,6 +95,7 @@ hyperparam_configs = generate_run_configs(
     contexts_features=CONTEXTS_FEATURES_BY_FIGURE[conf.figure],
     n_starts=conf.n_starts,
     select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[conf.figure],
+    params_to_scan=PARAMS_TO_SCAN[conf.figure],
 )
 hyperparam_configs = {
     samples: [

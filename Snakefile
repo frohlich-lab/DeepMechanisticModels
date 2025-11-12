@@ -18,7 +18,10 @@ from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
     DATASETS, SPLITS,
-    CONTEXTS_FEATURES_BY_FIGURE, PATHWAYS_BY_FIGURE, SELECT_CENTRAL_VALUES_BY_FIGURE
+    CONTEXTS_FEATURES_BY_FIGURE,
+    PATHWAYS_BY_FIGURE,
+    SELECT_CENTRAL_VALUES_BY_FIGURE,
+    PARAMS_TO_SCAN
 )
 from dmm.config_options import scan_attributes
 
@@ -291,6 +294,7 @@ rule evaluate_all:
                 contexts_features=CONTEXTS_FEATURES_BY_FIGURE[FIGURE],
                 n_starts=N_STARTS,
                 select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[FIGURE],
+                params_to_scan=PARAMS_TO_SCAN[FIGURE]
             )
             for y in expand(
                 x.format_map(SafeDict(**hyperparam_configuration)),

@@ -151,6 +151,7 @@ def generate_linear_scan(
         contexts_features: list[tuple],
         starts: list[str],
         select_central_values: bool,
+        params_to_scan: list = None
 ):
     # Check that all hyperparameter options are dicts (central value, range)
     if not all(
@@ -169,9 +170,10 @@ def generate_linear_scan(
     if select_central_values:
         linear_scan_configs = [prune_config(central_values)]
     else:
+        scan_params = params_to_scan if params_to_scan is not None else scan_attributes
         linear_scan_configs = [
             prune_config({**central_values, **{param: value}})
-            for param in scan_attributes
+            for param in scan_params
             if param in linear_hyperparameters
             for value in linear_hyperparameters[param]["range"]
             if linear_hyperparameters[param]["central_value"] != value
@@ -208,11 +210,13 @@ def generate_linear_scan(
 def generate_run_configs(
         contexts_features:list[tuple],
         n_starts: int,
-        select_central_values: bool = False
+        select_central_values: bool = False,
+        params_to_scan: list = None
 ):
     STARTS = [str(i) for i in range(n_starts)]
     return generate_linear_scan(
         contexts_features=contexts_features,
         starts=STARTS,
-        select_central_values=select_central_values
+        select_central_values=select_central_values,
+        params_to_scan=params_to_scan
     )
