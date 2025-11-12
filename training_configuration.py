@@ -490,7 +490,6 @@ CONTEXTS_FEATURES_1C = (
     [
         (context, features)
         for N in [
-            5,
             10,
             15,
             20,
