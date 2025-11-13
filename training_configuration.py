@@ -162,7 +162,7 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    # "all",
+    "all",
     "MCF7",
     "BT20",
     "HCC1500",
@@ -625,6 +625,13 @@ PATHWAYS_3B = (
     ]
 )
 
+# Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
+CONTEXTS_FEATURES_3C = [
+    ("cytof_init", "RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
+]
+PATHWAYS_3C = PATHWAYS_3
+
 # Figure 4
 CONTEXTS_FEATURES_4 = [
     ("cytof_init", "RFE_10_permute"),
@@ -685,6 +692,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
     "figure3b": CONTEXTS_FEATURES_3B,
+    "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
 }
 
@@ -697,6 +705,7 @@ PATHWAYS_BY_FIGURE = {
     "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
     "figure3b": PATHWAYS_3B,
+    "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
 }
 
@@ -708,7 +717,8 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure2a": True,
     "figure2b": True,
     "figure3": True,
-    "figure3b": False,  # scan (but subset to n_hidden manually)
+    "figure3b": False,  # scan (but subset to params below)
+    "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
 }
 
@@ -721,5 +731,6 @@ PARAMS_TO_SCAN = {
     "figure2b": None,
     "figure3": None,
     "figure3b": ["n_hidden"], # only n_hidden
+    "figure3c": ["n_hidden"], # only n_hidden
     "figure4": None,
 }
