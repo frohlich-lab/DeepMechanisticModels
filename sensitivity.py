@@ -13,7 +13,7 @@ from dmm.training_helper_funcs import create_pypesto_problem, rmse
 from evaluation_utils import load_model
 from util import load_petab_base_files
 from tqdm import tqdm
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Union
 
 warnings.filterwarnings("ignore")
 
@@ -55,41 +55,81 @@ def set_param_to_zero(
 def activate_single_param(
         dmm_model: DeepMechanisticModel,
         param: str
-) -> DeepMechanisticModel:
-    # Find parameter deviation index
+) -> Union[DeepMechanisticModel, None]:
+    # Find parameter deviation index and get sparsity mask value
     param_idx = dmm_model.parameter_deviation_names.index(param)
-    # Create a blank binary mask just like the one in the model
-    new_output_sparsity_binary_mask = jnp.zeros_like(jnp.array(dmm_model.output_sparsity_binary_mask))
-    # Set parameter value to 1 and convert back to tuple format
-    new_output_sparsity_binary_mask = new_output_sparsity_binary_mask.at[param_idx].set(1)
-    new_output_sparsity_binary_mask = tuple(new_output_sparsity_binary_mask.tolist())
-    # Replace inside model and return new model instance
-    return eqx.tree_at(
-        lambda model: model.output_sparsity_binary_mask,
-        dmm_model,
-        new_output_sparsity_binary_mask,
-    )
+    param_mask_value = jnp.array(dmm_model.output_sparsity_binary_mask)[param_idx]
+    # If parameter has been removed from sparsity, return None to skip
+    if param_mask_value == 0:
+        # print("Parameter was set to zero by sparsity, skipping...")
+        return None
+    else:
+        # Create a blank binary mask just like the one in the model
+        new_output_sparsity_binary_mask = jnp.zeros_like(jnp.array(dmm_model.output_sparsity_binary_mask))
+        # Set parameter value to 1 and convert back to tuple format
+        new_output_sparsity_binary_mask = new_output_sparsity_binary_mask.at[param_idx].set(1)
+        new_output_sparsity_binary_mask = tuple(new_output_sparsity_binary_mask.tolist())
+        # Replace inside model and return new model instance
+        return eqx.tree_at(
+            lambda model: model.output_sparsity_binary_mask,
+            dmm_model,
+            new_output_sparsity_binary_mask,
+        )
 
 
-def compute_parameter_sensitivities(
+def zero_latent_direction(
+        dmm_model: DeepMechanisticModel,
+        zero_idx: int,
+        latent_dim: int = 2
+):
+    """
+    Return a copy of `dmm_model` whose deep_encoder output has dim `zero_idx` forced to 0.
+    Supports multiheaded multimodal DMMs.
+    Does not currently support DMMs with more than 1 layer in encoder module.
+    """
+    assert 0 <= zero_idx < latent_dim, f"zero_idx must be in [0, {latent_dim-1}]"
+    if not dmm_model.multiheaded:
+        encoder_weights = dmm_model.deep_encoder.layers[0].weight
+        masked_weights = encoder_weights.at[zero_idx].set(0)
+        return eqx.tree_at(
+            lambda m: m.deep_encoder.layers[0].weight,
+            dmm_model,
+            masked_weights
+        )
+    else:
+        # Copy model
+        updated_model = dmm_model
+        for i, encoder in enumerate(dmm_model.deep_encoder):
+            encoder_weights = encoder.layers[0].weight
+            masked_weights = encoder_weights.at[zero_idx].set(0)
+            updated_model = eqx.tree_at(
+                lambda m: m.deep_encoder[i].layers[0].weight,
+                updated_model,
+                masked_weights
+            )
+        return updated_model
+
+
+def compute_sensitivities(
         conf: Conf,
         context_features: List[Tuple[str, str]],
         splits: List[str],
+        latent_sensitivities: dict[str, bool],
         n_jobs: int = 10,
         parameters_interest: Optional[List[str]] = None,
         multiheaded_multimodal: bool = True,
-) -> pd.DataFrame:
+) -> Tuple[pd.DataFrame, pd.DataFrame]:
     petab_base_files = load_petab_base_files(conf)
 
-    res = []
+    res_params = []
+    res_latent = []
+
     for context, feature_sel in context_features:
         subconf = replace(conf, context=context, features=feature_sel)
-
         if context == "multimodal":
             subconf = replace(subconf, multiheaded=multiheaded_multimodal)
 
         for samples in sorted(splits):
-            print(f"Now analysing {context}, {samples}...")
             subconf = replace(subconf, samples=samples)
 
             features_filepath = get_features_filepath(subconf, FEATURES_OUTFILE)
@@ -127,7 +167,11 @@ def compute_parameter_sensitivities(
                 for dataset in ["train", "val"]:
                     rmse_pristine[dataset] = float(rmse(pypesto_problems[dataset], model, features[dataset].values))
 
-                for param in tqdm(parameters_interest, desc=f"job={str(job)}"):
+                # Parameter sensitivities
+                for param in tqdm(
+                        parameters_interest,
+                        desc=f"context={context}, split={samples}, job={str(job)}, params"
+                ):
                     # Zero the parameter at hand
                     zeroed_model = set_param_to_zero(
                         model, param
@@ -139,9 +183,13 @@ def compute_parameter_sensitivities(
                     )
                     for dataset in ["train", "val"]:
                         rmse_zeroed = rmse(pypesto_problems[dataset], zeroed_model, features[dataset].values)
-                        rmse_activated = rmse(pypesto_problems[dataset], activated_model, features[dataset].values)
+                        if activated_model is not None:
+                            rmse_activated = rmse(pypesto_problems[dataset], activated_model, features[dataset].values)
+                        else:
+                            # parameter affected by sparsity mask -> skip
+                            rmse_activated = rmse_pristine[dataset]
 
-                        res.append(
+                        res_params.append(
                             {
                                 "context": context,
                                 "samples": samples,
@@ -156,7 +204,32 @@ def compute_parameter_sensitivities(
                             }
                         )
 
-    results_df = pd.DataFrame(res)
+                # Latent dimension sensitivities (importances)
+                if latent_sensitivities[context]:
+                    for latent_dimension in tqdm(
+                            range(subconf.n_hidden),
+                            desc=f"context={context}, split={samples}, job={str(job)}, latents"
+                    ):
+                        latent_zeroed_model = zero_latent_direction(model, latent_dimension, latent_dim=subconf.n_hidden)
+                        for dataset in ["train", "val"]:
+                            rmse_zeroed = rmse(pypesto_problems[dataset], latent_zeroed_model, features[dataset].values)
+                            res_latent.append(
+                                {
+                                    "context": context,
+                                    "samples": samples,
+                                    "job": job,
+                                    "latent_dimension": latent_dimension,
+                                    "dataset": dataset,
+                                    "rmse_pristine": rmse_pristine[dataset],
+                                    "rmse_zeroed": rmse_zeroed,
+                                    "rmse_diff": rmse_zeroed - rmse_pristine[dataset],
+                                }
+                            )
+
+    # Assemble output DataFrames
+    results_params_df = pd.DataFrame(res_params)
+    results_latent_df = pd.DataFrame(res_latent)
+
     # Extract which receptor (EGFR/ERBB2, if any) each parameter belongs to
-    results_df["receptor_group"] = results_df["param"].apply(classify_param)
-    return results_df
+    results_params_df["receptor_group"] = results_params_df["param"].apply(classify_param)
+    return results_params_df, results_latent_df
