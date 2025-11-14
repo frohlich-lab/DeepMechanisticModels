@@ -196,10 +196,14 @@ LATENT_DIMS = {
         4,
         6,
         8,
-        # 10,
+        10,
         # 12
+        15,
+        20,
+        25,
+        30
     ),
-    "central_value": 6,  # updated after v71 and v72
+    "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
 
 # Network Layout/Architecture
@@ -209,9 +213,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2,
-        # 3,
+        1,
+        2,
+        3,
         # 4,
         # 5
     ),
@@ -731,6 +735,6 @@ PARAMS_TO_SCAN = {
     "figure2b": None,
     "figure3": None,
     "figure3b": ["n_hidden"], # only n_hidden
-    "figure3c": ["n_hidden"], # only n_hidden
+    "figure3c": ["n_hidden", "depth"], # only n_hidden
     "figure4": None,
 }
