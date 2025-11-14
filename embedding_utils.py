@@ -55,7 +55,7 @@ def load_embedding_data_for_context(
 
 
 def perform_pca_on_embeddings(
-    embeddings_df: pd.DataFrame
+    embeddings_df: pd.DataFrame, n_components: int = 2
 ) -> tuple[pd.DataFrame, dict[tuple[str, str], float]]:
     """
     Performs PCA on latent embeddings grouped by context and sample.
@@ -65,6 +65,9 @@ def perform_pca_on_embeddings(
     embeddings_df : pd.DataFrame
         A single DataFrame containing all contexts, with at least:
         - 'context', 'samples', 'cell_line', 'L1', 'L2', 'job'
+
+    n_components : int
+        Number of PCA components to use, defaults to 2.
 
     Returns
     -------
@@ -87,7 +90,7 @@ def perform_pca_on_embeddings(
         vals /= vals.std()
 
         # PCA transform
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=n_components)
         les_pca = pca.fit_transform(vals)
         explained_var = pca.explained_variance_ratio_.sum()
         # Most variance (often by vast margin, e.g. 80/20%) is captured by first component
@@ -97,7 +100,7 @@ def perform_pca_on_embeddings(
         results_dfs.append(pd.DataFrame(
             index=les_pivot.index,
             data=les_pca,
-            columns=["L1", "L2"]
+            columns=[f"L{i}" for i in range(1, n_components+1)],
         ).assign(
             variance_explained=explained_var,
             context=context,
