@@ -79,8 +79,10 @@ def perform_pca_on_embeddings(
     results_dfs = []
     explained_variance_ratios = {}
 
-    for (context, samples), group_df in embeddings_df.groupby(["context", "samples"]):
-        les = group_df[["cell_line", "L1", "L2", "job"]].set_index("cell_line")
+    for (context, samples, n_hidden), group_df in embeddings_df.groupby(["context", "samples", "n_hidden"]):
+        les = group_df[
+            ["cell_line", "job"] + [f"L{i}" for i in range(1, n_hidden+1)]
+        ].set_index("cell_line")
         les_pivot = les.set_index(['job'], append=True).unstack(['job'])
         les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
 
