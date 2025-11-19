@@ -186,15 +186,35 @@ def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
     One-hot encode the 'subtype_intrinsic' column for the given samples.
     Columns will be named like 'intr_LuminalA', 'intr_Basal', etc.
     """
+
+    expected_cols = ["intr_Basal", "intr_CL", "intr_HER2",
+                     "intr_LuminalA", "intr_LuminalB", "intr_Normal"]
+
+    # Early exit: no samples → return empty with correct columns
+    if len(samples) == 0:
+        return pd.DataFrame(
+            columns=expected_cols,
+            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID)
+        )
+
     df = load_marcotte_subtypes(samples)
     ser = df["subtype_intrinsic"].astype(str).fillna("Unknown")
     X = pd.get_dummies(ser, prefix="intr", dtype=float)
+
     # Preserve order; drop any absent samples
-    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
+    X = X.reindex(
+        pd.Index(
+            [s for s in samples if s in X.index],
+            name=petab.v1.PREEQUILIBRATION_CONDITION_ID
+        )
+    )
+
     if len(X) == 1:
         for subtype in ["LuminalA", "LuminalB", "HER2", "CL", "Basal", "Normal"]:
             if f"intr_{subtype}" not in X.columns:
                 X[f"intr_{subtype}"] = 0.0
+
+    # Ensure consistent one-hot-encoded feature ordering
     X = X[["intr_Basal", "intr_CL", "intr_HER2", "intr_LuminalA", "intr_LuminalB", "intr_Normal"]]
     return X
 
@@ -205,6 +225,16 @@ def _onehot_lb(samples: list[str]) -> pd.DataFrame:
       LuminalA/LuminalB/HER2 → Luminal
       CL → Basal
     """
+
+    expected_cols = ["lb_Basal", "lb_Luminal", "lb_Normal"]
+
+    # Early exit: no samples → return empty with correct columns
+    if len(samples) == 0:
+        return pd.DataFrame(
+            columns=expected_cols,
+            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID)
+        )
+
     df = load_marcotte_subtypes(samples).copy()
     lb = df["subtype_intrinsic"].astype(str)
     lb = lb.replace(["LuminalA", "LuminalB"], "Luminal")
@@ -212,11 +242,19 @@ def _onehot_lb(samples: list[str]) -> pd.DataFrame:
     lb = lb.replace(["HER2"], "Luminal")
     lb = lb.fillna("Unknown")
     X = pd.get_dummies(lb, prefix="lb", dtype=float)
-    X = X.reindex(pd.Index([s for s in samples if s in X.index], name=petab.v1.PREEQUILIBRATION_CONDITION_ID))
+
+    X = X.reindex(
+        pd.Index(
+            [s for s in samples if s in X.index],
+            name=petab.v1.PREEQUILIBRATION_CONDITION_ID
+        )
+    )
+
     if len(X) == 1:
         for subtype in ["Luminal", "Basal", "Normal"]:
             if f"lb_{subtype}" not in X.columns:
                 X[f"lb_{subtype}"] = 0.0
+
     # Ensure consistent one-hot-encoded feature ordering
     X = X[["lb_Basal", "lb_Luminal", "lb_Normal"]]
     return X
