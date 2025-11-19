@@ -254,7 +254,10 @@ def generate_average_pretraining_problem(
         ].copy()
         for col in cdf.columns:
             if col.endswith("_eq"):
-                cdf[col] = pp.condition_df[col].mean()
+                if pd.api.types.is_string_dtype(pp.condition_df[col]):
+                    cdf[col] = pp.condition_df[col].iloc[0].split("__")[0]
+                else:
+                    cdf[col] = pp.condition_df[col].mean()
         cdf.index = [
             name.replace(samples[0] + "__", "__").replace(
                 samples[0], "baseline"
