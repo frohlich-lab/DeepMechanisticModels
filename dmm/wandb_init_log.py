@@ -174,7 +174,10 @@ def init_wandb(
         # v72_fig1b_p38: same as above with updated dropout_rate; scanning more n_hidden and dropout_rate (only)
         # v73_fig3_p38: tEGFR fig3, updated n_hidden (6) and dropout (0.1)
         # ffv7: figure 1c rerun
-        project=f"DeepMechanisticModels.ffv7.{conf.data}",
+        # v73_fig3c_p38:base & tEGFR, cytof & multimodal, scanning n_hidden and depth
+        # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
+        # ffv8: initialisation benchmark
+        project=f"DeepMechanisticModels.ffv8.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),

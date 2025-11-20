@@ -55,7 +55,7 @@ def load_embedding_data_for_context(
 
 
 def perform_pca_on_embeddings(
-    embeddings_df: pd.DataFrame
+    embeddings_df: pd.DataFrame, n_components: int = 2
 ) -> tuple[pd.DataFrame, dict[tuple[str, str], float]]:
     """
     Performs PCA on latent embeddings grouped by context and sample.
@@ -65,6 +65,9 @@ def perform_pca_on_embeddings(
     embeddings_df : pd.DataFrame
         A single DataFrame containing all contexts, with at least:
         - 'context', 'samples', 'cell_line', 'L1', 'L2', 'job'
+
+    n_components : int
+        Number of PCA components to use, defaults to 2.
 
     Returns
     -------
@@ -76,8 +79,10 @@ def perform_pca_on_embeddings(
     results_dfs = []
     explained_variance_ratios = {}
 
-    for (context, samples), group_df in embeddings_df.groupby(["context", "samples"]):
-        les = group_df[["cell_line", "L1", "L2", "job"]].set_index("cell_line")
+    for (context, samples, n_hidden), group_df in embeddings_df.groupby(["context", "samples", "n_hidden"]):
+        les = group_df[
+            ["cell_line", "job"] + [f"L{i}" for i in range(1, n_hidden+1)]
+        ].set_index("cell_line")
         les_pivot = les.set_index(['job'], append=True).unstack(['job'])
         les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
 
@@ -87,7 +92,7 @@ def perform_pca_on_embeddings(
         vals /= vals.std()
 
         # PCA transform
-        pca = PCA(n_components=2)
+        pca = PCA(n_components=n_components)
         les_pca = pca.fit_transform(vals)
         explained_var = pca.explained_variance_ratio_.sum()
         # Most variance (often by vast margin, e.g. 80/20%) is captured by first component
@@ -97,7 +102,7 @@ def perform_pca_on_embeddings(
         results_dfs.append(pd.DataFrame(
             index=les_pivot.index,
             data=les_pca,
-            columns=["L1", "L2"]
+            columns=[f"L{i}" for i in range(1, n_components+1)],
         ).assign(
             variance_explained=explained_var,
             context=context,

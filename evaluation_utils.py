@@ -214,13 +214,23 @@ def get_embedding_and_params_df(
     temp_latent_embeddings = vmap(
         eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
     )(jnp.array(input_features), jr.PRNGKey(0))
-    latent_embeddings_df = pd.DataFrame(
-        {
-            "cell_line": samples,
-            "L1": temp_latent_embeddings[:, 0],
-            "L2": temp_latent_embeddings[:, 1],
-        }
-    ).assign(context=context, samples=split, dataset=dataset, job=job)
+
+    n_components = min(temp_latent_embeddings.shape[1], dmm_model.conf.n_hidden)
+
+    latent_embeddings_df = (
+        pd.DataFrame(
+            {
+                "cell_line": samples,
+                **{f"L{i + 1}": temp_latent_embeddings[:, i] for i in range(n_components)},
+            }
+        )
+        .assign(
+            context=context,
+            samples=split,
+            dataset=dataset,
+            job=job,
+        )
+    )
 
     # Parameter deviations
     param_deviations_df = pd.DataFrame(

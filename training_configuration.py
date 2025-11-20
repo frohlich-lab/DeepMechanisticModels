@@ -162,7 +162,7 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    # "all",
+    "all",
     "MCF7",
     "BT20",
     "HCC1500",
@@ -196,10 +196,14 @@ LATENT_DIMS = {
         4,
         6,
         8,
-        # 10,
+        10,
         # 12
+        15,
+        20,
+        25,
+        30,
     ),
-    "central_value": 6,  # updated after v71 and v72
+    "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
 
 # Network Layout/Architecture
@@ -209,9 +213,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2,
-        # 3,
+        1,
+        2,
+        3,
         # 4,
         # 5
     ),
@@ -537,18 +541,19 @@ PATHWAYS_1C = PATHWAYS_1A
 
 # Figure 2A
 CONTEXTS_FEATURES_2A = [
-    ("cytof_init", "RFE_10_permute"),
-    ("cytof_init_plus_tEGFR", "RFE_10_permute"),
-    # ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init_plus_tEGFR", "RFE_15_permute"),
+    ("cytof_init_plus_pEGFR", "RFE_15_permute"),
     # ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
     (
         "cytof_init_plus_lb",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
     (
         "cytof_init_plus_intr",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 PATHWAYS_2A = [
@@ -559,18 +564,19 @@ PATHWAYS_2A = [
 
 # Figure 2B
 CONTEXTS_FEATURES_2B = [
-    ("cytof_init", "RFE_10_permute"),
-    ("cytof_init_plus_tERBB2", "RFE_10_permute"),
-    ("cytof_init_plus_pERBB2", "RFE_10_permute"),
-    ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
+    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init_plus_tERBB2", "RFE_15_permute"),
+    ("cytof_init_plus_pERBB2", "RFE_15_permute"),
+    # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
     (
         "cytof_init_plus_lb",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
     (
         "cytof_init_plus_intr",
-        "RFE_10_permute",
+        "RFE_15_permute",
     ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 PATHWAYS_2B = [
@@ -608,6 +614,19 @@ PATHWAYS_3 = [
     # "EGFR_MAPK__logobs_perbb2_aggavg",
     # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
 ]
+
+# Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
+CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
+PATHWAYS_3B = [
+    "EGFR_MAPK__logobs_tegfr_aggavg",
+]
+
+# Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
+CONTEXTS_FEATURES_3C = [
+    ("cytof_init", "RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
+]
+PATHWAYS_3C = PATHWAYS_3
 
 # Figure 4
 CONTEXTS_FEATURES_4 = [
@@ -666,6 +685,8 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure2a": CONTEXTS_FEATURES_2A,
     "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
+    "figure3b": CONTEXTS_FEATURES_3B,
+    "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
 }
 
@@ -677,6 +698,8 @@ PATHWAYS_BY_FIGURE = {
     "figure2a": PATHWAYS_2A,
     "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
+    "figure3b": PATHWAYS_3B,
+    "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
 }
 
@@ -688,5 +711,20 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure2a": True,
     "figure2b": True,
     "figure3": True,
+    "figure3b": False,  # scan (but subset to params below)
+    "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
+}
+
+PARAMS_TO_SCAN = {
+    "default": None,
+    "figure1a": None,
+    "figure1b": None,
+    "figure1c": None,
+    "figure2a": None,
+    "figure2b": None,
+    "figure3": None,
+    "figure3b": ["n_hidden"],  # only n_hidden
+    "figure3c": ["n_hidden", "depth"],  # only n_hidden
+    "figure4": None,
 }
