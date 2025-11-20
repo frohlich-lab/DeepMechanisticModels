@@ -1,15 +1,20 @@
 import jax
 import jax.numpy as jnp
 import optimistix as optx
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+import seaborn as sns
 
 from pathlib import Path
+from scipy.cluster.hierarchy import linkage, fcluster, leaves_list
 from sklearn.decomposition import PCA
 from sklearn.linear_model import LinearRegression
+from sklearn.metrics import silhouette_score
 from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import NearestNeighbors
 from sklearn.preprocessing import StandardScaler, LabelEncoder
+from scipy.spatial.distance import squareform
 from sklearn.svm import SVC
 
 
@@ -559,3 +564,331 @@ def run_full_model_ig_attributions(
     # ======= End checks =======
 
     return ig_attributions  # shape: (N, P, D_in)
+
+
+def build_canonical_latents_from_params_and_pca(
+    mean_par_dev_df: pd.DataFrame,
+    pca_embedding_df: pd.DataFrame,
+    model: str = "EGFR_MAPK__logobs",
+    context: str = "cytof_init",
+    samples: str = "all",
+    meta_cols=None,
+    min_modules: int = 2,
+    max_modules: int = 15,
+    n_accepted_singletons: int = 1,
+    plot: bool = True,
+):
+    """
+    End-to-end pipeline to derive 'canonical' latent directions from parameter
+    deviations and align PCA-ed latent embeddings to them.
+
+    Parameters
+    ----------
+    mean_par_dev_df : pd.DataFrame
+        DataFrame with mean parameter deviations per cell_line (and metadata).
+    pca_embedding_df : pd.DataFrame
+        DataFrame with PCA-ed latent embeddings (columns L1, L2, ...) per cell_line.
+    model : str
+        Model name to filter on (column 'model').
+    context : str
+        Context name to filter on (column 'context').
+    samples : str
+        Samples label to filter on (column 'samples').
+    meta_cols : list or None
+        List of metadata columns that should NOT be treated as parameters.
+        If None, defaults to ["model", "context", "samples", "cell_line", "n_hidden"].
+    min_modules : int
+        Minimum number of modules (clusters) to consider.
+    max_modules : int
+        Maximum number of modules (clusters) to consider.
+    n_accepted_singletons : int
+        Maximum number of singleton clusters (clusters of size 1) allowed
+        when choosing K. The function scans K downward from max_modules until
+        it finds a K with at most this many singletons.
+    plot : bool
+        If True, produce diagnostic plots.
+
+    Logic
+    -----
+    1. Filter `mean_par_dev_df` and `pca_embedding_df` to the given
+       (model, context, samples).
+
+    2. Identify parameter modules:
+       - Use only non-metadata, non-zero-variance parameter columns.
+       - Compute the parameter–parameter correlation matrix.
+       - Build a distance matrix as D = 1 - |corr|.
+       - Perform hierarchical clustering (average linkage) on D.
+
+    3. Select the number of modules K (denoted K_opt):
+       - Let K_start = min(max_modules, n_params - 1),
+         K_min = max(min_modules, 2).
+       - For K = K_start, K_start-1, ..., K_min:
+         * Cut the dendrogram into K clusters (fcluster).
+         * Count the number of singleton clusters (size 1).
+         * Compute a silhouette score on the precomputed distance matrix
+           (stored for diagnostics only).
+         * Stop at the first K with <= n_accepted_singletons singletons.
+       - If no K satisfies the singleton constraint, fall back to K_min.
+       - K_opt is the chosen K.
+
+    4. For K_opt:
+       - Assign each parameter to a module (cluster id 1...K_opt).
+       - For each module:
+         * Standardize its parameters across cell lines.
+         * Take PC1 across cell lines (module eigenscore).
+       - Collect these into `module_latents_df`
+         (index = cell_line, columns = mod1...modK).
+
+    5. Align PCA-ed latent embeddings to module latents:
+       - Extract latent columns L1, L2, ... from `pca_embedding_df`.
+       - Restrict to cell_lines present in both embeddings and module latents.
+       - Fit a linear regression M ≈ Z @ A + b, where:
+         * Z = PCA latents (cell_line × n_L)
+         * M = module_latents_df (cell_line × n_modules)
+       - Apply this map to Z to obtain `real_latents_df`
+         (cell_line × n_modules), i.e. module-aligned "real" latents.
+
+    6. Optional plotting (if `plot=True`):
+       - Heatmap of |corr| ordered by dendrogram leaves.
+       - Silhouette score vs K (diagnostic; K_opt is NOT chosen by silhouette).
+       - Heatmap of correlations between canonical modules and latent PCs.
+
+    Returns
+    -------
+    dict
+        {
+            "corr": corr,                         # parameter correlation matrix
+            "dist": dist,                         # distance matrix D = 1 - |corr|
+            "Z_linkage": Z_linkage,               # linkage from hierarchical clustering
+            "param_to_module": param_to_module,   # Series: param -> module id (1...K_opt)
+            "K_opt": K_opt,                       # chosen K after singleton constraint
+            "sil_scores": sil_scores,             # dict K -> silhouette score
+            "module_latents_df": module_latents_df,   # cell_line × modules (param-derived)
+            "real_latents_df": real_latents_df,       # cell_line × modules (from latent PCs)
+            "A": A,                               # weights in M ≈ Z @ A + b
+            "b": b,                               # intercept in M ≈ Z @ A + b
+        }
+    """
+
+    # ------------------------------------------------------------------
+    # 0. Default metadata columns (not treated as parameters)
+    # ------------------------------------------------------------------
+    if meta_cols is None:
+        meta_cols = ["model", "context", "samples", "cell_line", "n_hidden"]
+
+    # ------------------------------------------------------------------
+    # 1. Filter dataframes by model/context/samples
+    # ------------------------------------------------------------------
+    par_mean_sub = mean_par_dev_df[
+        (mean_par_dev_df.model == model) &
+        (mean_par_dev_df.context == context) &
+        (mean_par_dev_df.samples == samples)
+    ].copy()
+
+    lat_sub = pca_embedding_df[
+        (pca_embedding_df.model == model) &
+        (pca_embedding_df.context == context) &
+        (pca_embedding_df.samples == samples)
+    ].copy()
+
+    if par_mean_sub.empty:
+        raise ValueError("Filtered mean_par_dev_df is empty for given model/context/samples")
+    if lat_sub.empty:
+        raise ValueError("Filtered pca_embedding_df is empty for given model/context/samples")
+
+    # ------------------------------------------------------------------
+    # 2. Parameter correlation & hierarchical clustering
+    # ------------------------------------------------------------------
+    # Parameter columns: non-metadata, with non-zero variance
+    param_cols = [c for c in par_mean_sub.columns if c not in meta_cols]
+    std_nonzero = par_mean_sub[param_cols].std()
+    params_nonzero = std_nonzero[std_nonzero > 0].index.tolist()
+
+    if len(params_nonzero) < 2:
+        raise ValueError("Not enough non-zero-variance parameters to build modules.")
+
+    corr = par_mean_sub[params_nonzero].corr()
+
+    # Distance = 1 - |corr|
+    dist = 1 - np.abs(corr)
+    np.fill_diagonal(dist.values, 0)
+
+    # Linkage on condensed distance matrix
+    dist_condensed = squareform(dist.values)
+    Z_linkage = linkage(dist_condensed, method="average")
+
+    # ------------------------------------------------------------------
+    # 3. Choose K by scanning downward until singleton constraint is met
+    # ------------------------------------------------------------------
+    sil_scores = {}
+
+    n_params = len(params_nonzero)
+    K_start = min(max_modules, n_params - 1)
+    K_min = max(min_modules, 2)
+
+    chosen_K = None
+    labels_series = None
+    n_singletons = None
+
+    # Scan K downward: K_start, K_start-1, ..., K_min
+    for K in range(K_start, K_min - 1, -1):
+        labels = fcluster(Z_linkage, t=K, criterion="maxclust")
+        labels_series = pd.Series(labels, index=corr.index)
+
+        # Cluster sizes + singleton count
+        cluster_sizes = labels_series.value_counts()
+        n_singletons = (cluster_sizes == 1).sum()
+
+        # Store silhouette (for diagnostics / plotting)
+        score = silhouette_score(dist.values, labels, metric="precomputed")
+        sil_scores[K] = score
+
+        # Stop as soon as we have at most n_accepted_singletons singletons
+        if n_singletons <= n_accepted_singletons:
+            chosen_K = K
+            break
+
+    # If we never satisfied the singleton constraint, just use K_min
+    if chosen_K is None:
+        chosen_K = K_min
+        labels = fcluster(Z_linkage, t=chosen_K, criterion="maxclust")
+        labels_series = pd.Series(labels, index=corr.index)
+        cluster_sizes = labels_series.value_counts()
+        n_singletons = (cluster_sizes == 1).sum()
+
+    K_opt = chosen_K
+    print(f"Chosen K_opt={K_opt}, #singletons={n_singletons}")
+
+    # Final module assignment
+    param_to_module = labels_series.rename("module")
+
+    # ------------------------------------------------------------------
+    # 3b. Order parameters according to dendrogram leaves (for plotting)
+    # ------------------------------------------------------------------
+    order = leaves_list(Z_linkage)
+    ordered_params = corr.index[order]
+    corr_ordered = corr.loc[ordered_params, ordered_params]
+
+    # ------------------------------------------------------------------
+    # 4. Compute module eigenscores (PC1 per module) per cell_line
+    # ------------------------------------------------------------------
+    par_mean_sub = par_mean_sub.set_index("cell_line").sort_index()
+
+    module_scores = {}
+    for m in sorted(param_to_module.unique()):
+        params_m = param_to_module.index[param_to_module == m]
+        X = par_mean_sub[params_m]
+        X_std = (X - X.mean()) / X.std()
+
+        pca_m = PCA(n_components=1)
+        score_m = pca_m.fit_transform(X_std)[:, 0]
+        module_scores[f"mod{m}"] = score_m
+
+    module_latents_df = pd.DataFrame(
+        module_scores,
+        index=par_mean_sub.index
+    ).sort_index()
+
+    # ------------------------------------------------------------------
+    # 5. Align PCA-ed latent embeddings to module latents
+    # ------------------------------------------------------------------
+    lat_sub = lat_sub.set_index("cell_line").sort_index()
+    lat_cols = [c for c in lat_sub.columns if c.startswith("L")]
+
+    if not lat_cols:
+        raise ValueError("No latent PCA columns starting with 'L' found in pca_embedding_df")
+
+    # Common cell lines between latents and module latents
+    common_cells = lat_sub.index.intersection(module_latents_df.index)
+    if len(common_cells) == 0:
+        raise ValueError("No overlapping cell_line entries between embeddings and parameter means.")
+
+    Z = lat_sub.loc[common_cells, lat_cols].values
+    M = module_latents_df.loc[common_cells].values
+
+    reg = LinearRegression(fit_intercept=True)
+    reg.fit(Z, M)
+    A = reg.coef_.T         # shape: (n_latent, n_modules)
+    b = reg.intercept_      # shape: (n_modules,)
+
+    real_latents = Z @ A + b
+    real_latents_df = pd.DataFrame(
+        real_latents,
+        index=common_cells,
+        columns=module_latents_df.columns
+    )
+
+    # ------------------------------------------------------------------
+    # 6. Plots
+    # ------------------------------------------------------------------
+    if plot:
+        sns.set(style="white")
+
+        # 6.1 correlation heatmap ordered by modules
+        plt.figure(figsize=(10, 8))
+        sns.heatmap(
+            np.abs(corr_ordered),
+            cmap="coolwarm",
+            center=0,
+            xticklabels=False,
+            yticklabels=False
+        )
+        plt.title(f"Parameter |corr| (K_opt={K_opt} modules, {model}, {context})")
+        plt.tight_layout()
+
+        # 6.2 silhouette vs K (diagnostic)
+        if len(sil_scores) > 0:
+            plt.figure(figsize=(6, 4))
+            Ks = sorted(sil_scores.keys())
+            scores = [sil_scores[K] for K in Ks]
+            plt.plot(Ks, scores, marker="o")
+            plt.xlabel("Number of modules (K)")
+            plt.ylabel("Silhouette score (precomputed distance)")
+            plt.title("Module number diagnostics")
+            plt.grid(True)
+            plt.tight_layout()
+
+        # 6.3 correlation heatmap: real_latents vs latent PCs
+        real_latents_aligned = real_latents_df.loc[common_cells]
+        lat_aligned = lat_sub.loc[common_cells, lat_cols]
+
+        corr_mod_lat = pd.DataFrame(
+            np.corrcoef(
+                real_latents_aligned.values.T,
+                lat_aligned.values.T
+            ),
+        )
+
+        # Build a nicer labeled matrix: rows = modules, cols = Ls
+        n_mod = real_latents_aligned.shape[1]
+        n_lat = lat_aligned.shape[1]
+        corr_block = corr_mod_lat.iloc[:n_mod, n_mod:n_mod + n_lat].copy()
+        corr_block.index = real_latents_aligned.columns
+        corr_block.columns = lat_cols
+
+        plt.figure(figsize=(8, 6))
+        sns.heatmap(
+            corr_block,
+            cmap="vlag",
+            center=0,
+            annot=True,
+            fmt=".2f"
+        )
+        plt.title("Correlation between canonical modules and latent PCs")
+        plt.tight_layout()
+
+    # ------------------------------------------------------------------
+    # 7. Return everything useful
+    # ------------------------------------------------------------------
+    return {
+        "corr": corr,
+        "dist": dist,
+        "Z_linkage": Z_linkage,
+        "param_to_module": param_to_module,
+        "K_opt": K_opt,
+        "sil_scores": sil_scores,
+        "module_latents_df": module_latents_df,
+        "real_latents_df": real_latents_df,
+        "A": A,
+        "b": b,
+    }
