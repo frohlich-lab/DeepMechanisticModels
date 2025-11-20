@@ -113,8 +113,8 @@ def get_kin_params_median_deviation(
     avg_model_parameter_file: str,
     random_seed: int,
 ):
-    # Set random seed for poisson sampling
-    np.random.seed(random_seed)
+    # Set random seed for poisson sampling, allow 10 different seeds
+    np.random.seed(random_seed % 10)
     # Fetch avg_model params (for all multi-starts)
     avg_model_params = pd.read_csv(
         avg_model_parameter_file,
@@ -135,13 +135,14 @@ def get_kin_params_median_deviation(
         inplace=True,
     )
 
-    # Poisson sample one among the multi-starts avg_model parameters and use as medians -- DISABLED
-    # avg_param_combo = avg_model_params[
-    #     avg_model_params.index == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
-    #     ].iloc[0]
+    # Poisson sample one among the multi-starts avg_model parameters and use as medians
+    avg_param_combo = avg_model_params[
+        avg_model_params.index
+        == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
+    ].iloc[0]
 
     # Use the best initialisation from avg_model (here second best)
-    avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
+    # avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
     return avg_param_combo
 
 
