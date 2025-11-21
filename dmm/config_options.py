@@ -22,6 +22,9 @@ class Conf(dict):
     use_layer_bias: list[bool] | bool = False
     last_layer_activation: bool = False
     nn_init_fn: str = "custom"
+    nn_init_scale: float = (
+        0.1  # variance scaling parameter when using custom init
+    )
     dropout_rate: float = 0.0  # default: no entries set to 0
     # Training
     activation_fn_name: str = "swish"
@@ -153,6 +156,7 @@ class ModuleParams(dict):
         "False"  # no activation function in last layer of each module
     )
     dropout_rate: float = 0.0
+    weight_init_scale: float = 0.1  # only used if weight_init_fn is "custom"
 
 
 @dataclasses.dataclass
@@ -181,10 +185,11 @@ scan_attributes = [
     "samples",
     "context",
     "features",
-    'n_hidden',
-    'depth',
-    'multiheaded',
-    'dropout_rate',
+    "n_hidden",
+    "depth",
+    "multiheaded",
+    "dropout_rate",
+    "nn_init_scale",  # allow scanning the custom init scale
     # 'activation_fn_name',
     # L1IREG,
     # OIREG,

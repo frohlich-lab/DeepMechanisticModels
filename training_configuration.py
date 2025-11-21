@@ -190,18 +190,18 @@ FREEZE_MEDIANS = {
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
 LATENT_DIMS = {
     "range": (
-        1,
-        2,
-        3,
-        4,
-        6,
+        # 1,
+        # 2,
+        # 3,
+        # 4,
+        # 6,
         8,
-        10,
+        # 10,
         # 12
-        15,
-        20,
-        25,
-        30,
+        # 15,
+        # 20,
+        # 25,
+        # 30,
     ),
     "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
@@ -213,9 +213,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        1,
-        2,
-        3,
+        # 1,
+        # 2,
+        # 3,
         # 4,
         # 5
     ),
@@ -264,14 +264,14 @@ ACTIVATION_FNS = (
 
 DROPOUT_RATES = {
     "range": (
-        0,
-        0.02,
-        0.05,
+        # 0,
+        # 0.02,
+        # 0.05,
         0.1,
-        0.15,
-        0.2,
-        0.35,
-        0.5,
+        # 0.15,
+        # 0.2,
+        # 0.35,
+        # 0.5,
     ),
     "central_value": 0.1,  # updated after v71_fig1b_p38
 }
@@ -330,10 +330,10 @@ OMEGAS = {
 THETAS = {
     "range": (
         0,
-        1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
-        1e3,
-        1e4,
-        1e5,
+        # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
+        # 1e3,
+        # 1e4,
+        # 1e5,
         # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
         # 1e3,
         # 1e4,
@@ -368,6 +368,12 @@ ETAS = {"range": (0,), "central_value": 0}
 INFLATER_OUTPUT_REG_EPOCHS = {
     "range": (200,),
     "central_value": 200,
+}
+
+# Includes both smaller and larger scales to probe sensitivity of training dynamics.
+NN_INIT_SCALES = {
+    "range": (0.01, 0.1, 1.0, 10.0),
+    "central_value": 0.1,
 }
 
 # Percentage thresholds for sparsity

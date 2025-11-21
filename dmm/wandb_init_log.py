@@ -177,7 +177,8 @@ def init_wandb(
         # v73_fig3c_p38:base & tEGFR, cytof & multimodal, scanning n_hidden and depth
         # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
         # ffv8: initialisation benchmark
-        project=f"DeepMechanisticModels.ffv8.{conf.data}",
+        # ffv9: nn_init_scale scan
+        project=f"DeepMechanisticModels.ffv9.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),

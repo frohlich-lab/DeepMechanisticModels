@@ -3,7 +3,7 @@ import jax.numpy as jnp
 from jax import nn, random
 from jaxtyping import Array
 
-from .custom_layers_eqx import CustomInitLinear, init_fn
+from .custom_layers_eqx import CustomInitLinear, build_init_fn
 
 act_fn_by_name = {
     "identity": eqx.nn.Identity(),  # simply returns the input
@@ -24,12 +24,15 @@ def generate_layer(
     key,
     weight_init_fn="eqx_default",
     bias_init_fn="eqx_default",
+    weight_init_scale: float = 0.1,
 ):
     """
     Produces either a Linear (eqx.nn.Linear) layer or a CustomInitLayer (where
     weight and bias initialisations are performed through a chosen initialiser
     from jax.nn.initializers()).
     """
+    # If custom scaling requested, rebuild initializer dict, else use legacy
+    init_dict = build_init_fn(weight_init_scale)
     # Default option: eqx.nn.Linear (similar to He/Xavier without constant scaling factors)
     if (weight_init_fn == "eqx_default") and (bias_init_fn == "eqx_default"):
         return eqx.nn.Linear(
@@ -39,16 +42,16 @@ def generate_layer(
             key=key,
         )
     # Select initializer from jax.nn.initializers() via init_fn dict
-    elif (weight_init_fn in init_fn.keys()) and (
-        bias_init_fn in init_fn.keys()
+    elif (weight_init_fn in init_dict.keys()) and (
+        bias_init_fn in init_dict.keys()
     ):
         return CustomInitLinear(
             in_features=in_features,
             out_features=out_features,
             use_bias=use_bias,  # default: no bias
             key=key,
-            weight_init=init_fn[weight_init_fn],
-            bias_init=init_fn[bias_init_fn],
+            weight_init=init_dict[weight_init_fn],
+            bias_init=init_dict[bias_init_fn],
         )
     else:
         # TODO @GiacomoFabrini consider improving this?!
@@ -93,6 +96,9 @@ class DeepComponent(eqx.Module):
 
     :param dropout_rate:
         dropout rate.
+
+    :param weight_init_scale:
+        scaling parameter used for variance_scaling initialiser when weight_init_fn == 'custom'.
     """
 
     layers: list[eqx.nn.Linear | CustomInitLinear]
@@ -101,6 +107,7 @@ class DeepComponent(eqx.Module):
     last_layer_activation: bool
     dropout_rate: float = eqx.field(static=True)
     dropout_layers: list[eqx.nn.Dropout] | None
+    weight_init_scale: float = eqx.field(static=True)
 
     def __init__(
         self,
@@ -113,6 +120,7 @@ class DeepComponent(eqx.Module):
         weight_init_fn="eqx_default",  # use eqx.nn.Linear layers by default
         bias_init_fn="eqx_default",
         dropout_rate=0.0,
+        weight_init_scale: float = 0.1,
     ):
         # component/module name (encoder/inflater/decoder)
         self.component_name = component_name
@@ -135,16 +143,17 @@ class DeepComponent(eqx.Module):
                     key=key,
                     weight_init_fn=weight_init_fn,
                     bias_init_fn=bias_init_fn,
+                    weight_init_scale=weight_init_scale,
                 )
             )
 
         self.dropout_rate = dropout_rate
+        self.weight_init_scale = weight_init_scale
         # Create list of dropout layers
         self.dropout_layers = []
         for _ in layer_sizes[:-1]:
             self.dropout_layers.append(
-                eqx.nn.Dropout(dropout_rate) if self.dropout_rate > 0
-                else None
+                eqx.nn.Dropout(dropout_rate) if self.dropout_rate > 0 else None
             )
 
         # activation function
@@ -169,11 +178,13 @@ class DeepComponent(eqx.Module):
         activation = act_fn_by_name[self.activation_fn_name]
         # if more than one layer, applies non-linear activations to all layers but the last
         if len(self.layers) > 1:
-            for i, (layer, dropout) in enumerate(zip(self.layers[:-1], self.dropout_layers[1:])):
+            for i, (layer, dropout) in enumerate(
+                zip(self.layers[:-1], self.dropout_layers[1:])
+            ):
                 a = activation(layer(a))
                 # Hidden layer dropout
                 if self.dropout_rate > 0:
-                    a = dropout(a, key=dropout_keys[i+1])
+                    a = dropout(a, key=dropout_keys[i + 1])
         # if single layer (self.layers[0] == self.layers[-1]), fully linear behaviour (no non-linear activations)
         return (
             self.layers[-1](a)

@@ -1,8 +1,8 @@
 from typing import Any
 
 import equinox as eqx
-from jax import config, random
 import jax.numpy as jnp
+from jax import config, random
 
 from .config_options import ModuleParams
 from .deepcomponent_eqx import DeepComponent
@@ -85,6 +85,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 weight_init_fn=encoder_params.weight_init_fn,
                 bias_init_fn=encoder_params.bias_init_fn,
                 dropout_rate=encoder_params.dropout_rate,
+                weight_init_scale=encoder_params.weight_init_scale,
             )
         else:
             self.deep_encoder = [
@@ -98,6 +99,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                     weight_init_fn=encoder_params.weight_init_fn,
                     bias_init_fn=encoder_params.bias_init_fn,
                     dropout_rate=encoder_params.dropout_rate,
+                    weight_init_scale=encoder_params.weight_init_scale,
                 )
                 for key in keys_encoder
             ]
@@ -113,6 +115,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             weight_init_fn=inflater_params.weight_init_fn,
             bias_init_fn=inflater_params.bias_init_fn,
             dropout_rate=0.0,  # no dropout
+            weight_init_scale=inflater_params.weight_init_scale,
         )
 
         # Instantiate decoder component if two-headed autoencoder
@@ -128,10 +131,11 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                     weight_init_fn=decoder_params.weight_init_fn,
                     bias_init_fn=decoder_params.bias_init_fn,
                     dropout_rate=0.0,  # no dropout
+                    weight_init_scale=decoder_params.weight_init_scale,
                 )
             else:
                 self.deep_decoder = [
-                        DeepComponent(
+                    DeepComponent(
                         component_name="decoder",
                         layer_sizes=decoder_params.layer_sizes,
                         biases=decoder_params.layer_biases,
@@ -141,6 +145,7 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                         weight_init_fn=decoder_params.weight_init_fn,
                         bias_init_fn=decoder_params.bias_init_fn,
                         dropout_rate=0.0,  # no dropout
+                        weight_init_scale=decoder_params.weight_init_scale,
                     )
                     for key in keys_decoder
                 ]
@@ -158,11 +163,13 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
                 jnp.stack(
                     [
                         encoder(input_arr.reshape(-1), subkey)
-                        for encoder, input_arr, subkey in zip(self.deep_encoder, inputs, keys)
+                        for encoder, input_arr, subkey in zip(
+                            self.deep_encoder, inputs, keys
+                        )
                     ],
-                    axis=-1
+                    axis=-1,
                 ),
-                axis=-1
+                axis=-1,
             )
 
     def decode(self, x, key):
@@ -177,12 +184,19 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
             # Concatenate decoded contexts
             return jnp.concatenate(
                 [
-                    decoder(encoder(input_arr.reshape(-1), subkey_encoder), subkey_decoder)
+                    decoder(
+                        encoder(input_arr.reshape(-1), subkey_encoder),
+                        subkey_decoder,
+                    )
                     for encoder, decoder, input_arr, subkey_encoder, subkey_decoder in zip(
-                        self.deep_encoder, self.deep_decoder, inputs, keys_encoder, keys_decoder
+                        self.deep_encoder,
+                        self.deep_decoder,
+                        inputs,
+                        keys_encoder,
+                        keys_decoder,
                     )
                 ],
-                axis=-1
+                axis=-1,
             )
 
     def inflate(self, x, key):

@@ -118,7 +118,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 *generate_layer_sizes(
                     latent_dim=conf.n_hidden,
                     depth=conf.depth,
-                    max_width=3*self.n_input_features,
+                    max_width=3 * self.n_input_features,
                     multiplier=conf.nn_structure_multiplier,
                     reverse=True,
                 ),
@@ -126,11 +126,13 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             ]
         else:
             encoder_layer_sizes = [
-                int(self.n_input_features/3),  # one encoder per context (3 contexts)
+                int(
+                    self.n_input_features / 3
+                ),  # one encoder per context (3 contexts)
                 *generate_layer_sizes(
                     latent_dim=conf.n_hidden,
                     depth=conf.depth,
-                    max_width=3*int(self.n_input_features/3),
+                    max_width=3 * int(self.n_input_features / 3),
                     multiplier=conf.nn_structure_multiplier,
                     reverse=True,
                 ),
@@ -162,6 +164,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
                 # Only apply dropout (if any) to the encoder module
                 dropout_rate=conf.dropout_rate if module == "encoder" else 0.0,
+                weight_init_scale=conf.nn_init_scale,
             )
             for module, layer_sizes in zip(
                 ["encoder", "inflater", "decoder"],
@@ -194,7 +197,7 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
             reconstruct=conf.recon_loss > 0.0,
             key=key,
             activation_fn_name=conf.activation_fn_name,
-            multiheaded=conf.multiheaded
+            multiheaded=conf.multiheaded,
         )
 
     def inflate_params(self, x, key):
@@ -460,9 +463,17 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         if self.conf.symm_reg == 0.0:
             return 0.0
         symmetry_reg = 0
-        num_layers = len(self.deep_encoder.layers) if not self.multiheaded else len(self.deep_encoder[0].layers)
-        encoders = [self.deep_encoder] if not self.multiheaded else self.deep_encoder
-        decoders = [self.deep_decoder] if not self.multiheaded else self.deep_decoder
+        num_layers = (
+            len(self.deep_encoder.layers)
+            if not self.multiheaded
+            else len(self.deep_encoder[0].layers)
+        )
+        encoders = (
+            [self.deep_encoder] if not self.multiheaded else self.deep_encoder
+        )
+        decoders = (
+            [self.deep_decoder] if not self.multiheaded else self.deep_decoder
+        )
         # Iterate over the encoder and decoder layers
         for encoder, decoder in zip(encoders, decoders):
             for encoder_layer, decoder_layer in zip(
