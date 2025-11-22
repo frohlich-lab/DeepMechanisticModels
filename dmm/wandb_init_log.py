@@ -171,6 +171,7 @@ def init_wandb(
         # v73_fig3_p38: tEGFR fig3, updated n_hidden (6) and dropout (0.1)
         # v73_fig3c_p38:base & tEGFR, cytof & multimodal, scanning n_hidden and depth
         # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
+        # v74_loocv_p38: tEGFR variant, cytof_init & multiheaded multimodal, LOOCV across all cell-lines
         project=f"DeepMechanisticModels.v73_fig2a_p38.{conf.data}",
         group=group,
         config={

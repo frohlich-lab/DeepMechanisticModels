@@ -162,15 +162,73 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "all",
+    # "all",
     "MCF7",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
     "EVSAT",
     "UACC3199",
-    "UACC893"  # added 15.10.2025
-    # "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
+    "UACC893",  # added 15.10.2025
+    # Remaining cell-lines for LOOCV
+    # Subchallenge IV
+    "184A1",
+    "BT474",
+    "BT549",
+    "CAL148",
+    "CAL851",
+    "CAL51",  # microsatellite instability (MSI)
+    "DU4475",
+    "EFM192A",
+    "HBL100",
+    "HCC1187",
+    "HCC1395",
+    "HCC1419",
+    "HCC1569",
+    # "HCC1599",  # outlier
+    "HCC1937",
+    "HCC1954",
+    # "HCC2157",  # no transcriptomic data
+    "HCC3153",
+    "HCC38",
+    "HCC70",
+    "HDQP1",
+    "JIMT1",
+    "MCF10A",
+    # "MCF10F",  # no transcriptomic data
+    "MDAMB134VI",
+    "MDAMB157",
+    "MDAMB175VII",
+    "MDAMB361",
+    "MDAMB415",
+    "MDAMB453",
+    # "MDAkb2",  # no transcriptomic data
+    "MFM223",
+    "MPE600",
+    "MX1",
+    "OCUBM",
+    "T47D",
+    "UACC812",
+    "ZR7530",
+    # Subchallenge 2
+    "184B5",
+    "BT483",
+    "HCC1428",
+    "HCC1806",
+    "HCC202",
+    "Hs578T",
+    "MCF12A",
+    "MDAMB231",
+    "MDAMB468",
+    "SKBR3",
+    "ZR751",
+    # Subchallenge 1
+    "AU565",
+    "EFM19",
+    "HCC2218",
+    "LY2",
+    "MACLS2",
+    "MDAMB436",
 }
 
 STANDARDISE_FEATURES = {
@@ -666,6 +724,17 @@ PATHWAYS_4 = (
     ]
 )
 
+# Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
+CONTEXTS_FEATURES_5 = [
+    ("cytof_init", "RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
+]
+PATHWAYS_5 = (
+    [
+        "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
+    ]
+)
+
 modifications = [
     # baselines
     # "begfr",
@@ -700,6 +769,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure3b": CONTEXTS_FEATURES_3B,
     "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
+    "figure5": CONTEXTS_FEATURES_5,
 }
 
 PATHWAYS_BY_FIGURE = {
@@ -713,6 +783,7 @@ PATHWAYS_BY_FIGURE = {
     "figure3b": PATHWAYS_3B,
     "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
+    "figure5": PATHWAYS_5,
 }
 
 SELECT_CENTRAL_VALUES_BY_FIGURE = {
@@ -726,6 +797,7 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure3b": False,  # scan (but subset to params below)
     "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
+    "figure5": True,
 }
 
 PARAMS_TO_SCAN = {
@@ -739,4 +811,5 @@ PARAMS_TO_SCAN = {
     "figure3b": ["n_hidden"], # only n_hidden
     "figure3c": ["n_hidden", "depth"], # only n_hidden
     "figure4": None,
+    "figure5": None,
 }
