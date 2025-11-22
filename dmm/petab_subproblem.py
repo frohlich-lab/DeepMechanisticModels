@@ -49,8 +49,13 @@ def generate_parameter_table(
            )
     ]
 
+    missing_erbb2_cell_lines = {
+        "cBT483", "cHCC1187", "cHCC1419", "cHCC1569", "cHCC1806", "cHCC1937", "cHCC70", "cMCF12A", "cMDAMB231",
+        "cMDAMB361", "cMDAMB453", "cMDAMB468", "cT47D", "cUACC893"
+    }
+
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
-        if len(conds) == 1 and (("cMDAMB468" in conds) or ("cUACC893" in conds)):
+        if len(conds) == 1 and conds[0] in missing_erbb2_cell_lines:
             # Add all scaling and offsets (missing ERBB2)
             params += sorted(
                 [f"{obs}_{par_type}" for obs in observable_table.index for par_type in ["offset", "scale"]]
@@ -249,9 +254,12 @@ def filter_observables(petab_problem: petab.Problem):
         if petab.OBSERVABLE_PARAMETERS in r
         for p in r[petab.OBSERVABLE_PARAMETERS].split(";")
     }
-
+    missing_erbb2_cell_lines = {
+        "cBT483", "cHCC1187", "cHCC1419", "cHCC1569", "cHCC1806", "cHCC1937", "cHCC70", "cMCF12A", "cMDAMB231",
+        "cMDAMB361", "cMDAMB453", "cMDAMB468", "cT47D", "cUACC893"
+    }
     cell_lines = petab_problem.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique()
-    if len(cell_lines) == 1 and (("cMDAMB468" in cell_lines) or ("cUACC893" in cell_lines)):
+    if len(cell_lines) == 1 and cell_lines[0] in missing_erbb2_cell_lines:
         obs_pars.add("pERBB2_Y1248_obs_offset")
         obs_pars.add("pERBB2_Y1248_obs_scale")
 
