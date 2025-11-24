@@ -20,7 +20,7 @@ from dmm.feature_selection import (
     preprocess_mosa_latent,
 )
 from typing import Union
-from training_configuration import SPLITS
+from training_configuration import SPLITS, DROP_HER2_FROM_FEATURES
 from util import load_petab_base_files
 
 
@@ -550,6 +550,10 @@ def prepare_inputs_for_context(
             selected = input_train.columns.tolist()
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
         else:
+            if DROP_HER2_FROM_FEATURES and subconf.context == "cytof_init":
+                if "p.HER2" in input_train.columns:
+                    input_train.drop(columns=["p.HER2"], inplace=True)
+
             # Supervised (or curated/MSIG) selection reusing existing function
             selected = get_selected_features(
                 input_data=input_train,

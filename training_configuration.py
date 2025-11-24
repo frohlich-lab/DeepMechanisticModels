@@ -813,3 +813,6 @@ PARAMS_TO_SCAN = {
     "figure4": None,
     "figure5": None,
 }
+
+
+DROP_HER2_FROM_FEATURES = True
