@@ -172,7 +172,8 @@ def init_wandb(
         # v73_fig3c_p38:base & tEGFR, cytof & multimodal, scanning n_hidden and depth
         # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
         # v74_loocv_p38_noher2: tEGFR variant, cytof_init & multiheaded multimodal, LOOCV across all cell-lines -- no HER2 in features
-        project=f"DeepMechanisticModels.v74_loocv_p38_noher2.{conf.data}",
+        # v75_fig3: clean repo, figure 3 runs (base / tEGFR / pEGFR / tERBB2 / pERBB2 model variants)
+        project=f"DeepMechanisticModels.v75_fig3.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
