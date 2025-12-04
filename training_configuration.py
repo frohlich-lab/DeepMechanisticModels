@@ -163,72 +163,72 @@ CONTEXTS_FEATURES = [
 # Cross-validation splits
 SPLITS = {
     # "all",
-    "MCF7",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
-    "EVSAT",
+    "MCF7",
     "UACC3199",
-    "UACC893",  # added 15.10.2025
     # Remaining cell-lines for LOOCV
-    # Subchallenge IV
-    "184A1",
-    "BT474",
-    "BT549",
-    "CAL148",
-    "CAL851",
-    "CAL51",  # microsatellite instability (MSI)
-    "DU4475",
-    "EFM192A",
-    "HBL100",
-    "HCC1187",
-    "HCC1395",
-    "HCC1419",
-    "HCC1569",
-    # "HCC1599",  # outlier
-    "HCC1937",
-    "HCC1954",
+    # Subchallenge IV - complete cell lines
+    # "184A1",
+    # "BT474",
+    # "BT549",
+    # "CAL148",
+    # "CAL851",
+    # "CAL51",  # microsatellite instability (MSI)
+    # "DU4475",
+    # "EFM192A",
+    # "EVSAT",  # originally in validation set, removed after re-running Cytof Data Analysis on all cell-lines
+    # "HBL100",
+    # "HCC1187",
+    # "HCC1395",
+    # "HCC1419",
+    # "HCC1569",
+    # # "HCC1599",  # outlier
+    # "HCC1937",
+    # "HCC1954",
     # "HCC2157",  # no transcriptomic data
-    "HCC3153",
-    "HCC38",
-    "HCC70",
-    "HDQP1",
-    "JIMT1",
-    "MCF10A",
+    # "HCC3153",
+    # "HCC38",
+    # "HCC70",
+    # "HDQP1",
+    # "JIMT1",
+    # "MCF10A",
     # "MCF10F",  # no transcriptomic data
-    "MDAMB134VI",
-    "MDAMB157",
-    "MDAMB175VII",
-    "MDAMB361",
-    "MDAMB415",
-    "MDAMB453",
+    # "MDAMB134VI",
+    # "MDAMB157",
+    # "MDAMB175VII",
+    # "MDAMB361",
+    # "MDAMB415",
+    # "MDAMB453",
     # "MDAkb2",  # no transcriptomic data
-    "MFM223",
-    "MPE600",
-    "MX1",
-    "OCUBM",
-    "T47D",
-    "UACC812",
-    "ZR7530",
+    # "MFM223",
+    # "MPE600",
+    # "MX1",
+    # "OCUBM",
+    # "T47D",
+    # "UACC812",
+    # "UACC893",  # added 15.10.2025, removed on 02.12.2025 after re-running Cytof Data Analysis -> still present for LOOCV
+    # "ZR7530",
     # Subchallenge 2
-    "184B5",
-    "BT483",
-    "HCC1428",
-    "HCC1806",
-    "HCC202",
-    "Hs578T",
-    "MCF12A",
-    "MDAMB231",
-    "MDAMB468",
-    "SKBR3",
-    "ZR751",
+    # "184B5",
+    # "BT483",
+    # "HCC1428",
+    # "HCC1806",
+    # "HCC202",
+    # "Hs578T",
+    # "MCF12A",
+    # "MDAMB231",
+    # "MDAMB468",
+    # "SKBR3",
+    # "ZR751",
     # Subchallenge 1
-    "AU565",
-    "EFM19",
-    "HCC2218",
-    "LY2",
-    "MACLS2",
-    "MDAMB436",
+    # "AU565",
+    # "EFM19",
+    # "HCC2218",
+    # "LY2",
+    # "MACLS2",
+    # "MDAMB436",
 }
 
 STANDARDISE_FEATURES = {
@@ -669,15 +669,14 @@ CONTEXTS_FEATURES_3 = [
 
 PATHWAYS_3 = (
     [
+        # base model
         "EGFR_MAPK__logobs",
         # EGFR models
         "EGFR_MAPK__logobs_tegfr_aggavg",
-        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
-        # Adding ERBB2 models
-        # "EGFR_MAPK__logobs_terbb2_aggavg",
-        # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
-        # "EGFR_MAPK__logobs_perbb2_aggavg",
-        # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
+        "EGFR_MAPK__logobs_pegfr_aggavg",
+        # ERBB2 models
+        "EGFR_MAPK__logobs_terbb2_aggavg",
+        "EGFR_MAPK__logobs_perbb2_aggavg",
     ]
 )
 
