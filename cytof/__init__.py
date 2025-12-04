@@ -4,7 +4,7 @@ import re
 def get_samples(data_name):
     if data_name == "dream_cytof":
         return [
-            # Subchallenge 4
+            # Complete cell lines, training for subchallenge 4
             "c184A1",
             "cBT20",  # EGFR amplification (10-14 times)
             "cBT474",
@@ -21,10 +21,10 @@ def get_samples(data_name):
             "cHCC1419",
             "cHCC1500",
             "cHCC1569",
-            # "cHCC1599",  # outlier
+            # "cHCC1599",  # removed as outlier (very low pERBB2)
             "cHCC1937",
             "cHCC1954",
-            # "cHCC2157",  # no transcriptomic data
+            "cHCC2157",  # missing transcriptomic data, only used in context "cytof_init_ALL"
             "cHCC2185",
             "cHCC3153",
             "cHCC38",
@@ -32,7 +32,7 @@ def get_samples(data_name):
             "cHDQP1",
             "cJIMT1",
             "cMCF10A",
-            # "cMCF10F",  # no transcriptomic data
+            "cMCF10F",  # missing transcriptomic data, only used in context "cytof_init_ALL"
             "cMCF7",
             "cMDAMB134VI",
             "cMDAMB157",
@@ -40,7 +40,7 @@ def get_samples(data_name):
             "cMDAMB361",
             "cMDAMB415",
             "cMDAMB453",
-            # "cMDAkb2",  # no transcriptomic data
+            "cMDAkb2",  # missing transcriptomic data, only used in context "cytof_init_ALL"
             "cMFM223",
             "cMPE600",
             "cMX1",
@@ -49,6 +49,13 @@ def get_samples(data_name):
             "cUACC812",
             "cUACC893",
             "cZR7530",
+            # Subchallenge 1 (added 14.10.2025)
+            "cAU565",
+            "cEFM19",
+            "cHCC2218",
+            "cLY2",
+            "cMACLS2",
+            "cMDAMB436",
             # Subchallenge 2 (added 11.04.2025)
             "c184B5",
             "cBT483",
@@ -62,14 +69,7 @@ def get_samples(data_name):
             "cSKBR3",
             "cUACC3199",
             "cZR751",
-            # Subchallenge 1 (added 14.10.2025)
-            "cAU565",
-            "cEFM19",
-            "cHCC2218",
-            "cLY2",
-            "cMACLS2",
-            "cMDAMB436",
-            # Subchallenge IV (Sahai analysis / test set)
+            # Subchallenge 4 (Sahai analysis / test set)
             # "cCAL120",
             # "cCAMA1",
             # "cHCC1143",
