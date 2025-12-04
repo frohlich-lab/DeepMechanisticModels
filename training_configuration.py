@@ -617,8 +617,8 @@ CONTEXTS_FEATURES_1C = [
 PATHWAYS_1C = PATHWAYS_1A
 
 
-# Figure 2A
-CONTEXTS_FEATURES_2A = [
+# Figure 2
+CONTEXTS_FEATURES_2 = [
     ("cytof_init", "RFE_15_permute"),
     ("cytof_init_plus_tEGFR", "RFE_15_permute"),
     ("cytof_init_plus_pEGFR", "RFE_15_permute"),
@@ -628,33 +628,32 @@ CONTEXTS_FEATURES_2A = [
     ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
-PATHWAYS_2A = (
+PATHWAYS_2 = (
     [
         "EGFR_MAPK__logobs",
         "EGFR_MAPK__logobs_fegfr_aggavg",
-        # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
     ]
 )
 
-# Figure 2B
-CONTEXTS_FEATURES_2B = [
-    ("cytof_init", "RFE_15_permute"),
-    ("cytof_init_plus_tERBB2", "RFE_15_permute"),
-    ("cytof_init_plus_pERBB2", "RFE_15_permute"),
-    # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
-    ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("multimodal", "RFE_10_permute"),  # multiheaded
-]
-
-PATHWAYS_2B = (
-    [
-        "EGFR_MAPK__logobs",
-        # ERBB2 models
-        "EGFR_MAPK__logobs_ferbb2_aggavg",
-        # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
-    ]
-)
+# Figure 2B -- dropped
+# CONTEXTS_FEATURES_2B = [
+#     ("cytof_init", "RFE_15_permute"),
+#     ("cytof_init_plus_tERBB2", "RFE_15_permute"),
+#     ("cytof_init_plus_pERBB2", "RFE_15_permute"),
+#     # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
+#     ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+#     ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+#     ("multimodal", "RFE_10_permute"),  # multiheaded
+# ]
+#
+# PATHWAYS_2B = (
+#     [
+#         "EGFR_MAPK__logobs",
+#         # ERBB2 models
+#         "EGFR_MAPK__logobs_ferbb2_aggavg",
+#         # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
+#     ]
+# )
 
 
 # Figure 3
@@ -762,8 +761,8 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure1a": CONTEXTS_FEATURES_1A,
     "figure1b": CONTEXTS_FEATURES_1B,
     "figure1c": CONTEXTS_FEATURES_1C,
-    "figure2a": CONTEXTS_FEATURES_2A,
-    "figure2b": CONTEXTS_FEATURES_2B,
+    "figure2": CONTEXTS_FEATURES_2,
+    # "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
     "figure3b": CONTEXTS_FEATURES_3B,
     "figure3c": CONTEXTS_FEATURES_3C,
@@ -776,8 +775,8 @@ PATHWAYS_BY_FIGURE = {
     "figure1a": PATHWAYS_1A,
     "figure1b": PATHWAYS_1B,
     "figure1c": PATHWAYS_1C,
-    "figure2a": PATHWAYS_2A,
-    "figure2b": PATHWAYS_2B,
+    "figure2": PATHWAYS_2,
+    # "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
     "figure3b": PATHWAYS_3B,
     "figure3c": PATHWAYS_3C,
@@ -790,8 +789,8 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure1a": True,
     "figure1b": False,  # ML param scans
     "figure1c": True,  # feature scan only
-    "figure2a": True,
-    "figure2b": True,
+    "figure2": True,
+    # "figure2b": True,
     "figure3": True,
     "figure3b": False,  # scan (but subset to params below)
     "figure3c": False,  # scan (but subset to params below)
@@ -804,8 +803,8 @@ PARAMS_TO_SCAN = {
     "figure1a": None,
     "figure1b": None,
     "figure1c": None,
-    "figure2a": None,
-    "figure2b": None,
+    "figure2": None,
+    # "figure2b": None,
     "figure3": None,
     "figure3b": ["n_hidden"], # only n_hidden
     "figure3c": ["n_hidden", "depth"], # only n_hidden
@@ -814,4 +813,5 @@ PARAMS_TO_SCAN = {
 }
 
 
-DROP_HER2_FROM_FEATURES = True
+# Whether to drop p.HER2 from cytof features - default: False (keep)
+DROP_HER2_FROM_FEATURES = False
