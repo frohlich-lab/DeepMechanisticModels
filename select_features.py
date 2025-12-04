@@ -550,7 +550,7 @@ def prepare_inputs_for_context(
             selected = input_train.columns.tolist()
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
         else:
-            if DROP_HER2_FROM_FEATURES and subconf.context == "cytof_init":
+            if DROP_HER2_FROM_FEATURES and subconf.context.startswith("cytof_init"):
                 if "p.HER2" in input_train.columns:
                     input_train.drop(columns=["p.HER2"], inplace=True)
 
@@ -587,7 +587,7 @@ if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
-    split: sorted(training_samples(Wildcards(conf.data, split)))
+    split: sorted(training_samples(Wildcards(conf.data, split), keep_all="ALL" in conf.context))
     for split in sorted(SPLITS)
 }
 samples_val = {
@@ -595,7 +595,7 @@ samples_val = {
     for split in sorted(SPLITS)
 }
 # Add support for "all", i.e. train on all samples, validate on none
-samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all")))
+samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all"), keep_all="ALL" in conf.context))
 samples_val["all"] = []
 
 recipe = build_context_feature_recipe(conf)

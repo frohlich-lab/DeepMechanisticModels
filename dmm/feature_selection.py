@@ -38,6 +38,7 @@ def contextualize_measurements(
         "proteomics",
         "cytof_init",
         "cytof_init_pca",
+        "cytof_init_ALL",
         "cytof_dynamic",
         "cytof_dynamic_pca",
         "cytof_dynamic_full",
