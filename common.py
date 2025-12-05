@@ -176,11 +176,18 @@ EVALUATE_ALL_CSVS = str(
     evaluations_dir / "{model}" / "{data}" / "{filename}.csv"
 )
 
-hardest_cell_lines = ["cMCF7", "cBT20", "cHCC1500", "cEVSAT", "cUACC3199"]
+hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
 
 
-def training_samples(wildcards) -> List[str]:
+def training_samples(wildcards, keep_all: bool = False) -> List[str]:
     samples = get_samples(wildcards.data)
+    if not keep_all:
+        missing_transcriptomics = ["cHCC2157", "cMCF10F", "cMDAkb2"]
+        samples = [
+            sample
+            for sample in samples
+            if sample not in missing_transcriptomics
+        ]
     return [sample for sample in samples if sample != f"c{wildcards.samples}"]
 
 

@@ -162,15 +162,73 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "all",
-    "MCF7",
+    # "all",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
-    "EVSAT",
+    "MCF7",
     "UACC3199",
-    "UACC893",  # added 15.10.2025
-    # "MDAMB468"  # added to Fig. 1A and 2A to check whether it behaves like BT-20 due to EGFR overexpression
+    # Remaining cell-lines for LOOCV
+    # Subchallenge IV - complete cell lines
+    # "184A1",
+    # "BT474",
+    # "BT549",
+    # "CAL148",
+    # "CAL851",
+    # "CAL51",  # microsatellite instability (MSI)
+    # "DU4475",
+    # "EFM192A",
+    # "EVSAT",  # originally in validation set, removed after re-running Cytof Data Analysis on all cell-lines
+    # "HBL100",
+    # "HCC1187",
+    # "HCC1395",
+    # "HCC1419",
+    # "HCC1569",
+    # # "HCC1599",  # outlier
+    # "HCC1937",
+    # "HCC1954",
+    # "HCC2157",  # no transcriptomic data
+    # "HCC3153",
+    # "HCC38",
+    # "HCC70",
+    # "HDQP1",
+    # "JIMT1",
+    # "MCF10A",
+    # "MCF10F",  # no transcriptomic data
+    # "MDAMB134VI",
+    # "MDAMB157",
+    # "MDAMB175VII",
+    # "MDAMB361",
+    # "MDAMB415",
+    # "MDAMB453",
+    # "MDAkb2",  # no transcriptomic data
+    # "MFM223",
+    # "MPE600",
+    # "MX1",
+    # "OCUBM",
+    # "T47D",
+    # "UACC812",
+    # "UACC893",  # added 15.10.2025, removed on 02.12.2025 after re-running Cytof Data Analysis -> still present for LOOCV
+    # "ZR7530",
+    # Subchallenge 2
+    # "184B5",
+    # "BT483",
+    # "HCC1428",
+    # "HCC1806",
+    # "HCC202",
+    # "Hs578T",
+    # "MCF12A",
+    # "MDAMB231",
+    # "MDAMB468",
+    # "SKBR3",
+    # "ZR751",
+    # Subchallenge 1
+    # "AU565",
+    # "EFM19",
+    # "HCC2218",
+    # "LY2",
+    # "MACLS2",
+    # "MDAMB436",
 }
 
 STANDARDISE_FEATURES = {
@@ -545,8 +603,8 @@ CONTEXTS_FEATURES_1C = (
 PATHWAYS_1C = PATHWAYS_1A
 
 
-# Figure 2A
-CONTEXTS_FEATURES_2A = [
+# Figure 2
+CONTEXTS_FEATURES_2 = [
     ("cytof_init", "RFE_15_permute"),
     ("cytof_init_plus_tEGFR", "RFE_15_permute"),
     ("cytof_init_plus_pEGFR", "RFE_15_permute"),
@@ -562,35 +620,31 @@ CONTEXTS_FEATURES_2A = [
     ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
-PATHWAYS_2A = [
+
+PATHWAYS_2 = [
     "EGFR_MAPK__logobs",
     "EGFR_MAPK__logobs_fegfr_aggavg",
-    # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
 ]
 
-# Figure 2B
-CONTEXTS_FEATURES_2B = [
-    ("cytof_init", "RFE_15_permute"),
-    ("cytof_init_plus_tERBB2", "RFE_15_permute"),
-    ("cytof_init_plus_pERBB2", "RFE_15_permute"),
-    # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
-    (
-        "cytof_init_plus_lb",
-        "RFE_15_permute",
-    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    (
-        "cytof_init_plus_intr",
-        "RFE_15_permute",
-    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("multimodal", "RFE_10_permute"),  # multiheaded
-]
-
-PATHWAYS_2B = [
-    "EGFR_MAPK__logobs",
-    # ERBB2 models
-    "EGFR_MAPK__logobs_ferbb2_aggavg",
-    # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
-]
+# Figure 2B -- dropped
+# CONTEXTS_FEATURES_2B = [
+#     ("cytof_init", "RFE_15_permute"),
+#     ("cytof_init_plus_tERBB2", "RFE_15_permute"),
+#     ("cytof_init_plus_pERBB2", "RFE_15_permute"),
+#     # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
+#     ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+#     ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+#     ("multimodal", "RFE_10_permute"),  # multiheaded
+# ]
+#
+# PATHWAYS_2B = (
+#     [
+#         "EGFR_MAPK__logobs",
+#         # ERBB2 models
+#         "EGFR_MAPK__logobs_ferbb2_aggavg",
+#         # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
+#     ]
+# )
 
 
 # Figure 3
@@ -610,15 +664,14 @@ CONTEXTS_FEATURES_3 = [
 ]
 
 PATHWAYS_3 = [
+    # base model
     "EGFR_MAPK__logobs",
     # EGFR models
     "EGFR_MAPK__logobs_tegfr_aggavg",
-    # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
-    # Adding ERBB2 models
-    # "EGFR_MAPK__logobs_terbb2_aggavg",
-    # "EGFR_MAPK__logobs_terbb2_aggavg_pobs",
-    # "EGFR_MAPK__logobs_perbb2_aggavg",
-    # "EGFR_MAPK__logobs_perbb2_aggavg_pobs",
+    "EGFR_MAPK__logobs_pegfr_aggavg",
+    # ERBB2 models
+    "EGFR_MAPK__logobs_terbb2_aggavg",
+    "EGFR_MAPK__logobs_perbb2_aggavg",
 ]
 
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
@@ -660,6 +713,15 @@ PATHWAYS_4 = [
     # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
 ]
 
+# Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
+CONTEXTS_FEATURES_5 = [
+    ("cytof_init", "RFE_15_permute"),
+    ("multimodal", "RFE_10_permute"),  # multiheaded
+]
+PATHWAYS_5 = [
+    "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
+]
+
 modifications = [
     # baselines
     # "begfr",
@@ -688,12 +750,13 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure1a": CONTEXTS_FEATURES_1A,
     "figure1b": CONTEXTS_FEATURES_1B,
     "figure1c": CONTEXTS_FEATURES_1C,
-    "figure2a": CONTEXTS_FEATURES_2A,
-    "figure2b": CONTEXTS_FEATURES_2B,
+    "figure2": CONTEXTS_FEATURES_2,
+    # "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
     "figure3b": CONTEXTS_FEATURES_3B,
     "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
+    "figure5": CONTEXTS_FEATURES_5,
 }
 
 PATHWAYS_BY_FIGURE = {
@@ -701,12 +764,13 @@ PATHWAYS_BY_FIGURE = {
     "figure1a": PATHWAYS_1A,
     "figure1b": PATHWAYS_1B,
     "figure1c": PATHWAYS_1C,
-    "figure2a": PATHWAYS_2A,
-    "figure2b": PATHWAYS_2B,
+    "figure2": PATHWAYS_2,
+    # "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
     "figure3b": PATHWAYS_3B,
     "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
+    "figure5": PATHWAYS_5,
 }
 
 SELECT_CENTRAL_VALUES_BY_FIGURE = {
@@ -714,12 +778,13 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure1a": True,
     "figure1b": False,  # ML param scans
     "figure1c": True,  # feature scan only
-    "figure2a": True,
-    "figure2b": True,
+    "figure2": True,
+    # "figure2b": True,
     "figure3": True,
     "figure3b": False,  # scan (but subset to params below)
     "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
+    "figure5": True,
 }
 
 PARAMS_TO_SCAN = {
@@ -727,10 +792,15 @@ PARAMS_TO_SCAN = {
     "figure1a": None,
     "figure1b": None,
     "figure1c": None,
-    "figure2a": None,
-    "figure2b": None,
+    "figure2": None,
+    # "figure2b": None,
     "figure3": None,
     "figure3b": ["n_hidden"],  # only n_hidden
     "figure3c": ["n_hidden", "depth"],  # only n_hidden
     "figure4": None,
+    "figure5": None,
 }
+
+
+# Whether to drop p.HER2 from cytof features - default: False (keep)
+DROP_HER2_FROM_FEATURES = False

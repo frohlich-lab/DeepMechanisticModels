@@ -187,3 +187,4 @@ features/cellosaurus.txt
 
 # Uncommitted notebooks for very old project versions
 /Old uncommitted notebooks
+*.fcs

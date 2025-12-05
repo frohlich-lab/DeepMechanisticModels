@@ -32,10 +32,10 @@ SYNAPSE_FILES = [
     # strange cell line, extreme chromosomal rearrangements/loss, all the markers
     # are pretty low, similar to EVSAT and HCC1500, but they have really high
     # basal pMEK levels
-    # "syn20613710",  # HCC1599  REMOVED AS OUTLIER, SEE `Cytof Data Analysis.ipynb`
+    # "syn20613710",  # HCC1599, removed as outlier (very low pERBB2)
     "syn20613719",  # HCC1937
     "syn20613739",  # HCC1954
-    "syn20613793",  # HCC2157
+    "syn20613793",  # HCC2157 -- missing transcriptomic data, only used in context "cytof_init_ALL"
     "syn20613802",  # HCC2185
     "syn20613814",  # HCC3153
     "syn20613821",  # HCC38
@@ -43,7 +43,7 @@ SYNAPSE_FILES = [
     "syn20613849",  # HDQP1
     "syn20613865",  # JIMT1
     "syn20613880",  # MCF10A
-    "syn20613911",  # MCF10F
+    "syn20613911",  # MCF10F -- missing transcriptomic data, only used in context "cytof_init_ALL"
     "syn20613920",  # MCF7
     "syn20613935",  # MDAMB134VI
     "syn20613939",  # MDAMB157
@@ -51,7 +51,7 @@ SYNAPSE_FILES = [
     "syn20613962",  # MDAMB361
     "syn20613975",  # MDAMB415
     "syn20613988",  # MDAMB453
-    "syn20613930",  # MDAkb2
+    "syn20613930",  # MDAkb2 -- missing transcriptomic data, only used in context "cytof_init_ALL"
     "syn20613995",  # MFM223
     "syn20614008",  # MPE600
     "syn20614033",  # MX1
@@ -83,7 +83,12 @@ SYNAPSE_FILES = [
     "syn20631271",  # Gold standard subchallenge I (missing markers)
     # Added missing iMEK condition for Subchallenge II (14.10.2025)
     "syn20631273",  # Gold standard subchallenge II (iMEK)
-    # TODO: add here subchallenge IV cell-lines (test set, time 0 only)
+    # TODO: add here subchallenge IV cell-lines (test set - not ready yet)
+    # "syn20631065",  # CAL120
+    # "syn20631066",  # CAMA1
+    # "syn20631067",  # HCC1143
+    # "syn20631068",  # KPL1
+    # "syn20631069",  # ZR75B
 ]
 
 

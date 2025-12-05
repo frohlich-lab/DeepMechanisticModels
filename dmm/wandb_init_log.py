@@ -178,7 +178,9 @@ def init_wandb(
         # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
         # ffv8: initialisation benchmark
         # ffv9: nn_init_scale scan
-        project=f"DeepMechanisticModels.ffv9.{conf.data}",
+        # v74_loocv_p38_noher2: tEGFR variant, cytof_init & multiheaded multimodal, LOOCV across all cell-lines -- no HER2 in features
+        # v75_fig3: clean repo, figure 3 runs (base / tEGFR / pEGFR / tERBB2 / pERBB2 model variants)
+        project=f"DeepMechanisticModels.v75_fig3.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
