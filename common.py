@@ -5,7 +5,6 @@ from typing import List
 
 from cytof import get_samples
 from dmm.config_options import scan_attributes
-from training_configuration import CONTEXTS_FEATURES
 
 
 # moved from Snakefile
@@ -179,11 +178,16 @@ EVALUATE_ALL_CSVS = str(
 
 hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
 
+
 def training_samples(wildcards, keep_all: bool = False) -> List[str]:
     samples = get_samples(wildcards.data)
     if not keep_all:
         missing_transcriptomics = ["cHCC2157", "cMCF10F", "cMDAkb2"]
-        samples = [sample for sample in samples if sample not in missing_transcriptomics]
+        samples = [
+            sample
+            for sample in samples
+            if sample not in missing_transcriptomics
+        ]
     return [sample for sample in samples if sample != f"c{wildcards.samples}"]
 
 

@@ -5,19 +5,23 @@ import jax.nn.initializers as initializers
 import jax.random as jr
 from jaxtyping import Array
 
-# Dictionary mapping initialization strategies to JAX initializers (or potentially custom functions)
-init_fn = {
-    "HN": initializers.he_normal(),
-    "HU": initializers.he_uniform(),
-    "LN": initializers.lecun_normal(),
-    "LU": initializers.lecun_uniform(),
-    "XN": initializers.glorot_normal(),
-    "XU": initializers.glorot_uniform(),
-    "custom": initializers.variance_scaling(
-        scale=0.1, mode="fan_avg", distribution="uniform"
-    ),
-    "zeros": initializers.zeros,
-}
+# Build a dictionary mapping initialisation strategies to JAX initialisers.
+# custom scale is injected so that previously hardcoded scale=0.1 becomes configurable.
+
+
+def build_init_fn(custom_scale: float):
+    return {
+        "HN": initializers.he_normal(),
+        "HU": initializers.he_uniform(),
+        "LN": initializers.lecun_normal(),
+        "LU": initializers.lecun_uniform(),
+        "XN": initializers.glorot_normal(),
+        "XU": initializers.glorot_uniform(),
+        "custom": initializers.variance_scaling(
+            scale=custom_scale, mode="fan_avg", distribution="uniform"
+        ),
+        "zeros": initializers.zeros,
+    }
 
 
 class CustomInitLinear(eqx.nn.Linear):

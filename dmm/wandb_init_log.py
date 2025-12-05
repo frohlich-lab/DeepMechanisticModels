@@ -163,14 +163,21 @@ def init_wandb(
         # v66_fig1a: repeating MAPK runs after merging with p38 and adding subchallenge I cell-lines + subchallenge II gold standard
         # v67_fig1adebug: rolled back data additions, debugging model
         # v68_fig1adebug: rolled back feature selection, fixed UACC893, debugging model
+        # ffv3 rerun parameter scan
         # v69_fig1a_p38: repeating Fig 1A with whole data + multiheaded multimodal RFE
         # v69_fig1b_p38: same as above, Fig 1B ML scans (added dropout rate + reconstruction loss scans)
+        # ffv4 repeat feature scan with new data
         # v70_fig1b_p38: same as above with updated central values + expanded ranges
+        # ffv5: figure 3 with updated configuration
         # v71_fig1b_p38: same as above with updated central values + retuned ranges (n_hidden, depth, l2reg_inflater_output)
+        # ffv6: figure 1c rerun
         # v72_fig1b_p38: same as above with updated dropout_rate; scanning more n_hidden and dropout_rate (only)
         # v73_fig3_p38: tEGFR fig3, updated n_hidden (6) and dropout (0.1)
+        # ffv7: figure 1c rerun
         # v73_fig3c_p38:base & tEGFR, cytof & multimodal, scanning n_hidden and depth
         # v73_fig2a_p38: base vs fEGFR model, n_hidden=8, depth=0, cytof_init & augmentations + multimodal
+        # ffv8: initialisation benchmark
+        # ffv9: nn_init_scale scan
         # v74_loocv_p38_noher2: tEGFR variant, cytof_init & multiheaded multimodal, LOOCV across all cell-lines -- no HER2 in features
         # v75_fig3: clean repo, figure 3 runs (base / tEGFR / pEGFR / tERBB2 / pERBB2 model variants)
         project=f"DeepMechanisticModels.v75_fig3.{conf.data}",
@@ -192,6 +199,7 @@ def init_wandb(
             **{mod: 1 for mod in modifications},
             "job_id": job_id,
             "node": node_name,
+            "n_features": model.n_input_features,
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(

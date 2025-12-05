@@ -255,11 +255,11 @@ LATENT_DIMS = {
         6,
         8,
         10,
-        # 12
+        # 12,
         15,
         20,
         25,
-        30
+        30,
     ),
     "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
@@ -355,10 +355,7 @@ ALPHAS = {
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
-BETAS = {
-    "range": (0,),
-    "central_value": 0
-}
+BETAS = {"range": (0,), "central_value": 0}
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
 GAMMAS = {
@@ -391,17 +388,10 @@ OMEGAS = {
 THETAS = {
     "range": (
         0,
-        # 1e-4,
-        # 1e-3,
-        # 1e-2,
-        # 1e-1,
-        # 1e0,
-        # 1e1,
         # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
         # 1e3,
         # 1e4,
         # 1e5,
-
     ),
     "central_value": 0,
 }
@@ -421,16 +411,10 @@ EPSILONS = {
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
-ZETAS = {
-    "range": (0,),
-    "central_value": 0
-}
+ZETAS = {"range": (0,), "central_value": 0}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
-ETAS = {
-    "range": (0,),
-    "central_value": 0
-}
+ETAS = {"range": (0,), "central_value": 0}
 
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
@@ -440,13 +424,16 @@ INFLATER_OUTPUT_REG_EPOCHS = {
     "central_value": 200,
 }
 
+# Includes both smaller and larger scales to probe sensitivity of training dynamics.
+NN_INIT_SCALES = {
+    "range": (0.01, 0.1, 1.0, 10.0),
+    "central_value": 0.1,
+}
+
 # Percentage thresholds for sparsity
 # SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
-SPARSE_THRESH_PERCS = {
-    "range": ("gmm",),
-    "central_value": "gmm"
-}
+SPARSE_THRESH_PERCS = {"range": ("gmm",), "central_value": "gmm"}
 
 # LEARNING SCHEDULE HYPERPARAMETERS
 MAX_LEARNING_RATES = {
@@ -459,10 +446,7 @@ MAX_LEARNING_RATES = {
 }
 
 # LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
-LEARNING_RATE_SPANS = {
-    "range": (1e0,),
-    "central_value": 1e0
-}
+LEARNING_RATE_SPANS = {"range": (1e0,), "central_value": 1e0}
 
 # LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
 LEARNING_RATE_DECAYS = {
@@ -474,22 +458,13 @@ LEARNING_RATE_DECAYS = {
 }
 
 # WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
-WARMUP_FCTS = {
-    "range": (0.0,),
-    "central_value": 0.0
-}
+WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
 
 # OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
-OPT_STEPS = {
-    "range": (10,),
-    "central_value": 10
-}
+OPT_STEPS = {"range": (10,), "central_value": 10}
 
 # OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
-OPT_MULT = {
-    "range": (2,),
-    "central_value": 2
-}
+OPT_MULT = {"range": (2,), "central_value": 2}
 
 # Weight-decay for AdamW / schedule-free AdamW
 WEIGHT_DECAY = {
@@ -563,11 +538,9 @@ CONTEXTS_FEATURES_1A = [
     ("multimodal", "RFE_10_permute"),
 ]
 
-PATHWAYS_1A = (
-    [
-        "EGFR_MAPK__logobs",
-    ]
-)
+PATHWAYS_1A = [
+    "EGFR_MAPK__logobs",
+]
 
 
 # Figure 1B
@@ -577,42 +550,44 @@ PATHWAYS_1B = PATHWAYS_1A
 
 
 # Figure 1C
-CONTEXTS_FEATURES_1C = [
-    (context, features)
-    for N in [5, 10, 15, 20, 25, 30]
-    for context, features in zip(
-        [
-            "cytof_init",
-            "proteomics",
-            "transcriptomics",
-            "multimodal"
-        ],
-        [
-            f"RFE_{N}_permute",
-            f"HVGRFE_{N}_permute",
-            f"HVGRFE_{N}_permute",
-            # f"best_RFE_{N}_permute",
-            f"RFE_{N}_permute",
-        ]
-    )
-] + [
-    # Curated feature sets
-    # MPAS
-    ("transcriptomics", "MPAS"),
-] + [
-    (context, genomic_features)
-    # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
-    for genomic_features in [
-        "MSIGDB_KEGG_MAPK",
-        "MSIGDB_BIOCARTA_MAPK",
-        "MSIGDB_PID_MAPK",
-        "MSIGDB_REACTOME_MAPK",
-        "MSIGDB_REACTOME_MAPK_CANCER",
-        "MSIGDB_WP_MAPK",
-        "PAM50",
+CONTEXTS_FEATURES_1C = (
+    [
+        (context, features)
+        for N in [5, 10, 15, 20, 25, 30]
+        for context, features in zip(
+            ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
+            [
+                f"RFE_{N}_permute",
+                f"HVGRFE_{N}_permute",
+                f"HVGRFE_{N}_permute",
+                f"RFE_{N}_permute",
+            ],
+            strict=True,
+        )
+        if not (
+            context in ("cytof_init", "multimodal") and N > 37
+        )  # only 37 features available
     ]
-    for context in ["transcriptomics", "proteomics"]
-]
+    + [
+        # Curated feature sets
+        # MPAS
+        ("transcriptomics", "MPAS"),
+    ]
+    + [
+        (context, genomic_features)
+        # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
+        for genomic_features in [
+            "MSIGDB_KEGG_MAPK",
+            "MSIGDB_BIOCARTA_MAPK",
+            "MSIGDB_PID_MAPK",
+            "MSIGDB_REACTOME_MAPK",
+            "MSIGDB_REACTOME_MAPK_CANCER",
+            "MSIGDB_WP_MAPK",
+            "PAM50",
+        ]
+        for context in ["transcriptomics", "proteomics"]
+    ]
+)
 
 PATHWAYS_1C = PATHWAYS_1A
 
@@ -623,17 +598,22 @@ CONTEXTS_FEATURES_2 = [
     ("cytof_init_plus_tEGFR", "RFE_15_permute"),
     ("cytof_init_plus_pEGFR", "RFE_15_permute"),
     # ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    (
+        "cytof_init_plus_lb",
+        "RFE_15_permute",
+    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    (
+        "cytof_init_plus_intr",
+        "RFE_15_permute",
+    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
     ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
-PATHWAYS_2 = (
-    [
-        "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_fegfr_aggavg",
-    ]
-)
+
+PATHWAYS_2 = [
+    "EGFR_MAPK__logobs",
+    "EGFR_MAPK__logobs_fegfr_aggavg",
+]
 
 # Figure 2B -- dropped
 # CONTEXTS_FEATURES_2B = [
@@ -659,33 +639,35 @@ PATHWAYS_2 = (
 # Figure 3
 CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_15_permute"),
-    ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    (
+        "cytof_init_plus_lb",
+        "RFE_15_permute",
+    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    (
+        "cytof_init_plus_intr",
+        "RFE_15_permute",
+    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
     # ("multimodal", "best_RFE_10_permute"),
     # ("multimodal", "best_RFE_15_permute"),
     ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
-PATHWAYS_3 = (
-    [
-        # base model
-        "EGFR_MAPK__logobs",
-        # EGFR models
-        "EGFR_MAPK__logobs_tegfr_aggavg",
-        "EGFR_MAPK__logobs_pegfr_aggavg",
-        # ERBB2 models
-        "EGFR_MAPK__logobs_terbb2_aggavg",
-        "EGFR_MAPK__logobs_perbb2_aggavg",
-    ]
-)
+PATHWAYS_3 = [
+    # base model
+    "EGFR_MAPK__logobs",
+    # EGFR models
+    "EGFR_MAPK__logobs_tegfr_aggavg",
+    "EGFR_MAPK__logobs_pegfr_aggavg",
+    # ERBB2 models
+    "EGFR_MAPK__logobs_terbb2_aggavg",
+    "EGFR_MAPK__logobs_perbb2_aggavg",
+]
 
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
 CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
-PATHWAYS_3B = (
-    [
-        "EGFR_MAPK__logobs_tegfr_aggavg",
-    ]
-)
+PATHWAYS_3B = [
+    "EGFR_MAPK__logobs_tegfr_aggavg",
+]
 
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
@@ -699,39 +681,35 @@ CONTEXTS_FEATURES_4 = [
     ("cytof_init", "RFE_10_permute"),
 ]
 
-PATHWAYS_4 = (
-    [
-        # Base
-        "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_tegfr_aggavg",
-        # # Baselines
-        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
-        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
-        # # Growth Factors
-        # "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-        # "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
-        # # Baselines and Growth Factors
-        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
-        # Mutations
-        "EGFR_MAPK__logobs_mbraf_mkras",
-        "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
-        # # All components
-        # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
-        # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
-    ]
-)
+PATHWAYS_4 = [
+    # Base
+    "EGFR_MAPK__logobs",
+    "EGFR_MAPK__logobs_tegfr_aggavg",
+    # # Baselines
+    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
+    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
+    # # Growth Factors
+    # "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+    # "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+    # # Baselines and Growth Factors
+    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+    # Mutations
+    "EGFR_MAPK__logobs_mbraf_mkras",
+    "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
+    # # All components
+    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
+    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
+]
 
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
     ("cytof_init", "RFE_15_permute"),
     ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
-PATHWAYS_5 = (
-    [
-        "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
-    ]
-)
+PATHWAYS_5 = [
+    "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
+]
 
 modifications = [
     # baselines
@@ -806,8 +784,8 @@ PARAMS_TO_SCAN = {
     "figure2": None,
     # "figure2b": None,
     "figure3": None,
-    "figure3b": ["n_hidden"], # only n_hidden
-    "figure3c": ["n_hidden", "depth"], # only n_hidden
+    "figure3b": ["n_hidden"],  # only n_hidden
+    "figure3c": ["n_hidden", "depth"],  # only n_hidden
     "figure4": None,
     "figure5": None,
 }
