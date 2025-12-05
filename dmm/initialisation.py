@@ -113,8 +113,8 @@ def get_kin_params_median_deviation(
     avg_model_parameter_file: str,
     random_seed: int,
 ):
-    # Set random seed for poisson sampling, allow 10 different seeds
-    np.random.seed(random_seed % 10)
+    # Set random seed for poisson sampling
+    np.random.seed(random_seed)
     # Fetch avg_model params (for all multi-starts)
     avg_model_params = pd.read_csv(
         avg_model_parameter_file,
