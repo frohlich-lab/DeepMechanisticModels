@@ -248,18 +248,18 @@ FREEZE_MEDIANS = {
 # n_hidden: dimension of latent/bottleneck representation to which input features are encoded.
 LATENT_DIMS = {
     "range": (
-        # 1,
-        # 2,
-        # 3,
-        # 4,
-        # 6,
+        1,
+        2,
+        3,
+        4,
+        6,
         8,
-        # 10,
-        # 12
-        # 15,
-        # 20,
-        # 25,
-        # 30,
+        10,
+        # 12,
+        15,
+        20,
+        25,
+        30,
     ),
     "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
@@ -271,9 +271,9 @@ NN_STRUCTURE_MULTIPLIER = 2
 NETWORK_DEPTH = {
     "range": (
         0,
-        # 1,
-        # 2,
-        # 3,
+        1,
+        2,
+        3,
         # 4,
         # 5
     ),
@@ -322,14 +322,14 @@ ACTIVATION_FNS = (
 
 DROPOUT_RATES = {
     "range": (
-        # 0,
-        # 0.02,
-        # 0.05,
+        0,
+        0.02,
+        0.05,
         0.1,
-        # 0.15,
-        # 0.2,
-        # 0.35,
-        # 0.5,
+        0.15,
+        0.2,
+        0.35,
+        0.5,
     ),
     "central_value": 0.1,  # updated after v71_fig1b_p38
 }
@@ -388,10 +388,6 @@ OMEGAS = {
 THETAS = {
     "range": (
         0,
-        # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
-        # 1e3,
-        # 1e4,
-        # 1e5,
         # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
         # 1e3,
         # 1e4,
@@ -563,7 +559,6 @@ CONTEXTS_FEATURES_1C = (
             20,
             25,
             30,
-            35,
         ]
         for context, features in zip(
             ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
@@ -571,6 +566,7 @@ CONTEXTS_FEATURES_1C = (
                 f"RFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
+                # f"best_RFE_{N}_permute",
                 f"RFE_{N}_permute",
             ],
             strict=True,
@@ -582,21 +578,21 @@ CONTEXTS_FEATURES_1C = (
     + [
         # Curated feature sets
         # MPAS
-        # ("transcriptomics", "MPAS"),
+        ("transcriptomics", "MPAS"),
     ]
     + [
-        # (context, genomic_features)
-        # # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
-        # for genomic_features in [
-        #     "MSIGDB_KEGG_MAPK",
-        #     "MSIGDB_BIOCARTA_MAPK",
-        #     "MSIGDB_PID_MAPK",
-        #     "MSIGDB_REACTOME_MAPK",
-        #     "MSIGDB_REACTOME_MAPK_CANCER",
-        #     "MSIGDB_WP_MAPK",
-        #     "PAM50",
-        # ]
-        # for context in ["transcriptomics", "proteomics"]
+        (context, genomic_features)
+        # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
+        for genomic_features in [
+            "MSIGDB_KEGG_MAPK",
+            "MSIGDB_BIOCARTA_MAPK",
+            "MSIGDB_PID_MAPK",
+            "MSIGDB_REACTOME_MAPK",
+            "MSIGDB_REACTOME_MAPK_CANCER",
+            "MSIGDB_WP_MAPK",
+            "PAM50",
+        ]
+        for context in ["transcriptomics", "proteomics"]
     ]
 )
 
@@ -650,14 +646,14 @@ PATHWAYS_2 = [
 # Figure 3
 CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_15_permute"),
-    # (
-    #     "cytof_init_plus_lb",
-    #     "RFE_15_permute",
-    # ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    # (
-    #     "cytof_init_plus_intr",
-    #     "RFE_15_permute",
-    # ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    (
+        "cytof_init_plus_lb",
+        "RFE_15_permute",
+    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    (
+        "cytof_init_plus_intr",
+        "RFE_15_permute",
+    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
     # ("multimodal", "best_RFE_10_permute"),
     # ("multimodal", "best_RFE_15_permute"),
     ("multimodal", "RFE_10_permute"),  # multiheaded
