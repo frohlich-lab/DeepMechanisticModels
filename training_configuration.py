@@ -553,20 +553,13 @@ PATHWAYS_1B = PATHWAYS_1A
 CONTEXTS_FEATURES_1C = (
     [
         (context, features)
-        for N in [
-            10,
-            15,
-            20,
-            25,
-            30,
-        ]
+        for N in [5, 10, 15, 20, 25, 30]
         for context, features in zip(
             ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
             [
                 f"RFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
-                # f"best_RFE_{N}_permute",
                 f"RFE_{N}_permute",
             ],
             strict=True,
