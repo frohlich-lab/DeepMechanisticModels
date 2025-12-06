@@ -254,12 +254,12 @@ LATENT_DIMS = {
         4,
         6,
         8,
-        10,
+        # 10,
         # 12,
-        15,
-        20,
-        25,
-        30,
+        # 15,
+        # 20,
+        # 25,
+        # 30,
     ),
     "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
 }
@@ -373,13 +373,13 @@ DELTAS = {
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
     "range": (
-        # 0,
-        # 1e-4,
-        # 1e-3,
+        0,
+        1e-4,
+        1e-3,
         1e-2,
-        # 1e-1,
-        # 1e0,
-        # 1e1
+        1e-1,
+        1e0,
+        1e1
     ),
     "central_value": 1e-2,  # re-centering after v70
 }
@@ -388,10 +388,10 @@ OMEGAS = {
 THETAS = {
     "range": (
         0,
-        # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
-        # 1e3,
-        # 1e4,
-        # 1e5,
+        1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
+        1e3,
+        1e4,
+        1e5,
     ),
     "central_value": 0,
 }
