@@ -181,7 +181,8 @@ def init_wandb(
         # v74_loocv_p38_noher2: tEGFR variant, cytof_init & multiheaded multimodal, LOOCV across all cell-lines -- no HER2 in features
         # v75_fig3: clean repo, figure 3 runs (base / tEGFR / pEGFR / tERBB2 / pERBB2 model variants)
         # v76_fig3: clean repo, figure 3 runs (base / tEGFR / pEGFR / tERBB2 / pERBB2 model variants) - figures_ff merge
-        project=f"DeepMechanisticModels.v76_fig3.{conf.data}",
+        # v76_fig2: clean repo, figure 2 runs (base vs fEGFR model variants) - post figures_ff merge
+        project=f"DeepMechanisticModels.v76_fig2.{conf.data}",
         group=group,
         config={
             **conf.to_dict(),
