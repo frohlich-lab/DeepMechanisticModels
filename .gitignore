@@ -189,3 +189,5 @@ features/cellosaurus.txt
 /Old uncommitted notebooks
 *.fcs
 /Unused
+/res
+/eval
