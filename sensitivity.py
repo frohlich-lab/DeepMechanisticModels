@@ -118,7 +118,7 @@ def compute_sensitivities(
         n_jobs: int = 10,
         parameters_interest: Optional[List[str]] = None,
         multiheaded_multimodal: bool = True,
-) -> Tuple[pd.DataFrame, pd.DataFrame]:
+) -> Tuple[pd.DataFrame, Union[pd.DataFrame, None]]:
     petab_base_files = load_petab_base_files(conf)
 
     res_params = []
@@ -228,7 +228,7 @@ def compute_sensitivities(
 
     # Assemble output DataFrames
     results_params_df = pd.DataFrame(res_params)
-    results_latent_df = pd.DataFrame(res_latent)
+    results_latent_df = pd.DataFrame(res_latent) if res_latent else None
 
     # Extract which receptor (EGFR/ERBB2, if any) each parameter belongs to
     results_params_df["receptor_group"] = results_params_df["param"].apply(classify_param)
