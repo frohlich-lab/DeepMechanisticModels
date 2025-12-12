@@ -332,7 +332,7 @@ rule evaluate_all:
             )
         ]
     resources:
-        mem="32GB",
+        mem="64GB",
         runtime="90m",
         nodes=1,
         threads=1
