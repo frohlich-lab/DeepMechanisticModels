@@ -399,13 +399,13 @@ THETAS = {
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
     "range": (
-        # 0,
+        0,
         1e-4,
-        # 1e-3,
-        # 1e-2,
-        # 1e-1,
-        # 1e0,
-        # 1e1
+        1e-3,
+        1e-2,
+        1e-1,
+        1e0,
+        1e1
     ),
     "central_value": 1e-4,
 }
