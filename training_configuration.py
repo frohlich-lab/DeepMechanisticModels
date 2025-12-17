@@ -372,15 +372,7 @@ DELTAS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 OMEGAS = {
-    "range": (
-        0,
-        1e-4,
-        1e-3,
-        1e-2,
-        1e-1,
-        1e0,
-        1e1
-    ),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-2,  # re-centering after v70
 }
 
@@ -398,15 +390,7 @@ THETAS = {
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 EPSILONS = {
-    "range": (
-        0,
-        1e-4,
-        1e-3,
-        1e-2,
-        1e-1,
-        1e0,
-        1e1
-    ),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-4,
 }
 
@@ -661,6 +645,9 @@ PATHWAYS_3 = [
     # ERBB2 models
     "EGFR_MAPK__logobs_terbb2_aggavg",
     "EGFR_MAPK__logobs_perbb2_aggavg",
+    # ERBB3 models
+    "EGFR_MAPK__logobs_terbb3_aggavg",
+    "EGFR_MAPK__logobs_perbb3_aggavg",
 ]
 
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
