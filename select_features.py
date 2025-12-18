@@ -1,17 +1,18 @@
+import re
 from dataclasses import replace
 from pathlib import Path
+from typing import Union
 
 import fire
 import numpy as np
 import pandas as pd
-import re
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.impute import KNNImputer
 from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from annotation_utils import _onehot_lb, _onehot_intrinsic
+from annotation_utils import _onehot_intrinsic, _onehot_lb
 from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
 from dmm.config_options import Conf
 from dmm.feature_selection import (
@@ -19,10 +20,8 @@ from dmm.feature_selection import (
     load_data,
     preprocess_mosa_latent,
 )
-from typing import Union
-from training_configuration import SPLITS, DROP_HER2_FROM_FEATURES
+from training_configuration import DROP_HER2_FROM_FEATURES, SPLITS
 from util import load_petab_base_files
-
 
 
 def get_feature_importances(model, X, y, method="auto"):
@@ -55,26 +54,28 @@ def get_feature_importances(model, X, y, method="auto"):
         raise ValueError(f"Unknown method: {method}")
 
 
-def get_hvg(input_df: pd.DataFrame, top_n: Union[int, float] = 500) -> pd.DataFrame:
+def get_hvg(
+    input_df: pd.DataFrame, top_n: Union[int, float] = 500
+) -> pd.DataFrame:
     # remove 20% of features with the lowest mean:
     means = np.mean(input_df, axis=0)
     threshold = np.percentile(means, 20)
     input_df = input_df.loc[:, means >= threshold]
     if isinstance(top_n, int):
         # Keep top N features with the highest variance
-        var_threshold = sorted(
-            np.nanvar(input_df, axis=0), reverse=True
-        )[top_n]
+        var_threshold = sorted(np.nanvar(input_df, axis=0), reverse=True)[
+            top_n
+        ]
         input_df = input_df.loc[
-                     :, np.nanvar(input_df, axis=0) >= var_threshold
-                     ]
+            :, np.nanvar(input_df, axis=0) >= var_threshold
+        ]
     elif isinstance(top_n, float):
         perc = 100 * top_n
         # Keep top 50% features with the highest variance (default)
         var_threshold = np.percentile(np.nanvar(input_df, axis=0), perc)
         input_df = input_df.loc[
-                     :, np.nanvar(input_df, axis=0) >= var_threshold
-                     ]
+            :, np.nanvar(input_df, axis=0) >= var_threshold
+        ]
     return input_df
 
 
@@ -379,7 +380,7 @@ def build_context_feature_recipe(conf) -> list:
 
     # Generalized "cytof_init_plus_" parser
     if isinstance(ctx, str) and ctx.startswith("cytof_init_plus_"):
-        suffix = ctx[len("cytof_init_plus_"):]
+        suffix = ctx[len("cytof_init_plus_") :]
         tokens = [tok for tok in suffix.split("_") if tok]
 
         genes_by_modality = {"transcriptomics": [], "proteomics": []}
@@ -405,11 +406,17 @@ def build_context_feature_recipe(conf) -> list:
             recipe.append(("subtype_lb", "onehot"))
         if genes_by_modality["transcriptomics"]:
             recipe.append(
-                ("transcriptomics", "genes:" + ",".join(genes_by_modality["transcriptomics"]))
+                (
+                    "transcriptomics",
+                    "genes:" + ",".join(genes_by_modality["transcriptomics"]),
+                )
             )
         if genes_by_modality["proteomics"]:
             recipe.append(
-                ("proteomics", "genes:" + ",".join(genes_by_modality["proteomics"]))
+                (
+                    "proteomics",
+                    "genes:" + ",".join(genes_by_modality["proteomics"]),
+                )
             )
         return recipe
 
@@ -421,7 +428,9 @@ def build_context_feature_recipe(conf) -> list:
                 ("proteomics", "HVGRFE_20_permute"),
                 ("transcriptomics", "HVGRFE_15_permute"),
             ]
-        if isinstance(conf.features, str) and conf.features.startswith("best_RFE_"):
+        if isinstance(conf.features, str) and conf.features.startswith(
+            "best_RFE_"
+        ):
             # HVG prefilter then global RFE on concatenated inputs
             return [
                 ("cytof_init", "all"),
@@ -431,8 +440,18 @@ def build_context_feature_recipe(conf) -> list:
         # Plain multimodal, add HVG on omics unless already requested
         return [
             ("cytof_init", conf.features),
-            ("proteomics", "HVG" + conf.features if "HVG" not in conf.features else conf.features),
-            ("transcriptomics", "HVG" + conf.features if "HVG" not in conf.features else conf.features),
+            (
+                "proteomics",
+                "HVG" + conf.features
+                if "HVG" not in conf.features
+                else conf.features,
+            ),
+            (
+                "transcriptomics",
+                "HVG" + conf.features
+                if "HVG" not in conf.features
+                else conf.features,
+            ),
         ]
 
     # Single-context fallback
@@ -456,7 +475,11 @@ def parse_feature_spec(feature_spec: str):
     Falls back to native behavior otherwise.
     """
     if isinstance(feature_spec, str) and feature_spec.startswith("genes:"):
-        genes = [g.strip() for g in feature_spec.split(":", 1)[1].split(",") if g.strip()]
+        genes = [
+            g.strip()
+            for g in feature_spec.split(":", 1)[1].split(",")
+            if g.strip()
+        ]
         return {"kind": "genes", "genes": genes}
     return {"kind": "native", "spec": feature_spec}
 
@@ -494,16 +517,17 @@ def prepare_inputs_for_context(
         input_val = _onehot_lb(samples_val_split)
         features_all = input_train.columns.tolist()
     else:
-        input_train, features_all, _ = load_data(
+        input_train, features_all, _, imputer = load_data(
             contextualization=subconf.context,
             samples=samples_train_split,
             features=None,
             **petab_base_files,
         )
-        input_val, _, _ = load_data(
+        input_val, _, _, _ = load_data(
             contextualization=subconf.context,
             samples=samples_val_split,
             features=features_all,
+            imputer=imputer,
             **petab_base_files,
         )
 
@@ -519,7 +543,7 @@ def prepare_inputs_for_context(
         # Mean-center
         mean_train = input_train.mean()
         input_train -= mean_train
-        
+
         if len(input_val):
             input_val = pd.DataFrame(
                 imputer_input.transform(input_val),
@@ -550,7 +574,9 @@ def prepare_inputs_for_context(
             selected = input_train.columns.tolist()
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
         else:
-            if DROP_HER2_FROM_FEATURES and subconf.context.startswith("cytof_init"):
+            if DROP_HER2_FROM_FEATURES and subconf.context.startswith(
+                "cytof_init"
+            ):
                 if "p.HER2" in input_train.columns:
                     input_train.drop(columns=["p.HER2"], inplace=True)
 
@@ -587,7 +613,11 @@ if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
-    split: sorted(training_samples(Wildcards(conf.data, split), keep_all="ALL" in conf.context))
+    split: sorted(
+        training_samples(
+            Wildcards(conf.data, split), keep_all="ALL" in conf.context
+        )
+    )
     for split in sorted(SPLITS)
 }
 samples_val = {
@@ -595,13 +625,17 @@ samples_val = {
     for split in sorted(SPLITS)
 }
 # Add support for "all", i.e. train on all samples, validate on none
-samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all"), keep_all="ALL" in conf.context))
-samples_val["all"] = []
+samples_train["all"] = sorted(
+    training_samples(
+        Wildcards(conf.data, "all"), keep_all="ALL" in conf.context
+    )
+)
+samples_val["all"] = sorted(val_samples(Wildcards(conf.data, "all")))
 
 recipe = build_context_feature_recipe(conf)
 
 # Preload output (cytof_dynamic) once for the split (used by supervised selectors)
-output_train_raw, _, _ = load_data(
+output_train_raw, _, _, _ = load_data(
     contextualization="cytof_dynamic",
     samples=samples_train[conf.samples],
     features=None,
@@ -616,7 +650,9 @@ output_train_imputed = pd.DataFrame(
 
 # Detect global-RFE pattern: 'multimodal' + 'best_RFE_N_permute'
 perform_global_rfe = (
-        conf.context == "multimodal" and isinstance(conf.features, str) and conf.features.startswith("best_RFE_")
+    conf.context == "multimodal"
+    and isinstance(conf.features, str)
+    and conf.features.startswith("best_RFE_")
 )
 
 # Prepare each (context, feature_spec)
@@ -636,8 +672,10 @@ for ctx, feat_spec in recipe:
     parts_val.append(va)
 
 # Concatenate across recipe (if multiple)
-Xtr = pd.concat(parts_train, axis=1) if len(parts_train) > 1 else parts_train[0]
-Xva = pd.concat(parts_val,   axis=1) if len(parts_val)   > 1 else parts_val[0]
+Xtr = (
+    pd.concat(parts_train, axis=1) if len(parts_train) > 1 else parts_train[0]
+)
+Xva = pd.concat(parts_val, axis=1) if len(parts_val) > 1 else parts_val[0]
 
 # If requested, run global RFE on the concatenated inputs
 if perform_global_rfe:
@@ -656,7 +694,9 @@ if perform_global_rfe:
 
 # Save once per dataset
 for dataset, mat in (("train", Xtr), ("val", Xva)):
-    outfile = FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset))
+    outfile = FEATURES_OUTFILE.format_map(
+        dict(**conf.__dict__, dataset=dataset)
+    )
     Path(outfile).parent.mkdir(exist_ok=True, parents=True)
     print(f"Saving {dataset} data for split {conf.samples} to {outfile}")
     mat.to_csv(outfile)

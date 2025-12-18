@@ -83,12 +83,12 @@ SYNAPSE_FILES = [
     "syn20631271",  # Gold standard subchallenge I (missing markers)
     # Added missing iMEK condition for Subchallenge II (14.10.2025)
     "syn20631273",  # Gold standard subchallenge II (iMEK)
-    # TODO: add here subchallenge IV cell-lines (test set - not ready yet)
-    # "syn20631065",  # CAL120
-    # "syn20631066",  # CAMA1
-    # "syn20631067",  # HCC1143
-    # "syn20631068",  # KPL1
-    # "syn20631069",  # ZR75B
+    # Subchallenge IV additional cell lines (added 17.12.2025)
+    "syn71996744",  # CAL120
+    "syn71996745",  # CAMA1
+    "syn71996746",  # HCC1143
+    "syn71996734",  # KPL1
+    "syn71996747",  # ZR75B
 ]
 
 
@@ -247,10 +247,15 @@ def load_cytof_from_synapse() -> Tuple[pd.DataFrame, List[str]]:
     # file_id_table = pd.read_csv(syn.get("syn20631269").path, index_col=0)
     for file in files:  # syn20613939 for MDAMB157 -- has double the amount of fileIDs (biological replicates)
         df = pd.read_csv(syn.get(file).path)
-        df["date"] = df["fileID"].apply(lambda x: file_id_table.loc[x, "date"])
-        df["time_course"] = df["fileID"].apply(
-            lambda x: file_id_table.loc[x, "time_course"]
-        )
+        if (df["fileID"] > 0).all():  # does not work for test cell lines
+            df["date"] = df["fileID"].apply(
+                lambda x: file_id_table.loc[x, "date"]
+            )
+            df["time_course"] = df["fileID"].apply(
+                lambda x: file_id_table.loc[x, "time_course"]
+            )
+        else:
+            df["date"] = "unknown"
 
         # import seaborn as sns
         # import matplotlib.pyplot as plt
@@ -340,18 +345,14 @@ def process_petab_cytof(
         s = s.dropna()
         return s.iloc[0] if len(s) else np.nan
 
-    measurement_table_phospho = (
-        measurement_table_phospho
-        .groupby(
-            ["type", petab.OBSERVABLE_ID] + id_vars,
-            as_index=False
-        )["value"]
-        .agg(first_non_na)
-    )
+    measurement_table_phospho = measurement_table_phospho.groupby(
+        ["type", petab.OBSERVABLE_ID] + id_vars, as_index=False
+    )["value"].agg(first_non_na)
 
     measurement_table_phospho = (
-        measurement_table_phospho
-        .set_index(["type", petab.OBSERVABLE_ID] + id_vars)
+        measurement_table_phospho.set_index(
+            ["type", petab.OBSERVABLE_ID] + id_vars
+        )
         .unstack("type")
         .droplevel(axis=1, level=0)
         .reset_index()

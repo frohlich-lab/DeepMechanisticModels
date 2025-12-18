@@ -192,7 +192,11 @@ def training_samples(wildcards, keep_all: bool = False) -> List[str]:
 
 
 def val_samples(wildcards) -> List[str]:
-    return [f"c{wildcards.samples}"] if wildcards.samples != "all" else []
+    return (
+        [f"c{wildcards.samples}"]
+        if wildcards.samples != "all"
+        else ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
+    )
 
 
 def per_sample_pretraining_train(wildcards) -> List[str]:

@@ -70,11 +70,11 @@ def get_samples(data_name):
             "cUACC3199",
             "cZR751",
             # Subchallenge 4 (Sahai analysis / test set)
-            # "cCAL120",
-            # "cCAMA1",
-            # "cHCC1143",
-            # "cKPL1",
-            # "cZR75B"
+            "cCAL120",
+            "cCAMA1",
+            "cHCC1143",
+            "cKPL1",
+            "cZR75B",
         ]
     elif m := re.match(r"synthetic_([0-9]+)_[0-9.]+_[0-9.]+$", data_name):
         return [f"sample_{isample}" for isample in range(int(m.group(1)))]

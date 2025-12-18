@@ -31,7 +31,8 @@ def contextualize_measurements(
     contextualization: str,
     samples: list[str],
     impute: bool = True,  # only affects cytof_init - if False, recovers previous behaviour
-) -> pd.DataFrame:
+    imputer: Optional[KNNImputer] = None,
+) -> tuple[pd.DataFrame, KNNImputer | None]:
     # Check requested contextualization is available
     if contextualization not in (
         "transcriptomics",
@@ -103,8 +104,6 @@ def contextualize_measurements(
         elif contextualization.startswith("cytof_init"):
             if impute:
                 # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
-                # TODO - do we need to impute only given the observables we use? In cytof_init we use all of them...
-                # TODO - do we want to exclude info from inhibitors? (can subset to EGF earlier)
                 harmonised_cytof_dynamic = harmonise_cytof_dynamic(
                     input_measurements.pivot_table(
                         index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
@@ -122,18 +121,13 @@ def contextualize_measurements(
                     < 0.3,
                 ]
                 # Fit imputer on training samples, transform train + val samples
-                if len(samples) > 1:
+                if imputer is None:
                     samples_train = samples
-                else:
-                    samples_train = [
-                        sample
-                        for sample in harmonised_cytof_dynamic.index
-                        if sample not in samples
-                    ]
-                imputer = KNNImputer()
-                imputer.fit(
-                    harmonised_cytof_dynamic.loc[samples_train, :].values
-                )
+
+                    imputer = KNNImputer()
+                    imputer.fit(
+                        harmonised_cytof_dynamic.loc[samples_train, :].values
+                    )
                 input_data = pd.DataFrame(
                     imputer.transform(harmonised_cytof_dynamic.values),
                     columns=harmonised_cytof_dynamic.columns,
@@ -149,7 +143,7 @@ def contextualize_measurements(
                 ]
                 # remove info on condition and timepoint, leaving markers only as column names
                 input_data.columns = [col[0] for col in input_data.columns]
-                return input_data
+                return input_data, imputer
             else:
                 # Subset to EGF and time 0 only
                 input_measurements = input_measurements[
@@ -173,7 +167,7 @@ def contextualize_measurements(
         # np.nanmean generates FutureWarning
     )
 
-    return input_data
+    return input_data, None
 
 
 def preprocess_mosa_latent(conf, samples_train, samples_val):
@@ -300,15 +294,17 @@ def load_data(
     observable_table,
     features_filepath=None,
     impute: bool = True,
+    imputer: Optional[KNNImputer] = None,
     transform: Optional[callable] = None,
 ):
     if contextualization not in ["MOSA", "seqvar"]:
-        input_data = contextualize_measurements(
+        input_data, imputer = contextualize_measurements(
             measurement_table,
             observable_table,
             contextualization,
             samples,
             impute=impute,
+            imputer=imputer,
         )
     elif (contextualization == "MOSA") and (features_filepath is not None):
         input_data = get_features(
@@ -320,6 +316,7 @@ def load_data(
         input_data = input_data.rename_axis(
             petab.PREEQUILIBRATION_CONDITION_ID
         )
+        imputer = None
     elif contextualization == "seqvar":
         _, input_data = get_cell_line_cellosaurus_annotations(
             file_dir=features_dir
@@ -327,6 +324,7 @@ def load_data(
         input_data = input_data.rename_axis(
             petab.PREEQUILIBRATION_CONDITION_ID
         )
+        imputer = None
     else:
         raise ValueError(
             f"Received invalid combination: context {contextualization} and features_filepath {features_filepath}"
@@ -407,7 +405,7 @@ def load_data(
     else:
         features = list(input_data.columns)
 
-    return input_data, features, transform
+    return input_data, features, transform, imputer
 
 
 def build_preprocessor(

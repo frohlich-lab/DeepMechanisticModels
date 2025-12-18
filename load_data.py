@@ -14,6 +14,7 @@ if __name__ == "__main__":
     measurement_table_cytof = process_petab_cytof(
         measurement_table_cytof, id_vars
     )
+    (basedir / "data").mkdir(exist_ok=True)
     measurement_table_cytof.to_csv(basedir / "data" / "cytof.csv")
     measurement_table_proteomics = load_proteomics_from_synapse()
     up_ids = load_ids_from_uniprot(

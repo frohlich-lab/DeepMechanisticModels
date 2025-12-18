@@ -3,7 +3,7 @@ import pandas as pd
 import petab
 import synapseclient
 
-from common import subtypes_tognetti, basedir
+from common import basedir, subtypes_tognetti
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
 from util import load_petab_base_files
@@ -77,7 +77,7 @@ def generate_proteomics_annotations(
             print(f"Marker {marker} not found with exception {e}.")
 
     # Get CyTOF data for ERBB2/HER2
-    overall_cytof_init, _, _ = load_data(
+    overall_cytof_init, _, _, _ = load_data(
         contextualization="cytof_init",
         samples=samples_list,
         features=None,
@@ -166,13 +166,19 @@ def load_marcotte_subtypes(samples: list[str]) -> pd.DataFrame:
     Load and normalize Marcotte molecular subtypes to index by 'c<CELL>' IDs,
     aligned and subset to the provided samples list and order.
     """
-    subtypes_marcotte = pd.read_csv(basedir / "cell_line_subtypes.txt", delimiter="\t")
-    subtypes_marcotte["cell_line"] = subtypes_marcotte["cell_line"].apply(lambda x: "c" + str(x).upper())
+    subtypes_marcotte = pd.read_csv(
+        basedir / "cell_line_subtypes.txt", delimiter="\t"
+    )
+    subtypes_marcotte["cell_line"] = subtypes_marcotte["cell_line"].apply(
+        lambda x: "c" + str(x).upper()
+    )
     # Canonicalize a couple of known IDs to match our data
     subtypes_marcotte.cell_line.replace("cHS578T", "cHs578T", inplace=True)
     subtypes_marcotte.cell_line.replace("c600MPE", "cMPE600", inplace=True)
     # Explicit fix DU4475 - appears as NA in subtype_intrinsic, but is classified elsewhere as triple-negative-basal
-    subtypes_marcotte.loc[subtypes_marcotte["cell_line"] == "cDU4475", "subtype_intrinsic"] = "Basal"
+    subtypes_marcotte.loc[
+        subtypes_marcotte["cell_line"] == "cDU4475", "subtype_intrinsic"
+    ] = "Basal"
     subtypes_marcotte.sort_values(by="cell_line", inplace=True)
     subtypes_marcotte.set_index("cell_line", inplace=True)
     # Reindex to requested sample order (drop missing)
@@ -187,14 +193,20 @@ def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
     Columns will be named like 'intr_LuminalA', 'intr_Basal', etc.
     """
 
-    expected_cols = ["intr_Basal", "intr_CL", "intr_HER2",
-                     "intr_LuminalA", "intr_LuminalB", "intr_Normal"]
+    expected_cols = [
+        "intr_Basal",
+        "intr_CL",
+        "intr_HER2",
+        "intr_LuminalA",
+        "intr_LuminalB",
+        "intr_Normal",
+    ]
 
     # Early exit: no samples → return empty with correct columns
     if len(samples) == 0:
         return pd.DataFrame(
             columns=expected_cols,
-            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID)
+            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID),
         )
 
     df = load_marcotte_subtypes(samples)
@@ -205,17 +217,33 @@ def _onehot_intrinsic(samples: list[str]) -> pd.DataFrame:
     X = X.reindex(
         pd.Index(
             [s for s in samples if s in X.index],
-            name=petab.v1.PREEQUILIBRATION_CONDITION_ID
+            name=petab.v1.PREEQUILIBRATION_CONDITION_ID,
         )
     )
 
     if len(X) == 1:
-        for subtype in ["LuminalA", "LuminalB", "HER2", "CL", "Basal", "Normal"]:
+        for subtype in [
+            "LuminalA",
+            "LuminalB",
+            "HER2",
+            "CL",
+            "Basal",
+            "Normal",
+        ]:
             if f"intr_{subtype}" not in X.columns:
                 X[f"intr_{subtype}"] = 0.0
 
     # Ensure consistent one-hot-encoded feature ordering
-    X = X[["intr_Basal", "intr_CL", "intr_HER2", "intr_LuminalA", "intr_LuminalB", "intr_Normal"]]
+    X = X[
+        [
+            "intr_Basal",
+            "intr_CL",
+            "intr_HER2",
+            "intr_LuminalA",
+            "intr_LuminalB",
+            "intr_Normal",
+        ]
+    ]
     return X
 
 
@@ -232,7 +260,7 @@ def _onehot_lb(samples: list[str]) -> pd.DataFrame:
     if len(samples) == 0:
         return pd.DataFrame(
             columns=expected_cols,
-            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID)
+            index=pd.Index([], name=petab.v1.PREEQUILIBRATION_CONDITION_ID),
         )
 
     df = load_marcotte_subtypes(samples).copy()
@@ -246,7 +274,7 @@ def _onehot_lb(samples: list[str]) -> pd.DataFrame:
     X = X.reindex(
         pd.Index(
             [s for s in samples if s in X.index],
-            name=petab.v1.PREEQUILIBRATION_CONDITION_ID
+            name=petab.v1.PREEQUILIBRATION_CONDITION_ID,
         )
     )
 
