@@ -518,7 +518,6 @@ CONTEXTS_FEATURES_1A = [
     ("cytof_init", "RFE_15_permute"),
     ("proteomics", "HVGRFE_10_permute"),
     ("transcriptomics", "HVGRFE_15_permute"),
-    # ("multimodal", "best_RFE_10_permute"),
     ("multimodal", "RFE_10_permute"),
 ]
 
@@ -581,7 +580,6 @@ CONTEXTS_FEATURES_2 = [
     ("cytof_init", "RFE_15_permute"),
     ("cytof_init_plus_tEGFR", "RFE_15_permute"),
     ("cytof_init_plus_pEGFR", "RFE_15_permute"),
-    # ("cytof_init_plus_tEGFR_pEGFR", "RFE_10_permute"),
     (
         "cytof_init_plus_lb",
         "RFE_15_permute",
@@ -590,7 +588,6 @@ CONTEXTS_FEATURES_2 = [
         "cytof_init_plus_intr",
         "RFE_15_permute",
     ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 
@@ -599,41 +596,10 @@ PATHWAYS_2 = [
     "EGFR_MAPK__logobs_fegfr_aggavg",
 ]
 
-# Figure 2B -- dropped
-# CONTEXTS_FEATURES_2B = [
-#     ("cytof_init", "RFE_15_permute"),
-#     ("cytof_init_plus_tERBB2", "RFE_15_permute"),
-#     ("cytof_init_plus_pERBB2", "RFE_15_permute"),
-#     # ("cytof_init_plus_tERBB2_pERBB2", "RFE_10_permute"),
-#     ("cytof_init_plus_lb", "RFE_15_permute"),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-#     ("cytof_init_plus_intr", "RFE_15_permute"),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-#     ("multimodal", "RFE_10_permute"),  # multiheaded
-# ]
-#
-# PATHWAYS_2B = (
-#     [
-#         "EGFR_MAPK__logobs",
-#         # ERBB2 models
-#         "EGFR_MAPK__logobs_ferbb2_aggavg",
-#         # "EGFR_MAPK__logobs_ferbb2_aggavg_pobs",
-#     ]
-# )
-
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_15_permute"),
-    (
-        "cytof_init_plus_lb",
-        "RFE_15_permute",
-    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    (
-        "cytof_init_plus_intr",
-        "RFE_15_permute",
-    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    # ("multimodal", "best_RFE_10_permute"),
-    # ("multimodal", "best_RFE_15_permute"),
-    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 
 PATHWAYS_3 = [
