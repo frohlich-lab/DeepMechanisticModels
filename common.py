@@ -204,7 +204,9 @@ def per_sample_pretraining_train(wildcards) -> List[str]:
         PER_SAMPLE_OUTFILE_PARS.format(
             sample=sample, model=wildcards.model, data=wildcards.data
         )
-        for sample in training_samples(wildcards)
+        for sample in training_samples(
+            wildcards, keep_all="ALL" in wildcards.context
+        )
     ]
 
 

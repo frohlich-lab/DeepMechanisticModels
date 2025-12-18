@@ -39,7 +39,9 @@ indir = pretrain_dir / conf.model / conf.data
 #  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
 #  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
 samples = {
-    "train": training_samples(Wildcards(conf.data, conf.samples)),
+    "train": training_samples(
+        Wildcards(conf.data, conf.samples), keep_all="ALL" in conf.context
+    ),
     "val": val_samples(Wildcards(conf.data, conf.samples)),
 }
 

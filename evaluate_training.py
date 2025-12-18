@@ -34,7 +34,9 @@ outdir = fig_dir / conf.model / conf.data
 indir = results_dir / conf.model / conf.data
 
 samples = {
-    "train": training_samples(Wildcards(conf.data, conf.samples)),
+    "train": training_samples(
+        Wildcards(conf.data, conf.samples), keep_all="ALL" in conf.context
+    ),
     "val": val_samples(Wildcards(conf.data, conf.samples)),
 }
 

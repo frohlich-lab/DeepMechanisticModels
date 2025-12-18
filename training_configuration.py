@@ -162,7 +162,7 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    # "all",
+    "all",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
@@ -523,6 +523,7 @@ CONTEXTS_FEATURES_1A = [
 
 PATHWAYS_1A = [
     "EGFR_MAPK__logobs",
+    "EGFR_MAPK__logobs_tegfr_aggavg",
 ]
 
 
@@ -625,7 +626,6 @@ PATHWAYS_3B = [
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
     ("cytof_init", "RFE_15_permute"),
-    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 PATHWAYS_3C = PATHWAYS_3
 
@@ -658,7 +658,6 @@ PATHWAYS_4 = [
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
     ("cytof_init", "RFE_15_permute"),
-    ("multimodal", "RFE_10_permute"),  # multiheaded
 ]
 PATHWAYS_5 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only

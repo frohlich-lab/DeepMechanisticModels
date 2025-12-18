@@ -135,7 +135,9 @@ def simulate_avg_model(
     )
 
     samples = (
-        training_samples(Wildcards(conf.data, conf.samples))
+        training_samples(
+            Wildcards(conf.data, conf.samples), keep_all="ALL" in conf.context
+        )
         if dataset == "train"
         else val_samples(Wildcards(conf.data, conf.samples))
     )
@@ -215,21 +217,23 @@ def get_embedding_and_params_df(
         eqx.nn.inference_mode(dmm_model).encode, in_axes=(0, None)
     )(jnp.array(input_features), jr.PRNGKey(0))
 
-    n_components = min(temp_latent_embeddings.shape[1], dmm_model.conf.n_hidden)
+    n_components = min(
+        temp_latent_embeddings.shape[1], dmm_model.conf.n_hidden
+    )
 
-    latent_embeddings_df = (
-        pd.DataFrame(
-            {
-                "cell_line": samples,
-                **{f"L{i + 1}": temp_latent_embeddings[:, i] for i in range(n_components)},
-            }
-        )
-        .assign(
-            context=context,
-            samples=split,
-            dataset=dataset,
-            job=job,
-        )
+    latent_embeddings_df = pd.DataFrame(
+        {
+            "cell_line": samples,
+            **{
+                f"L{i + 1}": temp_latent_embeddings[:, i]
+                for i in range(n_components)
+            },
+        }
+    ).assign(
+        context=context,
+        samples=split,
+        dataset=dataset,
+        job=job,
     )
 
     # Parameter deviations
