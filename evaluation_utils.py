@@ -135,9 +135,7 @@ def simulate_avg_model(
     )
 
     samples = (
-        training_samples(
-            Wildcards(conf.data, conf.samples), keep_all="ALL" in conf.context
-        )
+        training_samples(Wildcards(conf.data, conf.samples), keep_all="ALL")
         if dataset == "train"
         else val_samples(Wildcards(conf.data, conf.samples))
     )

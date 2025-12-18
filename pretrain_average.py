@@ -45,11 +45,7 @@ importer = generate_average_pretraining_problem(
     importer=petab_base_importer,
     problem=problem,
     dataset=conf.data,
-    samples=sorted(
-        training_samples(
-            Wildcards(conf.data, conf.samples), keep_all="ALL" in conf.context
-        )
-    ),
+    samples=sorted(training_samples(Wildcards(conf.data, conf.samples))),
 )
 
 outdir = pretrain_dir / conf.model / conf.data

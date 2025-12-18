@@ -179,9 +179,9 @@ EVALUATE_ALL_CSVS = str(
 hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
 
 
-def training_samples(wildcards, keep_all: bool = False) -> List[str]:
+def training_samples(wildcards) -> List[str]:
     samples = get_samples(wildcards.data)
-    if not keep_all:
+    if wildcards.samples != "all_plus_missingtx":
         missing_transcriptomics = ["cHCC2157", "cMCF10F", "cMDAkb2"]
         samples = [
             sample
@@ -194,7 +194,7 @@ def training_samples(wildcards, keep_all: bool = False) -> List[str]:
 def val_samples(wildcards) -> List[str]:
     return (
         [f"c{wildcards.samples}"]
-        if wildcards.samples != "all"
+        if wildcards.samples not in ("all", "all_plus_missingtx")
         else ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
     )
 
@@ -204,9 +204,7 @@ def per_sample_pretraining_train(wildcards) -> List[str]:
         PER_SAMPLE_OUTFILE_PARS.format(
             sample=sample, model=wildcards.model, data=wildcards.data
         )
-        for sample in training_samples(
-            wildcards, keep_all="ALL" in wildcards.context
-        )
+        for sample in training_samples(wildcards)
     ]
 
 

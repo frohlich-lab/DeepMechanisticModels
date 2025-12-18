@@ -613,11 +613,7 @@ if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
 samples_train = {
-    split: sorted(
-        training_samples(
-            Wildcards(conf.data, split), keep_all="ALL" in conf.context
-        )
-    )
+    split: sorted(training_samples(Wildcards(conf.data, split)))
     for split in sorted(SPLITS)
 }
 samples_val = {
@@ -625,11 +621,7 @@ samples_val = {
     for split in sorted(SPLITS)
 }
 # Add support for "all", i.e. train on all samples, validate on none
-samples_train["all"] = sorted(
-    training_samples(
-        Wildcards(conf.data, "all"), keep_all="ALL" in conf.context
-    )
-)
+samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all")))
 samples_val["all"] = sorted(val_samples(Wildcards(conf.data, "all")))
 
 recipe = build_context_feature_recipe(conf)
