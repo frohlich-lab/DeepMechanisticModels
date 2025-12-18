@@ -96,7 +96,7 @@ rule compile_mechanistic_model:
         pathways=rules.process_data.input.pathways,
         data=rules.process_data.output.datafiles
     output:
-        model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py'
+        model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '__init__.py'
     resources:
         mem="8GB",
         runtime="1h",
