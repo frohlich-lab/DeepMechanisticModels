@@ -532,6 +532,7 @@ SPLITS_1A = {
     "HCC2185",
     "MCF7",
     "UACC3199",
+    "all",
 }
 
 
@@ -540,7 +541,13 @@ CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
 
 PATHWAYS_1B = PATHWAYS_1A
 
-SPLITS_1B = SPLITS_1A
+SPLITS_1B = {
+    "BT20",
+    "HCC1500",
+    "HCC2185",
+    "MCF7",
+    "UACC3199",
+}
 
 
 # Figure 1C
@@ -585,7 +592,7 @@ CONTEXTS_FEATURES_1C = (
 
 PATHWAYS_1C = PATHWAYS_1A
 
-SPLITS_1C = SPLITS_1A
+SPLITS_1C = SPLITS_1B
 
 
 # Figure 2
@@ -605,7 +612,7 @@ PATHWAYS_2 = [
     "EGFR_MAPK__logobs_fegfr_aggavg",
 ]
 
-SPLITS_2 = SPLITS_1A
+SPLITS_2 = SPLITS_1B
 
 
 # Figure 3
@@ -627,7 +634,7 @@ PATHWAYS_3 = [
     "EGFR_MAPK__logobs_perbb3_aggavg",
 ]
 
-SPLITS_3 = {"all", "all_plus_missingtx"}
+SPLITS_3 = {"all_plus_missingtx"}
 
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
 CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
