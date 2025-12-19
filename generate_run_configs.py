@@ -6,44 +6,44 @@ import numpy as np
 from dmm.config_options import scan_attributes
 from training_configuration import (
     ACTIVATION_FNS,
-    ALPHAS,
-    BETAS,
-    DELTAS,
     DROPOUT_RATES,
-    EPSILONS,
-    ETAS,
     FREEZE_MEDIANS,
-    GAMMAS,
     INFLATER_BOUND,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
+    L1_ENCODE_REGS,
+    L1_INFLATE_OUTPUT_REGS,
+    L1_INFLATE_REGS,
+    L2_INFLATE_OUTPUT_REGS,
     LATENT_DIMS,
     LEARNING_RATE_DECAYS,
     LEARNING_RATE_SPANS,
     MAX_LEARNING_RATES,
+    MEDIAN_REGS,
     MOMENTUM,
     MULTIHEADED,
     NEPOCH,
     NETWORK_DEPTH,
     NN_INIT_FN,
     NN_INIT_SCALES,
-    OMEGAS,
     OPT_MULT,
     OPT_STEPS,
     OPTIMISERS,
+    OREG_ENCODE_REGS,
+    OREG_INFLATE_REGS,
     # Regularisation
     ORTH_REG_STRATEGIES,
+    RECON_REGS,
     SPARSE_THRESH_PERCS,
     SPLITS,
     STANDARDISE_FEATURES,
+    SYMMETRY_REGS,
     SYNC_ENCODER_INFLATER_REG,
-    THETAS,
     USE_BIAS,
     # OTHER OPTIONS
     USE_EARLY_STOP,
     WARMUP_FCTS,
     WEIGHT_DECAY,
-    ZETAS,
 )
 
 # Default product hyperparameters (uses global SPLITS)
@@ -114,17 +114,17 @@ linear_hyperparameters = {
     "depth": NETWORK_DEPTH,
     "dropout_rate": DROPOUT_RATES,
     "nn_init_scale": NN_INIT_SCALES,
-    "l1reg_inflate": ALPHAS,
-    "oreg_inflate": BETAS,
-    "l1reg_encode": GAMMAS,
-    "oreg_encode": DELTAS,
-    "l1reg_inflater_output": OMEGAS,
-    "l2reg_inflater_output": THETAS,  # same as l1reg_inflater_output
+    "l1reg_inflate": L1_INFLATE_REGS,
+    "oreg_inflate": OREG_INFLATE_REGS,
+    "l1reg_encode": L1_ENCODE_REGS,
+    "oreg_encode": OREG_ENCODE_REGS,
+    "l1reg_inflater_output": L1_INFLATE_OUTPUT_REGS,
+    "l2reg_inflater_output": L2_INFLATE_OUTPUT_REGS,  # same as l1reg_inflater_output
     "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
     "sparse_threshold_perc": SPARSE_THRESH_PERCS,
-    "recon_loss": EPSILONS,
-    "symm_reg": ZETAS,
-    "median_reg": ETAS,
+    "recon_loss": RECON_REGS,
+    "symm_reg": SYMMETRY_REGS,
+    "median_reg": MEDIAN_REGS,
     "max_lrate": MAX_LEARNING_RATES,
     "lrate_span": LEARNING_RATE_SPANS,
     "lrate_decay": LEARNING_RATE_DECAYS,
@@ -252,6 +252,7 @@ if __name__ == "__main__":
         PARAMS_TO_SCAN,
         PATHWAYS_BY_FIGURE,
         SELECT_CENTRAL_VALUES_BY_FIGURE,
+        SPLITS_BY_FIGURE,
     )
 
     print("=" * 80)
@@ -269,6 +270,7 @@ if __name__ == "__main__":
         contexts_features = CONTEXTS_FEATURES_BY_FIGURE[figure_name]
         select_central = SELECT_CENTRAL_VALUES_BY_FIGURE[figure_name]
         params_to_scan = PARAMS_TO_SCAN[figure_name]
+        splits = SPLITS_BY_FIGURE[figure_name]
 
         print(f"  Contexts/Features combinations: {len(contexts_features)}")
         for i, (ctx, feat) in enumerate(contexts_features[:5], 1):
@@ -286,6 +288,12 @@ if __name__ == "__main__":
                 f"    ... and {len(PATHWAYS_BY_FIGURE.get(figure_name, [])) - 3} more"
             )
 
+        print(f"\n  Splits: {len(splits)}")
+        for i, split in enumerate(sorted(splits)[:5], 1):
+            print(f"    {i}. {split}")
+        if len(splits) > 5:
+            print(f"    ... and {len(splits) - 5} more")
+
         print(f"\n  Select central values only: {select_central}")
         if params_to_scan:
             print(f"  Params to scan: {params_to_scan}")
@@ -298,6 +306,7 @@ if __name__ == "__main__":
             n_starts=N_STARTS,
             select_central_values=select_central,
             params_to_scan=params_to_scan,
+            splits=splits,
         )
 
         print(f"\n  Total configurations generated: {len(configs)}")

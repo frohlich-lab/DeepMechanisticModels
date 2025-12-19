@@ -349,35 +349,35 @@ ORTH_REG_STRATEGIES = (
 )
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
-ALPHAS = {
+L1_INFLATE_REGS = {
     "range": (0,),
     "central_value": 0,
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
-BETAS = {"range": (0,), "central_value": 0}
+OREG_INFLATE_REGS = {"range": (0,), "central_value": 0}
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
-GAMMAS = {
+L1_ENCODE_REGS = {
     "range": (0,),
     "central_value": 0,
 }
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
-DELTAS = {
+OREG_ENCODE_REGS = {
     "range": (0,),
     "central_value": 0,
 }
 
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
-OMEGAS = {
+L1_INFLATE_OUTPUT_REGS = {
     "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-2,  # re-centering after v70
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
-THETAS = {
+L2_INFLATE_OUTPUT_REGS = {
     "range": (
         0,
         1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
@@ -389,16 +389,16 @@ THETAS = {
 }
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
-EPSILONS = {
+RECON_REGS = {
     "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-4,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
-ZETAS = {"range": (0,), "central_value": 0}
+SYMMETRY_REGS = {"range": (0,), "central_value": 0}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
-ETAS = {"range": (0,), "central_value": 0}
+MEDIAN_REGS = {"range": (0,), "central_value": 0}
 
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
