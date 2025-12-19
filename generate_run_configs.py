@@ -46,6 +46,8 @@ from training_configuration import (
     ZETAS,
 )
 
+# Default product hyperparameters (uses global SPLITS)
+
 
 def format_floats(
     run_configs: list[dict],
@@ -134,19 +136,29 @@ linear_hyperparameters = {
     "n_epoch": NEPOCH,
     "inflater_bound": INFLATER_BOUND,
 }
-product_hyperparameters = {
-    "activation_fn_name": ACTIVATION_FNS,
-    "optimiser": OPTIMISERS,
-    "orth_reg_strategy": ORTH_REG_STRATEGIES,
-    "use_layer_bias": USE_BIAS,
-    "nn_init_fn": NN_INIT_FN,
-    "multiheaded": MULTIHEADED,
-    "standardise_features": STANDARDISE_FEATURES,
-    "sync_encoder_inflater_reg": SYNC_ENCODER_INFLATER_REG,
-    "freeze_medians": FREEZE_MEDIANS,
-    "use_early_stopping": USE_EARLY_STOP,
-    "samples": SPLITS,
-}
+
+
+# Default product hyperparameters (uses global SPLITS)
+def get_product_hyperparameters(splits=None):
+    if splits is None:
+        splits = SPLITS
+    return {
+        "activation_fn_name": ACTIVATION_FNS,
+        "optimiser": OPTIMISERS,
+        "orth_reg_strategy": ORTH_REG_STRATEGIES,
+        "use_layer_bias": USE_BIAS,
+        "nn_init_fn": NN_INIT_FN,
+        "multiheaded": MULTIHEADED,
+        "standardise_features": STANDARDISE_FEATURES,
+        "sync_encoder_inflater_reg": SYNC_ENCODER_INFLATER_REG,
+        "freeze_medians": FREEZE_MEDIANS,
+        "use_early_stopping": USE_EARLY_STOP,
+        "samples": splits,
+    }
+
+
+# Keep backward compatibility
+product_hyperparameters = get_product_hyperparameters()
 
 
 def generate_linear_scan(
@@ -154,7 +166,11 @@ def generate_linear_scan(
     starts: list[str],
     select_central_values: bool,
     params_to_scan: list = None,
+    splits: set = None,
 ):
+    # Get product hyperparameters with the appropriate splits
+    current_product_hyperparameters = get_product_hyperparameters(splits)
+
     # Check that all hyperparameter options are dicts (central value, range)
     if not all(
         isinstance(hyperparam, dict)
@@ -195,11 +211,11 @@ def generate_linear_scan(
     # TODO: fix this, this does not work! (linear scans ok, cartesian product broken)
     # product expand for product hyperparameters
     for param in scan_attributes:
-        if param in product_hyperparameters:
+        if param in current_product_hyperparameters:
             linear_scan_configs = [
                 {**config, **{param: value}}
                 for config in linear_scan_configs
-                for value in product_hyperparameters[param]
+                for value in current_product_hyperparameters[param]
             ]
 
     # Set multiheaded to False if context is not multimodal
@@ -218,6 +234,7 @@ def generate_run_configs(
     n_starts: int,
     select_central_values: bool = False,
     params_to_scan: list = None,
+    splits: set = None,
 ):
     STARTS = [str(i) for i in range(n_starts)]
     return generate_linear_scan(
@@ -225,6 +242,7 @@ def generate_run_configs(
         starts=STARTS,
         select_central_values=select_central_values,
         params_to_scan=params_to_scan,
+        splits=splits,
     )
 
 

@@ -162,7 +162,7 @@ CONTEXTS_FEATURES = [
 
 # Cross-validation splits
 SPLITS = {
-    "all",
+    # "all",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
@@ -526,11 +526,21 @@ PATHWAYS_1A = [
     "EGFR_MAPK__logobs_tegfr_aggavg",
 ]
 
+SPLITS_1A = {
+    "BT20",
+    "HCC1500",
+    "HCC2185",
+    "MCF7",
+    "UACC3199",
+}
+
 
 # Figure 1B
 CONTEXTS_FEATURES_1B = CONTEXTS_FEATURES_1A
 
 PATHWAYS_1B = PATHWAYS_1A
+
+SPLITS_1B = SPLITS_1A
 
 
 # Figure 1C
@@ -575,20 +585,18 @@ CONTEXTS_FEATURES_1C = (
 
 PATHWAYS_1C = PATHWAYS_1A
 
+SPLITS_1C = SPLITS_1A
+
 
 # Figure 2
 CONTEXTS_FEATURES_2 = [
     ("cytof_init", "RFE_15_permute"),
     ("cytof_init_plus_tEGFR", "RFE_15_permute"),
     ("cytof_init_plus_pEGFR", "RFE_15_permute"),
-    (
-        "cytof_init_plus_lb",
-        "RFE_15_permute",
-    ),  # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    (
-        "cytof_init_plus_intr",
-        "RFE_15_permute",
-    ),  # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    # one-hot-encoded luminal/basal subtype from Marcotte et al.
+    ("cytof_init_plus_lb", "RFE_15_permute"),
+    # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
+    ("cytof_init_plus_intr", "RFE_15_permute"),
 ]
 
 
@@ -596,6 +604,8 @@ PATHWAYS_2 = [
     "EGFR_MAPK__logobs",
     "EGFR_MAPK__logobs_fegfr_aggavg",
 ]
+
+SPLITS_2 = SPLITS_1A
 
 
 # Figure 3
@@ -617,17 +627,23 @@ PATHWAYS_3 = [
     "EGFR_MAPK__logobs_perbb3_aggavg",
 ]
 
+SPLITS_3 = {"all", "all_plus_missingtx"}
+
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
 CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
 PATHWAYS_3B = [
     "EGFR_MAPK__logobs_tegfr_aggavg",
 ]
 
+SPLITS_3B = SPLITS_3
+
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
     ("cytof_init", "RFE_15_permute"),
 ]
 PATHWAYS_3C = PATHWAYS_3
+
+SPLITS_3C = SPLITS_3
 
 # Figure 4
 CONTEXTS_FEATURES_4 = [
@@ -638,22 +654,15 @@ PATHWAYS_4 = [
     # Base
     "EGFR_MAPK__logobs",
     "EGFR_MAPK__logobs_tegfr_aggavg",
-    # # Baselines
-    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1",
-    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_aggavg",
     # # Growth Factors
-    # "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-    # "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
-    # # Baselines and Growth Factors
-    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2",
-    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+    "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+    "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
     # Mutations
     "EGFR_MAPK__logobs_mbraf_mkras",
     "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
-    # # All components
-    # "EGFR_MAPK__logobs_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras",
-    # "EGFR_MAPK__logobs_tegfr_begfr_berbb2_bmek_brps6ka1_ttgfa_tbtc_tereg_tnrg1_tnrg2_mbraf_mkras_aggavg",
 ]
+
+SPLITS_4 = SPLITS_3
 
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
@@ -662,6 +671,75 @@ CONTEXTS_FEATURES_5 = [
 PATHWAYS_5 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
 ]
+
+SPLITS_5 = {
+    "BT20",
+    "HCC1500",
+    "HCC2185",  # re-added 15.10.2025
+    "MCF7",
+    "UACC3199",
+    # Remaining cell-lines for LOOCV
+    # Subchallenge IV - complete cell lines
+    "184A1",
+    "BT474",
+    "BT549",
+    "CAL148",
+    "CAL851",
+    "CAL51",
+    "DU4475",
+    "EFM192A",
+    "EVSAT",
+    "HBL100",
+    "HCC1187",
+    "HCC1395",
+    "HCC1419",
+    "HCC1569",
+    # "HCC1599",  # outlier
+    "HCC1937",
+    "HCC1954",
+    "HCC2157",  # no transcriptomic data
+    "HCC3153",
+    "HCC38",
+    "HCC70",
+    "HDQP1",
+    "JIMT1",
+    "MCF10A",
+    "MCF10F",  # no transcriptomic data
+    "MDAMB134VI",
+    "MDAMB157",
+    "MDAMB175VII",
+    "MDAMB361",
+    "MDAMB415",
+    "MDAMB453",
+    "MDAkb2",  # no transcriptomic data
+    "MFM223",
+    "MPE600",
+    "MX1",
+    "OCUBM",
+    "T47D",
+    "UACC812",
+    "UACC893",
+    "ZR7530",
+    # Subchallenge 2
+    "184B5",
+    "BT483",
+    "HCC1428",
+    "HCC1806",
+    "HCC202",
+    "Hs578T",
+    "MCF12A",
+    "MDAMB231",
+    "MDAMB468",
+    "SKBR3",
+    "ZR751",
+    # Subchallenge 1
+    "AU565",
+    "EFM19",
+    "HCC2218",
+    "LY2",
+    "MACLS2",
+    "MDAMB436",
+}
 
 modifications = [
     # baselines
@@ -692,7 +770,6 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure1b": CONTEXTS_FEATURES_1B,
     "figure1c": CONTEXTS_FEATURES_1C,
     "figure2": CONTEXTS_FEATURES_2,
-    # "figure2b": CONTEXTS_FEATURES_2B,
     "figure3": CONTEXTS_FEATURES_3,
     "figure3b": CONTEXTS_FEATURES_3B,
     "figure3c": CONTEXTS_FEATURES_3C,
@@ -712,6 +789,20 @@ PATHWAYS_BY_FIGURE = {
     "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
     "figure5": PATHWAYS_5,
+}
+
+SPLITS_BY_FIGURE = {
+    "default": SPLITS,
+    "figure1a": SPLITS_1A,
+    "figure1b": SPLITS_1B,
+    "figure1c": SPLITS_1C,
+    "figure2": SPLITS_2,
+    # "figure2b": SPLITS_2B,
+    "figure3": SPLITS_3,
+    "figure3b": SPLITS_3B,
+    "figure3c": SPLITS_3C,
+    "figure4": SPLITS_4,
+    "figure5": SPLITS_5,
 }
 
 SELECT_CENTRAL_VALUES_BY_FIGURE = {

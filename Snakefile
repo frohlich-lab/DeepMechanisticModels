@@ -17,8 +17,9 @@ from common import (
 from generate_run_configs import generate_run_configs
 from pathlib import Path
 from training_configuration import (
-    DATASETS, SPLITS,
+    DATASETS,
     CONTEXTS_FEATURES_BY_FIGURE,
+    SPLITS_BY_FIGURE,
     PATHWAYS_BY_FIGURE,
     SELECT_CENTRAL_VALUES_BY_FIGURE,
     PARAMS_TO_SCAN
@@ -303,32 +304,20 @@ rule evaluate_all:
         ],
         reference=expand(
             rules.evaluate_references.output.csv,
-            model='{model}',data='{data}', samples=SPLITS,
+            model='{model}',data='{data}', samples=SPLITS_BY_FIGURE[FIGURE],
         ) + [
             expand(
                 rules.evaluate_regressors.output.csv,
-                model='{model}', data='{data}', samples=SPLITS,
+                model='{model}', data='{data}', samples=SPLITS_BY_FIGURE[FIGURE],
                 context=context, features=features
             )
             for context, features in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]
         ]
-    output:  # TODO @GiacomoFabrini -- need to edit output plots and csvs
-        # plot=[
-            # EVALUATE_ALL.format_map(SafeDict(group=group))
-            # for group in (
-                # 'n_hidden',
-                # 'reconstruct', 'activation_fn_name',
-                # 'orth_reg_strategy',
-                # 'l1reg_encode', 'l1reg_inflate', 'oreg_encode', 'oreg_inflate', 'recon_loss', 'symm_reg',
-                # 'heatmaps_n_hidden_pairwise',
-                # 'volcano_plot_stat_test',
-            # )
-        # ],
+    output:
         csv=[
             EVALUATE_ALL_CSVS.format_map(SafeDict(filename=filename))
             for filename in (
                 f'evaluate_all_{FIGURE}',
-                # 'stat_tests_all',
             )
         ]
     resources:
