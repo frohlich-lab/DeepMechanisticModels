@@ -56,7 +56,6 @@ def contextualize_measurements(
         "proteomics",
         "cytof_init",
         "cytof_init_pca",
-        "cytof_init_ALL",
         "cytof_dynamic",
         "cytof_dynamic_pca",
         "cytof_dynamic_full",
@@ -408,7 +407,13 @@ def load_data(
 
     if features and len(input_data):
         # for prediction, use feature set computed on training data
+        # subsetting + pivoting in contextualize_measurements will lead to
+        # dropping of features in the validation/test
+        for f in features:
+            if f not in input_data.columns:
+                input_data[f] = np.nan
         input_data = input_data[features]
+
     elif features:
         input_data = pd.DataFrame(columns=features, data=[])
     else:
