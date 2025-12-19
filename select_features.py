@@ -660,6 +660,7 @@ for ctx, feat_spec in recipe:
         maybe_output_train=output_train_imputed,
         do_prefix=conf.context == "multimodal" or len(recipe) > 1,
     )
+    print(f"Selected features for context {ctx}: {sel}")
     parts_train.append(tr)
     parts_val.append(va)
 

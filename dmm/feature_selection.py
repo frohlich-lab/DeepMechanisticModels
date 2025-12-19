@@ -25,14 +25,31 @@ from common import features_dir
 from dmm.initialisation import get_features, impute_features
 
 
+class DropNaNColumns(BaseEstimator, TransformerMixin):
+    """Drop columns based on a precomputed boolean mask."""
+
+    _keep_cols: pd.Index | None
+
+    def __init__(self, keep_cols: pd.Index | None = None):
+        self._keep_cols = keep_cols
+
+    def fit(self, X: pd.DataFrame, y=None):
+        if self._keep_cols is None:
+            self._keep_cols = X.columns[X.isna().mean() == 0.0]
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        return X.loc[:, self._keep_cols]
+
+
 def contextualize_measurements(
     measurement_table: pd.DataFrame,
     observable_table: pd.DataFrame,
     contextualization: str,
     samples: list[str],
     impute: bool = True,  # only affects cytof_init - if False, recovers previous behaviour
-    imputer: Optional[KNNImputer] = None,
-) -> tuple[pd.DataFrame, KNNImputer | None]:
+    imputer: Optional[Pipeline] = None,
+) -> tuple[pd.DataFrame, Pipeline | None]:
     # Check requested contextualization is available
     if contextualization not in (
         "transcriptomics",
@@ -75,6 +92,12 @@ def contextualize_measurements(
         input_measurements = input_measurements[
             input_measurements[petab.TIME] == 0
         ]
+
+    # subset to samples:
+    input_measurements = input_measurements[
+        input_measurements[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples)
+    ]
+
     if contextualization.split("_")[0] == "cytof":
         # Split SIMULATION_CONDITION_ID and keep the stimulus info (0th is cell line, 1st is stimulus)
         input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
@@ -113,24 +136,22 @@ def contextualize_measurements(
                         aggfunc="mean",
                     )
                 )
-                # Filter out too many nans, including misaligned timepoints that have just been aligned
-                harmonised_cytof_dynamic = harmonised_cytof_dynamic.loc[
-                    :,
-                    harmonised_cytof_dynamic.isna().sum()
-                    / harmonised_cytof_dynamic.shape[0]
-                    < 0.3,
-                ]
-                # Fit imputer on training samples, transform train + val samples
+                # Fit imputer pipeline on training samples, transform train + val samples
                 if imputer is None:
-                    samples_train = samples
-
-                    imputer = KNNImputer()
-                    imputer.fit(
-                        harmonised_cytof_dynamic.loc[samples_train, :].values
+                    # Fit DropNaNColumns with threshold-based column selection
+                    keep_cols = harmonised_cytof_dynamic.columns[
+                        harmonised_cytof_dynamic.isna().mean() < 0.3
+                    ]
+                    imputer = Pipeline(
+                        [
+                            ("dropnan", DropNaNColumns(keep_cols=keep_cols)),
+                            ("impute", KNNImputer()),
+                        ]
                     )
+                    imputer.fit(harmonised_cytof_dynamic)
                 input_data = pd.DataFrame(
-                    imputer.transform(harmonised_cytof_dynamic.values),
-                    columns=harmonised_cytof_dynamic.columns,
+                    imputer.transform(harmonised_cytof_dynamic),
+                    columns=imputer.named_steps["dropnan"]._keep_cols,
                     index=harmonised_cytof_dynamic.index,
                 )
                 # subset to EGF and time 0
@@ -294,7 +315,7 @@ def load_data(
     observable_table,
     features_filepath=None,
     impute: bool = True,
-    imputer: Optional[KNNImputer] = None,
+    imputer: Optional[Pipeline] = None,
     transform: Optional[callable] = None,
 ):
     if contextualization not in ["MOSA", "seqvar"]:
@@ -355,18 +376,6 @@ def load_data(
 
     if not transform and contextualization.split("_")[-1] == "pca":
 
-        class DropNaN(BaseEstimator, TransformerMixin):
-            _isnotna: pd.Series
-
-            def __init__(self, _isnotna):
-                self._isnotna = _isnotna
-
-            def fit(self, X, y=None):
-                return self
-
-            def transform(self, X):
-                return X.loc[:, self._isnotna]
-
         class ConvertDataFrame(BaseEstimator, TransformerMixin):
             def fit(self, X, y=None):
                 return self
@@ -377,11 +386,11 @@ def load_data(
                     columns=[f"pca_{i}" for i in range(X.shape[1])],
                 )
 
-        _isnotna = input_data.isna().mean() == 0.0
+        _isnotna = input_data.columns[input_data.isna().mean() == 0.0]
 
         pipeline = Pipeline(
             [
-                ("dropnan", DropNaN(_isnotna)),
+                ("dropnan", DropNaNColumns(keep_cols=_isnotna)),
                 ("pca", PCA(n_components=0.95)),
                 ("df", ConvertDataFrame()),
             ]
