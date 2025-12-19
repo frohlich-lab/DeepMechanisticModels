@@ -19,7 +19,6 @@ def generate_parameter_table(
     observable_table: pd.DataFrame,
     features: List[pysb.Parameter],
 ) -> pd.DataFrame:
-
     if "__" in model.name:
         modifications = model.name.split("__")[1].split("_")
     else:
@@ -27,9 +26,9 @@ def generate_parameter_table(
 
     conds = measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].unique()
 
-    missing_params =  [
-        'MED_ERBB2_p_Y1248_iEGFR_0_kw',
-        'MED_EGFR_p_Y1173_iEGFR_0_kw',
+    missing_params = [
+        "MED_ERBB2_p_Y1248_iEGFR_0_kw",
+        "MED_EGFR_p_Y1173_iEGFR_0_kw",
     ]
 
     # this defines the full set of parameters including boundaries, nominal
@@ -40,25 +39,43 @@ def generate_parameter_table(
         if (par.name not in condition_table.columns and par.name != "__k_t")
         # Avoid dropping mutation parameters for validation cell-lines (none of which exhibits those mutations)
         or (
-            ("m_BRAF_kw" in par.name and "mbraf" in modifications) or
-            ("m_KRAS_kw" in par.name and "mkras" in modifications)
+            ("m_BRAF_kw" in par.name and "mbraf" in modifications)
+            or ("m_KRAS_kw" in par.name and "mkras" in modifications)
         )
         # Handle MDA-MB-468
         or (
-            len(conds) == 1 and "cMDAMB468" in conds and par.name in missing_params
-           )
+            len(conds) == 1
+            and "cMDAMB468" in conds
+            and par.name in missing_params
+        )
     ]
 
     missing_erbb2_cell_lines = {
-        "cBT483", "cHCC1187", "cHCC1419", "cHCC1569", "cHCC1806", "cHCC1937", "cHCC70", "cMCF12A", "cMDAMB231",
-        "cMDAMB361", "cMDAMB453", "cMDAMB468", "cT47D", "cUACC893"
+        "cBT483",
+        "cHCC1187",
+        "cHCC1419",
+        "cHCC1569",
+        "cHCC1806",
+        "cHCC1937",
+        "cHCC70",
+        "cMCF12A",
+        "cMDAMB231",
+        "cMDAMB361",
+        "cMDAMB453",
+        "cMDAMB468",
+        "cT47D",
+        "cUACC893",
     }
 
     if petab.OBSERVABLE_PARAMETERS in measurement_table:
         if len(conds) == 1 and conds[0] in missing_erbb2_cell_lines:
             # Add all scaling and offsets (missing ERBB2)
             params += sorted(
-                [f"{obs}_{par_type}" for obs in observable_table.index for par_type in ["offset", "scale"]]
+                [
+                    f"{obs}_{par_type}"
+                    for obs in observable_table.index
+                    for par_type in ["offset", "scale"]
+                ]
             )
         else:
             params += sorted(
@@ -66,7 +83,8 @@ def generate_parameter_table(
                     par
                     for pars in measurement_table[petab.OBSERVABLE_PARAMETERS]
                     for par in pars.split(";")
-                    if par and any(obs in par for obs in observable_table.index)
+                    if par
+                    and any(obs in par for obs in observable_table.index)
                 }
             )
 
@@ -77,7 +95,6 @@ def generate_parameter_table(
                     param_check = f"t{marker}_obs_{param_type}"
                     if param_check not in params:
                         params.append(param_check)
-
 
     transforms = {"lin": lambda x: x, "log10": lambda x: np.power(10.0, x)}
 
@@ -158,25 +175,24 @@ def load_petab(
     in order to define the loss function of the autoencoder up to the
     inflated parameters
     """
-    # TEMPORARY: filter out baseline data
     measurement_table = measurement_table[
         np.logical_or(
             # dynamic cytof data
-            measurement_table[petab.SIMULATION_CONDITION_ID]
-            != measurement_table[petab.PREEQUILIBRATION_CONDITION_ID],
+            measurement_table["measurementType"] == "cytof",
             # proteomics for pobs
             measurement_table[petab.OBSERVABLE_ID].str.startswith(
-                ("tEGFR_obs", "tERBB2_obs", )
+                ("pEGFR_obs", "pERBB2_obs", "pERBB3_obs")
             )
             & (measurement_table["measurementType"] == "proteomics"),
         )
     ]
 
     if samples:
-        measurement_table = measurement_table[
-            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(
-                samples
-            )
+        measurement_table = measurement_table.loc[
+            measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].apply(
+                lambda s: s.split("__")[0] in samples,
+            ),
+            :,
         ]
         condition_table = condition_table.loc[
             [c for c in condition_table.index if c.split("__")[0] in samples],
@@ -255,16 +271,32 @@ def filter_observables(petab_problem: petab.Problem):
         for p in r[petab.OBSERVABLE_PARAMETERS].split(";")
     }
     missing_erbb2_cell_lines = {
-        "cBT483", "cHCC1187", "cHCC1419", "cHCC1569", "cHCC1806", "cHCC1937", "cHCC70", "cMCF12A", "cMDAMB231",
-        "cMDAMB361", "cMDAMB453", "cMDAMB468", "cT47D", "cUACC893"
+        "cBT483",
+        "cHCC1187",
+        "cHCC1419",
+        "cHCC1569",
+        "cHCC1806",
+        "cHCC1937",
+        "cHCC70",
+        "cMCF12A",
+        "cMDAMB231",
+        "cMDAMB361",
+        "cMDAMB453",
+        "cMDAMB468",
+        "cT47D",
+        "cUACC893",
     }
-    cell_lines = petab_problem.measurement_df[petab.PREEQUILIBRATION_CONDITION_ID].unique()
+    cell_lines = petab_problem.measurement_df[
+        petab.PREEQUILIBRATION_CONDITION_ID
+    ].unique()
     if len(cell_lines) == 1 and cell_lines[0] in missing_erbb2_cell_lines:
         obs_pars.add("pERBB2_Y1248_obs_offset")
         obs_pars.add("pERBB2_Y1248_obs_scale")
 
     if "__" in petab_problem.model.model.name:
-        modifications = petab_problem.model.model.name.split("__")[1].split("_")
+        modifications = petab_problem.model.model.name.split("__")[1].split(
+            "_"
+        )
     else:
         modifications = []
 

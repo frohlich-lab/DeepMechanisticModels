@@ -86,6 +86,9 @@ def contextualize_measurements(
                 )
             )
         ]
+    else:
+        raise ValueError(f"Unknown contextualization: {contextualization}")
+
     # For transcriptomics and proteomics, only keep time 0
     if contextualization in ("transcriptomics", "proteomics"):
         input_measurements = input_measurements[

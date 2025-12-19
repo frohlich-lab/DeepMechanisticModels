@@ -1,5 +1,4 @@
 import logging
-import re
 from pathlib import Path
 from typing import Tuple
 
@@ -11,7 +10,6 @@ import pypesto.objective
 import pypesto.objective.jax
 import pysb
 import pysb.export
-import sympy as sp
 
 from dmm.mechanistic_model import MechanisticModel
 from dmm.problem import ParameterBounds, Problem
@@ -40,57 +38,6 @@ class CytofProblem(Problem):
     @property
     def bounds(self) -> ParameterBounds:
         return BOUNDS
-
-    def load_amici(
-        self,
-        model: pysb.Model,
-        amici_dir: Path,
-        force_compile: bool = True,
-        add_observables: bool = False,
-        name_suffix: str = "",
-    ) -> Tuple[amici.AmiciModel, amici.AmiciSolver]:
-        outdir = amici_dir / (model.name + name_suffix)
-
-        # extend observables
-        if add_observables:
-            for obs in model.observables:
-                if re.match(r"[p|t][A-Z0-9]+[SYT0-9_]*", obs.name):
-                    offset = pysb.Parameter(obs.name + "_offset", 0.0)
-                    scale = pysb.Parameter(obs.name + "_scale", 1.0)
-                    pysb.Expression(
-                        obs.name + "_obs", sp.log(scale * obs + offset)
-                    )
-
-        if (
-            force_compile
-            or not (outdir / model.name / (model.name + ".py")).exists()
-        ):
-            outdir.mkdir(exist_ok=True, parents=True)
-            amici.pysb_import.pysb2amici(
-                model,
-                outdir,
-                verbose=logging.DEBUG,
-                observables=[
-                    expr.name
-                    for expr in model.expressions
-                    if expr.name.endswith("_obs")
-                    and not expr.name.startswith("free_")
-                ],
-                constant_parameters=[
-                    par.name
-                    for par in model.parameters
-                    if par.name.endswith("_0")
-                ],
-            )
-
-        model_module = amici.import_model_module(model.name, outdir)
-
-        amici_model = model_module.getModel()
-        solver = amici_model.getSolver()
-
-        self.apply_solver_settings(solver)
-
-        return amici_model, solver
 
     def load_pysb(self) -> pysb.Model:
         mechanistic_model = MechanisticModel(self.model_name)
@@ -165,11 +112,23 @@ class CytofProblem(Problem):
             # we do not want to reinitialize EGFR (or really anything else)
             e.reinitializeFixedParameterInitialStates = False
             fp = list(e.fixedParameters)
-            if "__" in e.id.split("+")[0]:  # perturbation conditions only
+            if (
+                "__" in e.id.split("+")[0]
+                and e.id.split("+")[0].split("__")[1] != "full"
+            ):  # perturbation conditions only
                 if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
                     fp[
                         amiobjective.amici_model.getFixedParameterIds().index(
                             "EGF_0"
+                        )
+                    ] = 0
+                if (
+                    "serum_0"
+                    in amiobjective.amici_model.getFixedParameterIds()
+                ):
+                    fp[
+                        amiobjective.amici_model.getFixedParameterIds().index(
+                            "serum_0"
                         )
                     ] = 0
                 e.fixedParametersPresimulation = tuple(fp)

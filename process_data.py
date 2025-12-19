@@ -12,7 +12,6 @@ from common import (
     data_dir,
 )
 from dmm.config_options import Conf
-from dmm.generate_data import generate_synthetic_data
 
 
 def observable_id_to_model_expr(
@@ -105,19 +104,6 @@ if __name__ == "__main__":
             measurement_table,
             condition_table,
         ) = problem.load_preprocess_petab_tables(model)
-    elif conf.data.startswith("synthetic"):
-        N_HIDDEN = 6
-        N_SAMPLES = int(conf.data.split("_")[1])
-        condition_table, measurement_table = generate_synthetic_data(
-            problem,
-            data_dir,
-            conf.data,
-            latent_dimension=N_HIDDEN,
-            n_samples=N_SAMPLES,
-            std_measurements=float(conf.data.split("_")[2]),
-            std_features=float(conf.data.split("_")[3]),
-            n_features=200,
-        )
     else:
         raise RuntimeError("Unknown dataset!")
 
