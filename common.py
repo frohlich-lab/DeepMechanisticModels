@@ -177,6 +177,7 @@ EVALUATE_ALL_CSVS = str(
 )
 
 hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
+test_samples = ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
 
 
 def training_samples(wildcards) -> List[str]:
@@ -188,14 +189,18 @@ def training_samples(wildcards) -> List[str]:
             for sample in samples
             if sample not in missing_transcriptomics
         ]
-    return [sample for sample in samples if sample != f"c{wildcards.samples}"]
+    if wildcards.samples not in ("all", "all_plus_missingtx"):
+        samples = [sample for sample in samples if sample not in test_samples]
+    return [
+        sample for sample in samples if sample not in val_samples(wildcards)
+    ]
 
 
 def val_samples(wildcards) -> List[str]:
     return (
         [f"c{wildcards.samples}"]
         if wildcards.samples not in ("all", "all_plus_missingtx")
-        else ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
+        else test_samples
     )
 
 

@@ -303,7 +303,7 @@ def get_selected_features(
 
         return [g for g in input_data.columns if g in list]
 
-    elif features.startswith("RFE_") or features.startswith("HVGRFE_"):
+    elif features.startswith(("RFE_", "HVGRFE_")):
         reduce_factor = 0.80
         # drop nans, this shouldnt do anything
         input_data = input_data.dropna(axis=1, how="any")
