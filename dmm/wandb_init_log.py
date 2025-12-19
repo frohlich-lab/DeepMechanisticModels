@@ -184,7 +184,7 @@ def init_wandb(
         # v76_fig2: clean repo, figure 2 runs (base vs fEGFR model variants) - post figures_ff merge
         # v76_fig1b: clean repo, ML scans
         # v77 updated docker image
-        project=f"DeepMechanisticModels.v77_fig3.{conf.data}",
+        project=f"DeepMechanisticModels.v77.{conf.data}.{conf.figure}",
         group=group,
         config={
             **conf.to_dict(),
