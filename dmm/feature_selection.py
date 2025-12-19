@@ -148,6 +148,10 @@ def contextualize_measurements(
                         ]
                     )
                     imputer.fit(harmonised_cytof_dynamic)
+                else:
+                    for c in imputer.named_steps["dropnan"]._keep_cols:
+                        if c not in harmonised_cytof_dynamic.columns:
+                            harmonised_cytof_dynamic[c] = np.nan
                 input_data = pd.DataFrame(
                     imputer.transform(harmonised_cytof_dynamic),
                     columns=imputer.named_steps["dropnan"]._keep_cols,
