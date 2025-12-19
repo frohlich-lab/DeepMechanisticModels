@@ -790,7 +790,6 @@ PATHWAYS_BY_FIGURE = {
     "figure1b": PATHWAYS_1B,
     "figure1c": PATHWAYS_1C,
     "figure2": PATHWAYS_2,
-    # "figure2b": PATHWAYS_2B,
     "figure3": PATHWAYS_3,
     "figure3b": PATHWAYS_3B,
     "figure3c": PATHWAYS_3C,
@@ -804,7 +803,6 @@ SPLITS_BY_FIGURE = {
     "figure1b": SPLITS_1B,
     "figure1c": SPLITS_1C,
     "figure2": SPLITS_2,
-    # "figure2b": SPLITS_2B,
     "figure3": SPLITS_3,
     "figure3b": SPLITS_3B,
     "figure3c": SPLITS_3C,
@@ -818,7 +816,6 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure1b": False,  # ML param scans
     "figure1c": True,  # feature scan only
     "figure2": True,
-    # "figure2b": True,
     "figure3": True,
     "figure3b": False,  # scan (but subset to params below)
     "figure3c": False,  # scan (but subset to params below)
@@ -832,7 +829,6 @@ PARAMS_TO_SCAN = {
     "figure1b": None,
     "figure1c": None,
     "figure2": None,
-    # "figure2b": None,
     "figure3": None,
     "figure3b": ["n_hidden"],  # only n_hidden
     "figure3c": ["n_hidden", "depth"],  # only n_hidden
