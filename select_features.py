@@ -21,7 +21,7 @@ from dmm.feature_selection import (
     load_data,
     preprocess_mosa_latent,
 )
-from training_configuration import DROP_HER2_FROM_FEATURES, SPLITS
+from training_configuration import DROP_HER2_FROM_FEATURES
 from util import load_petab_base_files
 
 # Path for caching MSigDB GMT data
@@ -635,24 +635,12 @@ del petab_base_files["condition_table"]
 if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
     raise ValueError(f"{conf.context} not available for CV split")
 
-samples_train = {
-    split: sorted(training_samples(Wildcards(conf.data, split)))
-    for split in sorted(SPLITS)
-}
-samples_val = {
-    split: sorted(val_samples(Wildcards(conf.data, split)))
-    for split in sorted(SPLITS)
-}
-# Add support for "all", i.e. train on all samples, validate on none
-samples_train["all"] = sorted(training_samples(Wildcards(conf.data, "all")))
-samples_val["all"] = sorted(val_samples(Wildcards(conf.data, "all")))
-
 recipe = build_context_feature_recipe(conf)
 
 # Preload output (cytof_dynamic) once for the split (used by supervised selectors)
 output_train_raw, _, _, _ = load_data(
     contextualization="cytof_dynamic",
-    samples=samples_train[conf.samples],
+    samples=training_samples(Wildcards(conf.data, conf.samples)),
     features=None,
     **petab_base_files,
 )
@@ -676,8 +664,10 @@ for ctx, feat_spec in recipe:
     subconf = replace(conf, context=ctx, features=feat_spec)
     tr, va, sel = prepare_inputs_for_context(
         subconf=subconf,
-        samples_train_split=samples_train[conf.samples],
-        samples_val_split=samples_val[conf.samples],
+        samples_train_split=training_samples(
+            Wildcards(conf.data, conf.samples)
+        ),
+        samples_val_split=val_samples(Wildcards(conf.data, conf.samples)),
         feature_spec_str=feat_spec,
         petab_base_files=petab_base_files,
         maybe_output_train=output_train_imputed,

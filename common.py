@@ -1,7 +1,9 @@
 import os
+import re
 from collections import namedtuple
 from pathlib import Path
-from typing import List
+
+import numpy as np
 
 from cytof import get_samples
 from dmm.config_options import scan_attributes
@@ -180,31 +182,39 @@ hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
 test_samples = ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
 
 
-def training_samples(wildcards) -> List[str]:
+def training_samples(wildcards) -> list[str]:
     samples = get_samples(wildcards.data)
-    if wildcards.samples != "all_plus_missingtx":
+    # filter out samples with missing transcriptomics data
+    if "plus_missingtx" not in wildcards.samples:
         missing_transcriptomics = ["cHCC2157", "cMCF10F", "cMDAkb2"]
         samples = [
             sample
             for sample in samples
             if sample not in missing_transcriptomics
         ]
-    if wildcards.samples not in ("all", "all_plus_missingtx"):
-        samples = [sample for sample in samples if sample not in test_samples]
-    return [
+    # filter out test samples
+    samples = [sample for sample in samples if sample not in test_samples]
+    # filter out validation samples
+    samples = [
         sample for sample in samples if sample not in val_samples(wildcards)
     ]
+    # subsample if specified
+    if m := re.search(r"_(\d+)pct", wildcards.samples):
+        n_samples = int(len(samples) * int(m.group(1)) / 100)
+        np.random.seed(0)
+        samples = np.random.choice(samples, n_samples, replace=False).tolist()
+    return samples
 
 
-def val_samples(wildcards) -> List[str]:
+def val_samples(wildcards) -> list[str]:
     return (
         [f"c{wildcards.samples}"]
-        if wildcards.samples not in ("all", "all_plus_missingtx")
+        if not wildcards.samples.startswith("all_")
         else test_samples
     )
 
 
-def per_sample_pretraining_train(wildcards) -> List[str]:
+def per_sample_pretraining_train(wildcards) -> list[str]:
     return [
         PER_SAMPLE_OUTFILE_PARS.format(
             sample=sample, model=wildcards.model, data=wildcards.data
@@ -213,41 +223,13 @@ def per_sample_pretraining_train(wildcards) -> List[str]:
     ]
 
 
-def per_sample_pretraining_test(wildcards) -> List[str]:
+def per_sample_pretraining_test(wildcards) -> list[str]:
     return [
         PER_SAMPLE_OUTFILE_PARS.format(
             sample=sample, model=wildcards.model, data=wildcards.data
         )
         for sample in val_samples(wildcards)
     ]
-
-
-# Does not appear to be used?!
-# def select_values(data, num_selected: int):
-#     # Convert the generator to a list
-#     data_list = list(data)
-#
-#     # Generate log-spaced indices
-#     num_values = len(data_list)
-#
-#     if num_values <= 1:
-#         return data_list
-#
-#     indices = set(
-#         np.logspace(
-#             0,
-#             np.log10(num_values - 1),
-#             num=min(num_selected, num_values),
-#             endpoint=True,
-#             base=10,
-#             dtype=int,
-#         )
-#     )
-#
-#     # Select values based on the indices
-#     selected_values = [data_list[i] for i in indices]
-#
-#     return selected_values
 
 
 # Tognetti et al. PAM 50 & luminal/basal, Figure 2, manually extracted
