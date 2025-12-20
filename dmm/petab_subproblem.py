@@ -24,7 +24,13 @@ def generate_parameter_table(
     else:
         modifications = []
 
-    conds = measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].unique()
+    conds = [
+        c
+        for c in measurement_table[
+            petab.PREEQUILIBRATION_CONDITION_ID
+        ].unique()
+        if not c.endswith("__full")
+    ]
 
     missing_params = [
         "MED_ERBB2_p_Y1248_iEGFR_0_kw",

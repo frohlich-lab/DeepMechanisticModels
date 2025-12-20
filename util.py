@@ -52,59 +52,6 @@ def load_petab_base_files(conf: Conf) -> Dict[str, pd.DataFrame]:
     }
 
 
-# def load_models(
-#     conf: Conf,
-#     dataset: str = "train",
-# ) -> Tuple[
-#     Union[
-#         DeepMechanisticModel,
-#         Tuple[DeepMechanisticModel, DeepMechanisticModel],
-#     ],
-#     CytofProblem,
-# ]:
-#     problem = CytofProblem(conf.model)
-#
-#     petab_base_files = load_petab_base_files(conf)  # this used reweight=True, but we dropped reweighing
-#
-#     features_train = pd.read_csv(
-#         FEATURES_OUTFILE.format_map(dict(**.to_dict(), dataset="train")),
-#         index_col=0,
-#     )
-#
-#     dmm_train = DeepMechanisticModel(
-#         problem,
-#         conf.data,
-#         conf.n_hidden,
-#         conf.orth_reg_strategy,
-#         **petab_base_files,
-#         features=features_train,
-#         n_threads=conf.threads,
-#     )
-#
-#     if dataset == "train":
-#         return dmm_train, problem
-#
-#     features_test = pd.read_csv(
-#         FEATURES_OUTFILE.format_map(dict(**.to_dict(), dataset="val")),
-#         index_col=0,
-#     )
-#
-#     dmm_test = DeepMechanisticModel(
-#         problem,
-#         conf.data,
-#         conf.n_hidden,
-#         conf.orth_reg_strategy,
-#         **petab_base_files,
-#         features=features_test,
-#         n_threads=conf.threads,
-#         pca=dmm_train.pca,
-#     )
-#     if dataset == "train+test":
-#         return (dmm_train, dmm_test), problem
-#
-#     return dmm_test, problem
-
-
 def generate_startpoint(
     conf: Conf,
     model: DeepMechanisticModel,
