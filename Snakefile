@@ -216,7 +216,7 @@ rule estimate_parameters:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
             for arg in scan_attributes
-        ) + ' --threads={resources.threads} --date_tag={DATE_TAG}'
+        ) + ' --threads={resources.threads} --date_tag={DATE_TAG} --figure={FIGURE}'
 
 rule evaluate_training:
     input:
