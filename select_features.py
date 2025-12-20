@@ -1,3 +1,4 @@
+import json
 import re
 from dataclasses import replace
 from pathlib import Path
@@ -22,6 +23,31 @@ from dmm.feature_selection import (
 )
 from training_configuration import DROP_HER2_FROM_FEATURES, SPLITS
 from util import load_petab_base_files
+
+# Path for caching MSigDB GMT data
+MSIGDB_CACHE_PATH = (
+    Path(__file__).parent / "data" / "msigdb_c2cp_2025.1.Hs.json"
+)
+
+
+def load_msigdb_gmt() -> dict[str, list[str]]:
+    """Load MSigDB GMT data from local cache, fetching from web if not cached."""
+    if MSIGDB_CACHE_PATH.exists():
+        with open(MSIGDB_CACHE_PATH, "r") as f:
+            return json.load(f)
+
+    # Fetch from web and cache locally
+    from gseapy import Msigdb
+
+    msig = Msigdb()
+    gmt = msig.get_gmt(category="c2.cp", dbver="2025.1.Hs")
+
+    # Ensure cache directory exists
+    MSIGDB_CACHE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(MSIGDB_CACHE_PATH, "w") as f:
+        json.dump(gmt, f)
+
+    return gmt
 
 
 def get_feature_importances(model, X, y, method="auto"):
@@ -256,7 +282,7 @@ def get_selected_features(
 
     if features in curated_features or features.startswith("MSIGDB_"):
         if features in curated_features:
-            list = curated_features[features]
+            gene_list = curated_features[features]
         elif features.startswith("MSIGDB_"):
             gene_set = "_".join(features.split("_")[1:])
             gene_sets = {
@@ -295,13 +321,10 @@ def get_selected_features(
                 "WP_MAPK": "WP_MAPK_SIGNALING",
                 "WP_P38": "WP_P38_MAPK_SIGNALING",
             }
-            from gseapy import Msigdb
+            gmt = load_msigdb_gmt()
+            gene_list = gmt[gene_sets[gene_set]]
 
-            msig = Msigdb()
-            gmt = msig.get_gmt(category="c2.cp", dbver="2025.1.Hs")
-            list = gmt[gene_sets[gene_set]]
-
-        return [g for g in input_data.columns if g in list]
+        return [g for g in input_data.columns if g in gene_list]
 
     elif features.startswith(("RFE_", "HVGRFE_")):
         reduce_factor = 0.80
