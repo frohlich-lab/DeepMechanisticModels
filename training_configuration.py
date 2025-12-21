@@ -19,145 +19,22 @@ modifications = [
     # "logobs",
 ]
 
-PATHWAYS = (
-    [
-        # "EGFR_MAPK",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1",
-        "EGFR_MAPK__logobs",
-        "EGFR_MAPK__logobs_tegfr_aggavg",
-        "EGFR_MAPK__logobs_tegfr_tbtc_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_tbtc_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_aggavg",
-        "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_tnrg1_tnrg2_aggavg",
-        "EGFR_MAPK__logobs_terbb3_aggavg",
-        "EGFR_MAPK__logobs_terbb3_tnrg1_tnrg2_aggavg",
-        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
-        # "EGFR_MAPK_AKT__logobs",
-        # "EGFR_MAPK_P38__logobs",
-        # "EGFR_MAPK_P38_AKT__logobs",
-        # "EGFR_MAPK__logobs_tegfr",
-        # "EGFR_MAPK__logobs_tegfr_terbb2",
-        # "EGFR_MAPK__logobs_tegfr_aggavg_pobs",
-        # "EGFR_MAPK__logobs_fegfr_aggavg_pobs",
-        # "EGFR_MAPK__logobs_fegfr_aggavg",
-        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
-        # "EGFR_MAPK__logobs_tegfr_aggavg",
-        # "EGFR_MAPK__logobs_tegfr_terbb2_aggavg",
-        # "EGFR_MAPK",
-        # "EGFR_MAPK__tegfr",
-        # "EGFR_MAPK__tegfr_aggavg",
-        # "EGFR_MAPK__tegfr_terbb2_aggavg",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_logobs",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_logobs",
-        # "EGFR_MAPK__begfr_berbb2_bmek_brps6ka1_tegfr_tereg_tnrg1_logobs",
-    ]
-    # + [
-    #     f"EGFR_MAPK__{'_'.join(sorted(['begfr', 'berbb2', 'bmek', 'brps6ka1', 'tegfr', 'ttgfa', 'tbtc', 'tereg', 'tnrg1', 'tnrg2'] + list(combo)))}"
-    #     for r in range(1, len(modifications) + 1)
-    #     for combo in combinations(modifications, r)
-    #     # "EGFR_MAPK_her2",
-    #     # "EGFR_MAPK_freeeq",
-    #     # "EGFR_MAPK_freeeq_tobs",
-    # ]
-)
+PATHWAYS = [
+    "EGFR_MAPK__logobs",
+    "EGFR_MAPK__logobs_tegfr_aggavg",
+    "EGFR_MAPK__logobs_tegfr_tbtc_aggavg",
+    "EGFR_MAPK__logobs_tegfr_terbb2_tbtc_aggavg",
+    "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_aggavg",
+    "EGFR_MAPK__logobs_tegfr_terbb2_terbb3_tbtc_tnrg1_tnrg2_aggavg",
+    "EGFR_MAPK__logobs_terbb3_aggavg",
+    "EGFR_MAPK__logobs_terbb3_tnrg1_tnrg2_aggavg",
+]
 
 DATASETS = ("dream_cytof",)
 
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
-    # ("cytof_init", "all"),
     ("cytof_init", "RFE_10_permute"),
-    # ("cytof_init_pca", "RFE_10_permute"),
-    # ("cytof_dynamic", "RFE_10_permute"),
-    # ("cytof_dynamic_pca", "RFE_10_permute"),
-    # ("cytof_dynamic", "RFE_10_permute"),
-    # ("cytof_dynamic_pca", "RFE_10_permute"),
-    # ("cytof_dynamic", "all"),  # only observables that are part of the model (for EGFR_MAPK: ERK, MEK)
-    # ("cytof_dynamic_full", "all"),  # all observables
-    # ("proteomics", "HVGRFE_6_permute"),
-    # ("transcriptomics", "all"),
-    # ("transcriptomics", "HVGRFE_6_permute"),
-    # ("transcriptomics", "PAM50"),
-    # ("transcriptomics", "IHC"),
-    # ("transcriptomics", "KRT"),
-    # ("multimodal", "optimal"),
-    # ("MOSA", "all"),
-    # (context, genomic_features)
-    # for genomic_features in [
-    #     "MSIGDB_KEGG_ERBB",
-    #     "MSIGDB_KEGG_MAPK",
-    #     "MSIGDB_KEGG_EGFR",
-    #     "MSIGDB_KEGG_RTK",
-    #     "MSIGDB_KEGG_ERK",
-    #     "MSIGDB_BIOCARTA_MAPK",
-    #     "MSIGDB_BIOCARTA_EGF",
-    #     "MSIGDB_BIOCARTA_ERK",
-    #     "MSIGDB_BIOCARTA_RAS",
-    #     "MSIGDB_BIOCARTA_P38",
-    #     "MSIGDB_PID_ERBB_DOWNSTREAM",
-    #     "MSIGDB_PID_ERBB_INTERN",
-    #     "MSIGDB_PID_ERBB_PROXIMAL",
-    #     "MSIGDB_PID_ERBB",
-    #     "MSIGDB_PID_RAS",
-    #     "MSIGDB_PID_MAPK",
-    #     "MSIGDB_PID_P38_DOWNSTREAM",
-    #     "MSIGDB_PID_P38",
-    #     "MSIGDB_REACTOME_EGFR_CANCER_VARIANTS",
-    #     "MSIGDB_REACTOME_EGFR_DOWNREGULATION",
-    #     "MSIGDB_REACTOME_EGFR",
-    #     "MSIGDB_REACTOME_EGFR_CANCER",
-    #     "MSIGDB_REACTOME_ERBB2_OVEREXPRESSION",
-    #     "MSIGDB_REACTOME_ERBB2",
-    #     "MSIGDB_REACTOME_ERBB2_CANCER",
-    #     "MSIGDB_REACTOME_ERK_TARGETS",
-    #     "MSIGDB_REACTOME_ERK",
-    #     "MSIGDB_REACTOME_MAPK",
-    #     "MSIGDB_REACTOME_MAPK_CANCER",
-    #     "MSIGDB_REACTOME_P38",
-    #     "MSIGDB_WP_EGFR",
-    #     "MSIGDB_WP_EGFR_RESISTANCE",
-    #     "MSIGDB_WP_MAPK",
-    #     "MSIGDB_WP_P38",
-    #     "PAM50",
-    #     "MEKFA",
-    #     "CompRes",
-    #     "MPAS",
-    #     "CSC",
-    #     "IHC",
-    #     "HVGRFE_5_permute",
-    #     "HVGRFE_10_permute",
-    #     "HVGRFE_15_permute",
-    #     "HVGRFE_20_permute",
-    #     "HVGRFE_5_tree",
-    #     "HVGRFE_10_tree",
-    #     "HVGRFE_15_tree",
-    #     "HVGRFE_20_tree",
-    #     "RFE_5_permute",
-    #     "RFE_10_permute",
-    #     "RFE_15_permute",
-    #     "RFE_20_permute",
-    #     "RFE_5_tree",
-    #     "RFE_10_tree",
-    #     "RFE_15_tree",
-    #     "RFE_20_tree",
-    # ]
-    # for context in ["transcriptomics", "proteomics"]
-    # if not (
-    #     context == "proteomics" and genomic_features == "MPAS"
-    # )  # not enough features
-    # (
-    #     context,
-    #     f"{'' if context in ('cytof_init', 'cytof_dynamic') else 'HVG'}RFE_{n_features}_permute",
-    # )
-    # for n_features in range(4, 4, 4)
-    # for context in [
-    #     # "transcriptomics",
-    #     # "proteomics",
-    #     "cytof_init",
-    #     # "cytof_dynamic",
-    # ]
 ]
 
 # Cross-validation splits
@@ -168,67 +45,6 @@ SPLITS = {
     "HCC2185",  # re-added 15.10.2025
     "MCF7",
     "UACC3199",
-    # Remaining cell-lines for LOOCV
-    # Subchallenge IV - complete cell lines
-    # "184A1",
-    # "BT474",
-    # "BT549",
-    # "CAL148",
-    # "CAL851",
-    # "CAL51",  # microsatellite instability (MSI)
-    # "DU4475",
-    # "EFM192A",
-    # "EVSAT",  # originally in validation set, removed after re-running Cytof Data Analysis on all cell-lines
-    # "HBL100",
-    # "HCC1187",
-    # "HCC1395",
-    # "HCC1419",
-    # "HCC1569",
-    # # "HCC1599",  # outlier
-    # "HCC1937",
-    # "HCC1954",
-    # "HCC2157",  # no transcriptomic data
-    # "HCC3153",
-    # "HCC38",
-    # "HCC70",
-    # "HDQP1",
-    # "JIMT1",
-    # "MCF10A",
-    # "MCF10F",  # no transcriptomic data
-    # "MDAMB134VI",
-    # "MDAMB157",
-    # "MDAMB175VII",
-    # "MDAMB361",
-    # "MDAMB415",
-    # "MDAMB453",
-    # "MDAkb2",  # no transcriptomic data
-    # "MFM223",
-    # "MPE600",
-    # "MX1",
-    # "OCUBM",
-    # "T47D",
-    # "UACC812",
-    # "UACC893",  # added 15.10.2025, removed on 02.12.2025 after re-running Cytof Data Analysis -> still present for LOOCV
-    # "ZR7530",
-    # Subchallenge 2
-    # "184B5",
-    # "BT483",
-    # "HCC1428",
-    # "HCC1806",
-    # "HCC202",
-    # "Hs578T",
-    # "MCF12A",
-    # "MDAMB231",
-    # "MDAMB468",
-    # "SKBR3",
-    # "ZR751",
-    # Subchallenge 1
-    # "AU565",
-    # "EFM19",
-    # "HCC2218",
-    # "LY2",
-    # "MACLS2",
-    # "MDAMB436",
 }
 
 STANDARDISE_FEATURES = {
@@ -323,13 +139,11 @@ ACTIVATION_FNS = (
 DROPOUT_RATES = {
     "range": (
         0,
-        0.02,
+        0.025,
         0.05,
         0.1,
-        0.15,
         0.2,
-        0.35,
-        0.5,
+        0.4,
     ),
     "central_value": 0.1,  # updated after v71_fig1b_p38
 }
@@ -350,22 +164,25 @@ ORTH_REG_STRATEGIES = (
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 L1_INFLATE_REGS = {
-    "range": (0,),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 0,
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
-OREG_INFLATE_REGS = {"range": (0,), "central_value": 0}
+OREG_INFLATE_REGS = {
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "central_value": 0,
+}
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
 L1_ENCODE_REGS = {
-    "range": (0,),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 0,
 }
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 OREG_ENCODE_REGS = {
-    "range": (0,),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 0,
 }
 
@@ -395,16 +212,26 @@ RECON_REGS = {
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
-SYMMETRY_REGS = {"range": (0,), "central_value": 0}
+SYMMETRY_REGS = {
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "central_value": 0,
+}
 
 # ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
-MEDIAN_REGS = {"range": (0,), "central_value": 0}
+MEDIAN_REGS = {
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "central_value": 0,
+}
 
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (200,),
+    "range": (
+        50,
+        100,
+        200,
+    ),
     "central_value": 200,
 }
 
@@ -452,11 +279,7 @@ OPT_MULT = {"range": (2,), "central_value": 2}
 
 # Weight-decay for AdamW / schedule-free AdamW
 WEIGHT_DECAY = {
-    "range": (
-        0.0,
-        # 1e-2,
-        # 1e-4,
-    ),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 0.0,
 }
 
@@ -599,13 +422,13 @@ SPLITS_1C = SPLITS_1B
 
 # Figure 2
 CONTEXTS_FEATURES_2 = [
-    ("cytof_init", "RFE_15_permute"),
-    ("cytof_init_plus_tEGFR", "RFE_15_permute"),
-    ("cytof_init_plus_pEGFR", "RFE_15_permute"),
+    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init_plus_tEGFR", "RFE_10_permute"),
+    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
     # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_lb", "RFE_15_permute"),
+    ("cytof_init_plus_lb", "RFE_10_permute"),
     # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_15_permute"),
+    ("cytof_init_plus_intr", "RFE_10_permute"),
 ]
 
 
@@ -619,7 +442,7 @@ SPLITS_2 = SPLITS_1B
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
-    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init", "RFE_10_permute"),
 ]
 
 PATHWAYS_3 = [
@@ -648,7 +471,7 @@ SPLITS_3B = SPLITS_3
 
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
-    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init", "RFE_10_permute"),
 ]
 PATHWAYS_3C = PATHWAYS_3
 
@@ -675,7 +498,7 @@ SPLITS_4 = SPLITS_3
 
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
-    ("cytof_init", "RFE_15_permute"),
+    ("cytof_init", "RFE_10_permute"),
 ]
 PATHWAYS_5 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
