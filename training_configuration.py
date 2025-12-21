@@ -515,9 +515,9 @@ SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater 
 
 # Figure 1A
 CONTEXTS_FEATURES_1A = [
-    ("cytof_init", "RFE_15_permute"),
-    ("proteomics", "HVGRFE_10_permute"),
-    ("transcriptomics", "HVGRFE_15_permute"),
+    ("cytof_init", "RFE_10_permute"),
+    ("proteomics", "HVGRFE_15_permute"),
+    ("transcriptomics", "HVGRFE_10_permute"),
     ("multimodal", "RFE_10_permute"),
 ]
 
