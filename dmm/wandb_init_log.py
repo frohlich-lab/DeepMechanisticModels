@@ -14,7 +14,6 @@ from .config_options import (
     L1IREG,
     L1REG_IO,
     L2REG_IO,
-    MEDIAN_REG,
     OEREG,
     OIREG,
     RECON_LOSS,
@@ -238,7 +237,6 @@ def init_wandb(
             L1IREG,
             L1REG_IO,
             L2REG_IO,
-            MEDIAN_REG,
         ]
     }
 

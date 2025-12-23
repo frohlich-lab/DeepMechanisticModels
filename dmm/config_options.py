@@ -178,7 +178,6 @@ L2REG_IO = "l2reg_inflater_output"
 IO_SPARSITY = "inflater_output_sparsity"
 RECON_LOSS = "recon_loss"
 SYMM_LOSS = "symm_reg"
-MEDIAN_REG = "median_reg"
 
 scan_attributes = [
     "model",
@@ -197,7 +196,6 @@ scan_attributes = [
     L2REG_IO,
     RECON_LOSS,
     SYMM_LOSS,
-    MEDIAN_REG,
     "inflater_output_reg_epoch",
     "job",
     "n_epoch",

@@ -18,7 +18,6 @@ from .config_options import (
     L1IREG,
     L1REG_IO,
     L2REG_IO,
-    MEDIAN_REG,
     ODREG,
     OEREG,
     OIREG,
@@ -112,7 +111,6 @@ def loss_fn(
         L1IREG: model.l1_inflate_reg(),
         L1REG_IO: model.l1reg_inflater_output(input_data, key),
         L2REG_IO: model.l2reg_inflater_output(input_data, key),
-        MEDIAN_REG: model.constrain_median(median_init_arr),
     }
 
     if conf.recon_loss > 0:

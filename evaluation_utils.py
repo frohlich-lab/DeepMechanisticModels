@@ -701,8 +701,6 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "depth",
         "nn_structure_multiplier",
         "inflater_output_reg_epoch",
-        "opt_steps",
-        "opt_mult",
         "job",
     ]
     for col in cols:
@@ -717,10 +715,6 @@ def convert_dataframe_dtypes(df: pd.DataFrame):
         "l1reg_inflater_output",  # inflater
         "recon_loss",
         "symm_reg",  # decoder / reconstruction
-        "median_reg",  # kinetic params median regularisation
-        "opt_steps",
-        "opt_mult",
-        "momentum",  # parameters that can be pruned by generate_run_configs
     ]
     for col in additional_cols:
         if col not in df.columns:
