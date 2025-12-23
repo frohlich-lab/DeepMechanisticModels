@@ -68,16 +68,10 @@ LATENT_DIMS = {
         2,
         3,
         4,
+        5,
         6,
-        8,
-        # 10,
-        # 12,
-        # 15,
-        # 20,
-        # 25,
-        # 30,
     ),
-    "central_value": 8,  # updated after v71 and v72 / then after v73 (samples + all, base & tEGFR)
+    "central_value": 4,  # updated in v79
 }
 
 # Network Layout/Architecture
@@ -139,7 +133,6 @@ ACTIVATION_FNS = (
 DROPOUT_RATES = {
     "range": (
         0,
-        0.025,
         0.05,
         0.1,
         0.2,
@@ -189,14 +182,15 @@ OREG_ENCODE_REGS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 L1_INFLATE_OUTPUT_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
-    "central_value": 1e-2,  # re-centering after v70
+    "range": (0, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "central_value": 1e-1,  # updated post v79
 }
 
 # THETAS: l2reg_inflater_output -- directly penalises the magnitude of non-negative cell-specific deviations
 L2_INFLATE_OUTPUT_REGS = {
     "range": (
         0,
+        1e1,
         1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
         1e3,
         1e4,
@@ -217,21 +211,11 @@ SYMMETRY_REGS = {
     "central_value": 0,
 }
 
-# ETAS: median_reg, median kinetic parameter regularisation scale hyperparameter
-MEDIAN_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
-    "central_value": 0,
-}
-
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (
-        50,
-        100,
-        200,
-    ),
+    "range": (200,),
     "central_value": 200,
 }
 
@@ -246,51 +230,6 @@ NN_INIT_SCALES = {
 # SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
 SPARSE_THRESH_PERCS = {"range": ("gmm",), "central_value": "gmm"}
 
-# LEARNING SCHEDULE HYPERPARAMETERS
-MAX_LEARNING_RATES = {
-    "range": (
-        # 1e-3,
-        # 5e-3,
-        1e-2,
-    ),
-    "central_value": 1e-2,
-}
-
-# LEARNING_RATE_SPANS: lrate_span, ratio between learning rate after warm-up and before warm-up within a schedule
-LEARNING_RATE_SPANS = {"range": (1e0,), "central_value": 1e0}
-
-# LEARNING_RATE_DECAYS: lrate_decay, decay factor between consecutive schedules
-LEARNING_RATE_DECAYS = {
-    "range": (
-        0.9**0,
-        # 0.9**1,
-    ),
-    "central_value": 0.9**0,
-}
-
-# WARMUP_FCTS: warmup_fct, fraction of epochs to be used for warmup within a given schedule
-WARMUP_FCTS = {"range": (0.0,), "central_value": 0.0}
-
-# OPT_STEPS: opt_steps, number of steps in the first schedule (they multiply each time in length by opt_mult)
-OPT_STEPS = {"range": (10,), "central_value": 10}
-
-# OPT_MULT: opt_mult, multiplier for the number of steps in each schedule
-OPT_MULT = {"range": (2,), "central_value": 2}
-
-# Weight-decay for AdamW / schedule-free AdamW
-WEIGHT_DECAY = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
-    "central_value": 0.0,
-}
-
-# Momentum for AdamW / schedule-free AdamW
-MOMENTUM = {
-    "range": (
-        0.9,
-        # 0.98
-    ),
-    "central_value": 0.9,
-}
 
 NEPOCH = {
     "range": (500,),
@@ -332,9 +271,6 @@ MIN_IMPROVEMENT = 0
 
 # Flag to enable/disable statistical tests
 RETURN_STAT_TESTS = False
-
-SYNC_ENCODER_INFLATER_REG = True  # whether to synchronise encoder and inflater regularisation hyperparameters
-
 
 # Figure 1A
 CONTEXTS_FEATURES_1A = [

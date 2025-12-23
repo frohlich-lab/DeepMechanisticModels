@@ -16,18 +16,10 @@ from training_configuration import (
     L1_INFLATE_REGS,
     L2_INFLATE_OUTPUT_REGS,
     LATENT_DIMS,
-    LEARNING_RATE_DECAYS,
-    LEARNING_RATE_SPANS,
-    MAX_LEARNING_RATES,
-    MEDIAN_REGS,
-    MOMENTUM,
-    MULTIHEADED,
     NEPOCH,
     NETWORK_DEPTH,
     NN_INIT_FN,
     NN_INIT_SCALES,
-    OPT_MULT,
-    OPT_STEPS,
     OPTIMISERS,
     OREG_ENCODE_REGS,
     OREG_INFLATE_REGS,
@@ -38,12 +30,9 @@ from training_configuration import (
     SPLITS,
     STANDARDISE_FEATURES,
     SYMMETRY_REGS,
-    SYNC_ENCODER_INFLATER_REG,
     USE_BIAS,
     # OTHER OPTIONS
     USE_EARLY_STOP,
-    WARMUP_FCTS,
-    WEIGHT_DECAY,
 )
 
 # Default product hyperparameters (uses global SPLITS)
@@ -119,20 +108,11 @@ linear_hyperparameters = {
     "l1reg_encode": L1_ENCODE_REGS,
     "oreg_encode": OREG_ENCODE_REGS,
     "l1reg_inflater_output": L1_INFLATE_OUTPUT_REGS,
-    "l2reg_inflater_output": L2_INFLATE_OUTPUT_REGS,  # same as l1reg_inflater_output
+    "l2reg_inflater_output": L2_INFLATE_OUTPUT_REGS,
     "inflater_output_reg_epoch": INFLATER_OUTPUT_REG_EPOCHS,
     "sparse_threshold_perc": SPARSE_THRESH_PERCS,
     "recon_loss": RECON_REGS,
     "symm_reg": SYMMETRY_REGS,
-    "median_reg": MEDIAN_REGS,
-    "max_lrate": MAX_LEARNING_RATES,
-    "lrate_span": LEARNING_RATE_SPANS,
-    "lrate_decay": LEARNING_RATE_DECAYS,
-    "warmup_fct": WARMUP_FCTS,
-    "opt_steps": OPT_STEPS,
-    "opt_mult": OPT_MULT,
-    "weight_decay": WEIGHT_DECAY,
-    "momentum": MOMENTUM,
     "n_epoch": NEPOCH,
     "inflater_bound": INFLATER_BOUND,
 }
@@ -148,9 +128,7 @@ def get_product_hyperparameters(splits=None):
         "orth_reg_strategy": ORTH_REG_STRATEGIES,
         "use_layer_bias": USE_BIAS,
         "nn_init_fn": NN_INIT_FN,
-        "multiheaded": MULTIHEADED,
         "standardise_features": STANDARDISE_FEATURES,
-        "sync_encoder_inflater_reg": SYNC_ENCODER_INFLATER_REG,
         "freeze_medians": FREEZE_MEDIANS,
         "use_early_stopping": USE_EARLY_STOP,
         "samples": splits,
@@ -314,40 +292,12 @@ if __name__ == "__main__":
 
         # Show unique values for key hyperparameters
         if configs:
-            key_params = [
-                "n_hidden",
-                "depth",
-                "dropout_rate",
-                "nn_init_scale",
-                "l1reg_inflater_output",
-            ]
             print("\n  Unique values scanned:")
-            for param in key_params:
+            for param in scan_attributes:
                 if param in configs[0]:
                     unique_vals = sorted({cfg[param] for cfg in configs})
                     if len(unique_vals) > 1:
                         print(f"    {param}: {unique_vals}")
-                    else:
-                        print(f"    {param}: {unique_vals[0]} (fixed)")
-
-        # Show sample config
-        if configs:
-            print("\n  Sample configuration:")
-            sample = configs[0]
-            for key in [
-                "context",
-                "features",
-                "samples",
-                "job",
-                "n_hidden",
-                "depth",
-                "dropout_rate",
-                "nn_init_scale",
-                "l1reg_inflater_output",
-                "recon_loss",
-            ]:
-                if key in sample:
-                    print(f"    {key}: {sample[key]}")
 
     print(f"\n{'=' * 80}")
     print("SUMMARY COMPLETE")

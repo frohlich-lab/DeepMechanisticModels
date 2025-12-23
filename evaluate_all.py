@@ -26,9 +26,9 @@ from evaluation_utils import (
 from generate_run_configs import generate_run_configs
 from training_configuration import (
     CONTEXTS_FEATURES_BY_FIGURE,
+    PARAMS_TO_SCAN,
     RETURN_STAT_TESTS,
     SELECT_CENTRAL_VALUES_BY_FIGURE,
-    PARAMS_TO_SCAN,
     SPLITS,
 )
 
@@ -58,7 +58,9 @@ outdir = fig_dir / conf.model / conf.data
 # METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 JOBS = tuple(i for i in range(conf.n_starts))
 # Compute figure-specific set of unique contexts
-CONTEXT_SET = sorted({context for context, _ in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]})
+CONTEXT_SET = sorted(
+    {context for context, _ in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]}
+)
 
 # Compute subtype dictionaries
 subtypes_pam50, subtypes_lb = (
@@ -137,13 +139,6 @@ for samples in sorted(SPLITS):
             f"Finished concatenating training evaluations for {samples}, {dataset}"
         )
 
-        # Loss vs regularization plot -- DISABLED, not useful right now
-        # print(f'Starting to plot loss_vs_regularization for {samples}, {dataset}')
-        # plot_loss_vs_regularization(training)
-        # plt.savefig(outdir / f"{samples}_evaluate_training_{dataset}.pdf")
-        # plt.close()
-        # print(f'Saved loss_vs_regularization plot for {samples}, {dataset}')
-
         # concatenate embeddings, parameter deviations and parameters
         temp_results = {}
         for result_type, filepath_format in zip(
@@ -185,22 +180,26 @@ for samples in sorted(SPLITS):
 
         # Process regressors - linreg, lasso, elasticnet
         regressor_dfs = {
-            mode: pd.concat([
-                pd.read_csv(
-                    EVALUATION_REGRESSOR.format(
-                        **{
-                            **conf.to_dict(),
-                            "samples": samples,
-                            "dataset": dataset,
-                            "context": ctxt,
-                            "features": features,
-                        },
-                        mode=mode,
-                    ),
-                    index_col=0,
-                ).assign(features=features)
-                for ctxt, features in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]
-            ]).assign(ref=mode, samples=samples, dataset=dataset)
+            mode: pd.concat(
+                [
+                    pd.read_csv(
+                        EVALUATION_REGRESSOR.format(
+                            **{
+                                **conf.to_dict(),
+                                "samples": samples,
+                                "dataset": dataset,
+                                "context": ctxt,
+                                "features": features,
+                            },
+                            mode=mode,
+                        ),
+                        index_col=0,
+                    ).assign(features=features)
+                    for ctxt, features in CONTEXTS_FEATURES_BY_FIGURE[
+                        conf.figure
+                    ]
+                ]
+            ).assign(ref=mode, samples=samples, dataset=dataset)
             for mode in REGRESSION_MODES
         }
         print(f"Finished processing regressors for {samples}, {dataset}")

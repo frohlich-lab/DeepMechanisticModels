@@ -186,7 +186,8 @@ def init_wandb(
         # v77: updated docker image
         # v78: fixup feature selection post test data inclusion
         # v79: fix petab bug
-        project=f"DeepMechanisticModels.v79.{conf.data}.{conf.figure}",
+        # v80: update central values
+        project=f"DeepMechanisticModels.v80.{conf.data}.{conf.figure}",
         group=group,
         config={
             **conf.to_dict(),
