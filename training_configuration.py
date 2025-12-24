@@ -35,6 +35,9 @@ DATASETS = ("dream_cytof",)
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
     ("cytof_init", "RFE_10_permute"),
+    ("proteomics", "HVGRFE_15_permute"),
+    ("transcriptomics", "HVGRFE_10_permute"),
+    ("multimodal", "RFE_10_permute"),
 ]
 
 # Cross-validation splits
@@ -273,12 +276,7 @@ MIN_IMPROVEMENT = 0
 RETURN_STAT_TESTS = False
 
 # Figure 1A
-CONTEXTS_FEATURES_1A = [
-    ("cytof_init", "RFE_10_permute"),
-    ("proteomics", "HVGRFE_15_permute"),
-    ("transcriptomics", "HVGRFE_10_permute"),
-    ("multimodal", "RFE_10_permute"),
-]
+CONTEXTS_FEATURES_1A = CONTEXTS_FEATURES
 
 PATHWAYS_1A = [
     "EGFR_MAPK__logobs",
@@ -315,7 +313,7 @@ SPLITS_1B = {
 CONTEXTS_FEATURES_1C = (
     [
         (context, features)
-        for N in [5, 10, 15, 20, 25, 30]
+        for N in [4, 8, 16, 32, 64, 128, 256, 512]
         for context, features in zip(
             ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
             [
