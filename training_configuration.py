@@ -313,7 +313,7 @@ SPLITS_1B = {
 CONTEXTS_FEATURES_1C = (
     [
         (context, features)
-        for N in [4, 8, 16, 32, 64, 128, 256, 512]
+        for N in [4, 8, 12, 16, 20, 24, 28, 32, 64, 128, 256, 512]
         for context, features in zip(
             ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
             [
