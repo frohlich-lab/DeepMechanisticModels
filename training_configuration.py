@@ -34,10 +34,10 @@ DATASETS = ("dream_cytof",)
 
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
-    ("cytof_init", "RFE_10_permute"),
-    ("proteomics", "HVGRFE_15_permute"),
-    ("transcriptomics", "HVGRFE_10_permute"),
-    ("multimodal", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
+    ("proteomics", "HVGRFE_20_permute"),
+    ("transcriptomics", "HVGRFE_4_permute"),
+    ("multimodal", "RFE_12_permute"),
 ]
 
 # Cross-validation splits
