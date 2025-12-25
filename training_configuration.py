@@ -73,6 +73,8 @@ LATENT_DIMS = {
         4,
         5,
         6,
+        7,
+        8,
     ),
     "central_value": 4,  # updated in v79
 }
@@ -160,32 +162,32 @@ ORTH_REG_STRATEGIES = (
 
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 L1_INFLATE_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0,),
     "central_value": 0,
 }
 
 # BETAS: oreg_inflate, orthogonal regularisation for inflater network.
 OREG_INFLATE_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0,),
     "central_value": 0,
 }
 
 # GAMMAS: l1reg_encode, l1 regularisation of encoder network
 L1_ENCODE_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0,),
     "central_value": 0,
 }
 
 # DELTAS: oreg_encode, orthogonal regularisation of encoder network
 OREG_ENCODE_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0,),
     "central_value": 0,
 }
 
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 L1_INFLATE_OUTPUT_REGS = {
-    "range": (0, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-1,  # updated post v79
 }
 
@@ -204,13 +206,13 @@ L2_INFLATE_OUTPUT_REGS = {
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 RECON_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
-    "central_value": 1e-4,
+    "range": (0, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1),
+    "central_value": 1e-2,
 }
 
 # ZETAS: symm_reg, encoder-decoder symmetry regularisation scale hyperparameter
 SYMMETRY_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0,),
     "central_value": 0,
 }
 
