@@ -323,8 +323,8 @@ rule evaluate_all:
             )
         ]
     resources:
-        mem="64GB",
-        runtime="90m",
+        mem="96GB",
+        runtime="120m",
         nodes=1,
         threads=1
     shell:
