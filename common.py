@@ -209,7 +209,7 @@ def training_samples(wildcards) -> list[str]:
 def val_samples(wildcards) -> list[str]:
     return (
         [f"c{wildcards.samples}"]
-        if not wildcards.samples.startswith("all_")
+        if not wildcards.samples.startswith("all")
         else test_samples
     )
 
