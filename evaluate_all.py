@@ -29,7 +29,7 @@ from training_configuration import (
     PARAMS_TO_SCAN,
     RETURN_STAT_TESTS,
     SELECT_CENTRAL_VALUES_BY_FIGURE,
-    SPLITS,
+    SPLITS_BY_FIGURE,
 )
 
 
@@ -105,12 +105,12 @@ hyperparam_configs = {
         for hyperparam_config in hyperparam_configs
         if hyperparam_config["samples"] == samples
     ]
-    for samples in SPLITS
+    for samples in SPLITS_BY_FIGURE[conf.figure]
 }
 
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
-for samples in sorted(SPLITS):
+for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
     for dataset in ["train", "val"]:
         dfs_sample_dataset = [
             pd.read_csv(efile, index_col=0)
