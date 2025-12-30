@@ -358,13 +358,13 @@ SPLITS_1C = SPLITS_1B
 
 # Figure 2
 CONTEXTS_FEATURES_2 = [
-    ("cytof_init", "RFE_10_permute"),
-    ("cytof_init_plus_tEGFR", "RFE_10_permute"),
-    ("cytof_init_plus_pEGFR", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
+    ("cytof_init_plus_tEGFR", "RFE_8_permute"),
+    ("cytof_init_plus_pEGFR", "RFE_8_permute"),
     # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_lb", "RFE_10_permute"),
+    ("cytof_init_plus_lb", "RFE_8_permute"),
     # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_10_permute"),
+    ("cytof_init_plus_intr", "RFE_8_permute"),
 ]
 
 
@@ -378,7 +378,7 @@ SPLITS_2 = SPLITS_1B
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
 ]
 
 PATHWAYS_3 = [
@@ -407,7 +407,7 @@ SPLITS_3B = SPLITS_3
 
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
 ]
 PATHWAYS_3C = PATHWAYS_3
 
@@ -415,7 +415,7 @@ SPLITS_3C = SPLITS_3
 
 # Figure 4
 CONTEXTS_FEATURES_4 = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
 ]
 
 PATHWAYS_4 = [
@@ -434,7 +434,7 @@ SPLITS_4 = SPLITS_3
 
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
-    ("cytof_init", "RFE_10_permute"),
+    ("cytof_init", "RFE_8_permute"),
 ]
 PATHWAYS_5 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
