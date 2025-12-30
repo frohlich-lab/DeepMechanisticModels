@@ -98,6 +98,7 @@ hyperparam_configs = generate_run_configs(
     n_starts=conf.n_starts,
     select_central_values=SELECT_CENTRAL_VALUES_BY_FIGURE[conf.figure],
     params_to_scan=PARAMS_TO_SCAN[conf.figure],
+    splits=SPLITS_BY_FIGURE[conf.figure],
 )
 hyperparam_configs = {
     samples: [
