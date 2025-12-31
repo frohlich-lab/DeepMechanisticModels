@@ -509,12 +509,18 @@ SPLITS_5 = {
     "MDAMB436",
 }
 
+CONTEXTS_FEATURES_6 = [
+    ("cytof_init", "RFE_8_permute"),
+]
+PATHWAYS_6 = [
+    "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
+]
+SPLITS_6 = [
+    f"all_plus_missingtx_{pct}pct"
+    for pct in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+] + ["all_plus_missingtx"]
+
 modifications = [
-    # baselines
-    # "begfr",
-    # "berbb2",
-    # "bmek",
-    # "brps6ka1",
     # transcriptional individualisation
     # "tegfr",
     # "terbb2",
@@ -543,6 +549,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
     "figure5": CONTEXTS_FEATURES_5,
+    "figure6": CONTEXTS_FEATURES_6,
 }
 
 PATHWAYS_BY_FIGURE = {
@@ -556,6 +563,7 @@ PATHWAYS_BY_FIGURE = {
     "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
     "figure5": PATHWAYS_5,
+    "figure6": PATHWAYS_6,
 }
 
 SPLITS_BY_FIGURE = {
@@ -569,6 +577,7 @@ SPLITS_BY_FIGURE = {
     "figure3c": SPLITS_3C,
     "figure4": SPLITS_4,
     "figure5": SPLITS_5,
+    "figure6": SPLITS_6,
 }
 
 SELECT_CENTRAL_VALUES_BY_FIGURE = {
@@ -582,6 +591,7 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
     "figure5": True,
+    "figure6": True,
 }
 
 PARAMS_TO_SCAN = {
@@ -595,6 +605,7 @@ PARAMS_TO_SCAN = {
     "figure3c": ["n_hidden", "depth"],  # only n_hidden
     "figure4": None,
     "figure5": None,
+    "figure6": None,
 }
 
 
