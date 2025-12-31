@@ -152,7 +152,8 @@ rule pretrain_average_model:
 rule select_features:
     input:
         script='select_features.py',
-        code= dmm_dir / 'feature_selection.py',
+        # TODO: reenable
+        # code= dmm_dir / 'feature_selection.py',
         data=MEASUREMENTS_FILE,
     output:
         data=[
