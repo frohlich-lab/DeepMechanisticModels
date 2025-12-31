@@ -246,6 +246,8 @@ def harmonise_cytof_dynamic(input_data):
     def impute_missing(input_data, source, target):
         if source not in input_data.columns:
             return input_data
+        if target not in input_data.columns:
+            input_data[target] = np.nan
         mask = input_data[target].isna()
         input_data.loc[mask, target] = input_data.loc[mask, source]
         return input_data
