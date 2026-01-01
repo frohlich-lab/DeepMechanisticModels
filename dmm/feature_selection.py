@@ -304,12 +304,33 @@ def harmonise_cytof_dynamic(input_data):
                     continue
 
                 mask = input_data.loc[:, (marker, pert, missing_time)].isna()
+                if (marker, pert, time_before) in input_data.columns:
+                    mask &= input_data.loc[
+                        :, (marker, pert, time_before)
+                    ].notna()
+                if (marker, pert, time_after) in input_data.columns:
+                    mask &= input_data.loc[
+                        :, (marker, pert, time_after)
+                    ].notna()
+
+                if (marker, pert, time_before) not in input_data.columns:
+                    input_data.loc[
+                        mask, (marker, pert, missing_time)
+                    ] = input_data.loc[mask, (marker, pert, time_after)]
+                    continue
+
+                if (marker, pert, time_after) not in input_data.columns:
+                    input_data.loc[
+                        mask, (marker, pert, missing_time)
+                    ] = input_data.loc[mask, (marker, pert, time_before)]
+                    continue
+
                 input_data.loc[mask, (marker, pert, missing_time)] = (
                     input_data.loc[mask, (marker, pert, time_before)]
-                    * (missing_time - time_before)
+                    * (time_after - missing_time)
                     / (time_after - time_before)
                     + input_data.loc[mask, (marker, pert, time_after)]
-                    * (time_after - missing_time)
+                    * (missing_time - time_before)
                     / (time_after - time_before)
                 )
     return input_data
