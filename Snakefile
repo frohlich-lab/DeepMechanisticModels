@@ -95,7 +95,9 @@ rule compile_mechanistic_model:
         script='compile_model.py',
         model_code=rules.process_data.input.model_code,
         pathways=rules.process_data.input.pathways,
-        data=rules.process_data.output.datafiles
+        data=rules.process_data.output.datafiles,
+        petab= dmm_dir / 'petab_subproblem.py',
+        mechanistic_model= dmm_dir / 'mechanistic_model.py',
     output:
         model= basedir / 'cytof' / 'amici_models' / '{model}_{data}_petab' / '{model}' / '{model}.py'
     resources:

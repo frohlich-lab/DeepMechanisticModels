@@ -292,9 +292,13 @@ def filter_observables(petab_problem: petab.Problem):
         "cT47D",
         "cUACC893",
     }
-    cell_lines = petab_problem.measurement_df[
-        petab.PREEQUILIBRATION_CONDITION_ID
-    ].unique()
+    cell_lines = [
+        c
+        for c in petab_problem.measurement_df[
+            petab.PREEQUILIBRATION_CONDITION_ID
+        ].unique()
+        if not c.endswith("__full")
+    ]
     if len(cell_lines) == 1 and cell_lines[0] in missing_erbb2_cell_lines:
         obs_pars.add("pERBB2_Y1248_obs_offset")
         obs_pars.add("pERBB2_Y1248_obs_scale")
