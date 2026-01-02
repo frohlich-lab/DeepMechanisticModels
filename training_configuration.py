@@ -441,6 +441,7 @@ PATHWAYS_5 = [
 ]
 
 SPLITS_5 = {
+    "all_plus_missingtx",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
