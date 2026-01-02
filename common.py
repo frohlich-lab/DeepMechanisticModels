@@ -203,14 +203,14 @@ def training_samples(wildcards) -> list[str]:
         n_samples = int(len(samples) * int(m.group(1)) / 100)
         np.random.seed(0)
         samples = np.random.choice(samples, n_samples, replace=False).tolist()
-    return samples
+    return sorted(samples)
 
 
 def val_samples(wildcards) -> list[str]:
     return (
         [f"c{wildcards.samples}"]
         if not wildcards.samples.startswith("all")
-        else test_samples
+        else sorted(test_samples)
     )
 
 

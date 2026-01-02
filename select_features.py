@@ -327,6 +327,7 @@ def get_selected_features(
         return [g for g in input_data.columns if g in gene_list]
 
     elif features.startswith(("RFE_", "HVGRFE_")):
+        output_data = output_data.loc[input_data.index, :]
         reduce_factor = 0.80
         # drop nans, this shouldnt do anything
         input_data = input_data.dropna(axis=1, how="any")
@@ -637,10 +638,13 @@ if (conf.context == "MOSA") and ("EVSAT" == conf.samples):
 
 recipe = build_context_feature_recipe(conf)
 
+samples_train = training_samples(Wildcards(conf.data, conf.samples))
+samples_val = val_samples(Wildcards(conf.data, conf.samples))
+
 # Preload output (cytof_dynamic) once for the split (used by supervised selectors)
 output_train_raw, _, _, _ = load_data(
     contextualization="cytof_dynamic",
-    samples=training_samples(Wildcards(conf.data, conf.samples)),
+    samples=samples_train,
     features=None,
     **petab_base_files,
 )
@@ -664,10 +668,8 @@ for ctx, feat_spec in recipe:
     subconf = replace(conf, context=ctx, features=feat_spec)
     tr, va, sel = prepare_inputs_for_context(
         subconf=subconf,
-        samples_train_split=training_samples(
-            Wildcards(conf.data, conf.samples)
-        ),
-        samples_val_split=val_samples(Wildcards(conf.data, conf.samples)),
+        samples_train_split=samples_train,
+        samples_val_split=samples_val,
         feature_spec_str=feat_spec,
         petab_base_files=petab_base_files,
         maybe_output_train=output_train_imputed,
