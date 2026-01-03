@@ -199,9 +199,9 @@ def training_samples(wildcards) -> list[str]:
         sample for sample in samples if sample not in val_samples(wildcards)
     ]
     # subsample if specified
-    if m := re.search(r"_(\d+)pct", wildcards.samples):
+    if m := re.search(r"_(\d+)pct_(\d+)", wildcards.samples):
         n_samples = int(len(samples) * int(m.group(1)) / 100)
-        np.random.seed(0)
+        np.random.seed(int(m.group(2)))
         samples = np.random.choice(samples, n_samples, replace=False).tolist()
     return sorted(samples)
 

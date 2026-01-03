@@ -517,8 +517,9 @@ PATHWAYS_6 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
 ]
 SPLITS_6 = [
-    f"all_plus_missingtx_{pct}pct"
-    for pct in (10, 20, 30, 40, 50, 60, 70, 80, 90)
+    f"all_plus_missingtx_{pct}pct_{seed}"
+    for pct in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
+    for seed in (0, 1, 2, 3, 4)
 ] + ["all_plus_missingtx"]
 
 modifications = [
