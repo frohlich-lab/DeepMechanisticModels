@@ -211,7 +211,7 @@ rule estimate_parameters:
         mem="4GB",
         # disk="2GB",
         # tmpdir=str(tmp_dir),
-        runtime="96h",
+        runtime="24h",
         nodes=1,
         threads=2
     shell:
