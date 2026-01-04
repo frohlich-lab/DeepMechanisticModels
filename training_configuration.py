@@ -420,14 +420,18 @@ CONTEXTS_FEATURES_4 = [
 
 PATHWAYS_4 = [
     # Base
-    "EGFR_MAPK__logobs",
     "EGFR_MAPK__logobs_tegfr_aggavg",
-    # # Growth Factors
-    "EGFR_MAPK__logobs_ttgfa_tbtc_tereg_tnrg1_tnrg2",
+    # Growth Factors
     "EGFR_MAPK__logobs_tegfr_ttgfa_tbtc_tereg_tnrg1_tnrg2_aggavg",
+    "EGFR_MAPK__logobs_tegfr_ttgfa_aggavg",
+    "EGFR_MAPK__logobs_tegfr_tbtc_aggavg",
+    "EGFR_MAPK__logobs_tegfr_tereg_aggavg",
+    "EGFR_MAPK__logobs_tegfr_tnrg1_aggavg",
+    "EGFR_MAPK__logobs_tegfr_tnrg2_aggavg",
     # Mutations
-    "EGFR_MAPK__logobs_mbraf_mkras",
     "EGFR_MAPK__logobs_tegfr_mbraf_mkras_aggavg",
+    "EGFR_MAPK__logobs_tegfr_mkras_aggavg",
+    "EGFR_MAPK__logobs_tegfr_mbraf_aggavg",
 ]
 
 SPLITS_4 = SPLITS_3
