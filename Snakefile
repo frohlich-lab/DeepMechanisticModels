@@ -65,7 +65,6 @@ rule load_data:
 rule process_data:
     input:
         script='process_data.py',
-        data_code=dmm_dir / 'generate_data.py',
         model_code=dmm_dir / 'mechanistic_model.py',
         data_code2=cytof_dir / 'data.py',
         pathways=cytof_dir / 'pathways.py',
