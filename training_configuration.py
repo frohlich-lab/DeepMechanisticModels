@@ -379,6 +379,7 @@ SPLITS_2 = SPLITS_1B
 # Figure 3
 CONTEXTS_FEATURES_3 = [
     ("cytof_init", "RFE_8_permute"),
+    ("multimodal", "RFE_12_permute"),
 ]
 
 PATHWAYS_3 = [
