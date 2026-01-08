@@ -396,7 +396,7 @@ PATHWAYS_3 = [
     "EGFR_MAPK__logobs_perbb3_aggavg",
 ]
 
-SPLITS_3 = {"all_plus_missingtx"}
+SPLITS_3 = {"all"}
 
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
 CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
