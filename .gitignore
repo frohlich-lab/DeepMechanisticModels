@@ -192,3 +192,4 @@ features/cellosaurus.txt
 /res
 /eval
 *.json
+*.eps
