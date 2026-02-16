@@ -172,6 +172,24 @@ EVALUATION_PARAMETER_DEVIATIONS = str(
     / (tpl_evaluation_file + ".csv")
 )
 
+EVALUATION_SENSITIVITY_PARAMS = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "sensitivity_params"
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
+)
+
+EVALUATION_SENSITIVITY_LATENT = str(
+    evaluations_dir
+    / "{model}"
+    / "{data}"
+    / "sensitivity_latent"
+    / "{dataset}"
+    / (tpl_evaluation_file + ".csv")
+)
+
 EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
 EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(

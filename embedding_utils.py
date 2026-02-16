@@ -1,26 +1,27 @@
+from pathlib import Path
+
 import jax
 import jax.numpy as jnp
-import optimistix as optx
 import matplotlib.pyplot as plt
 import numpy as np
+import optimistix as optx
 import pandas as pd
 import seaborn as sns
-
-from pathlib import Path
-from scipy.cluster.hierarchy import linkage, fcluster, leaves_list
-from sklearn.decomposition import PCA
-from sklearn.linear_model import LinearRegression
-from sklearn.metrics import silhouette_score
-from sklearn.model_selection import cross_val_score
-from sklearn.neighbors import NearestNeighbors
-from sklearn.preprocessing import StandardScaler, LabelEncoder
+from scipy.cluster.hierarchy import fcluster, leaves_list, linkage
 from scipy.spatial.distance import squareform
+from sklearn.decomposition import PCA
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LinearRegression, LogisticRegression
+from sklearn.metrics import silhouette_score
+from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.neighbors import NearestNeighbors
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import LabelEncoder, StandardScaler
 from sklearn.svm import SVC
 
 
 def load_embedding_data_for_context(
-        config_df: pd.DataFrame,
-        evaluation_template
+    config_df: pd.DataFrame, evaluation_template
 ) -> pd.DataFrame:
     """
     Loads embedding data from files for a single context.
@@ -44,8 +45,7 @@ def load_embedding_data_for_context(
         config_dict = config_row.to_dict()
         for dataset in ["train", "test"]:
             filepath = evaluation_template.format(
-                **config_dict,
-                dataset=dataset
+                **config_dict, dataset=dataset
             )
             if Path(filepath).exists():
                 df_list.append(pd.read_csv(filepath))
@@ -55,7 +55,9 @@ def load_embedding_data_for_context(
     if df_list:
         return pd.concat(df_list, ignore_index=True)
     else:
-        print(f"No valid files found for context: {config_df['context'].iloc[0]}")
+        print(
+            f"No valid files found for context: {config_df['context'].iloc[0]}"
+        )
         return pd.DataFrame()
 
 
@@ -84,11 +86,13 @@ def perform_pca_on_embeddings(
     results_dfs = []
     explained_variance_ratios = {}
 
-    for (context, samples, n_hidden), group_df in embeddings_df.groupby(["context", "samples", "n_hidden"]):
+    for (context, samples, n_hidden), group_df in embeddings_df.groupby(
+        ["context", "samples", "n_hidden"]
+    ):
         les = group_df[
-            ["cell_line", "job"] + [f"L{i}" for i in range(1, n_hidden+1)]
+            ["cell_line", "job"] + [f"L{i}" for i in range(1, n_hidden + 1)]
         ].set_index("cell_line")
-        les_pivot = les.set_index(['job'], append=True).unstack(['job'])
+        les_pivot = les.set_index(["job"], append=True).unstack(["job"])
         les_pivot.columns = [f"{col[0]}_{col[1]}" for col in les_pivot.columns]
 
         # Transform to mean 0 and variance 1
@@ -100,19 +104,19 @@ def perform_pca_on_embeddings(
         pca = PCA(n_components=n_components)
         les_pca = pca.fit_transform(vals)
         explained_var = pca.explained_variance_ratio_.sum()
-        # Most variance (often by vast margin, e.g. 80/20%) is captured by first component
-        print(f"Explained variance for {context} {samples}: {pca.explained_variance_ratio_}; Total: {explained_var:.4f}")
         explained_variance_ratios[(context, samples)] = explained_var
 
-        results_dfs.append(pd.DataFrame(
-            index=les_pivot.index,
-            data=les_pca,
-            columns=[f"L{i}" for i in range(1, n_components+1)],
-        ).assign(
-            variance_explained=explained_var,
-            context=context,
-            samples=samples
-        ))
+        results_dfs.append(
+            pd.DataFrame(
+                index=les_pivot.index,
+                data=les_pca,
+                columns=[f"L{i}" for i in range(1, n_components + 1)],
+            ).assign(
+                variance_explained=explained_var,
+                context=context,
+                samples=samples,
+            )
+        )
 
     whole_pca_le = pd.concat(results_dfs)
     return whole_pca_le, explained_variance_ratios
@@ -147,21 +151,27 @@ def evaluate_svm_classifier_per_context(
             le = LabelEncoder()
             y_transformed = le.fit_transform(y)
         else:
-            raise ValueError("Strategy must be 'binary', 'quartiles_multi', or 'categorical'.")
+            raise ValueError(
+                "Strategy must be 'binary', 'quartiles_multi', or 'categorical'."
+            )
 
         if len(np.unique(y_transformed)) < 2:
             results[context] = np.nan
             continue
 
-        model = SVC(kernel='linear')
+        model = SVC(kernel="linear")
         model.fit(X_scaled, y_transformed)
-        scores = cross_val_score(model, X_scaled, y_transformed, cv=n_splits, scoring='accuracy')
+        scores = cross_val_score(
+            model, X_scaled, y_transformed, cv=n_splits, scoring="accuracy"
+        )
         results[context] = scores.mean()
 
     return pd.Series(results, name="svm_accuracy")
 
 
-def compute_local_marker_smoothness(df, n_neighbors=5, marker="ERBB2", is_categorical=False):
+def compute_local_marker_smoothness(
+    df, n_neighbors=5, marker="ERBB2", is_categorical=False
+):
     results = {}
 
     for context, group in df.groupby("context"):
@@ -201,7 +211,9 @@ def compute_local_marker_smoothness(df, n_neighbors=5, marker="ERBB2", is_catego
                 if not neighbor_vals:
                     continue
                 # Proportion of neighbors different from self
-                disagreement_rate = np.mean([val != self_value for val in neighbor_vals])
+                disagreement_rate = np.mean(
+                    [val != self_value for val in neighbor_vals]
+                )
                 smoothness_scores.append(disagreement_rate)
 
             else:
@@ -211,7 +223,7 @@ def compute_local_marker_smoothness(df, n_neighbors=5, marker="ERBB2", is_catego
                 if neighbor_vals.size == 0:
                     continue
                 diffs = neighbor_vals - self_value
-                rmsd = np.sqrt(np.mean(diffs ** 2))
+                rmsd = np.sqrt(np.mean(diffs**2))
                 smoothness_scores.append(rmsd)
 
         if not smoothness_scores:
@@ -223,16 +235,15 @@ def compute_local_marker_smoothness(df, n_neighbors=5, marker="ERBB2", is_catego
                 results[context] = score  # [0,1] disagreement
             else:
                 val_range = np.nanmax(values) - np.nanmin(values)
-                results[context] = score / val_range if val_range > 0 else np.nan
+                results[context] = (
+                    score / val_range if val_range > 0 else np.nan
+                )
 
     label = "mean_disagreement" if is_categorical else "normalized_rmsd"
     return pd.Series(results, name=label)
 
 
-def find_embedding_rotation(
-        embeddings,
-        pher2_values
-):
+def find_embedding_rotation(embeddings, pher2_values):
     # Only use valid (non-missing) pHER2 values
     valid_mask = ~jnp.isnan(pher2_values)
     X_valid = embeddings[valid_mask]
@@ -248,10 +259,7 @@ def find_embedding_rotation(
     return jnp.stack([v1, v2], axis=1)
 
 
-def find_embedding_origin(
-        model,
-        input_embeddings
-):
+def find_embedding_origin(model, input_embeddings):
     mask = jnp.array(model.output_sparsity_binary_mask)
 
     def masked_inflater_optx(x, _):  # Accepts second arg even if unused
@@ -259,20 +267,11 @@ def find_embedding_origin(
 
     solver = optx.Newton(rtol=1e-8, atol=1e-8)
     x0_init = jnp.mean(input_embeddings, axis=0)
-    sol = optx.root_find(
-        fn=masked_inflater_optx,
-        y0=x0_init,
-        solver=solver
-    )
+    sol = optx.root_find(fn=masked_inflater_optx, y0=x0_init, solver=solver)
     return sol.value
 
 
-def rotate_embeddings(
-        embeddings,
-        x0,
-        R,
-        check_inverse=True
-):
+def rotate_embeddings(embeddings, x0, R, check_inverse=True):
     rotated = (embeddings - x0) @ R
     if check_inverse:
         reconstructed = rotated @ R.T + x0
@@ -282,11 +281,11 @@ def rotate_embeddings(
 
 
 def find_input_features_baseline(
-        encoder,
-        input_features,
-        embeddings,
-        baseline_mode: str = "inflater_origin",
-        model=None,
+    encoder,
+    input_features,
+    embeddings,
+    baseline_mode: str = "inflater_origin",
+    model=None,
 ):
     """
     Finds baseline input features corresponding to a target embedding or zero inflater output.
@@ -308,13 +307,17 @@ def find_input_features_baseline(
             return encoder(x) - target
     elif baseline_mode == "inflater_origin":
         # Target: specific embedding that gives zero sparse deviations
-        assert model is not None, "Model required for 'inflater_origin' baseline."
+        assert (
+            model is not None
+        ), "Model required for 'inflater_origin' baseline."
         target = find_embedding_origin(model, embeddings)
 
         def root_find_fn(x, _):
             return encoder(x) - target
     elif baseline_mode == "zero_parameter_deviations":
-        assert model is not None, "Model required for 'zero_parameter_deviations' baseline."
+        assert (
+            model is not None
+        ), "Model required for 'zero_parameter_deviations' baseline."
         mask = jnp.array(model.output_sparsity_binary_mask)
         # Target: zero vector in parameter deviation space
         target = jnp.zeros_like(mask)
@@ -342,21 +345,25 @@ def find_input_features_baseline(
             f"Target: {target}"
         )
 
-        assert jnp.sum(jnp.abs(emb_origin - target)) < 1e-6, \
-            f"{baseline_mode} embedding does not match target!"
+        assert (
+            jnp.sum(jnp.abs(emb_origin - target)) < 1e-6
+        ), f"{baseline_mode} embedding does not match target!"
 
     elif baseline_mode == "zero_parameter_deviations":
         sol = optx.root_find(fn=root_find_fn, y0=init_guess, solver=solver)
         input_features_baseline = sol.value
-        deviations = model.deep_inflater(encoder(input_features_baseline)) * mask
+        deviations = (
+            model.deep_inflater(encoder(input_features_baseline)) * mask
+        )
 
         print(
             f"[zero_parameter_deviations] Baseline input: {input_features_baseline}, "
             f"Parameter deviations: {deviations}"
         )
 
-        assert jnp.linalg.norm(deviations) < 1e-6, \
-            "zero_parameter_deviations baseline does not yield zero deviations!"
+        assert (
+            jnp.linalg.norm(deviations) < 1e-6
+        ), "zero_parameter_deviations baseline does not yield zero deviations!"
     else:
         raise ValueError(f"Unknown baseline_mode: {baseline_mode}")
 
@@ -364,16 +371,16 @@ def find_input_features_baseline(
 
 
 def integrated_gradients(
-        input_x,
-        model_fn,
-        baseline_x=None,
-        num_steps=100,
+    input_x,
+    model_fn,
+    baseline_x=None,
+    num_steps=100,
 ):
     if baseline_x is None:
         baseline_x = jnp.zeros_like(input_x)
 
     # Form straight path along which to integrate gradients
-    alphas = jnp.linspace(0., 1., num_steps).reshape(-1, 1)
+    alphas = jnp.linspace(0.0, 1.0, num_steps).reshape(-1, 1)
     interpolated = baseline_x + alphas * (input_x - baseline_x)
 
     jac_fn = jax.jacrev(model_fn)
@@ -385,10 +392,7 @@ def integrated_gradients(
 
 
 def run_inflater_ig_attributions(
-        model,
-        input_embeddings,
-        pher2_values,
-        num_steps=100
+    model, input_embeddings, pher2_values, num_steps=100
 ):
     mask = jnp.array(model.output_sparsity_binary_mask)
     R = find_embedding_rotation(input_embeddings, pher2_values)
@@ -409,19 +413,27 @@ def run_inflater_ig_attributions(
         )
 
     # Apply IG to each rotated embedding
-    rotated_embeddings_output = jax.vmap(ig_inflater_per_sample)(rotated_embeddings)
+    rotated_embeddings_output = jax.vmap(ig_inflater_per_sample)(
+        rotated_embeddings
+    )
 
     # ======= Begin completeness and baseline checks =======
 
     # Compute the model outputs at each rotated embedding
-    outputs_at_input = jax.vmap(inverse_rotate_then_mask_inflate)(rotated_embeddings)  # shape (N, D)
+    outputs_at_input = jax.vmap(inverse_rotate_then_mask_inflate)(
+        rotated_embeddings
+    )  # shape (N, D)
 
     # Compute outputs at baseline (zero embedding) — should be close to zero
-    baseline_output = inverse_rotate_then_mask_inflate(jnp.zeros_like(rotated_embeddings[0]))  # shape (D,)
+    baseline_output = inverse_rotate_then_mask_inflate(
+        jnp.zeros_like(rotated_embeddings[0])
+    )  # shape (D,)
     baseline_norm = jnp.linalg.norm(baseline_output)
 
     # Check that baseline output is near zero (strict check)
-    assert baseline_norm < 1e-5, f"Inflater baseline output is not near zero: norm = {baseline_norm}"
+    assert (
+        baseline_norm < 1e-5
+    ), f"Inflater baseline output is not near zero: norm = {baseline_norm}"
 
     # Compute sum of attributions over embedding dimensions (shape: N, P, D -> N, P)
     attribution_sums = rotated_embeddings_output.sum(axis=2)
@@ -430,7 +442,9 @@ def run_inflater_ig_attributions(
     diff = jnp.abs(attribution_sums - outputs_at_input)
 
     # Assert that each difference is small (allow tolerance for numerical integration)
-    assert jnp.all(diff < 1e-5), f"Inflater attribution completeness check failed! Max difference: {diff.max()}"
+    assert jnp.all(
+        diff < 1e-5
+    ), f"Inflater attribution completeness check failed! Max difference: {diff.max()}"
 
     # ======= End checks =======
 
@@ -438,13 +452,13 @@ def run_inflater_ig_attributions(
 
 
 def run_encoder_ig_attributions(
-        encoder,
-        input_features,
-        embeddings,
-        pher2_values,
-        model=None,
-        baseline_mode="inflater_origin",
-        num_steps: int = 100,
+    encoder,
+    input_features,
+    embeddings,
+    pher2_values,
+    model=None,
+    baseline_mode="inflater_origin",
+    num_steps: int = 100,
 ):
     R = find_embedding_rotation(embeddings, pher2_values)
     input_features_baseline = find_input_features_baseline(
@@ -452,7 +466,7 @@ def run_encoder_ig_attributions(
         input_features=input_features,
         embeddings=embeddings,
         baseline_mode=baseline_mode,
-        model=model
+        model=model,
     )
 
     def encode_then_rotate(x):
@@ -468,18 +482,26 @@ def run_encoder_ig_attributions(
         )
 
     # Step 4: Apply IG to all inputs
-    ig_attributions = jax.vmap(ig_encoder_per_sample)(input_features)  # shape: (N, 2, D_in)
+    ig_attributions = jax.vmap(ig_encoder_per_sample)(
+        input_features
+    )  # shape: (N, 2, D_in)
 
     # ======= Begin completeness and baseline checks =======
 
     # Step 5: Compute true rotated embeddings relative to baseline
-    rotated_embeddings = jax.vmap(encode_then_rotate)(input_features)  # shape: (N, 2)
+    rotated_embeddings = jax.vmap(encode_then_rotate)(
+        input_features
+    )  # shape: (N, 2)
 
     # Step 6: Compute baseline rotated embedding → must be zero by construction
-    baseline_embedding = encode_then_rotate(input_features_baseline)  # shape: (2,)
+    baseline_embedding = encode_then_rotate(
+        input_features_baseline
+    )  # shape: (2,)
     baseline_norm = jnp.linalg.norm(baseline_embedding)
 
-    assert baseline_norm < 1e-5, f"Encoder baseline embedding not near zero: norm = {baseline_norm}"
+    assert (
+        baseline_norm < 1e-5
+    ), f"Encoder baseline embedding not near zero: norm = {baseline_norm}"
 
     # Step 7: Compute sum of attributions over input dimensions (axis=-1)
     attribution_sums = ig_attributions.sum(axis=2)  # shape: (N, 2)
@@ -488,7 +510,9 @@ def run_encoder_ig_attributions(
     diff = jnp.abs(attribution_sums - rotated_embeddings)  # shape: (N, 2)
 
     max_diff = diff.max()
-    assert jnp.all(diff < 1e-5), f"Encoder attribution completeness failed! Max diff: {max_diff}"
+    assert jnp.all(
+        diff < 1e-5
+    ), f"Encoder attribution completeness failed! Max diff: {max_diff}"
 
     # ======= End checks =======
 
@@ -496,12 +520,12 @@ def run_encoder_ig_attributions(
 
 
 def run_full_model_ig_attributions(
-        encoder,
-        model,
-        input_features,
-        embeddings,
-        baseline_mode: str = "zero_parameter_deviations",
-        num_steps: int = 100,
+    encoder,
+    model,
+    input_features,
+    embeddings,
+    baseline_mode: str = "zero_parameter_deviations",
+    num_steps: int = 100,
 ):
     """
     Computes Integrated Gradients (IG) attributions from input_features all the way to the
@@ -522,7 +546,7 @@ def run_full_model_ig_attributions(
         input_features=input_features,
         embeddings=embeddings,
         baseline_mode=baseline_mode,
-        model=model
+        model=model,
     )
 
     # Step 2: Define full model function: input_features → embedding → inflated deviation
@@ -541,16 +565,20 @@ def run_full_model_ig_attributions(
         )
 
     # Step 4: Apply IG across all inputs
-    ig_attributions = jax.vmap(ig_full_per_sample)(input_features)  # shape: (N, P, D_in)
+    ig_attributions = jax.vmap(ig_full_per_sample)(
+        input_features
+    )  # shape: (N, P, D_in)
 
     # ======= Begin completeness and baseline checks =======
 
     # Step 6: Compute true model outputs at inputs and baseline
     outputs_at_input = jax.vmap(full_model_fn)(input_features)  # shape: (N, P)
-    baseline_output = full_model_fn(input_features_baseline)    # shape: (P,)
+    baseline_output = full_model_fn(input_features_baseline)  # shape: (P,)
     baseline_norm = jnp.linalg.norm(baseline_output)
 
-    assert baseline_norm < 1e-5, f"Full model baseline output not near zero: norm = {baseline_norm}"
+    assert (
+        baseline_norm < 1e-5
+    ), f"Full model baseline output not near zero: norm = {baseline_norm}"
 
     # Step 7: Compute sum of attributions over input dimensions (axis=-1)
     attribution_sums = ig_attributions.sum(axis=2)  # shape: (N, P)
@@ -559,11 +587,156 @@ def run_full_model_ig_attributions(
     diff = jnp.abs(attribution_sums - outputs_at_input)  # shape: (N, P)
 
     max_diff = diff.max()
-    assert jnp.all(diff < 1e-5), f"Full model attribution completeness failed! Max diff: {max_diff}"
+    assert jnp.all(
+        diff < 1e-5
+    ), f"Full model attribution completeness failed! Max diff: {max_diff}"
 
     # ======= End checks =======
 
     return ig_attributions  # shape: (N, P, D_in)
+
+
+def _latent_feature_columns(df: pd.DataFrame) -> list[str]:
+    cols = [
+        col for col in df.columns if col.startswith("L") and col[1:].isdigit()
+    ]
+    return sorted(cols, key=lambda x: int(x[1:]))
+
+
+def _make_classifier_pipeline(classifier: str):
+    if classifier == "svm":
+        estimator = SVC(kernel="linear")
+        return Pipeline([("scaler", StandardScaler()), ("model", estimator)])
+    if classifier == "logreg":
+        estimator = LogisticRegression(max_iter=1000)
+        return Pipeline([("scaler", StandardScaler()), ("model", estimator)])
+    if classifier == "rf":
+        estimator = RandomForestClassifier(n_estimators=200, random_state=0)
+        return estimator
+    raise ValueError("Classifier must be one of: 'svm', 'logreg', 'rf'.")
+
+
+def evaluate_luminal_basal_classifier(
+    embeddings_df: pd.DataFrame,
+    subtype_mapping: dict,
+    label_key: str = "Luminal/Basal",
+    group_cols: list[str] | None = None,
+    n_splits: int = 5,
+    classifier: str = "svm",
+) -> pd.DataFrame:
+    if embeddings_df.empty:
+        return pd.DataFrame()
+
+    if subtype_mapping and isinstance(
+        next(iter(subtype_mapping.values())), dict
+    ):
+        subtype_lookup = {
+            key: value.get(label_key) for key, value in subtype_mapping.items()
+        }
+    else:
+        subtype_lookup = subtype_mapping
+
+    df = embeddings_df.copy()
+    df["subtype_lb"] = df["cell_line"].map(subtype_lookup)
+    df = df[df["subtype_lb"].isin(["Luminal", "Basal"])].copy()
+    if df.empty:
+        return pd.DataFrame()
+
+    feature_cols = _latent_feature_columns(df)
+    if not feature_cols:
+        raise ValueError(
+            "No latent embedding columns found (expected L1, L2, ...)."
+        )
+
+    if group_cols is None:
+        group_cols = [
+            col
+            for col in df.columns
+            if col not in ["cell_line", "subtype_lb", *feature_cols]
+        ]
+
+    results = []
+    for group_key, group in df.groupby(group_cols, dropna=False):
+        group = group.dropna(subset=feature_cols)
+        if group.empty:
+            continue
+
+        labels, counts = np.unique(group["subtype_lb"], return_counts=True)
+        if len(labels) < 2:
+            splits = 0
+        else:
+            splits = min(n_splits, int(counts.min()))
+
+        if splits < 2:
+            accuracy = np.nan
+            roc_auc = np.nan
+        else:
+            X = group[feature_cols].values
+            y = LabelEncoder().fit_transform(group["subtype_lb"].values)
+            cv = StratifiedKFold(n_splits=splits, shuffle=True, random_state=0)
+
+            pipeline = _make_classifier_pipeline(classifier)
+            accuracy = cross_val_score(
+                pipeline, X, y, cv=cv, scoring="accuracy"
+            ).mean()
+            roc_auc = cross_val_score(
+                pipeline, X, y, cv=cv, scoring="roc_auc"
+            ).mean()
+
+        group_info = (
+            dict(zip(group_cols, group_key))
+            if isinstance(group_key, tuple)
+            else {group_cols[0]: group_key}
+        )
+        results.append(
+            {
+                **group_info,
+                "classifier": classifier,
+                "n_samples": int(len(group)),
+                "n_splits": int(splits),
+                "n_features": int(len(feature_cols)),
+                "accuracy": accuracy,
+                "roc_auc": roc_auc,
+            }
+        )
+
+    return pd.DataFrame(results)
+
+
+def plot_luminal_basal_performance(
+    results_df: pd.DataFrame,
+    metric: str = "accuracy",
+    x: str = "context",
+    hue: str | None = "model",
+    col: str | None = "classifier",
+    title: str | None = None,
+    height: float = 3.2,
+):
+    if results_df.empty:
+        raise ValueError("results_df is empty; nothing to plot.")
+    if metric not in results_df.columns:
+        raise ValueError(f"Metric '{metric}' not found in results_df columns.")
+
+    plot_df = results_df.copy()
+    plot_df = plot_df[plot_df[metric].notna()]
+    if plot_df.empty:
+        raise ValueError("No non-NaN metric values available for plotting.")
+
+    g = sns.catplot(
+        data=plot_df,
+        x=x,
+        y=metric,
+        hue=hue,
+        col=col,
+        kind="point",
+        dodge=True,
+        height=height,
+    )
+    g.set_xticklabels(rotation=45, ha="right")
+    if title:
+        g.fig.suptitle(title, y=1.02)
+    g.set_ylabels(metric)
+    return g
 
 
 def build_canonical_latents_from_params_and_pca(
@@ -680,21 +853,25 @@ def build_canonical_latents_from_params_and_pca(
     # 1. Filter dataframes by model/context/samples
     # ------------------------------------------------------------------
     par_mean_sub = mean_par_dev_df[
-        (mean_par_dev_df.model == model) &
-        (mean_par_dev_df.context == context) &
-        (mean_par_dev_df.samples == samples)
+        (mean_par_dev_df.model == model)
+        & (mean_par_dev_df.context == context)
+        & (mean_par_dev_df.samples == samples)
     ].copy()
 
     lat_sub = pca_embedding_df[
-        (pca_embedding_df.model == model) &
-        (pca_embedding_df.context == context) &
-        (pca_embedding_df.samples == samples)
+        (pca_embedding_df.model == model)
+        & (pca_embedding_df.context == context)
+        & (pca_embedding_df.samples == samples)
     ].copy()
 
     if par_mean_sub.empty:
-        raise ValueError("Filtered mean_par_dev_df is empty for given model/context/samples")
+        raise ValueError(
+            "Filtered mean_par_dev_df is empty for given model/context/samples"
+        )
     if lat_sub.empty:
-        raise ValueError("Filtered pca_embedding_df is empty for given model/context/samples")
+        raise ValueError(
+            "Filtered pca_embedding_df is empty for given model/context/samples"
+        )
 
     # ------------------------------------------------------------------
     # 2. Parameter correlation & hierarchical clustering
@@ -705,7 +882,9 @@ def build_canonical_latents_from_params_and_pca(
     params_nonzero = std_nonzero[std_nonzero > 0].index.tolist()
 
     if len(params_nonzero) < 2:
-        raise ValueError("Not enough non-zero-variance parameters to build modules.")
+        raise ValueError(
+            "Not enough non-zero-variance parameters to build modules."
+        )
 
     corr = par_mean_sub[params_nonzero].corr()
 
@@ -785,8 +964,7 @@ def build_canonical_latents_from_params_and_pca(
         module_scores[f"mod{m}"] = score_m
 
     module_latents_df = pd.DataFrame(
-        module_scores,
-        index=par_mean_sub.index
+        module_scores, index=par_mean_sub.index
     ).sort_index()
 
     # ------------------------------------------------------------------
@@ -796,26 +974,28 @@ def build_canonical_latents_from_params_and_pca(
     lat_cols = [c for c in lat_sub.columns if c.startswith("L")]
 
     if not lat_cols:
-        raise ValueError("No latent PCA columns starting with 'L' found in pca_embedding_df")
+        raise ValueError(
+            "No latent PCA columns starting with 'L' found in pca_embedding_df"
+        )
 
     # Common cell lines between latents and module latents
     common_cells = lat_sub.index.intersection(module_latents_df.index)
     if len(common_cells) == 0:
-        raise ValueError("No overlapping cell_line entries between embeddings and parameter means.")
+        raise ValueError(
+            "No overlapping cell_line entries between embeddings and parameter means."
+        )
 
     Z = lat_sub.loc[common_cells, lat_cols].values
     M = module_latents_df.loc[common_cells].values
 
     reg = LinearRegression(fit_intercept=True)
     reg.fit(Z, M)
-    A = reg.coef_.T         # shape: (n_latent, n_modules)
-    b = reg.intercept_      # shape: (n_modules,)
+    A = reg.coef_.T  # shape: (n_latent, n_modules)
+    b = reg.intercept_  # shape: (n_modules,)
 
     real_latents = Z @ A + b
     real_latents_df = pd.DataFrame(
-        real_latents,
-        index=common_cells,
-        columns=module_latents_df.columns
+        real_latents, index=common_cells, columns=module_latents_df.columns
     )
 
     # ------------------------------------------------------------------
@@ -831,9 +1011,11 @@ def build_canonical_latents_from_params_and_pca(
             cmap="coolwarm",
             center=0,
             xticklabels=False,
-            yticklabels=False
+            yticklabels=False,
         )
-        plt.title(f"Parameter |corr| (K_opt={K_opt} modules, {model}, {context})")
+        plt.title(
+            f"Parameter |corr| (K_opt={K_opt} modules, {model}, {context})"
+        )
         plt.tight_layout()
 
         # 6.2 silhouette vs K (diagnostic)
@@ -853,27 +1035,18 @@ def build_canonical_latents_from_params_and_pca(
         lat_aligned = lat_sub.loc[common_cells, lat_cols]
 
         corr_mod_lat = pd.DataFrame(
-            np.corrcoef(
-                real_latents_aligned.values.T,
-                lat_aligned.values.T
-            ),
+            np.corrcoef(real_latents_aligned.values.T, lat_aligned.values.T),
         )
 
         # Build a nicer labeled matrix: rows = modules, cols = Ls
         n_mod = real_latents_aligned.shape[1]
         n_lat = lat_aligned.shape[1]
-        corr_block = corr_mod_lat.iloc[:n_mod, n_mod:n_mod + n_lat].copy()
+        corr_block = corr_mod_lat.iloc[:n_mod, n_mod : n_mod + n_lat].copy()
         corr_block.index = real_latents_aligned.columns
         corr_block.columns = lat_cols
 
         plt.figure(figsize=(8, 6))
-        sns.heatmap(
-            corr_block,
-            cmap="vlag",
-            center=0,
-            annot=True,
-            fmt=".2f"
-        )
+        sns.heatmap(corr_block, cmap="vlag", center=0, annot=True, fmt=".2f")
         plt.title("Correlation between canonical modules and latent PCs")
         plt.tight_layout()
 

@@ -12,6 +12,8 @@ from common import (
     EVALUATION_PARAMETER_DEVIATIONS,
     EVALUATION_REFERENCE,
     EVALUATION_REGRESSOR,
+    EVALUATION_SENSITIVITY_LATENT,
+    EVALUATION_SENSITIVITY_PARAMS,
     EVALUATION_TRAINING,
     REGRESSION_MODES,
     fig_dir,
@@ -111,6 +113,7 @@ hyperparam_configs = {
 
 # Load evaluations (DMMs, baselines, regressors), latent embeddings, parameters and parameter deviations
 dfs, le_dfs, param_dev_dfs, param_dfs = [], [], [], []
+sens_params_dfs, sens_latent_dfs = [], []
 for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
     for dataset in ["train", "val"]:
         dfs_sample_dataset = [
@@ -143,14 +146,22 @@ for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
         # concatenate embeddings, parameter deviations and parameters
         temp_results = {}
         for result_type, filepath_format in zip(
-            ["latent_embeddings", "parameter_deviations", "full_parameters"],
+            [
+                "latent_embeddings",
+                "parameter_deviations",
+                "full_parameters",
+                "sensitivity_params",
+                "sensitivity_latent",
+            ],
             [
                 EVALUATION_EMBEDDING,
                 EVALUATION_PARAMETER_DEVIATIONS,
                 EVALUATION_FULL_PARAMETERS,
+                EVALUATION_SENSITIVITY_PARAMS,
+                EVALUATION_SENSITIVITY_LATENT,
             ],
         ):
-            temp_results[result_type] = pd.concat(
+            matching_dfs = [
                 pd.read_csv(efile, index_col=0).assign(
                     **hyperparam_configuration
                 )
@@ -166,7 +177,9 @@ for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
                         }
                     )
                 )
-            )
+            ]
+            if matching_dfs:
+                temp_results[result_type] = pd.concat(matching_dfs)
         print(
             f"Finished concatenating embeddings, parameters and parameter deviations for {samples}, {dataset}"
         )
@@ -241,11 +254,25 @@ for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
         le_dfs.append(temp_results["latent_embeddings"])
         param_dev_dfs.append(temp_results["parameter_deviations"])
         param_dfs.append(temp_results["full_parameters"])
+        if "sensitivity_params" in temp_results:
+            sens_params_dfs.append(temp_results["sensitivity_params"])
+        if "sensitivity_latent" in temp_results:
+            sens_latent_dfs.append(temp_results["sensitivity_latent"])
         # Cleanup
         del training, avg_ps_dfs, rdf, dfd, temp_results
 
 df = pd.concat(dfs, ignore_index=True)
 del dfs
+
+# Save predicted trajectories (sim per sample, condition, observable, time)
+df.drop(columns=["obs", "res"]).to_csv(
+    EVALUATE_ALL_CSVS.format(
+        model=conf.model,
+        data=conf.data,
+        filename=f"trajectories_{conf.figure}",
+    )
+)
+print(f"Saved predicted trajectories to trajectories_{conf.figure}.csv")
 
 le_df = pd.concat(le_dfs, ignore_index=True)
 le_df.to_csv(
@@ -265,6 +292,38 @@ del param_dev_dfs
 
 param_df = pd.concat(param_dfs, ignore_index=True)
 del param_dfs
+
+if sens_params_dfs:
+    sens_params_df = pd.concat(sens_params_dfs, ignore_index=True)
+    sens_params_df.to_csv(
+        EVALUATE_ALL_CSVS.format(
+            model=conf.model,
+            data=conf.data,
+            filename=f"sensitivity_params_{conf.figure}",
+        )
+    )
+    print(
+        f"Saved parameter sensitivities to sensitivity_params_{conf.figure}.csv"
+    )
+    del sens_params_dfs
+else:
+    print("No parameter sensitivity results found.")
+
+if sens_latent_dfs:
+    sens_latent_df = pd.concat(sens_latent_dfs, ignore_index=True)
+    sens_latent_df.to_csv(
+        EVALUATE_ALL_CSVS.format(
+            model=conf.model,
+            data=conf.data,
+            filename=f"sensitivity_latent_{conf.figure}",
+        )
+    )
+    print(
+        f"Saved latent sensitivities to sensitivity_latent_{conf.figure}.csv"
+    )
+    del sens_latent_dfs
+else:
+    print("No latent sensitivity results found.")
 
 for results_df in (le_df, param_dev_df, param_df):
     results_df["job"] = results_df["job"].astype(int)
