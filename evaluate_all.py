@@ -265,7 +265,7 @@ df = pd.concat(dfs, ignore_index=True)
 del dfs
 
 # Save predicted trajectories (sim per sample, condition, observable, time)
-df.drop(columns=["obs", "res"]).to_csv(
+df.to_csv(
     EVALUATE_ALL_CSVS.format(
         model=conf.model,
         data=conf.data,
