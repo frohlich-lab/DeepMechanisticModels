@@ -63,6 +63,67 @@ CYTOF_MARKER_LABELS = {
     "p.p90RSK": r"phospho p90$^{rsk}$",
 }
 
+# Observable → CyTOF marker mapping for consistent annotation
+OBS_TO_CYTOF_MARKER = {
+    "pERBB2_Y1248_obs": "p.HER2",
+    "pERK_Y204_obs": "p.ERK",
+    "pMEK_S222_obs": "p.MEK",
+    "pRPS6KA1_S380_obs": "p.p90RSK",
+}
+
+# Observable display labels (harmonized with CYTOF_MARKER_LABELS)
+OBS_LABELS = {
+    obs: CYTOF_MARKER_LABELS.get(marker, obs)
+    for obs, marker in OBS_TO_CYTOF_MARKER.items()
+}
+
+# Condition display labels
+CONDITION_LABELS = {
+    "EGF": "EGF",
+    "iEGFR": "EGF + iEGFR",
+    "iMEK": "EGF + iMEK",
+}
+
+# Reference palette and labels for trajectory plots
+REF_PALETTE = {
+    "obs": "#2ca02c",  # green – experimental observations (obs)
+    "sample": "#98df8a",  # light green – sample reference (not experimental)
+    "DMM": MODEL_COLORS.get("DMM", "#1f77b4"),
+    "avg_model": "#9467bd",  # purple – population average
+    "linreg": "#ff7f0e",  # orange
+    "lasso": "#d62728",  # red
+    "elasticnet": MODEL_COLORS.get("linear regression", "#8c564b"),
+}
+
+REF_LABELS = {
+    "obs": "Experimental (obs)",
+    "sample": "Sample ref",
+    "DMM": "DMM",
+    "avg_model": "Avg. model",
+    "linreg": "Linear reg.",
+    "lasso": "Lasso",
+    "elasticnet": MODEL_LABELS.get("elasticnet", "Elastic net"),
+}
+
+# Reference renaming for control baselines
+REF_DISPLAY_MAP = {
+    "avg_model": "negative control",
+    "sample": "positive control",
+}
+
+# Shared styling for barplots
+BARPLOT_CONTEXT_ORDER = ["RNAseq", "MassSpec", "CyTOF", "Multimodal"]
+BARPLOT_REF_LINE_STYLES = {
+    "negative control": "--",
+    "positive control": ":",
+}
+BARPLOT_REF_LINE_COLORS = {
+    "negative control": "#555555",
+    "positive control": "#000000",
+}
+AXIS_SPINE_LINEWIDTH = 2
+AXIS_SPINE_COLOR = "black"
+
 # Default context order
 DEFAULT_CONTEXT_ORDER = [
     "CyTOF",
@@ -85,3 +146,45 @@ def get_context_label(context: str) -> str:
 def get_cytof_marker_label(marker: str) -> str:
     """Get display label for a CyTOF marker."""
     return CYTOF_MARKER_LABELS.get(marker, marker)
+
+
+def configure_axis_spines(
+    ax,
+    top=False,
+    right=False,
+    left=True,
+    bottom=True,
+    linewidth=AXIS_SPINE_LINEWIDTH,
+    color=AXIS_SPINE_COLOR,
+):
+    """
+    Configure axis spines with consistent styling across figures.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axis to configure
+    top : bool, optional
+        Show top spine (default: False)
+    right : bool, optional
+        Show right spine (default: False)
+    left : bool, optional
+        Show left spine (default: True)
+    bottom : bool, optional
+        Show bottom spine (default: True)
+    linewidth : float, optional
+        Line width for visible spines (default: AXIS_SPINE_LINEWIDTH)
+    color : str, optional
+        Color for visible spines (default: AXIS_SPINE_COLOR)
+    """
+    ax.spines["top"].set_visible(top)
+    ax.spines["right"].set_visible(right)
+    ax.spines["left"].set_visible(left)
+    ax.spines["bottom"].set_visible(bottom)
+
+    # Set linewidth and color for visible spines
+    for spine_name in ["top", "right", "left", "bottom"]:
+        spine = ax.spines[spine_name]
+        if spine.get_visible():
+            spine.set_linewidth(linewidth)
+            spine.set_color(color)
