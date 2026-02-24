@@ -446,7 +446,7 @@ PATHWAYS_5 = [
 ]
 
 SPLITS_5 = {
-    "all_plus_missingtx",
+    "all",
     "BT20",
     "HCC1500",
     "HCC2185",  # re-added 15.10.2025
@@ -515,6 +515,25 @@ SPLITS_5 = {
     "MDAMB436",
 }
 
+EXTRA_MARKERS_5B = ("CKB", "PARD3B", "TMEM45A", "KRT1", "KRT2", "LMNA")
+
+CONTEXTS_FEATURES_5B = (
+    [
+        ("cytof_init", "RFE_8_permute"),
+    ]
+    + [
+        (f"cytof_init_plus_t{marker}", "RFE_8_permute")
+        for marker in EXTRA_MARKERS_5B
+    ]
+    + [
+        (f"cytof_init_plus_p{marker}", "RFE_8_permute")
+        for marker in EXTRA_MARKERS_5B
+    ]
+)
+
+
+SPLITS_5B = {"all"}
+
 CONTEXTS_FEATURES_6 = [
     ("cytof_init", "RFE_8_permute"),
 ]
@@ -522,10 +541,10 @@ PATHWAYS_6 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
 ]
 SPLITS_6 = [
-    f"all_plus_missingtx_{pct}pct_{seed}"
+    f"all_{pct}pct_{seed}"
     for pct in (10, 20, 30, 40, 50, 60, 70, 80, 90, 100)
     for seed in (0, 1, 2, 3, 4)
-] + ["all_plus_missingtx"]
+] + ["all"]
 
 modifications = [
     # transcriptional individualisation
@@ -556,6 +575,7 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
     "figure5": CONTEXTS_FEATURES_5,
+    "figure5b": CONTEXTS_FEATURES_5B,
     "figure6": CONTEXTS_FEATURES_6,
 }
 
@@ -570,6 +590,7 @@ PATHWAYS_BY_FIGURE = {
     "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
     "figure5": PATHWAYS_5,
+    "figure5b": PATHWAYS_5,
     "figure6": PATHWAYS_6,
 }
 
@@ -584,6 +605,7 @@ SPLITS_BY_FIGURE = {
     "figure3c": SPLITS_3C,
     "figure4": SPLITS_4,
     "figure5": SPLITS_5,
+    "figure5b": SPLITS_5B,
     "figure6": SPLITS_6,
 }
 
@@ -598,6 +620,7 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
     "figure5": True,
+    "figure5b": True,
     "figure6": True,
 }
 
@@ -612,6 +635,7 @@ PARAMS_TO_SCAN = {
     "figure3c": ["n_hidden", "depth"],  # only n_hidden
     "figure4": None,
     "figure5": None,
+    "figure5b": None,
     "figure6": None,
 }
 
