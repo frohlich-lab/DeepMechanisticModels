@@ -515,7 +515,24 @@ SPLITS_5 = {
     "MDAMB436",
 }
 
-EXTRA_MARKERS_5B = ("CKB", "PARD3B", "TMEM45A", "KRT1", "KRT2", "LMNA")
+EXTRA_MARKERS_5B = (
+    "CKB",
+    "PARD3B",
+    "TMEM45A",
+    "KRT1",
+    "KRT2",
+    "LMNA",
+    "MAP3K8",
+    "CNN3",
+    "COL4A1",
+    "COL4A2",
+    "COL5A1",
+    "LAMTOR4",
+    "ALDH1A1",
+    "DCL1",
+    "DSG3",
+    "TAB3",
+)
 
 CONTEXTS_FEATURES_5B = (
     [
