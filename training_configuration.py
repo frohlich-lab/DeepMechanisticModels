@@ -401,6 +401,9 @@ SPLITS_3 = {"all"}
 # Figure 3B - scanning n_hidden (need to set PARAMS_TO_SCAN below)
 CONTEXTS_FEATURES_3B = CONTEXTS_FEATURES_3
 PATHWAYS_3B = [
+    # base model
+    "EGFR_MAPK__logobs",
+    # EGFR models
     "EGFR_MAPK__logobs_tegfr_aggavg",
 ]
 
