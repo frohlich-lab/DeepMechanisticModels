@@ -474,21 +474,21 @@ SPLITS_5 = {
     # "HCC1599",  # outlier
     "HCC1937",
     "HCC1954",
-    "HCC2157",  # no transcriptomic data
+    # "HCC2157",  # no transcriptomic data
     "HCC3153",
     "HCC38",
     "HCC70",
     "HDQP1",
     "JIMT1",
     "MCF10A",
-    "MCF10F",  # no transcriptomic data
+    # "MCF10F",  # no transcriptomic data
     "MDAMB134VI",
     "MDAMB157",
     "MDAMB175VII",
     "MDAMB361",
     "MDAMB415",
     "MDAMB453",
-    "MDAkb2",  # no transcriptomic data
+    # "MDAkb2",  # no transcriptomic data
     "MFM223",
     "MPE600",
     "MX1",
@@ -518,23 +518,36 @@ SPLITS_5 = {
     "MDAMB436",
 }
 
-EXTRA_MARKERS_5B = (
-    "CKB",
-    "PARD3B",
-    "TMEM45A",
-    "KRT1",
-    "KRT2",
-    "LMNA",
+EXTRA_MARKERS_5B_PROT = (
+    # generic >0.5 corr with RMSE
+    "PDIA3",
+    # STRING enriched
+    "MAP2K1",
+    "PAK4",
+    "ARAF",
+    # parameter devs
+    "STMN1",
+    "ARF6",
+)
+
+EXTRA_MARKERS_5B_TX = (
+    # generic >0.5 corr with RMSE
+    "CASK",
+    "SMARCD3",
+    "CYP24A1",
+    "IQGAP2",
+    "PLOD2",
+    # STRING enriched
+    "ERBB3",
+    "ERBB2",
+    "EGFR",
+    # parameter devs
+    "JAK2",
+    "BTC",
     "MAP3K8",
-    "CNN3",
-    "COL4A1",
-    "COL4A2",
-    "COL5A1",
-    "LAMTOR4",
-    "ALDH1A1",
-    "DCL1",
-    "DSG3",
-    "TAB3",
+    "CDK5R1",
+    "PRKCD",
+    "RPS6KA3",
 )
 
 CONTEXTS_FEATURES_5B = (
@@ -543,11 +556,11 @@ CONTEXTS_FEATURES_5B = (
     ]
     + [
         (f"cytof_init_plus_t{marker}", "RFE_8_permute")
-        for marker in EXTRA_MARKERS_5B
+        for marker in EXTRA_MARKERS_5B_TX
     ]
     + [
         (f"cytof_init_plus_p{marker}", "RFE_8_permute")
-        for marker in EXTRA_MARKERS_5B
+        for marker in EXTRA_MARKERS_5B_PROT
     ]
 )
 
