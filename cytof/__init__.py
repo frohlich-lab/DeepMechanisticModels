@@ -24,7 +24,7 @@ def get_samples(data_name):
             # "cHCC1599",  # removed as outlier (very low pERBB2)
             "cHCC1937",
             "cHCC1954",
-            "cHCC2157",  # missing transcriptomic data, only used in context "cytof_init_ALL"
+            # "cHCC2157",  # missing transcriptomic data
             "cHCC2185",
             "cHCC3153",
             "cHCC38",
@@ -32,7 +32,7 @@ def get_samples(data_name):
             "cHDQP1",
             "cJIMT1",
             "cMCF10A",
-            "cMCF10F",  # missing transcriptomic data, only used in context "cytof_init_ALL"
+            # "cMCF10F",  # missing transcriptomic data
             "cMCF7",
             "cMDAMB134VI",
             "cMDAMB157",
@@ -40,7 +40,7 @@ def get_samples(data_name):
             "cMDAMB361",
             "cMDAMB415",
             "cMDAMB453",
-            "cMDAkb2",  # missing transcriptomic data, only used in context "cytof_init_ALL"
+            # "cMDAkb2",  # missing transcriptomic data
             "cMFM223",
             "cMPE600",
             "cMX1",
