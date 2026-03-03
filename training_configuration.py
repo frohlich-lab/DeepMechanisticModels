@@ -19,6 +19,14 @@ modifications = [
     # "logobs",
 ]
 
+BEST_FEATURE_SETS = {
+    "cytof_init": "RFE_8_permute",
+    "multimodal": "RFE_8_permute",
+    "proteomics": "HVGRFE_8_permute",
+    "transcriptomics": "HVGRFE_12_permute",
+}
+
+
 PATHWAYS = [
     "EGFR_MAPK__logobs",
     "EGFR_MAPK__logobs_tegfr_aggavg",
@@ -34,10 +42,10 @@ DATASETS = ("dream_cytof",)
 
 # Input contexts/features & feature selection strategy
 CONTEXTS_FEATURES = [
-    ("cytof_init", "RFE_8_permute"),
-    ("proteomics", "HVGRFE_20_permute"),
-    ("transcriptomics", "HVGRFE_4_permute"),
-    ("multimodal", "RFE_12_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
+    ("proteomics", BEST_FEATURE_SETS["proteomics"]),
+    ("transcriptomics", BEST_FEATURE_SETS["transcriptomics"]),
+    ("multimodal", BEST_FEATURE_SETS["multimodal"]),
 ]
 
 # Cross-validation splits
@@ -79,6 +87,14 @@ LATENT_DIMS = {
     "central_value": 4,  # updated in v79
 }
 
+# Context-specific overrides for the *central value* of n_hidden (LATENT_DIMS).
+# Keys are context names; values are the central value to use for that context.
+# The scan range always comes from the global LATENT_DIMS["range"].
+# When a context is not listed the global LATENT_DIMS["central_value"] is used.
+LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
+    "multimodal": 6,
+}
+
 # Network Layout/Architecture
 NN_STRUCTURE_MULTIPLIER = 2
 
@@ -89,10 +105,17 @@ NETWORK_DEPTH = {
         1,
         2,
         3,
-        # 4,
-        # 5
+        4,
+        5,
     ),
     "central_value": 0,  # no hidden layers
+}
+
+# Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
+# Same format as LATENT_DIMS_BY_CONTEXT.
+NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
+    "transcriptomics": 3,
+    "multimodal": 1,
 }
 
 MULTIHEADED = {
@@ -315,7 +338,25 @@ SPLITS_1B = {
 CONTEXTS_FEATURES_1C = (
     [
         (context, features)
-        for N in [4, 8, 12, 16, 20, 24, 28, 32, 64, 128, 256, 512]
+        for N in [
+            4,
+            6,
+            8,
+            10,
+            12,
+            16,
+            20,
+            24,
+            28,
+            32,
+            64,
+            128,
+            256,
+            512,
+            1024,
+            2048,
+            4096,
+        ]
         for context, features in zip(
             ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
             [
@@ -358,13 +399,13 @@ SPLITS_1C = SPLITS_1B
 
 # Figure 2
 CONTEXTS_FEATURES_2 = [
-    ("cytof_init", "RFE_8_permute"),
-    ("cytof_init_plus_tEGFR", "RFE_8_permute"),
-    ("cytof_init_plus_pEGFR", "RFE_8_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
+    ("cytof_init_plus_tEGFR", BEST_FEATURE_SETS["cytof_init"]),
+    ("cytof_init_plus_pEGFR", BEST_FEATURE_SETS["cytof_init"]),
     # one-hot-encoded luminal/basal subtype from Marcotte et al.
-    ("cytof_init_plus_lb", "RFE_8_permute"),
+    ("cytof_init_plus_lb", BEST_FEATURE_SETS["cytof_init"]),
     # one-hot-encoded intrinsic subtype (PAM50-like) from Marcotte et al.
-    ("cytof_init_plus_intr", "RFE_8_permute"),
+    ("cytof_init_plus_intr", BEST_FEATURE_SETS["cytof_init"]),
 ]
 
 
@@ -378,8 +419,8 @@ SPLITS_2 = SPLITS_1B
 
 # Figure 3
 CONTEXTS_FEATURES_3 = [
-    ("cytof_init", "RFE_8_permute"),
-    ("multimodal", "RFE_12_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
+    ("multimodal", BEST_FEATURE_SETS["multimodal"]),
 ]
 
 PATHWAYS_3 = [
@@ -411,7 +452,7 @@ SPLITS_3B = SPLITS_3
 
 # Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
 CONTEXTS_FEATURES_3C = [
-    ("cytof_init", "RFE_8_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
 ]
 PATHWAYS_3C = PATHWAYS_3
 
@@ -419,7 +460,7 @@ SPLITS_3C = SPLITS_3
 
 # Figure 4
 CONTEXTS_FEATURES_4 = [
-    ("cytof_init", "RFE_8_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
 ]
 
 PATHWAYS_4 = [
@@ -442,7 +483,7 @@ SPLITS_4 = SPLITS_3
 
 # Figure 5 - LOOCV on tEGFR model with cytof_init and multimodal contexts
 CONTEXTS_FEATURES_5 = [
-    ("cytof_init", "RFE_8_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
 ]
 PATHWAYS_5 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
@@ -550,16 +591,33 @@ EXTRA_MARKERS_5B_TX = (
     "RPS6KA3",
 )
 
+# Gene groups for figure 5b – used for separate sub-plots and per-group
+# multiple-testing correction.
+EXTRA_MARKERS_5B_GROUPS = {
+    "RMSE-correlated": {
+        "prot": ("PDIA3",),
+        "tx": ("CASK", "SMARCD3", "CYP24A1", "IQGAP2", "PLOD2"),
+    },
+    "STRING-enriched": {
+        "prot": ("MAP2K1", "PAK4", "ARAF"),
+        "tx": ("ERBB3", "ERBB2", "EGFR"),
+    },
+    "Parameter deviations": {
+        "prot": ("STMN1", "ARF6"),
+        "tx": ("JAK2", "BTC", "MAP3K8", "CDK5R1", "PRKCD", "RPS6KA3"),
+    },
+}
+
 CONTEXTS_FEATURES_5B = (
     [
-        ("cytof_init", "RFE_8_permute"),
+        ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
     ]
     + [
-        (f"cytof_init_plus_t{marker}", "RFE_8_permute")
+        (f"cytof_init_plus_t{marker}", BEST_FEATURE_SETS["cytof_init"])
         for marker in EXTRA_MARKERS_5B_TX
     ]
     + [
-        (f"cytof_init_plus_p{marker}", "RFE_8_permute")
+        (f"cytof_init_plus_p{marker}", BEST_FEATURE_SETS["cytof_init"])
         for marker in EXTRA_MARKERS_5B_PROT
     ]
 )
@@ -568,7 +626,7 @@ CONTEXTS_FEATURES_5B = (
 SPLITS_5B = {"all"}
 
 CONTEXTS_FEATURES_6 = [
-    ("cytof_init", "RFE_8_permute"),
+    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
 ]
 PATHWAYS_6 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only

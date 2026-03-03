@@ -16,8 +16,10 @@ from training_configuration import (
     L1_INFLATE_REGS,
     L2_INFLATE_OUTPUT_REGS,
     LATENT_DIMS,
+    LATENT_DIMS_BY_CONTEXT,
     NEPOCH,
     NETWORK_DEPTH,
+    NETWORK_DEPTH_BY_CONTEXT,
     NN_INIT_FN,
     NN_INIT_SCALES,
     OPTIMISERS,
@@ -34,6 +36,12 @@ from training_configuration import (
     # OTHER OPTIONS
     USE_EARLY_STOP,
 )
+
+# Context-specific central-value overrides: param -> {context -> central_value}
+_CENTRAL_VALUE_OVERRIDES = {
+    "n_hidden": LATENT_DIMS_BY_CONTEXT,
+    "depth": NETWORK_DEPTH_BY_CONTEXT,
+}
 
 # Default product hyperparameters (uses global SPLITS)
 
@@ -156,35 +164,71 @@ def generate_linear_scan(
     ):
         raise TypeError("Inconsistent typing for linear scans!")
 
-    # Get central values
+    # Collect the set of contexts that have any central-value override
+    _contexts_with_overrides = {
+        ctx for ctx_map in _CENTRAL_VALUE_OVERRIDES.values() for ctx in ctx_map
+    }
+
+    # Get global central values
     central_values = {
         hyperparam: linear_hyperparameters[hyperparam]["central_value"]
         for hyperparam in scan_attributes
         if hyperparam in linear_hyperparameters
     }
 
+    def _central_values_for_context(context: str) -> dict:
+        """Return central values with context-specific overrides applied.
+        Only the central value is overridden; the scan range stays global."""
+        if context not in _contexts_with_overrides:
+            return central_values
+        cv = dict(central_values)
+        for param, ctx_map in _CENTRAL_VALUE_OVERRIDES.items():
+            if context in ctx_map:
+                cv[param] = ctx_map[context]
+        return cv
+
+    def _central_for_context(context: str, param: str):
+        """Return the central value for *param* in the given *context*."""
+        ctx_map = _CENTRAL_VALUE_OVERRIDES.get(param, {})
+        if context in ctx_map:
+            return ctx_map[context]
+        return linear_hyperparameters[param]["central_value"]
+
     if select_central_values:
-        linear_scan_configs = [prune_config(central_values)]
+        # One config per (start, context, features) with context-aware central values
+        linear_scan_configs = [
+            prune_config(_central_values_for_context(context))
+            | {"context": context, "features": features, "job": start}
+            for start, (context, features) in itt.product(
+                starts, contexts_features
+            )
+        ]
     else:
         scan_params = (
             params_to_scan if params_to_scan is not None else scan_attributes
         )
-        linear_scan_configs = [
-            prune_config({**central_values, **{param: value}})
-            for param in scan_params
-            if param in linear_hyperparameters
-            for value in linear_hyperparameters[param]["range"]
-            if linear_hyperparameters[param]["central_value"] != value
-        ] + [prune_config(central_values)]
 
-    # product expand for starts, contexts, and features
-    linear_scan_configs = [
-        {**config, **{"context": context, "features": features, "job": start}}
-        for config in linear_scan_configs
+        # Build configs per (start, context, features) so context-specific
+        # central values are used while keeping the global scan range.
+        linear_scan_configs = []
         for start, (context, features) in itt.product(
             starts, contexts_features
-        )
-    ]
+        ):
+            ctx_central = _central_values_for_context(context)
+            ctx_configs = [
+                prune_config({**ctx_central, **{param: value}})
+                | {"context": context, "features": features, "job": start}
+                for param in scan_params
+                if param in linear_hyperparameters
+                for value in linear_hyperparameters[param][
+                    "range"
+                ]  # global range
+                if _central_for_context(context, param) != value
+            ] + [
+                prune_config(ctx_central)
+                | {"context": context, "features": features, "job": start}
+            ]
+            linear_scan_configs.extend(ctx_configs)
 
     # TODO: fix this, this does not work! (linear scans ok, cartesian product broken)
     # product expand for product hyperparameters
