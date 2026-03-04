@@ -21,7 +21,7 @@ modifications = [
 
 BEST_FEATURE_SETS = {
     "cytof_init": "RFE_8_permute",
-    "multimodal": "RFE_8_permute",
+    "multimodal": "RFE_10_permute",
     "proteomics": "HVGRFE_8_permute",
     "transcriptomics": "HVGRFE_12_permute",
 }
