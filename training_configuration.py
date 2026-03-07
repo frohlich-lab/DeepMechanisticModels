@@ -249,7 +249,11 @@ INFLATER_OUTPUT_REG_EPOCHS = {
 
 # Includes both smaller and larger scales to probe sensitivity of training dynamics.
 NN_INIT_SCALES = {
-    "range": (0.01, 0.1, 1.0, 10.0),
+    "range": (
+        0.01,
+        0.1,
+        1.0,
+    ),
     "central_value": 0.1,
 }
 
