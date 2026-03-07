@@ -325,7 +325,7 @@ rule evaluate_all:
         ]
     resources:
         mem="96GB",
-        runtime="120m",
+        runtime="4h",
         nodes=1,
         threads=1
     shell:
@@ -345,7 +345,7 @@ rule report_all:
         performance=fig_dir / '{model}' / '{data}' / f'performance_{FIGURE}.pdf'
     resources:
         mem="8GB",
-        runtime="2h",
+        runtime="4h",
         nodes=1,
         threads=1
     shell:
