@@ -92,7 +92,7 @@ LATENT_DIMS = {
 # The scan range always comes from the global LATENT_DIMS["range"].
 # When a context is not listed the global LATENT_DIMS["central_value"] is used.
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
-    "multimodal": 4,
+    "multimodal": 6,
 }
 
 # Network Layout/Architecture
@@ -117,7 +117,7 @@ NETWORK_DEPTH = {
 # Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
-    "transcriptomics": 5,
+    "transcriptomics": 3,
     "multimodal": 1,
     "proteomics": 1,
 }
@@ -247,12 +247,7 @@ SYMMETRY_REGS = {
 # Default: mid-training
 # INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
-    "range": (
-        100,
-        150,
-        200,
-        250,
-    ),
+    "range": (200,),
     "central_value": 200,
 }
 
@@ -264,7 +259,7 @@ NN_INIT_SCALES = {
         0.1,
         1.0,
     ),
-    "central_value": 0.01,
+    "central_value": 0.1,
 }
 
 # Percentage thresholds for sparsity
