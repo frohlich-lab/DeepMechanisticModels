@@ -118,7 +118,7 @@ NETWORK_DEPTH = {
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
     "transcriptomics": 3,
-    "multimodal": 1,
+    "multimodal": 0,
     "proteomics": 1,
 }
 
