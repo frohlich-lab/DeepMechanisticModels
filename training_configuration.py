@@ -118,7 +118,6 @@ NETWORK_DEPTH = {
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
     "transcriptomics": 3,
-    "multimodal": 0,
     "proteomics": 1,
 }
 
@@ -367,11 +366,20 @@ CONTEXTS_FEATURES_1C = (
             4096,
         ]
         for context, features in zip(
-            ["cytof_init", "proteomics", "transcriptomics", "multimodal"],
+            [
+                "cytof_init",
+                "proteomics",
+                "proteomics",
+                "transcriptomics",
+                "transcriptomics",
+                "multimodal",
+            ],
             [
                 f"RFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
+                f"RFE_{N}_permute",
                 f"HVGRFE_{N}_permute",
+                f"RFE_{N}_permute",
                 f"RFE_{N}_permute",
             ],
             strict=True,
