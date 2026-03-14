@@ -21,7 +21,7 @@ modifications = [
 
 BEST_FEATURE_SETS = {
     "cytof_init": "RFE_8_permute",
-    "multimodal": "RFE_10_permute",
+    "multimodal": "RFE_8_permute",
     "proteomics": "HVGRFE_8_permute",
     "transcriptomics": "HVGRFE_12_permute",
 }
@@ -373,6 +373,7 @@ CONTEXTS_FEATURES_1C = (
                 "transcriptomics",
                 "transcriptomics",
                 "multimodal",
+                "MOSA",
             ],
             [
                 f"RFE_{N}_permute",
@@ -381,17 +382,23 @@ CONTEXTS_FEATURES_1C = (
                 f"HVGRFE_{N}_permute",
                 f"RFE_{N}_permute",
                 f"RFE_{N}_permute",
+                f"RFE_{N}_permute",
             ],
             strict=True,
         )
         if not (
             context in ("cytof_init", "multimodal") and N > 37
         )  # only 37 features available
+        and not (context == "MOSA" and N > 200)  # only 200 latent dims
     ]
     + [
         # Curated feature sets
         # MPAS
         ("transcriptomics", "MPAS"),
+    ]
+    + [
+        # MOSA latent embeddings (pre-trained multi-omic integration)
+        ("MOSA", "all"),
     ]
     + [
         (context, genomic_features)
@@ -428,10 +435,11 @@ CONTEXTS_FEATURES_2 = [
 
 PATHWAYS_2 = [
     "EGFR_MAPK__logobs",
+    "EGFR_MAPK__logobs_tegfr_aggavg",
     "EGFR_MAPK__logobs_fegfr_aggavg",
 ]
 
-SPLITS_2 = SPLITS_1B
+SPLITS_2 = {"all"}
 
 
 # Figure 3
