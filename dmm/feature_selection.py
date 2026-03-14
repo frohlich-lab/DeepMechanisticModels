@@ -21,7 +21,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
 from cellosaurus_utils import get_cell_line_cellosaurus_annotations
-from common import features_dir
+from common import data_dir, features_dir
 from dmm.initialisation import get_features, impute_features
 
 
@@ -198,26 +198,24 @@ def contextualize_measurements(
 
 
 def preprocess_mosa_latent(conf, samples_train, samples_val):
-    annot = pd.read_csv(
-        features_dir
-        / conf.model
-        / conf.data
-        / "DepMap_model_list_20241120.csv",
-        index_col=0,
-    )
+    from cell_line_annotations import get_cellosaurus_annotations
+    from cytof import get_samples
+
     mosa_latent = pd.read_csv(
-        features_dir
-        / conf.model
-        / conf.data
-        / "MOSA_20231023_092657_latent_joint.csv",
+        data_dir / "MOSA_latent_joint.csv",
         index_col=0,
     )
-    # Map from Sanger model ID to cell-line name + process into our cell-line name format (no hyphens, "c" prefix)
-    mosa_latent["cell_line"] = mosa_latent.index.map(
-        annot["model_name"].to_dict()
+
+    # Build SIDM → cell-line name mapping from cellosaurus
+    cell_lines = list(get_samples(conf.data))
+    _, _, cl_to_sidm, _ = get_cellosaurus_annotations(
+        cell_lines,
+        file_dir=features_dir,
     )
-    mosa_latent["cell_line"] = mosa_latent["cell_line"].str.replace("-", "")
-    mosa_latent["cell_line"] = "c" + mosa_latent["cell_line"]
+    sidm_to_cl = {v: k for k, v in cl_to_sidm.items()}
+
+    # Map from Sanger model ID (SIDM) to our cell-line name format
+    mosa_latent["cell_line"] = mosa_latent.index.map(sidm_to_cl)
 
     # Subset to breast cancer cell lines in our data
     our_lines = samples_train + samples_val

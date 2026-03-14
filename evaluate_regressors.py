@@ -200,9 +200,13 @@ del petab_base_files["condition_table"]
 
 # Evaluate regressors
 for mode in ["linreg", "lasso", "elasticnet"]:
-    if (conf.context == "MOSA") and (conf.features != "all"):
+    if (
+        (conf.context == "MOSA")
+        and (conf.features not in ("all",))
+        and not conf.features.startswith("RFE_")
+    ):
         raise ValueError(
-            "MOSA context only available for all features with no transformation!"
+            "MOSA context only available for 'all' features or RFE feature selection!"
         )
 
     # Load input features

@@ -13,6 +13,41 @@ from common import (
 )
 from dmm.config_options import Conf
 
+# MOSA pre-trained multi-omic latent embeddings (Peel et al. 2023)
+# https://doi.org/10.1038/s41587-023-01940-3
+MOSA_FIGSHARE_URL = "https://figshare.com/ndownloader/files/43146637"
+MOSA_LATENT_FILE = "MOSA_latent_joint.csv"
+
+
+def download_mosa_latent(dest_dir=data_dir):
+    """Download MOSA pre-trained latent embeddings from figshare if not cached."""
+    import gzip
+    import io
+    import urllib.request
+
+    dest_path = dest_dir / MOSA_LATENT_FILE
+    if dest_path.exists():
+        print(f"MOSA latent embeddings already downloaded: {dest_path}")
+        return dest_path
+
+    print(f"Downloading MOSA latent embeddings from {MOSA_FIGSHARE_URL} ...")
+    with urllib.request.urlopen(MOSA_FIGSHARE_URL) as response:
+        compressed = response.read()
+    csv_bytes = gzip.decompress(compressed)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path.write_bytes(csv_bytes)
+    # Verify the file is a valid CSV with expected SIDM index
+    df = pd.read_csv(io.BytesIO(csv_bytes), index_col=0, nrows=2)
+    assert df.index[0].startswith(
+        "SIDM"
+    ), f"Unexpected index format: {df.index[0]}"
+    print(
+        f"  → saved {len(csv_bytes):,} bytes to {dest_path} "
+        f"({len(pd.read_csv(dest_path, index_col=0))} cell lines, "
+        f"{len(df.columns)} latent dimensions)"
+    )
+    return dest_path
+
 
 def observable_id_to_model_expr(
     obs_id: str, dataset: str, model: pysb.Model
@@ -179,3 +214,6 @@ if __name__ == "__main__":
     observable_file = data_dir / OBSERVABLES_FILE.format(**conf.to_dict())
     observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
     observable_table.to_csv(observable_file, sep="\t")
+
+    # Download MOSA pre-trained latent embeddings
+    download_mosa_latent()

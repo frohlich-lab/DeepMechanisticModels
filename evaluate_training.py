@@ -193,9 +193,7 @@ sens_params_df["receptor_group"] = sens_params_df["param"].apply(
 
 # Latent dimension sensitivities
 res_latent = []
-for latent_dimension in tqdm(
-    range(conf.n_hidden), desc=f"Latent sensitivities (job={conf.job})"
-):
+for latent_dimension in range(conf.n_hidden):
     latent_zeroed_model = zero_latent_direction(
         model, latent_dimension, latent_dim=conf.n_hidden
     )
