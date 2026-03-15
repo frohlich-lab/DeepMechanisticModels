@@ -24,6 +24,7 @@ BEST_FEATURE_SETS = {
     "multimodal": "RFE_8_permute",
     "proteomics": "HVGRFE_8_permute",
     "transcriptomics": "HVGRFE_12_permute",
+    "MOSA": "all",
 }
 
 
@@ -46,6 +47,7 @@ CONTEXTS_FEATURES = [
     ("proteomics", BEST_FEATURE_SETS["proteomics"]),
     ("transcriptomics", BEST_FEATURE_SETS["transcriptomics"]),
     ("multimodal", BEST_FEATURE_SETS["multimodal"]),
+    ("MOSA", BEST_FEATURE_SETS["MOSA"]),
 ]
 
 # Cross-validation splits
@@ -392,25 +394,53 @@ CONTEXTS_FEATURES_1C = (
         and not (context == "MOSA" and N > 200)  # only 200 latent dims
     ]
     + [
-        # Curated feature sets
-        # MPAS
-        ("transcriptomics", "MPAS"),
-    ]
-    + [
         # MOSA latent embeddings (pre-trained multi-omic integration)
         ("MOSA", "all"),
     ]
     + [
         (context, genomic_features)
-        # All MAPK (KEGG, BIOCARTA, PID, REACTOME, WP) + PAM50
+        # curated feature sets
         for genomic_features in [
+            "PAM50",
+            "MEKFA",
+            "CompRes",
+            "MPAS",
+            "CSC",
+            "IHC",
+            "MSIGDB_KEGG_ERBB",
             "MSIGDB_KEGG_MAPK",
+            "MSIGDB_KEGG_EGFR",
+            "MSIGDB_KEGG_RTK",
+            "MSIGDB_KEGG_ERK",
             "MSIGDB_BIOCARTA_MAPK",
+            "MSIGDB_BIOCARTA_EGF",
+            "MSIGDB_BIOCARTA_ERK",
+            "MSIGDB_BIOCARTA_RAS",
+            "MSIGDB_BIOCARTA_P38",
+            "MSIGDB_PID_ERBB_DOWNSTREAM",
+            "MSIGDB_PID_ERBB_INTERN",
+            "MSIGDB_PID_ERBB_PROXIMAL",
+            "MSIGDB_PID_ERBB",
+            "MSIGDB_PID_RAS",
             "MSIGDB_PID_MAPK",
+            "MSIGDB_PID_P38_DOWNSTREAM",
+            "MSIGDB_PID_P38",
+            "MSIGDB_REACTOME_EGFR_CANCER_VARIANTS",
+            "MSIGDB_REACTOME_EGFR_DOWNREGULATION",
+            "MSIGDB_REACTOME_EGFR",
+            "MSIGDB_REACTOME_EGFR_CANCER",
+            "MSIGDB_REACTOME_ERBB2_OVEREXPRESSION",
+            "MSIGDB_REACTOME_ERBB2",
+            "MSIGDB_REACTOME_ERBB2_CANCER",
+            "MSIGDB_REACTOME_ERK_TARGETS",
+            "MSIGDB_REACTOME_ERK",
             "MSIGDB_REACTOME_MAPK",
             "MSIGDB_REACTOME_MAPK_CANCER",
+            "MSIGDB_REACTOME_P38",
+            "MSIGDB_WP_EGFR",
+            "MSIGDB_WP_EGFR_RESISTANCE",
             "MSIGDB_WP_MAPK",
-            "PAM50",
+            "MSIGDB_WP_P38",
         ]
         for context in ["transcriptomics", "proteomics"]
     ]

@@ -81,7 +81,7 @@ def get_feature_importances(model, X, y, method="auto"):
 
 
 def get_hvg(
-    input_df: pd.DataFrame, top_n: Union[int, float] = 500
+    input_df: pd.DataFrame, top_n: Union[int, float] = 2500
 ) -> pd.DataFrame:
     # remove 20% of features with the lowest mean:
     means = np.mean(input_df, axis=0)
