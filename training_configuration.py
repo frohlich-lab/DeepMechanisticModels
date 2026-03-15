@@ -606,38 +606,6 @@ SPLITS_5 = {
     "MDAMB436",
 }
 
-EXTRA_MARKERS_5B_PROT = (
-    # generic >0.5 corr with RMSE
-    "PDIA3",
-    # STRING enriched
-    "MAP2K1",
-    "PAK4",
-    "ARAF",
-    # parameter devs
-    "STMN1",
-    "ARF6",
-)
-
-EXTRA_MARKERS_5B_TX = (
-    # generic >0.5 corr with RMSE
-    "CASK",
-    "SMARCD3",
-    "CYP24A1",
-    "IQGAP2",
-    "PLOD2",
-    # STRING enriched
-    "ERBB3",
-    "ERBB2",
-    "EGFR",
-    # parameter devs
-    "JAK2",
-    "BTC",
-    "MAP3K8",
-    "CDK5R1",
-    "PRKCD",
-    "RPS6KA3",
-)
-
 # Gene groups for figure 5b – used for separate sub-plots and per-group
 # multiple-testing correction.
 EXTRA_MARKERS_5B_GROUPS = {
@@ -654,6 +622,18 @@ EXTRA_MARKERS_5B_GROUPS = {
         "tx": ("JAK2", "BTC", "MAP3K8", "CDK5R1", "PRKCD", "RPS6KA3"),
     },
 }
+
+EXTRA_MARKERS_5B_TX = tuple(
+    gene
+    for gene_groups in EXTRA_MARKERS_5B_GROUPS.values()
+    for gene in gene_groups["tx"]
+)
+
+EXTRA_MARKERS_5B_PROT = tuple(
+    gene
+    for gene_groups in EXTRA_MARKERS_5B_GROUPS.values()
+    for gene in gene_groups["prot"]
+)
 
 CONTEXTS_FEATURES_5B = (
     [
