@@ -505,14 +505,6 @@ PATHWAYS_3B = [
 
 SPLITS_3B = SPLITS_3
 
-# Figure 3C - run base and tEGFR models on "all" splits with both 6 and 8 hidden units
-CONTEXTS_FEATURES_3C = [
-    ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
-]
-PATHWAYS_3C = PATHWAYS_3
-
-SPLITS_3C = SPLITS_3
-
 # Figure 4
 CONTEXTS_FEATURES_4 = [
     ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
@@ -718,7 +710,6 @@ CONTEXTS_FEATURES_BY_FIGURE = {
     "figure2": CONTEXTS_FEATURES_2,
     "figure3": CONTEXTS_FEATURES_3,
     "figure3b": CONTEXTS_FEATURES_3B,
-    "figure3c": CONTEXTS_FEATURES_3C,
     "figure4": CONTEXTS_FEATURES_4,
     "figure5": CONTEXTS_FEATURES_5,
     "figure5b": CONTEXTS_FEATURES_5B,
@@ -733,7 +724,6 @@ PATHWAYS_BY_FIGURE = {
     "figure2": PATHWAYS_2,
     "figure3": PATHWAYS_3,
     "figure3b": PATHWAYS_3B,
-    "figure3c": PATHWAYS_3C,
     "figure4": PATHWAYS_4,
     "figure5": PATHWAYS_5,
     "figure5b": PATHWAYS_5,
@@ -748,7 +738,6 @@ SPLITS_BY_FIGURE = {
     "figure2": SPLITS_2,
     "figure3": SPLITS_3,
     "figure3b": SPLITS_3B,
-    "figure3c": SPLITS_3C,
     "figure4": SPLITS_4,
     "figure5": SPLITS_5,
     "figure5b": SPLITS_5B,
@@ -763,7 +752,6 @@ SELECT_CENTRAL_VALUES_BY_FIGURE = {
     "figure2": True,
     "figure3": True,
     "figure3b": False,  # scan (but subset to params below)
-    "figure3c": False,  # scan (but subset to params below)
     "figure4": True,
     "figure5": True,
     "figure5b": True,
@@ -778,7 +766,6 @@ PARAMS_TO_SCAN = {
     "figure2": None,
     "figure3": None,
     "figure3b": ["n_hidden"],  # only n_hidden
-    "figure3c": ["n_hidden", "depth"],  # only n_hidden
     "figure4": None,
     "figure5": None,
     "figure5b": None,
