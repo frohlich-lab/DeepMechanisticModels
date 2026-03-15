@@ -13,7 +13,7 @@ from sklearn.inspection import permutation_importance
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from annotation_utils import _onehot_intrinsic, _onehot_lb
+from cell_line_annotations import onehot_intrinsic, onehot_lb
 from common import FEATURES_OUTFILE, Wildcards, training_samples, val_samples
 from dmm.config_options import Conf
 from dmm.feature_selection import (
@@ -533,12 +533,12 @@ def prepare_inputs_for_context(
             subconf, samples_train_split, samples_val_split
         )
     elif subconf.context == "subtype_intr":
-        input_train = _onehot_intrinsic(samples_train_split)
-        input_val = _onehot_intrinsic(samples_val_split)
+        input_train = onehot_intrinsic(samples_train_split)
+        input_val = onehot_intrinsic(samples_val_split)
         features_all = input_train.columns.tolist()
     elif subconf.context == "subtype_lb":
-        input_train = _onehot_lb(samples_train_split)
-        input_val = _onehot_lb(samples_val_split)
+        input_train = onehot_lb(samples_train_split)
+        input_val = onehot_lb(samples_val_split)
         features_all = input_train.columns.tolist()
     else:
         input_train, features_all, _, imputer = load_data(
