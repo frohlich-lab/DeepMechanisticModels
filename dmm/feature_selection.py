@@ -379,12 +379,14 @@ def load_data(
         )
 
     # subset samples to dataset at hand (train, val)
+    _index_name = input_data.index.name
     if contextualization != "MOSA":
         input_data = input_data.loc[samples, :]
     else:  # handle missing cell-lines for pre-trained MOSA
         input_data = input_data.loc[
             [sample for sample in samples if sample in input_data.index], :
         ]
+    input_data.index.name = _index_name
 
     if contextualization.startswith("cytof_dynamic"):
         input_data = harmonise_cytof_dynamic(input_data)
