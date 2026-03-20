@@ -24,7 +24,7 @@ BEST_FEATURE_SETS = {
     "multimodal": "RFE_8_permute",
     "proteomics": "HVGRFE_8_permute",
     "transcriptomics": "HVGRFE_12_permute",
-    "MOSA": "all",
+    "MOSA": "RFE_6_permute",
 }
 
 
@@ -86,7 +86,7 @@ LATENT_DIMS = {
         7,
         8,
     ),
-    "central_value": 4,  # updated in v79
+    "central_value": 4,
 }
 
 # Context-specific overrides for the *central value* of n_hidden (LATENT_DIMS).
