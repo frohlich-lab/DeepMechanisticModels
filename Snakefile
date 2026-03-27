@@ -323,11 +323,11 @@ rule evaluate_all:
                 f'evaluate_all_{FIGURE}',
             )
         ]
+    threads: 4
     resources:
         mem="96GB",
         runtime="8h",
         nodes=1,
-        threads=4
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
