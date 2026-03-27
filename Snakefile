@@ -327,7 +327,7 @@ rule evaluate_all:
         mem="96GB",
         runtime="8h",
         nodes=1,
-        threads=1
+        threads=4
     shell:
         'python3 {input.script} ' + ' '.join(
             f'--{arg}={{wildcards.{arg}}}'
