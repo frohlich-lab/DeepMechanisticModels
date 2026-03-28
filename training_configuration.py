@@ -94,7 +94,8 @@ LATENT_DIMS = {
 # The scan range always comes from the global LATENT_DIMS["range"].
 # When a context is not listed the global LATENT_DIMS["central_value"] is used.
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
-    "multimodal": 6,
+    "multimodal": 8,
+    "MOSA": 6,
 }
 
 # Network Layout/Architecture
@@ -121,6 +122,7 @@ NETWORK_DEPTH = {
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
     "transcriptomics": 3,
     "proteomics": 1,
+    "MOSA": 1,
 }
 
 MULTIHEADED = {
