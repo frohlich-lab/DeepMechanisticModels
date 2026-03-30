@@ -58,6 +58,9 @@ SPLITS = {
     "HCC2185",  # re-added 15.10.2025
     "MCF7",
     "UACC3199",
+    "HCC1954",  # added 30.03.2026
+    "EVSAT",  # re-added 30.03.2026
+    "UAC893",  # added 30.03.2026
 }
 
 STANDARDISE_FEATURES = {
@@ -95,7 +98,8 @@ LATENT_DIMS = {
 # When a context is not listed the global LATENT_DIMS["central_value"] is used.
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "multimodal": 8,
-    "MOSA": 6,
+    "MOSA": 3,
+    "transcriptomics": 3,
 }
 
 # Network Layout/Architecture
@@ -120,9 +124,8 @@ NETWORK_DEPTH = {
 # Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
-    "transcriptomics": 3,
+    "transcriptomics": 1,
     "proteomics": 1,
-    "MOSA": 1,
 }
 
 MULTIHEADED = {
