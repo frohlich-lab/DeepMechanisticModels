@@ -100,6 +100,7 @@ LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "multimodal": 6,
     "MOSA": 6,
     "transcriptomics": 7,
+    "proteomics": 5,
     "cytof_init": 5,
 }
 
