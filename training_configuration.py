@@ -97,9 +97,10 @@ LATENT_DIMS = {
 # The scan range always comes from the global LATENT_DIMS["range"].
 # When a context is not listed the global LATENT_DIMS["central_value"] is used.
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
-    "multimodal": 8,
-    "MOSA": 3,
-    "transcriptomics": 3,
+    "multimodal": 6,
+    "MOSA": 6,
+    "transcriptomics": 7,
+    "cytof_init": 5,
 }
 
 # Network Layout/Architecture
@@ -124,8 +125,10 @@ NETWORK_DEPTH = {
 # Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
-    "transcriptomics": 1,
+    "transcriptomics": 2,
     "proteomics": 1,
+    "multimodal": 1,
+    "cytof_init": 1,
 }
 
 MULTIHEADED = {
