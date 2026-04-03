@@ -97,11 +97,11 @@ LATENT_DIMS = {
 # The scan range always comes from the global LATENT_DIMS["range"].
 # When a context is not listed the global LATENT_DIMS["central_value"] is used.
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
-    "multimodal": 6,
+    "multimodal": 8,
     "MOSA": 6,
-    "transcriptomics": 7,
+    "transcriptomics": 3,
     "proteomics": 5,
-    "cytof_init": 5,
+    "cytof_init": 8,
 }
 
 # Network Layout/Architecture
@@ -115,10 +115,6 @@ NETWORK_DEPTH = {
         2,
         3,
         4,
-        5,
-        6,
-        7,
-        8,
     ),
     "central_value": 0,  # no hidden layers
 }
@@ -126,9 +122,9 @@ NETWORK_DEPTH = {
 # Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
-    "transcriptomics": 2,
+    "transcriptomics": 1,
     "proteomics": 1,
-    "multimodal": 1,
+    "multimodal": 0,
     "cytof_init": 1,
 }
 
@@ -224,7 +220,7 @@ OREG_ENCODE_REGS = {
 
 # OMEGAS: l1reg_inflater_output -- directly penalises the number of non-negative cell-specific deviations
 L1_INFLATE_OUTPUT_REGS = {
-    "range": (0, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
+    "range": (0, 1e-3, 1e-2, 1e-1, 1e0, 1e1),
     "central_value": 1e-1,  # updated post v79
 }
 
@@ -232,18 +228,18 @@ L1_INFLATE_OUTPUT_REGS = {
 L2_INFLATE_OUTPUT_REGS = {
     "range": (
         0,
-        1e1,
-        1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
-        1e3,
-        1e4,
-        1e5,
+        # 1e1,
+        # 1e2,  # just enough to match 0.1 l1reg_inflater_output magnitude
+        # 1e3,
+        # 1e4,
+        # 1e5,
     ),
     "central_value": 0,
 }
 
 # EPSILONS: recon_loss, reconstruction loss scale hyperparameter
 RECON_REGS = {
-    "range": (0, 1e-3, 3e-3, 1e-2, 3e-2, 1e-1),
+    "range": (1e-2,),
     "central_value": 1e-2,
 }
 
@@ -264,10 +260,10 @@ INFLATER_OUTPUT_REG_EPOCHS = {
 # Includes both smaller and larger scales to probe sensitivity of training dynamics.
 NN_INIT_SCALES = {
     "range": (
-        0.001,
-        0.01,
+        # 0.001,
+        # 0.01,
         0.1,
-        1.0,
+        # 1.0,
     ),
     "central_value": 0.1,
 }
