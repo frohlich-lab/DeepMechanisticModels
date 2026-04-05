@@ -207,9 +207,7 @@ rule estimate_parameters:
         model=TRAINED_MODEL
     retries: 3
     resources:
-        mem="4GB",
-        # disk="2GB",
-        # tmpdir=str(tmp_dir),
+        mem="8GB",
         runtime="24h",
         nodes=1,
         threads=2
