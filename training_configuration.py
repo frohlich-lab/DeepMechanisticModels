@@ -122,7 +122,7 @@ NETWORK_DEPTH = {
 # Context-specific overrides for the *central value* of depth (NETWORK_DEPTH).
 # Same format as LATENT_DIMS_BY_CONTEXT.
 NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
-    "transcriptomics": 2,
+    "transcriptomics": 1,
     "proteomics": 1,
     "multimodal": 0,
     "cytof_init": 1,
