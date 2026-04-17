@@ -50,7 +50,7 @@ CONTEXTS_FEATURES = [
     ("MOSA", BEST_FEATURE_SETS["MOSA"]),
 ]
 
-# Cross-validation splits
+# Cross-validation splits (NOTE THAT THIS HAS NO EFFECT, DOC ONLY)
 SPLITS = {
     # "all",
     "BT20",
@@ -58,9 +58,9 @@ SPLITS = {
     "HCC2185",  # re-added 15.10.2025
     "MCF7",
     "UACC3199",
-    "HCC1954",  # added 30.03.2026
-    "EVSAT",  # re-added 30.03.2026
-    "UAC893",  # added 30.03.2026
+    # "HCC1954",  # added 30.03.2026
+    # "EVSAT",  # re-added 30.03.2026
+    # "UAC893",  # added 30.03.2026
 }
 
 STANDARDISE_FEATURES = {
@@ -616,16 +616,21 @@ SPLITS_5 = {
 # multiple-testing correction.
 EXTRA_MARKERS_5B_GROUPS = {
     "RMSE-correlated": {
-        "prot": ("PDIA3",),
-        "tx": ("CASK", "SMARCD3", "CYP24A1", "IQGAP2", "PLOD2"),
-    },
-    "STRING-enriched": {
-        "prot": ("MAP2K1", "PAK4", "ARAF"),
-        "tx": ("ERBB3", "ERBB2", "EGFR"),
+        "prot": ("HTATIP1", "AGO1"),
+        "tx": ("ZNF568", "SDR42E1", "C1orf21", "CDCA7L", "CNKSR1", "PCSK6"),
     },
     "Parameter deviations": {
-        "prot": ("STMN1", "ARF6"),
-        "tx": ("JAK2", "BTC", "MAP3K8", "CDK5R1", "PRKCD", "RPS6KA3"),
+        "prot": (
+            "KIF1B",
+            "ANKRD54",
+            "STMN1",
+        ),
+        "tx": (
+            "LXN",
+            "MAP3K8",
+            "GPRC5B",
+            "PIGR",
+        ),
     },
 }
 
