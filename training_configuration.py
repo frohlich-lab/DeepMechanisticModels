@@ -665,6 +665,7 @@ SPLITS_5B = {"all"}
 
 CONTEXTS_FEATURES_6 = [
     ("cytof_init", BEST_FEATURE_SETS["cytof_init"]),
+    ("cytof_init_plus_tEGFR", BEST_FEATURE_SETS["cytof_init"]),
 ]
 PATHWAYS_6 = [
     "EGFR_MAPK__logobs_tegfr_aggavg",  # tEGFR model only
