@@ -616,20 +616,17 @@ SPLITS_5 = {
 # multiple-testing correction.
 EXTRA_MARKERS_5B_GROUPS = {
     "RMSE-correlated": {
-        "prot": ("HTATIP1", "AGO1"),
-        "tx": ("ZNF568", "SDR42E1", "C1orf21", "CDCA7L", "CNKSR1", "PCSK6"),
+        "prot": ("HTATIP2", "TAGLN2", "GSN", "SUMO1", "FLJ45252", "STXBP2"),
+        "tx": ("PRKAA2", "ALKBH3", "DOC2A"),
     },
     "Parameter deviations": {
         "prot": (
-            "KIF1B",
-            "ANKRD54",
-            "STMN1",
+            "PLS1",
+            "NCDN",
         ),
         "tx": (
-            "LXN",
+            "NCDN",
             "MAP3K8",
-            "GPRC5B",
-            "PIGR",
         ),
     },
 }
