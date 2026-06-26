@@ -623,10 +623,13 @@ EXTRA_MARKERS_5B_GROUPS = {
         "prot": (
             "PLS1",
             "NCDN",
+            "SEZ6L2",
         ),
         "tx": (
             "NCDN",
             "MAP3K8",
+            "STX7",
+            "ANKRD50",
         ),
     },
 }
