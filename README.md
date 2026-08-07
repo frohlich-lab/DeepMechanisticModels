@@ -18,3 +18,18 @@ Training is implemented as [snakemake](https://snakemake.readthedocs.io/en/stabl
 Hyperparameters can be specified via `training_configuration.py`.
 
 Evaluation of the trained models is described in `evaluation_workflow.md`.
+
+## Paper figures
+
+The notebooks under `figures_paper/` produce the paper figures. To check they
+all still run after a refactor:
+
+```
+./venv/bin/python run_notebooks.py --list   # show what would run
+./venv/bin/python run_notebooks.py          # run all 12
+```
+
+Figures are redirected into `notebook_output/figures/`, prefixed with the
+notebook name, so the repository root stays clean. This is local-only — the
+notebooks need the pipeline's outputs (`eval/`, `res/`, `pretrain/`) and
+external API access, so it cannot run in CI.

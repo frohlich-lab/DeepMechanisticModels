@@ -193,3 +193,6 @@ features/cellosaurus.txt
 /eval
 *.json
 *.eps
+
+# Figures and executed copies produced by run_notebooks.py
+/notebook_output
