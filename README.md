@@ -60,7 +60,11 @@ all still run after a refactor:
 ./venv/bin/python run_notebooks.py          # run all 12
 ```
 
-Figures are redirected into `notebook_output/figures/`, prefixed with the
-notebook name, so the repository root stays clean. This is local-only — the
-notebooks need the pipeline's outputs (`eval/`, `res/`, `pretrain/`) and
-external API access, so it cannot run in CI.
+Everything a notebook writes is redirected under `notebook_output/` and prefixed
+with the notebook name — figures into `figures/`, derived CSVs into `data/` — so
+the repository never accumulates run artefacts. Failures write the offending
+cell and its traceback to `notebook_output/logs/`.
+
+This is local-only: the notebooks need the pipeline's outputs (`eval/`, `res/`,
+`pretrain/`), R's limma, `BNGPATH`, and external API access, so it cannot run in
+CI.

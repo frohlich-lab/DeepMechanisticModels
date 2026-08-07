@@ -38,8 +38,9 @@ to ``Path("figures_paper/mmc2.xlsx")`` when ``__file__`` is undefined and
 ``figures_paper/`` go on ``PYTHONPATH``, since the notebooks use both
 ``import figure_config`` and ``from figures_paper.de_corr_plots import ...``.
 
-One known gap: ``figure_S7.ipynb`` has a ``to_csv`` call that is not
-redirected -- only figures are.
+``DataFrame.to_csv``/``Series.to_csv`` are redirected the same way, into
+``<out-dir>/data/`` -- ``figure_S7.ipynb`` writes a derived CSV that would
+otherwise land in ``figures_paper/``.
 """
 
 from __future__ import annotations
@@ -59,19 +60,28 @@ DEFAULT_OUT_DIR = "notebook_output"
 # Cells idle this long are treated as hung. Generous: some notebooks refit.
 DEFAULT_TIMEOUT = 1800
 
-# Injected ahead of the notebook's own cells. Keeps every figure write inside
-# the output directory and namespaced by notebook.
-REDIRECT_SAVEFIG = """\
+# Injected ahead of the notebook's own cells. Keeps every figure and derived
+# data file the notebook writes inside the output directory, namespaced by
+# notebook, so the repository never accumulates run artefacts.
+REDIRECT_OUTPUTS = """\
 import pathlib as _pl
 
 import matplotlib
+import pandas as _pd
 
 matplotlib.use("Agg")
 from matplotlib.figure import Figure as _Figure
 
 _FIG_DIR = _pl.Path(r"{fig_dir}")
-_FIG_PREFIX = "{prefix}"
+_DATA_DIR = _pl.Path(r"{data_dir}")
+_PREFIX = "{prefix}"
 _FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _redirect(target_dir, name):
+    target_dir.mkdir(parents=True, exist_ok=True)
+    return str(target_dir / f"{{_PREFIX}}__{{_pl.Path(name).name}}")
+
 
 _orig_savefig = _Figure.savefig
 
@@ -79,11 +89,25 @@ _orig_savefig = _Figure.savefig
 def _redirected_savefig(self, fname, *args, **kwargs):
     # leave file objects / buffers alone, only rewrite paths
     if isinstance(fname, (str, _pl.PurePath)):
-        fname = str(_FIG_DIR / f"{{_FIG_PREFIX}}__{{_pl.Path(fname).name}}")
+        fname = _redirect(_FIG_DIR, fname)
     return _orig_savefig(self, fname, *args, **kwargs)
 
 
 _Figure.savefig = _redirected_savefig
+
+# to_csv is inherited from NDFrame, so DataFrame and Series share one function;
+# rebind on both. A None path means "return a string" -- leave that alone.
+_orig_to_csv = _pd.DataFrame.to_csv
+
+
+def _redirected_to_csv(self, path_or_buf=None, *args, **kwargs):
+    if isinstance(path_or_buf, (str, _pl.PurePath)):
+        path_or_buf = _redirect(_DATA_DIR, path_or_buf)
+    return _orig_to_csv(self, path_or_buf, *args, **kwargs)
+
+
+_pd.DataFrame.to_csv = _redirected_to_csv
+_pd.Series.to_csv = _redirected_to_csv
 """
 
 
@@ -175,6 +199,7 @@ def run_one(
     path: Path,
     timeout: int,
     fig_dir: Path,
+    data_dir: Path,
     save_to: Path | None,
     log_dir: Path,
 ) -> tuple[bool, str]:
@@ -186,7 +211,9 @@ def run_one(
     nb.cells.insert(
         0,
         nbformat.v4.new_code_cell(
-            REDIRECT_SAVEFIG.format(fig_dir=fig_dir, prefix=path.stem)
+            REDIRECT_OUTPUTS.format(
+                fig_dir=fig_dir, data_dir=data_dir, prefix=path.stem
+            )
         ),
     )
 
@@ -325,6 +352,7 @@ def main() -> int:
         else REPO_ROOT / args.out_dir
     )
     fig_dir = out_dir / "figures"
+    data_dir = out_dir / "data"
     fig_dir.mkdir(parents=True, exist_ok=True)
     save_to = out_dir / "executed" if args.save_notebooks else None
     log_dir = out_dir / "logs"
@@ -347,7 +375,9 @@ def main() -> int:
         rel = path.relative_to(REPO_ROOT)
         print(f"[{i}/{len(notebooks)}] {rel} ... ", end="", flush=True)
         t0 = time.monotonic()
-        ok, msg = run_one(path, args.timeout, fig_dir, save_to, log_dir)
+        ok, msg = run_one(
+            path, args.timeout, fig_dir, data_dir, save_to, log_dir
+        )
         print(f"{'ok' if ok else 'FAIL'} ({time.monotonic() - t0:.0f}s)")
         if not ok:
             print(f"          {msg}")
