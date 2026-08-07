@@ -178,11 +178,6 @@ conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
 
-# TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
-#  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
-#  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
-#  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
-
 # Suppress all DeprecationWarning warnings (coming from petab)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
@@ -240,10 +235,14 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     print(
         f"Building pipeline and training estimator for {mode} on {conf.context}..."
     )
+    # alpha is selected on the validation cell lines and the estimator refit on
+    # train+val, matching the DMM, which selects its configuration on val
     trained_pipeline, features_train = train_pipeline(
         input_data_train=input_features_dict["train"],
         output_data_train=output_data_train,
         pipeline_steps=[mode],
+        input_data_val=input_features_dict["val"],
+        output_data_val=output_data_val,
     )
 
     for dataset in ["train", "val"]:

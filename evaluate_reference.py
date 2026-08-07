@@ -30,10 +30,9 @@ conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
 
-# TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
-#  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
-#  that MultiTaskLassoCV and MultiTaskElasticNetCV have the same learning opportunities in
-#  CV than the full DMM (i.e. their CV should be performed on train+val, not on train only)
+# The regressor-fairness note that used to sit here applied to
+# evaluate_regressors.py: avg_model and per_sample are pretrained parameter sets,
+# not CV-fitted estimators, so there is no alpha selection to rebalance here.
 samples = {
     "train": training_samples(Wildcards(conf.data, conf.samples)),
     "val": val_samples(Wildcards(conf.data, conf.samples)),
