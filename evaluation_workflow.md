@@ -7,22 +7,27 @@ This document describes the evaluation pipeline of the DeepMechanisticModels cod
 ## Pipeline Overview
 
 ```
-process_data ──► select_features ──► train (estimate_parameters)
-                                          │
-pretrain_per_sample ─┐                    ▼
-pretrain_average ────┤             evaluate_training
-                     │                    │
-                     ▼                    │
-            evaluate_references           │
-                     │                    │
-                     │    evaluate_regressors
-                     │         │          │
-                     ▼         ▼          ▼
-                       evaluate_all
-                           │
-                           ▼
-                       report_all
+process_data ──► select_features ─────────┐
+                                          ▼
+pretrain_average ───────────────► train (estimate_parameters)
+        │                                 │
+        ├──────────────────┐              ▼
+pretrain_per_sample ───────┤       evaluate_training
+                           ▼              │
+                  evaluate_references     │
+                           │              │
+                           │    evaluate_regressors
+                           │         │    │
+                           ▼         ▼    ▼
+                            evaluate_all
+                                 │
+                                 ▼
+                             report_all
 ```
+
+`pretrain_average` output is used twice: as the average-parameter starting point for
+`train` (Snakefile `estimate_parameters`, input `pretrain`; `train.py` reads it as
+`avg_model_parameter_file`) and as the `avg_model` baseline in `evaluate_references`.
 
 ---
 
