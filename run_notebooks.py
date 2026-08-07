@@ -141,13 +141,46 @@ def pinned_kernel_spec_manager():
     return PinnedKernelSpecManager()
 
 
+def _failure_report(nb, path: Path) -> tuple[str, str]:
+    """Return (one-line summary, full report) for the first cell that errored.
+
+    The one-liner alone is rarely enough to fix anything, so the full report
+    carries the failing cell's source and traceback.
+    """
+    for idx, cell in enumerate(nb.cells):
+        for out in cell.get("outputs", []):
+            if out.get("output_type") != "error":
+                continue
+            ename, evalue = out.get("ename", "?"), out.get("evalue", "")
+            # cell 0 is the injected redirect, so report the notebook's own
+            # numbering
+            summary = f"{ename}: {evalue}  [cell {idx - 1}]"
+            body = "\n".join(
+                [
+                    f"# {path}",
+                    f"# failed in cell {idx - 1}: {ename}: {evalue}",
+                    "",
+                    "# ---- cell source ----",
+                    "".join(cell.get("source", "")),
+                    "",
+                    "# ---- traceback ----",
+                    *out.get("traceback", []),
+                ]
+            )
+            return summary, body
+    return "", ""
+
+
 def run_one(
-    path: Path, timeout: int, fig_dir: Path, save_to: Path | None
+    path: Path,
+    timeout: int,
+    fig_dir: Path,
+    save_to: Path | None,
+    log_dir: Path,
 ) -> tuple[bool, str]:
     """Execute one notebook. Returns (ok, one-line message)."""
     import nbformat
     from nbclient import NotebookClient
-    from nbclient.exceptions import CellExecutionError
 
     nb = nbformat.read(path, as_version=4)
     nb.cells.insert(
@@ -163,22 +196,45 @@ def run_one(
         kernel_name="python3",  # remapped by the pinned spec manager
         kernel_spec_manager=pinned_kernel_spec_manager(),
         resources={"metadata": {"path": str(REPO_ROOT)}},
+        # stop at the first failing cell; nbclient still records the error
+        # output on that cell before raising, which _failure_report reads
         allow_errors=False,
     )
+    ok, message = True, ""
     try:
         client.execute()
-        return True, ""
-    except CellExecutionError as exc:
-        tail = [ln for ln in str(exc).strip().split("\n") if ln.strip()]
-        return False, tail[-1] if tail else "CellExecutionError"
-    except Exception as exc:  # kernel death, timeout, malformed notebook, ...
-        return False, f"{type(exc).__name__}: {exc}"
-    finally:
-        if save_to is not None:
-            del nb.cells[0]  # drop the injected cell from the saved copy
-            dest = save_to / path.relative_to(REPO_ROOT / DEFAULT_SEARCH_ROOT)
-            dest.parent.mkdir(parents=True, exist_ok=True)
-            nbformat.write(nb, dest)
+    except Exception as exc:  # cell error, kernel death, timeout, ...
+        ok, message = False, f"{type(exc).__name__}: {exc}"
+
+    if not ok:
+        summary, body = _failure_report(nb, path)
+        if not body:
+            # Not every failure lands as an `error` output -- an unknown cell
+            # magic, for instance, only writes a UsageError to stderr. Fall
+            # back to the exception text and still surface a usable one-liner.
+            body = f"# {path}\n# no error output recorded\n\n{message}"
+            interesting = [
+                ln.strip()
+                for ln in message.split("\n")
+                if ln.strip()
+                and not ln.startswith("-")
+                and "----- stderr -----" not in ln
+                and not ln.startswith("An error occurred")
+            ]
+            summary = (
+                interesting[-1] if interesting else message.split("\n")[0]
+            )
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log = log_dir / f"{path.stem}.log"
+        log.write_text(body)
+        message = f"{summary}\n          details: {log}"
+
+    if save_to is not None:
+        del nb.cells[0]  # drop the injected cell from the saved copy
+        dest = save_to / path.relative_to(REPO_ROOT / DEFAULT_SEARCH_ROOT)
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        nbformat.write(nb, dest)
+    return ok, message
 
 
 def main() -> int:
@@ -271,6 +327,7 @@ def main() -> int:
     fig_dir = out_dir / "figures"
     fig_dir.mkdir(parents=True, exist_ok=True)
     save_to = out_dir / "executed" if args.save_notebooks else None
+    log_dir = out_dir / "logs"
 
     # Both import styles the notebooks use must resolve; the kernel inherits
     # this environment.
@@ -290,7 +347,7 @@ def main() -> int:
         rel = path.relative_to(REPO_ROOT)
         print(f"[{i}/{len(notebooks)}] {rel} ... ", end="", flush=True)
         t0 = time.monotonic()
-        ok, msg = run_one(path, args.timeout, fig_dir, save_to)
+        ok, msg = run_one(path, args.timeout, fig_dir, save_to, log_dir)
         print(f"{'ok' if ok else 'FAIL'} ({time.monotonic() - t0:.0f}s)")
         if not ok:
             print(f"          {msg}")
