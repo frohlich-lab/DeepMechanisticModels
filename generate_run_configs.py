@@ -1,7 +1,4 @@
 import itertools as itt
-from typing import Union
-
-import numpy as np
 
 from dmm.config_options import scan_attributes
 from training_configuration import (
@@ -44,35 +41,6 @@ _CENTRAL_VALUE_OVERRIDES = {
 }
 
 # Default product hyperparameters (uses global SPLITS)
-
-
-def format_floats(
-    run_configs: list[dict],
-    cols_to_check: list,
-    precision: Union[int, str] = "adaptive",
-):
-    def format_string(precision):
-        return "{:." + str(precision) + "f}"
-
-    for config in run_configs:
-        for col in cols_to_check:
-            if isinstance(precision, int):
-                format_prefix = format_string(precision)
-                config[col] = format_prefix.format(config[col])
-            elif precision == "adaptive":
-                if config[col] == 0:
-                    config[col] = "0.0"
-                else:
-                    oom = int(np.log10(config[col]))
-                    if oom < 0:
-                        oom = abs(oom)
-                        format_prefix = format_string(oom)
-                        config[col] = format_prefix.format(config[col])
-                    else:
-                        config[col] = str(
-                            config[col]
-                        )  # regular values, e.g. 1, 10, 100
-    return run_configs
 
 
 def prune_config(run_config: dict):
@@ -141,10 +109,6 @@ def get_product_hyperparameters(splits=None):
         "use_early_stopping": USE_EARLY_STOP,
         "samples": splits,
     }
-
-
-# Keep backward compatibility
-product_hyperparameters = get_product_hyperparameters()
 
 
 def generate_linear_scan(

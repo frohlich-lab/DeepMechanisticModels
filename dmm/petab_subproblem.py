@@ -250,7 +250,6 @@ def load_petab(
     )
 
     filter_observables(petab_problem)
-    # petab.lint_problem(problem)
 
     # general PetabImporter compared to old PetabImporterPysb
     return PetabImporter(
@@ -317,9 +316,5 @@ def filter_observables(petab_problem: petab.Problem):
             continue
         if par not in obs_pars:
             if "pobs" in modifications:
-                # marker = par.split("_")[0][1:]
-                # if (
-                #         (f"f{marker.lower()}" in modifications) or (f"t{marker.lower()}" in modifications)
-                # ) and (f"t{marker}" in par):
                 continue
             petab_problem.parameter_df.drop(index=par, inplace=True)

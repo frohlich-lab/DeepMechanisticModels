@@ -37,17 +37,6 @@ def mse(
     return jnp.mean(jnp.square(predictions - targets))
 
 
-def init_biases(biases, num_layers):
-    if (biases is None) or (not biases):  # None or False
-        biases = [False] * num_layers
-    elif biases:
-        biases = [True] * num_layers
-    # removed - either all layers have biases or none have biases
-    # elif len(biases) != num_layers:
-    #     raise ValueError("Biases must have the same length as layer_sizes!")
-    return biases
-
-
 class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
     kin_params_combiner: KinParamsCombiner
     # Sparsity masks are tuples to prevent undesired updates
@@ -487,17 +476,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         return (
             self.conf.symm_reg * symmetry_reg / (len(encoders) * num_layers)
         )  # mean across number of encoder/decoder & layers - should be on the same order of magnitude as MSE
-
-    def constrain_median(self, x: Array):
-        """
-        Constrain median of global parameters to be close to initialisation (avg_model/per_sample), x.
-        """
-        if self.conf.median_reg == 0.0:
-            return 0.0
-        return self.conf.median_reg * mse(
-            predictions=self.kin_params_combiner.learned_global_kin_params,
-            targets=x,
-        )
 
     def get_hyperparams(
         self,

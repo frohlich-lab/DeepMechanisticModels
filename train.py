@@ -4,7 +4,7 @@ import amici.logging
 import fire
 from jax import config
 
-from common import (  # TRAINING_OUTFILE_RESULTS,
+from common import (
     FEATURES_OUTFILE,
     PER_SAMPLE_OUTFILE_PARS,
     TRAINED_MODEL,
@@ -31,7 +31,6 @@ conf = fire.Fire(Conf)
 avg_model_parameter_file = PER_SAMPLE_OUTFILE_PARS.format(
     **{**conf.to_dict(), "sample": f"model_average_{conf.samples}"}
 )
-# results_file = Path(TRAINING_OUTFILE_RESULTS.format(**conf)
 model_file = TRAINED_MODEL.format(**conf.to_dict())
 
 # Get filepaths for features and feature transformation pipeline
@@ -93,7 +92,6 @@ train(
     input_features_train=input_features_train,
     input_features_test=input_features_test,
     conf=conf,
-    # rfile=results_file,
     model_file=model_file,
     early_stopping_params=early_stopping_params,
     debug_mode=debug_mode,

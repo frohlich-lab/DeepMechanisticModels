@@ -52,12 +52,6 @@ FEATURES_OUTFILE = str(
     )
 )
 
-FEATURES_PIPELINE = str(
-    features_dir
-    / "{model}"
-    / "{data}"
-    / "{context}__{samples}__{features}__trained_pca_pipeline.joblib"
-)
 
 defaults = {
     x: f"{{{x}}}" for x in scan_attributes if x not in ["model", "data"]
@@ -65,38 +59,16 @@ defaults = {
 
 tpl_results_file = "__".join(defaults.values())
 
-TRAINING_OUTFILE_RESULTS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + ".hdf5")
-)
-
-PRETRAINED_BEST_MODELS = str(
-    results_dir / "{model}" / "{data}" / (tpl_results_file + "_nn_pre_bm.eqx")
-)
-
 # TODO @GiacomoFabrini check this works and replace how this is handled everywhere!
 TRAINED_MODEL = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".eqx")
 )
 
-TRAINED_MODEL_WEIGHT_PLOTS = str(
-    results_dir
-    / "{model}"
-    / "{data}"
-    / (tpl_results_file + "_weight_plot.png")
-)
-
-COLLECTED_TRAINING_RESULTS = str(
-    results_dir
-    / "{model}"
-    / "{data}"
-    / (tpl_results_file.format(**{**defaults, "job": "full"}) + ".hdf5")
-)
 
 tpl_petab_file = str(data_dir / "{model}__{data}__{file}.tsv")
 MEASUREMENTS_FILE = tpl_petab_file.format(
     file="measurements", data="{data}", model="{model}"
 )
-MEASUREMENTS_FILE_RW = MEASUREMENTS_FILE.replace(".tsv", "_rw_{samples}.tsv")
 CONDITIONS_FILE = tpl_petab_file.format(
     file="conditions", data="{data}", model="{model}"
 )
@@ -191,12 +163,10 @@ EVALUATION_SENSITIVITY_LATENT = str(
 )
 
 EVALUATION_PLOT_FILE = "{dataset}__" + tpl_evaluation_file
-EVALUATE_ALL = str(fig_dir / "{model}" / "{data}" / "evaluate_all_{group}.pdf")
 EVALUATE_ALL_CSVS = str(
     evaluations_dir / "{model}" / "{data}" / "{filename}.csv"
 )
 
-hardest_cell_lines = ["cBT20", "cHCC1500", "cHCC2185", "cMCF7", "cUACC3199"]
 test_samples = ["cCAL120", "cCAMA1", "cHCC1143", "cKPL1", "cZR75B"]
 
 
@@ -310,58 +280,5 @@ subtypes_tognetti = {
     "cZR751": {"PAM50": "LB", "Luminal/Basal": "Luminal"},
 }
 
-# From https://bmcmedgenomics.biomedcentral.com/articles/10.1186/1755-8794-5-44, Figure 1
-pam50_genelist = [
-    "FGFR4",
-    "ERBB2",
-    "GRB7",
-    "BLVRA",
-    "BAG1",
-    "BCL2",
-    "CXXC5",
-    "ESR1",
-    "GPR160",
-    "FOXA1",
-    "MLPH",
-    "NAT1",
-    "SLC39A6",
-    "MAPT",
-    "PGR",
-    "MDM2",
-    "TMEM45B",
-    "MMP11",
-    "ACTR3B",
-    "CDC6",
-    "CCNE1",
-    "EXO1",
-    "CDCA1",
-    "KNTC2",
-    "BIRC5",
-    "CENPF",
-    "ANLN",
-    "CDC20",
-    "CCNB1",
-    "CEP55",
-    "MYBL2",
-    "MKI67",
-    "UBE2C",
-    "RRM2",
-    "KIF2C",
-    "MELK",
-    "TYMS",
-    "PTTG1",
-    "ORC6L",
-    "UBE2T",
-    "CDH3",
-    "EGFR",
-    "KRT17",
-    "KRT14",
-    "KRT5",
-    "FOXC1",
-    "MIA",
-    "SFRP1",
-    "PHGDH",
-    "MYC",
-]
 
 REGRESSION_MODES = ["linreg", "lasso", "elasticnet"]

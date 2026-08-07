@@ -1,4 +1,3 @@
-from pathlib import Path
 from typing import Tuple, Union
 
 import equinox as eqx
@@ -9,12 +8,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 import petab.v1 as petab
 import pypesto
-import seaborn as sns
 from amici import AMICI_SUCCESS
 from amici.petab.simulations import rdatas_to_simulation_df
-from jax import vmap
 from jax.tree_util import tree_map
-from jaxtyping import Array
 from optax import (
     GradientTransformationExtraArgs,
     OptState,
@@ -190,8 +186,15 @@ def get_parameters(module: Union[DeepComponent, eqx.Module]) -> jnp.ndarray:
 
 
 def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
-    encoder_params = get_parameters(model.deep_encoder) if not model.multiheaded \
-        else jnp.concatenate(jnp.array([get_parameters(encoder) for encoder in model.deep_encoder]))
+    encoder_params = (
+        get_parameters(model.deep_encoder)
+        if not model.multiheaded
+        else jnp.concatenate(
+            jnp.array(
+                [get_parameters(encoder) for encoder in model.deep_encoder]
+            )
+        )
+    )
     inflater_params = get_parameters(model.deep_inflater)
     param_array = jnp.concatenate(
         [
@@ -203,8 +206,15 @@ def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
         ]
     )
     if isinstance(model.deep_decoder, DeepComponent):
-        decoder_params = get_parameters(model.deep_decoder) if not model.multiheaded \
-            else jnp.concatenate(jnp.array([get_parameters(decoder) for decoder in model.deep_decoder]))
+        decoder_params = (
+            get_parameters(model.deep_decoder)
+            if not model.multiheaded
+            else jnp.concatenate(
+                jnp.array(
+                    [get_parameters(decoder) for decoder in model.deep_decoder]
+                )
+            )
+        )
         param_array = jnp.concatenate(
             [param_array.flatten(), decoder_params.flatten()]
         )
@@ -215,24 +225,6 @@ def map_params_to_array(model: DeepMechanisticModel) -> jnp.ndarray:
         ]
     )
     return param_array
-
-
-def zero_out_layer_params(
-    param: Array,
-    thresh: float,
-):
-    """Takes in input the parameters (weights/biases) of a layer and a threshold.
-    Returns in output the same parameters with zeroed-out values below the threshold * max absolute value,
-    as well as the reverse of the mask (True if parameter has not been zero-ed out and should be kept,
-    False if parameter has been zero-ed out and should be frozen in further training).
-    Currently, it does not affect biases (single bias value per layer, i.e. never masked out).
-    """
-    # Compute min accepted value as threshold `thresh` * max absolute value in a given layer
-    min_accepted_value = thresh * jnp.max(jnp.abs(param))
-    # return layer parameters with zeroed-out values below `min_accepted_value`
-    mask = jnp.abs(param) < min_accepted_value
-    new_param = jnp.where(mask, 0.0, param)
-    return new_param, ~mask
 
 
 class Chi2Objective(pypesto.objective.Objective):
@@ -411,24 +403,6 @@ def model_output_to_petab_input_nojit(
     return augmented_pred
 
 
-def enforce_minimum_spacing(arr: np.ndarray, min_dist: int) -> np.ndarray:
-    """Filters an input array, arr, and keeps the original items that are at least min_dist apart."""
-    prev = -np.inf  # ensure first element is always kept
-    return np.array([prev := x for x in arr if x - prev >= min_dist])
-
-
-def generate_log_epochs(
-    n_epoch: int, num_samples: int, min_dist: int
-) -> np.ndarray:
-    """Returns epochs regularly spaced in log10 space but no closer than
-    min_dist to prevent running into filestream rate limit in W&B.
-    """
-    log_epochs = np.unique(
-        np.logspace(0, np.log10(n_epoch), num=num_samples).astype(int)
-    )
-    return enforce_minimum_spacing(log_epochs, min_dist)
-
-
 def compute_simulation_from_model(
     pp,
     model: DeepMechanisticModel,
@@ -474,109 +448,6 @@ def rmse(pp, model: DeepMechanisticModel, input_data: np.ndarray):
     except Exception as e:
         print(e)
         return np.inf
-
-
-def rmse_ensemble(
-    pp, best_models: list[tuple[int, float, DeepMechanisticModel]], input_data
-):
-    try:
-        residuals = []
-        for _, _, model in best_models:
-            simulation_df, petab_problem = compute_simulation_from_model(
-                pp=pp,
-                model=model,
-                input_data=input_data,
-                return_petab_problem=True,
-            )
-            # track residuals for each model
-            residuals.append(
-                (
-                    simulation_df[petab.SIMULATION]
-                    - petab_problem.measurement_df[petab.MEASUREMENT]
-                ).values
-            )
-        return np.sqrt(
-            np.mean(
-                np.square(
-                    np.array(residuals).mean(axis=0)
-                    # equivalent to the residual of the mean simulation
-                )
-            )
-        )
-    except Exception as e:
-        print(e)
-        return np.inf
-
-
-def test_save_reload_model(
-    model: DeepMechanisticModel,
-    model_filename: Path,
-    samples_name_list_dict: dict,
-    cytof_problem,  # avoids importing from CytofProblem
-    petab_base_files,  # avoids importing from util
-    dataset: str,
-    input_data: np.ndarray,
-):
-    # Set model to inference mode
-    model = eqx.nn.inference_mode(model)
-
-    model_filename.parent.mkdir(exist_ok=True, parents=True)
-    # Save
-    model.save(model_filename, samples_name_list_dict)
-
-    # Use class method to load an instance from file
-    re_model = DeepMechanisticModel.load(
-        filename=model_filename,
-        problem=cytof_problem,
-        dataset=dataset,
-        petab_base_files=petab_base_files,
-    )
-    re_model = eqx.nn.inference_mode(re_model)
-
-    # TODO(Giacomo): add checks on RMSE -- need to import problem_train,
-    #  problem_test and compute RMSE on both
-    # return RMSE on validation and assert it's the same as the best one
-    # could write another function for this
-    assert (
-        model.inflate_params(input_data, key=jr.PRNGKey(0))
-        == re_model.inflate_params(input_data, jr.PRNGKey(0))
-    ).all()
-    assert (
-        vmap(model.decode)(input_data, jr.PRNGKey(0))
-        == vmap(re_model.decode)(input_data, jr.PRNGKey(0))
-    ).all()
-
-
-def check_best_model(
-    best_model_filename: Path,
-    cytof_problem,  # avoids importing from CytofProblem
-    petab_base_files,  # avoids importing from util
-    input_data: np.ndarray,
-    pp: pypesto.Problem,
-    best_rmse_val: float,
-):
-    # Use class method to load an instance from file
-    re_model = DeepMechanisticModel.load(
-        filename=best_model_filename,
-        problem=cytof_problem,
-        dataset="test",
-        petab_base_files=petab_base_files,
-    )
-    # Compute RMSE with reloaded model
-    re_model_rmse_val = rmse(pp, re_model, input_data)
-
-    print(
-        f"Reloaded model RMSE val: {re_model_rmse_val}, "
-        f"original RMSE val: {best_rmse_val}"
-    )
-
-    # Cannot assert equality on NaN or inf values
-    if (not np.isfinite(best_rmse_val)) and (
-        not np.isfinite(re_model_rmse_val)
-    ):
-        pass
-    else:
-        assert re_model_rmse_val == best_rmse_val
 
 
 class MetricHandler:

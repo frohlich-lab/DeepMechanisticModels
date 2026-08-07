@@ -71,7 +71,6 @@ def activate_single_param(
     ]
     # If parameter has been removed from sparsity, return None to skip
     if param_mask_value == 0:
-        # print("Parameter was set to zero by sparsity, skipping...")
         return None
     else:
         # Create a blank binary mask just like the one in the model

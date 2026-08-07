@@ -104,8 +104,6 @@ LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "cytof_init": 8,
 }
 
-# Network Layout/Architecture
-NN_STRUCTURE_MULTIPLIER = 2
 
 # Define network depths
 NETWORK_DEPTH = {
@@ -128,10 +126,6 @@ NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
     "cytof_init": 1,
 }
 
-MULTIHEADED = {
-    True,
-    # False
-}
 
 # Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
 USE_BIAS = (
@@ -139,11 +133,6 @@ USE_BIAS = (
     "False",
 )
 
-# last_layer_activation: use the activation function in the last layer as well (default: not used in output layer)
-LAST_LAYER_ACTIVATION = (
-    # "True",
-    "False",
-)
 
 # Encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
 # NN_INIT_FN hyperparameter
@@ -251,7 +240,6 @@ SYMMETRY_REGS = {
 
 # Epoch at which to disable OMEGA regularisation (l1reg_inflater_output)
 # Default: mid-training
-# INFLATER_OUTPUT_REG_EPOCHS = {'range': (50, 100, 200, 300, 500), 'central_value': 100}
 INFLATER_OUTPUT_REG_EPOCHS = {
     "range": (200,),
     "central_value": 200,
@@ -269,8 +257,6 @@ NN_INIT_SCALES = {
 }
 
 # Percentage thresholds for sparsity
-# SPARSE_THRESH_PERCS = {'range': (5, 10, 25, 50, 75, 100), 'central_value': 50}
-# SPARSE_THRESH_PERCS = {'range': (25, 50, 75, 100), 'central_value': 50}
 SPARSE_THRESH_PERCS = {"range": ("gmm",), "central_value": "gmm"}
 
 
@@ -287,13 +273,6 @@ INFLATER_BOUND = {
         # 5,
     ),
     "central_value": 3,
-}
-
-# LINEAR_SCHEDULE: use_simple_linear_schedule, can override learning schedule and produce a single linear schedule
-# with the given max learning rate, warm-up and decay
-LINEAR_SCHEDULE = {
-    True,  # simple linear learning rate schedule - warmup + decay, no cosine annealing schedules
-    # False,
 }
 
 

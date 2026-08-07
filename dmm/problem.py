@@ -37,17 +37,6 @@ class Problem(object):
         ...
 
     @abstractmethod
-    def load_amici(
-        self,
-        model: pysb.Model,
-        amici_dir: Path,
-        force_compile: bool = True,
-        add_observables: bool = False,
-        name_suffix: str = "",
-    ) -> amici.Model:
-        ...
-
-    @abstractmethod
     def apply_solver_settings(self, solver: amici.AmiciSolver):
         ...
 

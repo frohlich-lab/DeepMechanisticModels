@@ -1,5 +1,6 @@
-import pandas as pd
+from typing import List
 
+import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.impute import KNNImputer
 from sklearn.linear_model import (
@@ -9,7 +10,6 @@ from sklearn.linear_model import (
 )
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from typing import List
 
 
 def build_pipeline(
@@ -52,7 +52,9 @@ def build_pipeline(
     else:
         if not steps_list:
             if steps_list is None:
-                raise TypeError("Expected type list for steps_list, got None type")
+                raise TypeError(
+                    "Expected type list for steps_list, got None type"
+                )
             else:
                 raise ValueError("List of pipeline steps is empty")
     return Pipeline(steps)
@@ -85,9 +87,8 @@ def train_pipeline(
         output_data_train = KNNImputer().fit_transform(output_data_train)
 
     # Build pipeline and return trained_pipeline, features_train
-    pipeline = build_pipeline(
-        steps_list=pipeline_steps,
-        # input_data=input_data
-    )
+    pipeline = build_pipeline(steps_list=pipeline_steps)
 
-    return pipeline.fit(input_data_train, output_data_train), input_data_train.columns
+    return pipeline.fit(
+        input_data_train, output_data_train
+    ), input_data_train.columns

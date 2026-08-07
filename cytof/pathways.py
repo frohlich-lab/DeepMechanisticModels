@@ -4,7 +4,6 @@ active_rtks = (
     "ERBB3__Y1289_p",
 )
 rtk_feedback = ("ERK__Y204_p",)
-active_akt = ("AKT__T308_p",)
 
 
 def add_egfr(model):
@@ -92,7 +91,6 @@ def add_mapk(model):
         "Y204": (["MEK__S222_p", "TOPK__Y74_p"], ["iMEK_0", "ERK__Y204_p"])
     }
     model.pathway_elements["RPS6KA1"] = {"S380": ["ERK__Y204_p"]}
-    # model.delays["MEK_S222"] = 3
 
 
 def add_mtor_akt(model):
@@ -103,26 +101,6 @@ def add_mtor_akt(model):
     model.pathway_elements["AKT"] = {
         "T308": ["PDPK1__S241_p"],
     }
-
-    # add_activation(
-    #     model,
-    #     "MTOR",
-    #     "C",
-    #     "activation",
-    #     active_akt,
-    #     [],
-    #     site_states=["c0", "c2"],
-    # )
-    #
-    # add_activation(
-    #     model,
-    #     "MTOR",
-    #     "C",
-    #     "activation",
-    #     ["RPS6KA1__S380_p"],
-    #     [],
-    #     site_states=["c0", "c1"],
-    # )
 
 
 def add_p38(model):
@@ -145,63 +123,8 @@ def add_p38(model):
             "TOPK__Y74_p",
         ],
     }
-    # add P38 as MEK inhibitor (https://doi.org/10.1016/j.cellsig.2005.05.023)
-    # model.pathway_elements["MEK"]["S222"][1].append("p38__T180_p")
-    # add P38 as ERK inhibitor (https://doi.org/10.1039/D2CB00157H)
-    # model.pathway_elements["ERK"]["Y204"][1].append("p38__T180_p")
-    # model.pathway_elements["JNK"] = {
-    #     "T183": ["MKK4__S257_p", "MKK36__S218_p"],
-    # }
     model.pathway_elements["MAPKAPK2"] = {
         "T334": ["p38__T180_p", "ERK__Y204_p"]
     }
     # add MAPKAPK2 as RPS6KA1 activator
     model.pathway_elements["RPS6KA1"]["S380"].append("MAPKAPK2__T334_p")
-
-
-def add_stat(model):
-    pass
-    # stat_cascade = [
-    #     ("SRC", {"Y419": active_rtks}),
-    #     ("STAT1", {"Y727": ["ERK__Y204_p"]}),
-    #     ("STAT3", {"Y705": ["SRC__Y419_p", "ERK__Y204_p", "EGFR__Y1173_p"]}),
-    #     ("STAT5A", {"Y694": ["SRC__Y419_p", "EGFR__Y1173_p"]}),
-    #     ("BTK", {"Y551": ["SRC__Y419_p"]}),
-    #     ("PLCG2", {"Y759": ["EGFR__Y1173_p", "SRC__Y419_p", "BTK__Y551_p"]}),
-    # ]
-    # generate_pathway(model, stat_cascade)
-
-
-def add_s6(model):
-    pass
-    # # S6
-    # s6_cascade = [
-    #     (
-    #         "RPS6KB1",
-    #         {"S412": ["MTOR__C_c1"], "T252": ["PDPK1__S241_p"]},
-    #     ),  # p70S6K
-    #     (
-    #         "RPS6",
-    #         {"S235_S236": ["RPS6KA1__S380_p", "RPS6KB1__S412_p__T252_p"]},
-    #     ),  # S6
-    # ]
-    # generate_pathway(model, s6_cascade)
-    #
-    # # GSK
-    # gsk_cascade = [
-    #     ("GSK3B", {"S9": [*active_akt, "RPS6KA1__S380_p", "RPS6KB1__S412_p"]})
-    # ]
-    # generate_pathway(model, gsk_cascade)
-    #
-    # # TFs
-    # EIF4_cascade = [
-    #     (
-    #         "EIF4EBP1",
-    #         {"T37_T46": ["MTOR__C_c1", "GSK3B__S9_p", "ERK__Y204_p"]},
-    #     ),
-    #     (
-    #         "CREB1",
-    #         {"S133": ["AKT__T308_p", "RPS6KA1__S380_p"]},
-    #     ),
-    # ]
-    # generate_pathway(model, EIF4_cascade)

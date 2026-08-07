@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Callable
 
 import equinox as eqx
 import jax.numpy as jnp
@@ -36,48 +35,10 @@ from .training_helper_funcs import (
     model_output_to_petab_input_frozen_medians,
     rmse,
 )
-
-# from .training_helper_funcs import test_save_reload_model, plot_model_weights
 from .wandb_init_log import (
     log_extra_loss_terms,
     log_param_norms,
 )
-
-
-def update_best_models(
-    model: DeepMechanisticModel,
-    rmse_val: float,
-    epoch: int,
-    best_models: list,
-    max_models: int,
-    l1reg_scheduling: bool,
-) -> list[tuple[float, float, DeepMechanisticModel]]:
-    """
-    Update the list of best models with the current model and rmse_val
-    """
-    # Insert the new (rmse_val, model) in the appropriate position in the list
-    best_models.append((epoch, rmse_val, model))
-    # Prune entries from pre-sparsity stage, i.e. with epoch = 0
-    if l1reg_scheduling:
-        best_models = [
-            (epoch, rmse_val, model)
-            for (epoch, rmse_val, model) in best_models
-            if epoch != 0
-        ]
-    # Sort in ascending order by rmse_val (first = lowest = best)
-    best_models = sorted(best_models, key=lambda x: x[1])
-    # Keep only the top 'max_models' entries
-    return best_models[:max_models]
-
-
-@eqx.filter_jit
-def jitted_objective(
-    problem: pypesto.Problem,
-    model: DeepMechanisticModel,
-    data,
-    base_obj_fn: Callable,
-):
-    return problem.objective(base_obj_fn(model, data))
 
 
 @eqx.filter_value_and_grad(has_aux=True)
@@ -181,7 +142,6 @@ def train(
 
     # Use randomly initialised model to get initial rmse_test_min and
     # the collection of best_models for the ensemble. Returns np.inf is something fails.
-    # rmse_train_start = rmse(problem_train, model, input_features_train)
     rmse_train, rmse_val = (
         rmse(problem, model, input_data)
         for problem, input_data in zip(

@@ -19,7 +19,6 @@ from .data import load_dream_data
 
 base_dir = Path(__file__).parents[0]
 pysb_dir = base_dir / "pysb"
-pathway_dir = base_dir
 
 logger = logging.getLogger("cytof_problem")
 

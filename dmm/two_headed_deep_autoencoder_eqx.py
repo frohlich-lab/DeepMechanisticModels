@@ -54,11 +54,6 @@ class TwoHeadedDeepAutoencoder(eqx.Module):
         reconstruct: bool,
         multiheaded: bool,
     ):
-        # # encoder layers must shrink towards bottleneck/latent representation -- by default - remove?
-        # if encoder_params.layer_sizes[-1] > encoder_params.layer_sizes[0]:
-        #     raise ValueError(
-        #         "Latent space size cannot be larger than input feature space size!"
-        #     )
         if inflater_params.layer_sizes[0] > inflater_params.layer_sizes[1]:
             raise ValueError(
                 "Latent space size cannot be larger than output/kinetic parameters feature space size!"

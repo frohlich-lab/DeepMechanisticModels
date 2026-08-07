@@ -140,37 +140,7 @@ def get_kin_params_median_deviation(
         avg_model_params.index
         == np.min([np.random.poisson(2, 1)[0], len(avg_model_params) - 1])
     ].iloc[0]
-
-    # Use the best initialisation from avg_model (here second best)
-    # avg_param_combo = avg_model_params[avg_model_params.index == 1].iloc[0]
     return avg_param_combo
-
-
-# def load_and_subset_input_features(
-#         conf: Conf,
-#         model: DeepMechanisticModel,
-#         dataset: str,
-#         pypesto_subproblem: pypesto.Problem = None,
-# ):
-#     features = pd.read_csv(
-#         FEATURES_OUTFILE.format_map(dict(**conf.__dict__, dataset=dataset)),
-#         index_col=0,
-#     )
-#     # extract sample names, ordering of those is important since samples
-#     # must match when reshaping the inflated matrix
-#     petab_samples = []
-#     if pypesto_subproblem is None:
-#         pypesto_subproblem = model.pypesto_subproblem
-#     for name in pypesto_subproblem.x_names:
-#         if not name.startswith(MODEL_FEATURE_PREFIX):
-#             continue
-#
-#         sample = name.split("__")[-1]
-#         if sample not in petab_samples and sample in features.index:
-#             petab_samples.append(sample)
-#
-#     input_features = features.loc[petab_samples, :].values
-#     return input_features
 
 
 def sort_features(

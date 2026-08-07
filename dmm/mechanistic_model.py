@@ -1,8 +1,7 @@
 import itertools as itt
 import re
-from typing import Iterable, List
+from typing import Iterable
 
-import pysb.bng
 import sympy as sp
 from pysb import (
     Expression,
@@ -500,19 +499,6 @@ def add_activation(
         )
 
 
-def add_degradation(model: Model, targets):
-    for target in targets:
-        mono_name, site_conditions = site_states_from_string(target)
-        kr = add_parameter(f"degradation_{target}_kr", model)
-        deg_rate = model.expressions[f"{mono_name}_degradation_rate"]
-        rate = Expression(f"degradation_{target}_rate", kr * deg_rate)
-        Rule(
-            f"degradation_{target}",
-            model.monomers[mono_name](**site_conditions) >> None,
-            rate,
-        )
-
-
 def get_autoencoder_modulator(par: Parameter, model: Model):
     """Generate a new expression that allows modulation of a rate according to
     input parameter. Applies a sigmoid transformation.
@@ -543,152 +529,3 @@ def add_observables(model: Model):
                     f"p{monomer.name}_{'_'.join(sites)}",
                     monomer(**{site: "p" for site in sites}),
                 )
-
-
-def add_inhibitor(
-    model: Model, name: str, targets: List[str], inhibits_activation=False
-):
-    inh = None
-
-    free_targets = {}
-    for target in targets:
-        if target in model.observables.keys():
-            target_sym = model.observables[target]
-        elif (
-            target_expr := target.replace("_obs", "")
-        ) in model.expressions.keys():
-            target_sym = model.expressions[target_expr]
-            target = target_expr
-        elif target in model.expressions.keys():
-            target_sym = model.expressions[target]
-        else:
-            continue
-        kd = add_parameter(f"{name}_{target}_kd", model)
-
-        if inh is None:
-            inh = Parameter(f"{name}_0", 0.0)
-
-        # [A]*[I] = kD*[A:I]
-        # [A]_0 = [A] + [A:I]
-        # [A] = [A]_0 - [A:I]
-        # [A] = [A]_0 - [A]*[I]/kD
-        # [A](1 + [I]/kD) = [A]_0
-        # [A] = [A]_0/(1 + [I]/kD)
-        # free A: [A] = [A]_0 / (1 + kD*[I])
-
-        free_targets[target] = Expression(
-            f"free_{target}",
-            target_sym / (1.0 + inh / kd),
-            _export=False,
-        )
-
-        if target.endswith("_obs"):
-            # just insert in the beginning, nothing to worry about
-            model.expressions = pysb.ComponentSet(
-                [kd, free_targets[target]] + list(model.expressions)
-            )
-        else:
-            # we need to insert the new expression before all dependent
-            # expression, but after the target expression
-            expr_index = list(model.expressions.keys()).index(target)
-            model.expressions = pysb.ComponentSet(
-                list(model.expressions)[: expr_index + 1]
-                + [kd, free_targets[target]]
-                + list(model.expressions)[expr_index + 1 :]
-            )
-
-    if not free_targets:
-        return
-
-    for expr in model.expressions:
-        if expr.name.startswith("free_"):
-            continue
-
-        for target, obs_or_expr in [
-            (s.name, s)
-            for s in expr.expr.free_symbols
-            for name in (s.name, s.name + "_obs")
-            if isinstance(s, (Observable, Expression)) and name in targets
-        ]:
-            expr.expr = expr.expr.subs(obs_or_expr, free_targets[target])
-
-
-def add_gf_bolus(name: str):
-    bolus = Monomer(f"{name}")
-    Initial(bolus(), Parameter(f"{name}_0", 0.0), fixed=True)
-
-
-def cleanup_unused(model):
-    model.reset_equations()
-    pysb.bng.generate_equations(model)
-
-    observables = [
-        obs.name for obs in model.expressions if obs.name.endswith("_obs")
-    ]
-
-    dynamic_eq = sp.Matrix(model.odes)
-
-    expression_dynamic_symbols = set()
-    for sym in dynamic_eq.free_symbols:
-        if not isinstance(sym, Expression):
-            continue
-        if sym.name in model.expressions.keys():
-            expression_dynamic_symbols |= (
-                model.expressions[sym.name].expand_expr().free_symbols
-            )
-
-    initial_eq = sp.Matrix(
-        [
-            initial.value.expand_expr()
-            if isinstance(initial.value, Expression)
-            else initial.value
-            for initial in model.initials
-        ]
-    )
-
-    observable_eq = sp.Matrix(
-        [
-            expression.expand_expr()
-            for expression in model.expressions
-            if expression.name in observables
-        ]
-    )
-
-    free_symbols = list(
-        dynamic_eq.free_symbols
-        | initial_eq.free_symbols
-        | observable_eq.free_symbols
-        | expression_dynamic_symbols
-    )
-
-    unused_pars = {
-        par
-        for par in model.parameters
-        if par not in free_symbols and sp.Symbol(par.name) not in free_symbols
-    }
-
-    rule_reaction_count = {rule.name: 0 for rule in model.rules}
-
-    for reaction in model.reactions:
-        for rule in reaction["rule"]:
-            rule_reaction_count[rule] += 1
-
-    model.parameters = pysb.ComponentSet(
-        [par for par in model.parameters if par not in unused_pars]
-    )
-
-    model.expressions = pysb.ComponentSet(
-        [
-            expr
-            for expr in model.expressions
-            if len(expr.expand_expr().free_symbols.intersection(unused_pars))
-            == 0
-            and not expr.name.startswith("_")
-        ]
-    )
-
-    model.rules = pysb.ComponentSet(
-        [rule for rule in model.rules if rule_reaction_count[rule.name] > 0]
-    )
-
-    model.reset_equations()

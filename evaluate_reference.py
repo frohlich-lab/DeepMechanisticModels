@@ -4,7 +4,6 @@ from pathlib import Path
 import fire
 import numpy as np
 import pandas as pd
-import petab.v1 as petab
 
 from common import (
     EVALUATION_REFERENCE,
@@ -30,9 +29,6 @@ conf = fire.Fire(Conf)
 
 outdir = fig_dir / conf.model / conf.data
 indir = pretrain_dir / conf.model / conf.data
-
-# cross_sample_dir = outdir / "pretrain_cross_sample"
-# cross_sample_dir.mkdir(exist_ok=True, parents=True)
 
 # TODO @GiacomoFabrini: NEED TO CHANGE "train" to encompass "train" and "validation" (currently called
 #  "test") from the splits. Change "test" to be the untouched "test" set. This is to ensure
@@ -85,59 +81,6 @@ def evaluate_pretraining_per_sample(
             outdir / "simulation" / dataset / sample,
             sample,
             "per_sample",
-        )
-    return pd.DataFrame(evaluations)
-
-
-def evaluate_average(
-    dataset: str,
-    conf: Conf,
-    samples: dict,
-) -> pd.DataFrame:
-    df_meas, df_obs = get_measurements_and_obervables(conf)
-
-    df_train = df_meas[
-        df_meas[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples["train"])
-    ]
-
-    df_train["condition"] = df_train[petab.SIMULATION_CONDITION_ID].apply(
-        lambda x: x.split("__")[1]
-    )
-    gb_cols = [petab.OBSERVABLE_ID, "condition", petab.TIME]
-    avg_model = (
-        df_train[gb_cols + [petab.MEASUREMENT]]
-        .groupby(gb_cols)
-        .agg(np.nanmean)
-    )
-
-    df_sim = df_meas.copy()
-    df_sim = df_sim.loc[
-        df_sim[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples[dataset]), :
-    ]
-
-    for ir, r in df_meas.iterrows():
-        # pick the closest time point to avoid issues with non-canonical time points
-        candidates = avg_model.loc[
-            (r.observableId, r[petab.SIMULATION_CONDITION_ID].split("__")[1]),
-            petab.MEASUREMENT,
-        ]
-        df_sim.loc[ir, petab.MEASUREMENT] = candidates.iloc[
-            np.argmin(np.abs(candidates.index - r.time))
-        ]
-
-    df_sim[petab.SIMULATION] = df_sim[petab.MEASUREMENT]
-
-    plot_cross_samples(df_meas, df_sim, outdir / "simulation" / dataset, "avg")
-
-    evaluations = []
-
-    for sample in samples[dataset]:
-        process_simulation(
-            evaluations=evaluations,
-            measurement_df=df_meas,
-            simulation_df=df_sim,
-            conf=ref_conf,
-            sample=sample,
         )
     return pd.DataFrame(evaluations)
 
@@ -197,16 +140,6 @@ for dataset in ["train", "val"]:
     if len(df):
         rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
         print(f"avg_model on {dataset} - RMSE = {rmse_avg_model}")
-
-    # average -- this looks NOT to be in use at the moment (only avg_model)
-    # df = evaluate_average(dataset, conf, samples)
-    # df.to_csv(
-    #     EVALUATION_REFERENCE.format(
-    #         **conf.to_dict(),
-    #         dataset=dataset,
-    #         mode="average",
-    #     )
-    # )
 
     # per sample ("sample")
     df = evaluate_pretraining_per_sample(

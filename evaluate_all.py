@@ -3,8 +3,6 @@ import os
 import fire
 import pandas as pd
 
-# import subprocess
-# import wandb
 from common import (
     EVALUATE_ALL_CSVS,
     EVALUATION_EMBEDDING,
@@ -19,8 +17,6 @@ from common import (
     fig_dir,
     subtypes_tognetti,
 )
-
-# from dmm.autoencoder import DeepMechanisticModel
 from dmm.config_options import Conf
 from evaluation_utils import (
     aggregate_and_log,
@@ -57,7 +53,6 @@ def process_reference(
 
 conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
-# METHODS = ("pca embedding", "end-to-end")  # not used at the moment
 JOBS = tuple(i for i in range(conf.n_starts))
 # Compute figure-specific set of unique contexts
 CONTEXT_SET = sorted(
@@ -72,27 +67,7 @@ subtypes_pam50, subtypes_lb = (
     }
     for subtype_scheme in ["PAM50", "Luminal/Basal"]
 )
-subtypes_hr = {
-    cl: (
-        "Positive"
-        if subtypes_pam50[cl] in ["LA", "LB"]
-        else "Negative"
-        if subtypes_pam50[cl] in ["HER2", "Basal"]
-        else "Unknown"
-    )
-    for cl in subtypes_pam50.keys()
-}
 
-subtypes_her2 = {
-    cl: (
-        "Negative"
-        if subtypes_pam50[cl] in ["LA", "Basal"]
-        else "Positive"
-        if subtypes_pam50[cl] in ["LB", "HER2"]
-        else "Unknown"
-    )
-    for cl in subtypes_pam50.keys()
-}
 
 # Compute run configurations and arrange by CV split
 hyperparam_configs = generate_run_configs(
@@ -223,7 +198,6 @@ for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
         for context in CONTEXT_SET:
             # need to replicate info across contexts for "avg_model" and "sample"
             for rdf in [  # lack context
-                # avg,
                 avg_model,
                 ps,
             ]:
@@ -334,7 +308,7 @@ for results_df in (le_df, param_dev_df, param_df):
 
 # Aggregate data, save CSVs and log W&B artifacts (currently disabled)
 num_best = 10
-aggregated_results = aggregate_and_log(
+aggregate_and_log(
     df=df,
     conf=conf,
     return_stat_tests=RETURN_STAT_TESTS,

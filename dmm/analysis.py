@@ -1,18 +1,10 @@
-import os
-import re
-from pathlib import Path
-
 import equinox as eqx
 import jax.random as jr
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import petab.v1 as petab
-import seaborn as sns
 from amici.petab import rdatas_to_simulation_df
-from pypesto import OptimizeResult
 from pypesto.C import MODE_RES, RDATAS
-from pypesto.store import OptimizationResultHDF5Reader
 
 from .config_options import scan_attributes
 from .plotting import plot_cross_samples
@@ -83,43 +75,6 @@ def process_simulation(
                 **subset_conf_dict,
             }
         )
-
-
-def load_optimize_result_pretraining_cross_samples(
-    pattern: str, n_starts: int
-):
-    result = OptimizeResult()
-    indir = Path(pattern).parent
-    for file in os.listdir(indir):
-        if not str(file).endswith(".hdf5"):
-            continue
-
-        m = re.match(str(Path(pattern).stem), str(file))
-        if not m:
-            continue
-
-        if str(os.path.splitext(file)[0]).endswith("trace"):
-            continue
-
-        # ignore previous results with higher n_starts
-        if int(str(m.group(1))) >= n_starts:
-            continue
-
-        r = (
-            OptimizationResultHDF5Reader(str(indir / str(file)))
-            .read()
-            .optimize_result.list[0]
-        )
-        if r.x is None:
-            continue
-
-        r["id"] = m.group(1)
-        result.append(r)
-
-    if result.list is not None:
-        result.sort()
-
-    return result
 
 
 def simulate_dmm(
@@ -196,32 +151,3 @@ def evaluate_simulations(
         figdir=outdir / dataset,
         prefix=plot_file_prefix,
     )
-
-
-def plot_loss_vs_regularization(df):
-    df["cf"] = df["context"] + "_" + df["features"]
-    dfa = (
-        df.groupby(
-            ["l1reg_inflate", "n_hidden", "cf", "sample", "job"]
-        )  # keep job-level info (one rmse value per job)
-        .agg({"res": lambda x: np.sqrt(np.mean(np.power(x, 2)))})
-        .rename(columns={"res": "rmse"})
-        .reset_index()
-    )
-
-    g = sns.FacetGrid(data=dfa, col="sample", col_wrap=5)
-    g.map_dataframe(
-        sns.lineplot,
-        x="l1reg_inflate",
-        y="rmse",
-        errorbar=lambda x: (
-            x.min(),
-            x.max(),
-        ),  # display error bars from min rmse to max rmse across jobs
-        hue="cf",
-        palette="rocket",
-        style="n_hidden",
-        markers=True,
-    )
-    [ax.set(yscale="log", xscale="log") for ax in g.axes]
-    plt.tight_layout()

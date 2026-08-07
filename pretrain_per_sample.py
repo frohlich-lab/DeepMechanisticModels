@@ -153,7 +153,6 @@ optimizer = FidesOptimizer(
         fides.Options.MAXTIME: 7200,
         fides.Options.MAXITER: 200,
     },
-    # hessian_update=fides.hessian_approximation.BFGS()
 )
 amici.logging.get_logger("amici.swig_wrappers").setLevel(ERROR)
 result = pretrain(

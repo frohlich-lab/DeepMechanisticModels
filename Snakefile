@@ -4,9 +4,7 @@ import itertools as itt
 
 from common import (
     PER_SAMPLE_OUTFILE_PARS,
-    # TRAINING_OUTFILE_RESULTS,
     TRAINED_MODEL,
-    # COLLECTED_TRAINING_RESULTS,
     per_sample_pretraining_train, per_sample_pretraining_test, tpl_petab_file,
     EVALUATION_TRAINING, EVALUATION_EMBEDDING, EVALUATION_PARAMETER_DEVIATIONS, EVALUATION_FULL_PARAMETERS,
     EVALUATION_REFERENCE, EVALUATION_REGRESSOR,
@@ -27,7 +25,6 @@ from training_configuration import (
 from dmm.config_options import scan_attributes
 
 basedir = Path(os.getcwd())
-# tmp_dir = basedir / 'tmp'
 dmm_dir = basedir / 'dmm'
 cytof_dir = basedir / 'cytof'
 
@@ -203,7 +200,6 @@ rule estimate_parameters:
         features=rules.select_features.output.data,
         pretrain=rules.pretrain_average_model.output.pretraining,
     output:
-        # result=TRAINING_OUTFILE_RESULTS,  # removed result files (hdf5)
         model=TRAINED_MODEL
     retries: 3
     resources:
@@ -247,7 +243,6 @@ rule evaluate_training:
 rule evaluate_regressors:
     input:
         script='evaluate_regressors.py',
-        # data=rules.process_data.output.datafiles,  # wait for download and processing
         selected_features=[
             FEATURES_OUTFILE.format_map(SafeDict(
                 model='{model}',
@@ -333,7 +328,6 @@ rule evaluate_all:
         ) + ' --n_starts={N_STARTS} --figure={FIGURE}'
 
 
-
 # Regular train_and_evaluate
 rule report_all:
     input:
@@ -358,23 +352,6 @@ rule train_and_evaluate:
              rules.report_all.output.performance,  # changed it to CSV as plots might not be generated without stat tests
              model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS
          )
-
-
-# # Only run references and regressors + whole data processing, feature selection, etc.
-# rule evaluate_baselines:
-#     input:
-#          evaluation=expand(
-#              rules.evaluate_references.output.csv,
-#              model=PATHWAYS_BY_FIGURE[FIGURE], data=DATASETS, samples=SPLITS,
-#          ) + expand(
-#              rules.evaluate_regressors.output.csv,
-#              model=PATHWAYS_BY_FIGURE[FIGURE],
-#              data=DATASETS,
-#              samples=SPLITS,
-#              context=[c for c, _ in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
-#              features=[f for _, f in CONTEXTS_FEATURES_BY_FIGURE[FIGURE]],
-#              zip_keys=["context", "features"]
-#          )
 
 
 ruleorder: pretrain_average_model > pretrain_per_sample
