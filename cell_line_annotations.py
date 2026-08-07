@@ -675,6 +675,112 @@ def fetch_cmp_driver_mutations(
     return drivers
 
 
+def fetch_cmp_mutations(
+    cell_lines: list[str],
+    cl_to_sidm: dict[str, str],
+    *,
+    cache_dir: Path | None = None,
+) -> pd.DataFrame:
+    """Fetch full mutation data from CMP for cell lines with SIDM IDs.
+
+    Returns a DataFrame with columns:
+        cell_line, gene, effect, proteinChange, coding, vaf,
+        cancer_driver, source
+    compatible with the cBioPortal DataFrame for comparison.
+    """
+    p = _cache_path(cache_dir, "cmp_mutations") if cache_dir else None
+    if p is not None:
+        cached = _load_cache(p)
+        if cached is not None:
+            print("  [cache hit] CMP mutations loaded from cache")
+            return cached
+
+    print("  Fetching mutations from CMP …")
+    rows: list[dict[str, Any]] = []
+    matched = 0
+    failed: list[str] = []
+
+    for cl in cell_lines:
+        sidm = cl_to_sidm.get(cl)
+        if sidm is None:
+            continue
+
+        # Paginate through all mutations for this model
+        page = 1
+        cl_count = 0
+        while True:
+            try:
+                r = requests.get(
+                    f"{CMP_BASE}/models/{sidm}/datasets/mutations",
+                    params={
+                        "page[size]": 500,
+                        "page[number]": page,
+                        "include": "gene",
+                    },
+                    timeout=30,
+                )
+            except Exception:
+                failed.append(cl)
+                break
+
+            if r.status_code != 200:
+                failed.append(cl)
+                break
+
+            resp = r.json()
+
+            # Build gene-ID → symbol map from included records
+            gene_map: dict[str, str] = {}
+            for inc in resp.get("included", []):
+                if inc.get("type") == "gene":
+                    gene_map[inc["id"]] = inc.get("attributes", {}).get(
+                        "symbol", ""
+                    )
+
+            data = resp.get("data", [])
+            if not data:
+                break
+
+            for entry in data:
+                attrs = entry.get("attributes", {})
+                gid = attrs.get("gene_id", "")
+                sym = gene_map.get(gid, "")
+                rows.append(
+                    {
+                        "cell_line": cl,
+                        "gene": sym,
+                        "effect": attrs.get("effect", ""),
+                        "proteinChange": attrs.get("protein", ""),
+                        "coding": attrs.get("coding"),
+                        "vaf": attrs.get("vaf"),
+                        "cancer_driver": attrs.get("cancer_driver", False),
+                        "source": attrs.get("source", ""),
+                    }
+                )
+                cl_count += 1
+
+            total = resp.get("meta", {}).get("count", 0)
+            if page * 500 >= total:
+                break
+            page += 1
+            time.sleep(0.05)
+
+        if cl_count > 0:
+            matched += 1
+        time.sleep(0.15)
+
+    df = pd.DataFrame(rows)
+    print(f"  Matched {matched}/{len(cell_lines)} cell lines in CMP")
+    print(f"  Total mutation records: {len(df)}")
+    if failed:
+        print(f"  Failed: {sorted(set(failed))}")
+
+    if p is not None:
+        _save_cache(df, p)
+        print("  [cache saved] CMP mutations")
+    return df
+
+
 # ═══════════════════════════════════════════════════════════════════════
 # 4. Subtype annotations  (from annotation_utils.py)
 # ═══════════════════════════════════════════════════════════════════════

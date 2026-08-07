@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from scipy.stats import zscore
 
 # Add project root to sys.path so that modules in the root directory can be imported
 _project_root = str(Path(__file__).resolve().parent.parent)
@@ -16,17 +17,20 @@ if _project_root not in sys.path:
 warnings.filterwarnings("ignore")
 
 from figure_config import (
+    BINNED_CMAP,
     get_context_label,
     get_cytof_marker_label,
     get_model_label,
 )
 
-from annotation_utils import load_marcotte_subtypes
+from cell_line_annotations import load_marcotte_subtypes
 from common import basedir, evaluations_dir
 from embedding_utils import perform_pca_on_embeddings
 from training_configuration import (
     LATENT_DIMS,
+    LATENT_DIMS_BY_CONTEXT,
     NETWORK_DEPTH,
+    NETWORK_DEPTH_BY_CONTEXT,
     PATHWAYS_BY_FIGURE,
 )
 
@@ -35,18 +39,132 @@ CACHE_DIR = basedir / "figures_paper" / ".cache"
 CACHE_DIR.mkdir(exist_ok=True)
 
 sensitive_pars = [
-    "ERBB2_p_Y1248_ERBB2_kw",  # L1/2
-    "ERBB2_p_Y1248_EGFR__Y1173_p_kw",  # L1/2
-    "ERK_p_Y204_MEK__S222_p_kw",  # L2/3
-    "ERK_p_Y204_TOPK__Y74_p_kw",  # L2/3
-    "RPS6KA1_p_S380_ERK__Y204_p_kw",  # L1/4
+    "ERBB2_p_Y1248_ERBB2_kw",
+    "ERBB2_p_Y1248_EGFR__Y1173_p_kw",
+    "ERK_p_Y204_MEK__S222_p_kw",
+    "MEK_p_S222_ERBB2__Y1248_p_kw",
+    "RPS6KA1_p_S380_ERK__Y204_p_kw",
+    "ERK_p_Y204_iMEK_0_kw",
+    "MEK_p_S222_EGFR__Y1173_p_kw",
 ]
 
-sensitive_dirs = {
-    "D1": ("ERBB2_p_Y1248_ERBB2_kw", "ERBB2_p_Y1248_EGFR__Y1173_p_kw"),
-    "D2": ("ERK_p_Y204_MEK__S222_p_kw", "ERK_p_Y204_TOPK__Y74_p_kw"),
-    "D3": ("RPS6KA1_p_S380_ERK__Y204_p_kw",),
-}
+
+def _load_cached_sensitive_loadings_df(model, context):
+    """Load seed-specific sparse-PCA loadings from cache if available."""
+    cache_path = (
+        basedir
+        / "figures_paper"
+        / ".cache"
+        / f"sensitive_loadings_per_seed_{model}_{context}_train.csv"
+    )
+    if not cache_path.exists():
+        return None
+
+    df = pd.read_csv(cache_path)
+    required_cols = {"direction", "seed", "parameter", "loading"}
+    if not required_cols.issubset(df.columns):
+        return None
+
+    return df.copy()
+
+
+def _resolve_sensitive_loadings_df(model, context, parameter_loadings_df=None):
+    """Resolve the loadings DataFrame used for parameter-group projections."""
+    if parameter_loadings_df is not None:
+        required_cols = {"direction", "seed", "parameter", "loading"}
+        if not required_cols.issubset(parameter_loadings_df.columns):
+            raise ValueError(
+                "parameter_loadings_df must contain columns: "
+                "direction, seed, parameter, loading"
+            )
+        return parameter_loadings_df.copy()
+
+    cached = _load_cached_sensitive_loadings_df(model, context)
+    if cached is not None:
+        return cached
+
+    cache_path = (
+        basedir
+        / "figures_paper"
+        / ".cache"
+        / f"sensitive_loadings_per_seed_{model}_{context}_train.csv"
+    )
+    raise FileNotFoundError(
+        "No parameter loadings available. Provide parameter_loadings_df or "
+        f"create cache file: {cache_path}"
+    )
+
+
+def _get_direction_names(loadings_df):
+    """Return available direction keys from a loadings DataFrame."""
+    return sorted(loadings_df["direction"].astype(str).unique().tolist())
+
+
+def _infer_parameter_group_from_loadings(
+    loadings_df,
+    direction,
+    min_abs_loading=0.2,
+):
+    """Infer a readable parameter group for a direction from loadings.
+
+    Prefers parameters with |mean loading| >= min_abs_loading; falls back to
+    non-zero mean loadings if needed.
+    """
+    d = loadings_df[
+        loadings_df["direction"].astype(str) == str(direction)
+    ].copy()
+    if d.empty:
+        return ()
+
+    mean_abs = (
+        d.groupby("parameter")["loading"]
+        .mean()
+        .abs()
+        .sort_values(ascending=False)
+    )
+    selected = mean_abs[mean_abs >= min_abs_loading].index.tolist()
+    if not selected:
+        selected = mean_abs[mean_abs > 1e-10].index.tolist()
+    if not selected:
+        selected = mean_abs.index.tolist()
+    return tuple(selected)
+
+
+def _load_parameter_deviation_matrix(
+    model,
+    parameters,
+    context,
+    figure="figure3",
+    data="dream_cytof",
+):
+    """Load per-cell-line parameter deviations (with seed/job if present)."""
+    filepath = evaluations_dir / model / data / f"param_devs_{figure}.csv"
+    if not filepath.exists():
+        raise FileNotFoundError(f"Parameter deviations not found: {filepath}")
+
+    df = pd.read_csv(filepath, index_col=0)
+
+    if "context" in df.columns:
+        df = df[df["context"] == context]
+
+    if "samples" in df.columns:
+        df = df[df["samples"].astype(str).str.startswith("all")]
+
+    available = [p for p in parameters if p in df.columns]
+    if not available:
+        raise ValueError(
+            "None of the requested parameters are present in parameter deviations. "
+            f"Requested: {parameters[:10]}"
+        )
+
+    if "job" not in df.columns:
+        df = df.copy()
+        df["job"] = "mean"
+
+    matrix = df.groupby(["job", "cell_line"])[available].mean().reset_index()
+    matrix["job"] = matrix["job"].astype(str)
+
+    return matrix, available
 
 
 def _get_cache_key(model, context, figure, data, data_type, n_hvg=None):
@@ -202,6 +320,7 @@ def load_parameter_data(
     figure: str = "figure3",
     data: str = "dream_cytof",
     context: str = "cytof_init",
+    z_transform: bool = False,
 ):
     """Load parameter deviation data for a specific parameter.
 
@@ -234,6 +353,10 @@ def load_parameter_data(
         df = df[df["samples"].str.startswith("all")]
 
     # Average across jobs if multiple
+    if (
+        z_transform
+    ):  # per job z-scoring for comparability across optimisation runs
+        df[parameter] = df.groupby("job")[parameter].transform(zscore)
     result = df.groupby("cell_line")[parameter].mean()
     result.name = parameter
 
@@ -265,10 +388,18 @@ def load_embedding_data(figure: str, data: str = "dream_cytof"):
 
     embedding_df = pd.concat(dfs)
 
-    # Only keep central values & test set
+    # Only keep central values & test set (using context-specific central values)
+    central_n_hidden = embedding_df["context"].map(
+        lambda c: LATENT_DIMS_BY_CONTEXT.get(c, LATENT_DIMS["central_value"])
+    )
+    central_depth = embedding_df["context"].map(
+        lambda c: NETWORK_DEPTH_BY_CONTEXT.get(
+            c, NETWORK_DEPTH["central_value"]
+        )
+    )
     embedding_df = embedding_df[
-        (embedding_df.depth == NETWORK_DEPTH["central_value"])
-        & (embedding_df.n_hidden == LATENT_DIMS["central_value"])
+        (embedding_df.depth == central_depth)
+        & (embedding_df.n_hidden == central_n_hidden)
         & (embedding_df.samples.str.startswith("all"))
     ]
 
@@ -302,14 +433,10 @@ def prepare_pca_embeddings(embedding_df, subtypes_df=None):
 
             # Create luminalbasal column if subtype_intrinsic exists
             if "subtype_intrinsic" in subtypes_df.columns:
-                pca_embeddings_dict[model][
-                    "luminalbasal"
-                ] = pca_embeddings_dict[model]["subtype_intrinsic"].copy()
-                pca_embeddings_dict[model]["luminalbasal"].replace(
-                    ["LuminalA", "LuminalB", "HER2"], "Luminal", inplace=True
-                )
-                pca_embeddings_dict[model]["luminalbasal"].replace(
-                    ["CL"], "Basal", inplace=True
+                pca_embeddings_dict[model]["luminalbasal"] = (
+                    pca_embeddings_dict[model]["subtype_intrinsic"]
+                    .replace(["LuminalA", "LuminalB", "HER2"], "Luminal")
+                    .replace(["CL"], "Basal")
                 )
 
     pca_embedding_df = pd.concat(
@@ -372,7 +499,7 @@ def plot_embeddings(
     if marker_data_type is not None:
         if marker_data_type == "parameter":
             color_values = load_parameter_data(
-                model, color_by, figure, data, context
+                model, color_by, figure, data, context, zscore=True
             )
         else:
             color_values = load_marker_data(color_by, marker_data_type)
@@ -501,7 +628,7 @@ def compute_marker_embedding_correlations(
     data="dream_cytof",
     n_latents=4,
     use_cache=True,
-    n_hvg=5000,
+    n_hvg=None,
 ):
     """Compute correlations between all markers and embedding dimensions L1-L4.
 
@@ -768,25 +895,28 @@ def get_highly_variable_genes(marker_data, n_top=5000):
 
 
 def compute_marker_parameter_correlations(
-    model,
-    context,
-    parameters,
+    model=None,
+    context=None,
+    parameters=None,
     data_type="transcriptomics",
     figure="figure3",
     data="dream_cytof",
     alpha=0.05,
     mt_method="fdr_bh",
     method="spearman",
-    n_hvg=None,
-    min_samples_per_group=5,
-):
+    max_dropout=0.5,
+    parameter_loadings_df=None,
+    stratify_luminal_basal: bool = False,
+    targets=None,
+    exclude=None,
+) -> pd.DataFrame:
     """Compute correlations or differential expression between markers and model parameters or parameter groups.
 
     Args:
-        model: Model name
-        context: Context name
+        model: Model name. Required when targets is not provided.
+        context: Context name. Required when targets is not provided.
         parameters: List of parameter names or parameter group keys (e.g., ["D1", "D2"]) to correlate with markers.
-                   Can mix individual parameters and parameter groups.
+                   Can mix individual parameters and parameter groups. Required when targets is not provided.
         data_type: Type of marker data - "proteomics" or "transcriptomics"
         figure: Figure name for loading data (default: "figure3")
         data: Dataset name (default: "dream_cytof")
@@ -796,7 +926,13 @@ def compute_marker_parameter_correlations(
                or "differential_expression" for differential expression (split at median) (default: "spearman")
         n_hvg: Number of highly variable genes to use (default: 5000).
                Set to None to use all genes.
-        min_samples_per_group: Minimum samples per group for differential expression (default: 10)
+        max_dropout: Maximum fraction of samples in which a gene can have missing values (default: 0.5) to be included in analysis. Only applies to proteomics data.
+        parameter_loadings_df: Optional long-form loadings DataFrame with columns
+                       [direction, seed, parameter, loading]. If provided,
+                       parameter-group projections use these loadings.
+        targets: Optional dict {name: pd.Series} of pre-computed target values per cell line.
+                When provided, bypasses all internal parameter/embedding loading. marker_data must
+                also be provided. Incompatible with stratify_luminal_basal=True.
 
     Returns:
         DataFrame with results:
@@ -821,221 +957,357 @@ def compute_marker_parameter_correlations(
             model="p38", context="cytof_init", parameters=["D1", "D2"],
             data_type="transcriptomics", method="differential_expression"
         )
+
+        # Pre-loaded data bypass (external targets such as RMSE/gap metrics)
+        corr_df = compute_marker_parameter_correlations(
+            method="pearson", data_type="proteomics",
+            marker_data=prot_mat,
+            targets={"pERK_iMEK_RMSE": rmse_series, "p90RSK_gap": gap_series},
+        )
     """
     from scipy.stats import pearsonr, spearmanr
     from statsmodels.stats.multitest import multipletests
 
-    # Load marker data
     marker_data = load_all_marker_data(data_type)
+    marker_data = marker_data.drop(columns=["glob_cellID"], errors="ignore")
     n_total_genes = len(marker_data.columns)
 
-    # Subset to highly variable genes if requested
-    if n_hvg is not None and n_total_genes > n_hvg:
-        hvg = get_highly_variable_genes(marker_data, n_top=n_hvg)
-        marker_data = marker_data[hvg]
+    # Pre-filters to increase statistical signal (skip for cytof)
+    if data_type == "transcriptomics":
+        # 2) Remove lowest-mean genes
+        gene_medians = marker_data.median(axis=0, skipna=True)
+        marker_data = marker_data.loc[:, gene_medians > -2.5]
         print(
-            f"Subset to {len(hvg)} highly variable genes (from {n_total_genes})"
+            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_data.columns)} genes with median expression > -2.5 (log2 CPM)"
         )
 
-    # Load embedding data (needed for parameter groups)
-    embedding_df = load_embedding_data(figure, data)
-    subtypes_df = load_marcotte_subtypes(embedding_df.cell_line.unique())
-    pca_embedding_df = prepare_pca_embeddings(embedding_df, subtypes_df)
+    if data_type == "proteomics":
+        dropout = marker_data.isna().mean()
+        marker_data = marker_data.loc[:, dropout <= max_dropout]
+        print(
+            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_data.columns)} genes with dropout in ≤{max_dropout*100:.0f}% of samples"
+        )
 
-    # Filter to specific model and context
-    emb_df = pca_embedding_df[
-        (pca_embedding_df["model"] == model)
-        & (pca_embedding_df["context"] == context)
-    ].copy()
+    if data_type == "cytof_init":
+        marker_data = marker_data.drop(
+            columns=["glob_cellID"], errors="ignore"
+        )
 
-    # Load parameter data for all parameters (individual or groups)
-    param_data = {}
-    for param in parameters:
-        # Check if this is a parameter group
-        if param in sensitive_dirs:
-            print(
-                f"Processing parameter group '{param}': {sensitive_dirs[param]}"
+    # --- Bypass path: caller supplies pre-loaded data ---
+    if targets is not None:
+        if stratify_luminal_basal:
+            raise ValueError(
+                "stratify_luminal_basal is not supported when targets is provided"
             )
-            try:
-                # Compute averaged gradient projection for the parameter group
-                _, projection_values = compute_averaged_parameter_gradient(
-                    model=model,
-                    context=context,
-                    parameter_group=sensitive_dirs[param],
-                    embedding_df=emb_df,
-                    figure=figure,
-                    data=data,
-                )
-                param_data[param] = projection_values
-            except Exception as e:
-                print(
-                    f"Error computing gradient for parameter group {param}: {e}"
-                )
-        else:
-            # Load individual parameter
-            try:
-                param_values = load_parameter_data(
-                    model, param, figure, data, context
-                )
-                param_data[param] = param_values
-            except Exception as e:
-                print(f"Error loading parameter {param}: {e}")
 
-    if not param_data:
-        raise ValueError("No parameters could be loaded")
+        param_df = pd.DataFrame(targets)
+        emb_df = pd.DataFrame()  # unused in correlation path
+    else:
+        # --- Standard path: load all data internally ---
+        if model is None or context is None or parameters is None:
+            raise ValueError(
+                "model, context, and parameters are required when targets is not provided"
+            )
 
-    param_df = pd.DataFrame(param_data)
+        # Load embedding data (needed for parameter groups)
+        embedding_df = load_embedding_data(figure, data)
+        subtypes_df = load_marcotte_subtypes(embedding_df.cell_line.unique())
+        pca_embedding_df = prepare_pca_embeddings(embedding_df, subtypes_df)
+
+        # Filter to specific model and context
+        emb_df = pca_embedding_df[
+            (pca_embedding_df["model"] == model)
+            & (pca_embedding_df["context"] == context)
+        ].copy()
+
+        # Resolve direction loadings once for loadings-driven parameter groups.
+        resolved_loadings_df = _resolve_sensitive_loadings_df(
+            model=model,
+            context=context,
+            parameter_loadings_df=parameter_loadings_df,
+        )
+        direction_names = set(_get_direction_names(resolved_loadings_df))
+
+        # Load parameter data for all parameters (individual or groups)
+        param_data = {}
+        for param in parameters:
+            # Check if this is a loadings-defined parameter group direction
+            if param in direction_names:
+                param_group = _infer_parameter_group_from_loadings(
+                    resolved_loadings_df,
+                    param,
+                )
+                print(f"Processing parameter group '{param}': {param_group}")
+                try:
+                    # Compute projection for the parameter-group direction
+                    _, projection_values = compute_averaged_parameter_gradient(
+                        model=model,
+                        context=context,
+                        parameter_group=param_group,
+                        embedding_df=emb_df,
+                        figure=figure,
+                        data=data,
+                        direction_name=param,
+                        parameter_loadings_df=resolved_loadings_df,
+                    )
+                    param_data[param] = projection_values
+                except Exception as e:
+                    print(
+                        f"Error computing gradient for parameter group {param}: {e}"
+                    )
+            else:
+                # Load individual parameter
+                try:
+                    param_values = load_parameter_data(
+                        model, param, figure, data, context, z_transform=True
+                    )
+                    param_data[param] = param_values
+                except Exception as e:
+                    print(f"Error loading parameter {param}: {e}")
+
+        if not param_data:
+            raise ValueError("No parameters could be loaded")
+
+        param_df = pd.DataFrame(param_data)
 
     # Find common cell lines
     common_cells = list(set(marker_data.index) & set(param_df.index))
-
-    if len(common_cells) < 5:
-        raise ValueError(f"Not enough common cell lines: {len(common_cells)}")
 
     # Subset to common cell lines
     marker_subset = marker_data.loc[common_cells]
     param_subset = param_df.loc[common_cells]
 
+    # Build subtype groups for stratification
+    lb_labels = (
+        emb_df["luminalbasal"]
+        if "luminalbasal" in emb_df.columns
+        else pd.Series(dtype=str)
+    )
+    subtypes_to_run = (
+        [
+            ("Luminal", lb_labels[lb_labels == "Luminal"].index),
+            ("Basal", lb_labels[lb_labels == "Basal"].index),
+        ]
+        if stratify_luminal_basal
+        else [("All", pd.Index(common_cells))]
+    )
+
     # Compute results based on analysis method
     results = []
 
-    if method in ("spearman", "pearson"):
-        # Correlation analysis
-        for marker in marker_subset.columns:
-            marker_vals = marker_subset[marker]
+    for subtype_name, subtype_cells in subtypes_to_run:
+        sub_common = [c for c in common_cells if c in subtype_cells]
+        marker_sub = marker_subset.loc[sub_common]
+        param_sub = param_subset.loc[sub_common]
 
-            # Skip markers with too many missing values
-            valid_mask = marker_vals.notna()
-            if valid_mask.sum() < min_samples_per_group * 2:
-                continue
+        if method in ("spearman", "pearson"):
+            # Correlation analysis
+            for marker in marker_sub.columns:
+                marker_vals = marker_sub[marker]
 
-            for param in param_subset.columns:
-                param_vals = param_subset[param]
+                # Skip markers with too many missing values
+                valid_mask = marker_vals.notna()
 
-                # Get valid indices for both marker and parameter
-                combined_valid = valid_mask & param_vals.notna()
-                if combined_valid.sum() < min_samples_per_group * 2:
-                    continue
+                for param in param_sub.columns:
+                    param_vals = param_sub[param]
 
-                x = marker_vals.loc[combined_valid].values
-                y = param_vals.loc[combined_valid].values
+                    # Get valid indices for both marker and parameter
+                    combined_valid = valid_mask & param_vals.notna()
 
-                # Compute correlation
-                if np.std(x) > 0 and np.std(y) > 0:
-                    if method == "spearman":
-                        corr, pval = spearmanr(x, y)
-                    elif method == "pearson":
-                        corr, pval = pearsonr(x, y)
-                    results.append(
-                        {
-                            "marker": marker,
-                            "parameter": param,
-                            "correlation": corr,
-                            "pvalue": pval,
-                            "n_samples": combined_valid.sum(),
-                        }
-                    )
+                    x = marker_vals.loc[combined_valid].values
+                    y = param_vals.loc[combined_valid].values
 
-    elif method == "differential_expression":
-        # Differential expression analysis using linear model
-        # marker ~ param_group (binary: high vs low based on median split)
-        import statsmodels.api as sm
+                    # Compute correlation
+                    if np.std(x) > 0 and np.std(y) > 0:
+                        if method == "spearman":
+                            corr, pval = spearmanr(x, y)
+                        elif method == "pearson":
+                            corr, pval = pearsonr(x, y)
+                        results.append(
+                            {
+                                "marker": marker,
+                                "parameter": param,
+                                "correlation": corr,
+                                "pvalue": pval,
+                                "n_samples": combined_valid.sum(),
+                                "subtype": subtype_name,
+                            }
+                        )
 
-        for param in param_subset.columns:
-            param_vals = param_subset[param]
+        elif method == "differential_expression":
+            # Differential expression analysis using limma (R/rpy2, robust lmFit + eBayes).
+            # marker ~ param (binary: high vs low based on median split)
+            import rpy2.robjects as ro
+            from rpy2.robjects import pandas2ri
+            from rpy2.robjects.conversion import localconverter
+            from sklearn.impute import KNNImputer
 
-            # Remove NaN values
-            valid_cells = param_vals.notna()
-            if valid_cells.sum() < 2 * min_samples_per_group:
-                print(
-                    f"Warning: Not enough valid samples for parameter {param}, skipping..."
-                )
-                continue
+            _converter = ro.default_converter + pandas2ri.converter
 
-            param_valid = param_vals[valid_cells]
+            for param in param_sub.columns:
+                param_vals = param_sub[param]
 
-            # Split at median to create binary grouping
-            median_val = param_valid.median()
-            group_high = (param_valid > median_val).astype(int)
+                # Remove NaN values
+                valid_cells = param_vals.notna()
 
-            n_low = (group_high == 0).sum()
-            n_high = (group_high == 1).sum()
+                param_valid = param_vals[valid_cells]
 
-            # Check minimum samples per group
-            if n_low < min_samples_per_group or n_high < min_samples_per_group:
-                print(
-                    f"Warning: Not enough samples per group for parameter {param} "
-                    + f"(low={n_low}, high={n_high}), skipping..."
-                )
-                continue
+                # Split at median to create binary grouping
+                group_high = (param_valid > 0).astype(int)
 
-            # Compute differential expression for each marker using linear model
-            for marker in marker_subset.columns:
-                marker_vals = marker_subset.loc[valid_cells, marker]
+                n_low = int((group_high == 0).sum())
+                n_high = int((group_high == 1).sum())
 
-                # Get valid samples (non-NaN marker values)
-                valid_marker = marker_vals.notna()
-                if valid_marker.sum() < 2 * min_samples_per_group:
-                    continue
-
-                y = marker_vals[valid_marker].values
-                X = sm.add_constant(group_high[valid_marker].values)
-
-                try:
-                    # Fit OLS model: marker ~ intercept + group_high
-                    model = sm.OLS(y, X).fit()
-
-                    # coefficient for group_high is the effect size (difference high - low)
-                    # For log-transformed data, this is approximately log2 fold change
-                    coef = model.params[1]
-                    pval = model.pvalues[1]
-
-                    # Compute group means for reference
-                    mean_low = marker_vals[valid_marker][
-                        group_high[valid_marker] == 0
-                    ].mean()
-                    mean_high = marker_vals[valid_marker][
-                        group_high[valid_marker] == 1
-                    ].mean()
-
-                    results.append(
-                        {
-                            "marker": marker,
-                            "parameter": param,
-                            "log2_fold_change": coef,
-                            "pvalue": pval,
-                            "mean_low": mean_low,
-                            "mean_high": mean_high,
-                            "n_low": (group_high[valid_marker] == 0).sum(),
-                            "n_high": (group_high[valid_marker] == 1).sum(),
-                        }
-                    )
-                except Exception as e:
+                # Check minimum samples per group
+                if n_low < 3 or n_high < 3:
                     print(
-                        f"Warning: Error computing differential expression for {marker} vs {param}: {e}"
+                        f"Warning: Not enough samples per group for parameter {param} "
+                        f"(low={n_low}, high={n_high}), skipping..."
                     )
                     continue
-    else:
-        raise ValueError(
-            f"Unknown method: {method}. Use 'spearman', 'pearson', or 'differential_expression'."
-        )
+
+                # Build marker matrix restricted to cell lines with valid param values
+                all_cls = sorted(group_high.index)
+                mat = marker_sub.loc[all_cls].copy()
+                gene_names = np.array(mat.columns)
+                Y = mat.values.astype(float)
+                outlier_vec = np.array(
+                    [group_high[cl] for cl in all_cls], dtype=float
+                )
+
+                print(f"\nlimma DE: {data_type} ~ {param} [{subtype_name}]")
+                print(
+                    f"  {len(all_cls)} samples ({n_high} high, {n_low} low), {Y.shape[1]} features"
+                )
+
+                # Drop features with >30% missingness before imputation — KNNImputer
+                # silently removes all-NaN columns (keep_empty_features=False default),
+                # which would cause a shape mismatch with gene_names afterwards.
+                miss_frac = np.isnan(Y).mean(axis=0)
+                high_miss_cols = miss_frac > 0.30
+                if high_miss_cols.any():
+                    n_dropped = int(high_miss_cols.sum())
+                    print(
+                        f"  Dropping {n_dropped} features with >30% missingness before imputation"
+                    )
+                    Y = Y[:, ~high_miss_cols]
+                    gene_names = gene_names[~high_miss_cols]
+
+                # KNN impute remaining NaNs (missingness already pre-filtered above)
+                _n_nan = int(np.isnan(Y).sum())
+                if _n_nan > 0:
+                    _imputer = KNNImputer(n_neighbors=min(5, Y.shape[0] - 1))
+                    Y = _imputer.fit_transform(Y)
+                    print(f"  KNN-imputed {_n_nan} missing values")
+
+                # Pre-compute group means for reference columns
+                high_cls = [cl for cl in all_cls if group_high[cl] == 1]
+                low_cls = [cl for cl in all_cls if group_high[cl] == 0]
+                group_means_high = mat.loc[high_cls].mean()
+                group_means_low = mat.loc[low_cls].mean()
+
+                # ── Call R limma (robust lmFit + robust eBayes) ───────────────────
+                _use_robust = n_high >= 3 and n_low >= 3
+                if not _use_robust:
+                    print("  ⚠ Small group — using non-robust limma")
+
+                expr_df = pd.DataFrame(Y.T, index=gene_names, columns=all_cls)
+                with localconverter(_converter):
+                    ro.globalenv["expr"] = expr_df
+                ro.globalenv["group"] = ro.FloatVector(outlier_vec)
+
+                ro.r(
+                    """
+                library(limma)
+                design <- model.matrix(~ group)
+                """
+                )
+
+                if _use_robust:
+                    ro.r(
+                        """
+                    fit <- tryCatch(
+                        { f <- lmFit(expr, design, method="robust"); f },
+                        error = function(e) { message("robust lmFit failed: ", e$message); NULL }
+                    )
+                    if (is.null(fit)) {
+                        fit <- lmFit(expr, design)
+                        fit <- eBayes(fit)
+                    } else {
+                        fit <- eBayes(fit, robust=TRUE)
+                    }
+                    """
+                    )
+                else:
+                    ro.r(
+                        """
+                    fit <- lmFit(expr, design)
+                    fit <- eBayes(fit)
+                    """
+                    )
+
+                ro.r(
+                    """
+                res <- topTable(fit, coef=2, number=Inf, adjust.method="BH")
+                df_total_vec <- fit$df.prior + fit$df.residual
+                names(df_total_vec) <- rownames(fit)
+                res$df_total <- df_total_vec[rownames(res)]
+                """
+                )
+
+                with localconverter(_converter):
+                    res = ro.globalenv["res"]
+
+                n_sig = int((np.array(res["adj.P.Val"].values) < alpha).sum())
+                print(f"  Fitted: {len(res)} features, {n_sig} FDR<{alpha}")
+
+                for marker in np.array(res.index):
+                    results.append(
+                        {
+                            "marker": marker,
+                            "parameter": param,
+                            "log2_fold_change": float(
+                                res.loc[marker, "logFC"]
+                            ),
+                            "pvalue": float(res.loc[marker, "P.Value"]),
+                            "pvalue_corrected": float(
+                                res.loc[marker, "adj.P.Val"]
+                            ),
+                            "significant": float(res.loc[marker, "adj.P.Val"])
+                            < alpha,
+                            "mean_low": float(
+                                group_means_low.get(marker, float("nan"))
+                            ),
+                            "mean_high": float(
+                                group_means_high.get(marker, float("nan"))
+                            ),
+                            "n_low": n_low,
+                            "n_high": n_high,
+                            "subtype": subtype_name,
+                        }
+                    )
+        else:
+            raise ValueError(
+                f"Unknown method: {method}. Use 'spearman', 'pearson', or 'differential_expression'."
+            )
 
     if not results:
         return pd.DataFrame()
 
     result_df = pd.DataFrame(results)
 
-    # Apply multiple testing correction
-    for par in parameters:
-        idx = result_df.parameter == par
-        if idx.sum() > 0:
-            rejected, pvals_corrected, _, _ = multipletests(
-                result_df.loc[idx, "pvalue"].values,
-                alpha=alpha,
-                method=mt_method,
-            )
-            result_df.loc[idx, "pvalue_corrected"] = pvals_corrected
-            result_df.loc[idx, "significant"] = rejected
+    # Apply multiple testing correction (spearman/pearson only;
+    # differential_expression gets BH-corrected q-values directly from limma)
+    if method in ("spearman", "pearson"):
+        for _, grp in result_df.groupby(["parameter", "subtype"]):
+            if len(grp) > 0:
+                rejected, pvals_corrected, _, _ = multipletests(
+                    grp["pvalue"].values,
+                    alpha=alpha,
+                    method=mt_method,
+                )
+                result_df.loc[grp.index, "pvalue_corrected"] = pvals_corrected
+                result_df.loc[grp.index, "significant"] = rejected
 
     # Add sorting column based on method
     if method in ("spearman", "pearson"):
@@ -1703,6 +1975,168 @@ def plot_marker_parameter_barplots(
     return fig, axes
 
 
+def plot_luminal_basal_barplots(
+    corr_all,
+    corr_strat,
+    parameters=None,
+    n_top=10,
+    n_cols=2,
+    alpha=0.05,
+    figsize_per_plot=(5, 4),
+    save_path=None,
+):
+    """Plot grouped Luminal/Basal horizontal barplots for top-N markers from the unstratified analysis.
+
+    Args:
+        corr_all: Unstratified correlation DataFrame (subtype == "All") — used to rank top N markers.
+        corr_strat: Stratified correlation DataFrame containing "Luminal" and "Basal" rows.
+        parameters: List of parameters to plot; defaults to all unique parameters in corr_all.
+        n_top: Number of top markers to show per parameter (default: 10).
+        n_cols: Number of subplot columns (default: 2).
+        alpha: Significance threshold for asterisk markers (default: 0.05).
+        figsize_per_plot: (width, height) per subplot panel.
+        save_path: If given, save figure to this path.
+
+    Returns:
+        tuple: (fig, axes)
+    """
+    import math
+
+    from matplotlib.patches import Patch
+
+    LB_COLORS = {"Luminal": "#7b2d8e", "Basal": "#1b9e77"}
+    FONTSIZE = 8
+    bar_height = 0.35
+
+    if parameters is None:
+        parameters = corr_all["parameter"].unique().tolist()
+
+    n_params = len(parameters)
+    n_rows = math.ceil(n_params / n_cols)
+    figsize = (figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows)
+    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
+    axes_flat = axes.flatten()
+
+    # Build a lookup for stratified results: (param, marker, subtype) → (correlation, significant)
+    strat_lookup = {}
+    if corr_strat is not None and not corr_strat.empty:
+        for _, row in corr_strat.iterrows():
+            strat_lookup[(row["parameter"], row["marker"], row["subtype"])] = (
+                row["correlation"],
+                bool(row.get("significant", False)),
+            )
+
+    for idx, param in enumerate(parameters):
+        ax = axes_flat[idx]
+
+        # Top N markers ranked by |correlation| from unstratified results
+        param_all = corr_all[corr_all["parameter"] == param].copy()
+        if param_all.empty:
+            ax.set_visible(False)
+            continue
+
+        if "abs_corr" not in param_all.columns:
+            param_all["abs_corr"] = param_all["correlation"].abs()
+        top_df = param_all.nlargest(n_top, "abs_corr")
+        # Sort ascending by unstratified correlation so bars read bottom→top (neg→pos)
+        top_df = top_df.sort_values("correlation", ascending=True)
+        top_markers = top_df["marker"].tolist()
+        n_markers = len(top_markers)
+        y_pos = np.arange(n_markers)
+
+        # Unstratified "All" bar in background — grey, full grouped height, low alpha
+        all_vals = (
+            top_df.set_index("marker").loc[top_markers, "correlation"].values
+        )
+        ax.barh(
+            y_pos,
+            all_vals,
+            height=bar_height * 2,
+            color="#aaaaaa",
+            alpha=0.35,
+            edgecolor="none",
+            zorder=1,
+            label="All",
+        )
+
+        for subtype_offset, subtype in [
+            (bar_height / 2, "Luminal"),
+            (-bar_height / 2, "Basal"),
+        ]:
+            vals, sig_flags = [], []
+            for marker in top_markers:
+                key = (param, marker, subtype)
+                if key in strat_lookup:
+                    corr_val, is_sig = strat_lookup[key]
+                    vals.append(corr_val if not np.isnan(corr_val) else 0.0)
+                    sig_flags.append(is_sig and not np.isnan(corr_val))
+                else:
+                    vals.append(0.0)
+                    sig_flags.append(False)
+
+            ax.barh(
+                y_pos + subtype_offset,
+                vals,
+                height=bar_height,
+                color=LB_COLORS[subtype],
+                label=subtype,
+                edgecolor="black",
+                linewidth=0.5,
+                zorder=2,
+            )
+
+            # Significance asterisks at bar tips
+            for yi, (val, is_sig) in enumerate(zip(vals, sig_flags)):
+                if is_sig:
+                    x_text = val + (0.02 if val >= 0 else -0.02)
+                    ha = "left" if val >= 0 else "right"
+                    ax.text(
+                        x_text,
+                        yi + subtype_offset,
+                        "*",
+                        va="center",
+                        ha=ha,
+                        fontsize=FONTSIZE,
+                        color=LB_COLORS[subtype],
+                    )
+
+        ax.set_yticks(y_pos)
+        ax.set_yticklabels(top_markers, fontsize=FONTSIZE)
+        ax.set_xlim(-1, 1)
+        ax.axvline(0, color="black", linewidth=0.8)
+        ax.set_xlabel("Pearson r", fontsize=FONTSIZE)
+        ax.set_title(param, fontsize=FONTSIZE + 1, pad=4)
+        ax.grid(True, axis="x", alpha=0.3)
+        sns.despine(ax=ax, left=True)
+
+    # Hide unused axes
+    for idx in range(n_params, len(axes_flat)):
+        axes_flat[idx].set_visible(False)
+
+    # Figure-level legend
+    legend_handles = [
+        Patch(facecolor="#aaaaaa", edgecolor="none", alpha=0.5, label="All"),
+        Patch(
+            facecolor=LB_COLORS["Luminal"], edgecolor="black", label="Luminal"
+        ),
+        Patch(facecolor=LB_COLORS["Basal"], edgecolor="black", label="Basal"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="lower right",
+        bbox_to_anchor=(0.99, 0.01),
+        frameon=False,
+        fontsize=FONTSIZE,
+    )
+
+    plt.tight_layout()
+
+    if save_path is not None:
+        fig.savefig(save_path, bbox_inches="tight", dpi=150)
+
+    return fig, axes
+
+
 def plot_marker_vs_parameter(
     model,
     context,
@@ -1940,79 +2374,138 @@ def compute_averaged_parameter_gradient(
     figure="figure3",
     data="dream_cytof",
     min_valid_samples=5,
+    direction_name=None,
+    parameter_loadings_df=None,
 ):
-    """Compute averaged gradient across a group of parameters in embedding space.
+    """Project parameter deviations onto a sparse-PCA direction.
 
-    This function computes the gradient direction in embedding space for each parameter
-    in the group using linear regression, then averages and normalizes these gradients.
+    This replaces the former embedding-gradient approximation. The projection is now
+    computed directly in parameter-deviation space using sparse-PCA loadings
+    (seed-specific when available), then averaged across seeds per cell line.
 
     Args:
         model: Model name
         context: Context name
-        parameter_group: Tuple/list of parameter names to average
-        embedding_df: DataFrame with embeddings (must have columns starting with 'L')
+        parameter_group: Tuple/list of parameter names defining the direction support
+        embedding_df: DataFrame with embeddings (used only to align output index)
         figure: Figure name for loading data (default: "figure3")
         data: Dataset name (default: "dream_cytof")
-        min_valid_samples: Minimum number of valid samples required per parameter (default: 5)
+        min_valid_samples: Minimum number of valid samples required per seed (default: 5)
+        direction_name: Optional direction key (e.g. "D1") to select loadings
+        parameter_loadings_df: Optional long-form DataFrame with columns
+            [direction, seed, parameter, loading]
 
     Returns:
-        tuple: (avg_gradient, projection_values)
-            - avg_gradient: numpy array with averaged normalized gradient
-            - projection_values: pandas Series with projection of embeddings onto gradient
+        tuple: (mean_loading_vector, projection_values)
+            - mean_loading_vector: unit-normalized mean loading vector across seeds
+            - projection_values: pandas Series with per-cell averaged projection score
     """
-    from sklearn.linear_model import LinearRegression
+    params_requested = list(parameter_group)
+    loadings_df = _resolve_sensitive_loadings_df(
+        model=model,
+        context=context,
+        parameter_loadings_df=parameter_loadings_df,
+    )
 
-    # Get embedding columns (L1, L2, L3, ...)
-    embedding_cols = [
-        col for col in embedding_df.columns if col.startswith("L")
-    ]
+    if direction_name is not None and "direction" in loadings_df.columns:
+        dir_df = loadings_df[loadings_df["direction"] == direction_name].copy()
+    else:
+        dir_df = loadings_df[
+            loadings_df["parameter"].isin(params_requested)
+        ].copy()
 
-    # Collect gradients for each parameter in the group
-    gradients = []
-    for param in parameter_group:
-        # Load parameter data
-        param_values = load_parameter_data(model, param, figure, data, context)
-
-        # Get common cell lines between embeddings and parameter
-        common_cells = embedding_df.index.intersection(param_values.index)
-        emb_subset = embedding_df.loc[common_cells]
-        param_subset = param_values.loc[common_cells]
-
-        # Remove NaN values
-        valid_mask = param_subset.notna()
-        if valid_mask.sum() < min_valid_samples:
-            print(
-                f"Warning: Too few valid samples for parameter {param} ({valid_mask.sum()}), skipping..."
-            )
-            continue
-
-        # Prepare data for regression
-        X = emb_subset.loc[valid_mask, embedding_cols].values
-        y = param_subset.loc[valid_mask].values
-
-        # Fit linear regression to get gradient
-        reg = LinearRegression().fit(X, y)
-        gradients.append(reg.coef_)
-
-    if not gradients:
+    if dir_df.empty:
         raise ValueError(
-            f"No valid gradients computed for parameter group with {len(parameter_group)} parameters"
+            "No loadings available for parameter group projection. "
+            f"direction={direction_name}, parameters={params_requested}"
         )
 
-    # Average gradients across the parameter group
-    avg_gradient = np.mean(gradients, axis=0)
+    if direction_name is None and params_requested:
+        dir_df = dir_df[dir_df["parameter"].isin(params_requested)].copy()
+    if dir_df.empty:
+        raise ValueError(
+            f"No overlapping loadings for parameters: {params_requested}"
+        )
 
-    # Normalize gradient to unit length
-    avg_gradient = avg_gradient / np.linalg.norm(avg_gradient)
+    matrix, available_params = _load_parameter_deviation_matrix(
+        model=model,
+        parameters=dir_df["parameter"].unique().tolist(),
+        context=context,
+        figure=figure,
+        data=data,
+    )
 
-    # Project embeddings onto averaged gradient direction
-    embeddings_array = embedding_df[embedding_cols].values
-    projection_values = embeddings_array @ avg_gradient
+    dir_df = dir_df[dir_df["parameter"].isin(available_params)].copy()
+    if dir_df.empty:
+        raise ValueError(
+            "Loadings did not overlap with available parameter deviations"
+        )
 
-    # Convert to Series with cell line index
-    projection_values = pd.Series(projection_values, index=embedding_df.index)
+    dir_df["seed"] = dir_df["seed"].astype(str)
+    mean_loadings = (
+        dir_df.groupby("parameter")["loading"]
+        .mean()
+        .reindex(available_params)
+        .fillna(0.0)
+    )
 
-    return avg_gradient, projection_values
+    per_seed_scores = []
+    available_seed_vectors = {
+        seed: grp.set_index("parameter")["loading"]
+        for seed, grp in dir_df.groupby("seed")
+    }
+
+    for seed, grp in matrix.groupby("job"):
+        if len(grp) < min_valid_samples:
+            continue
+
+        X = grp[available_params].copy()
+        mu = X.mean(axis=0)
+        sigma = X.std(axis=0, ddof=0).replace(0, 1.0)
+        Xs = (X - mu) / sigma
+
+        load_vec = available_seed_vectors.get(seed)
+        if load_vec is None:
+            load_vec = mean_loadings
+
+        v = (
+            load_vec.reindex(available_params)
+            .fillna(0.0)
+            .to_numpy(dtype=float)
+        )
+        norm = np.linalg.norm(v)
+        if norm == 0:
+            continue
+        v = v / norm
+
+        scores = Xs.to_numpy(dtype=float) @ v
+        df_scores = pd.DataFrame(
+            {
+                "cell_line": grp["cell_line"].values,
+                "seed": seed,
+                "score": scores,
+            }
+        )
+        per_seed_scores.append(df_scores)
+
+    if not per_seed_scores:
+        raise ValueError(
+            "No valid projections computed for parameter group "
+            f"{direction_name or params_requested}"
+        )
+
+    per_seed_scores_df = pd.concat(per_seed_scores, ignore_index=True)
+    projection_values = per_seed_scores_df.groupby("cell_line")["score"].mean()
+
+    if embedding_df is not None:
+        projection_values = projection_values.reindex(embedding_df.index)
+
+    mean_loading_vector = mean_loadings.to_numpy(dtype=float)
+    mean_norm = np.linalg.norm(mean_loading_vector)
+    if mean_norm > 0:
+        mean_loading_vector = mean_loading_vector / mean_norm
+
+    return mean_loading_vector, projection_values
 
 
 def plot_binned_dynamic_cytof(
@@ -2027,8 +2520,9 @@ def plot_binned_dynamic_cytof(
     figure="figure3",
     data="dream_cytof",
     figsize=None,
-    cmap="coolwarm",
+    cmap=None,
     save_path=None,
+    parameter_loadings_df=None,
 ):
     """Plot averaged dynamic cytof data binned by marker or embedding values.
 
@@ -2050,6 +2544,9 @@ def plot_binned_dynamic_cytof(
         figsize: Figure size tuple (width, height) - auto-calculated if None
         cmap: Colormap for bin colors (default: "coolwarm")
         save_path: Path to save the figure (None = don't save)
+        parameter_loadings_df: Optional long-form loadings DataFrame with columns
+                       [direction, seed, parameter, loading] for
+                       seed-specific parameter-group binning.
 
     Returns:
         tuple: (fig, axes, all_data)
@@ -2081,13 +2578,23 @@ def plot_binned_dynamic_cytof(
         )
         bin_values = emb_df.index.map(param_values)
     elif bin_by_type == "parameter_group":
-        # Bin by parameter group: compute averaged gradients in embedding space
-        if bin_by not in sensitive_dirs:
+        # Bin by sparse-PCA parameter projection (seed-specific when available)
+        resolved_loadings_df = _resolve_sensitive_loadings_df(
+            model=model,
+            context=context,
+            parameter_loadings_df=parameter_loadings_df,
+        )
+        direction_names = _get_direction_names(resolved_loadings_df)
+        if bin_by not in direction_names:
             raise ValueError(
-                f"Parameter group '{bin_by}' not found in sensitive_dirs. Available: {list(sensitive_dirs.keys())}"
+                f"Parameter group '{bin_by}' not found in loadings directions. "
+                f"Available: {direction_names}"
             )
 
-        param_group = sensitive_dirs[bin_by]
+        param_group = _infer_parameter_group_from_loadings(
+            resolved_loadings_df,
+            bin_by,
+        )
         _, bin_values = compute_averaged_parameter_gradient(
             model=model,
             context=context,
@@ -2095,6 +2602,8 @@ def plot_binned_dynamic_cytof(
             embedding_df=emb_df,
             figure=figure,
             data=data,
+            direction_name=bin_by,
+            parameter_loadings_df=resolved_loadings_df,
         )
     else:
         # Load marker data for binning (cytof, proteomics, transcriptomics)
@@ -2117,8 +2626,13 @@ def plot_binned_dynamic_cytof(
     cell_bins = emb_df[["bin"]].reset_index()
     cell_bins.columns = ["cell_line", "bin"]
 
-    # Get colors from colormap
-    colors = plt.cm.get_cmap(cmap)(np.linspace(0.2, 0.8, n_bins))
+    # Count cell lines per bin (for legend labels)
+    bin_counts = cell_bins["bin"].value_counts()
+
+    # Get colors for bins
+    if cmap is None:
+        cmap = BINNED_CMAP
+    colors = plt.cm.get_cmap(cmap)(np.linspace(0.15, 0.85, n_bins))
 
     # Create facet grid
     n_rows = len(observables)
@@ -2165,7 +2679,7 @@ def plot_binned_dynamic_cytof(
                         bin_data["mean"],
                         marker="o",
                         color=colors[k],
-                        label=f"{bin_label} (n={bin_data['count'].iloc[0]})"
+                        label=f"{bin_label} (n={bin_counts.get(bin_label, 0)})"
                         if i == 0 and j == 0
                         else None,
                         linewidth=2,
@@ -2210,12 +2724,10 @@ def plot_binned_dynamic_cytof(
         )
         for k in range(n_bins)
     ]
-    # Get sample counts from first plot
-    first_grouped = list(all_data.values())[0]
+    # Get cell line counts per bin
     legend_labels = []
     for bin_label in bin_labels:
-        bin_data = first_grouped[first_grouped["bin"] == bin_label]
-        n = bin_data["count"].iloc[0] if len(bin_data) > 0 else 0
+        n = bin_counts.get(bin_label, 0)
         legend_labels.append(f"{bin_label} (n={n})")
 
     fig.legend(
@@ -2235,156 +2747,6 @@ def plot_binned_dynamic_cytof(
     return fig, axes, all_data
 
 
-def plot_embeddings_all_parameters(
-    model,
-    context,
-    figure="figure3",
-    data="dream_cytof",
-    parameters=None,
-    n_cols=6,
-    x_col="L1",
-    y_col="L2",
-    cmap="RdBu_r",
-    figsize_per_plot=(3, 3),
-    save_path=None,
-):
-    """Plot a facet grid of embedding scatterplots for all parameters.
-
-    Args:
-        model: Model name to plot
-        context: Context to plot
-        figure: Figure name for loading data (default: "figure3")
-        data: Dataset name (default: "dream_cytof")
-        parameters: List of parameters to plot (default: all available)
-        n_cols: Number of columns in the grid (default: 6)
-        x_col: Column to plot on x-axis (default: "L1")
-        y_col: Column to plot on y-axis (default: "L2")
-        cmap: Colormap for continuous coloring (default: "RdBu_r")
-        figsize_per_plot: Figure size per subplot (default: (3, 3))
-        save_path: Path to save the figure (None = don't save)
-
-    Returns:
-        tuple: (fig, axes)
-    """
-    # Get parameters
-    if parameters is None:
-        parameters = get_available_parameters(model, figure, data)
-
-    n_params = len(parameters)
-    n_rows = int(np.ceil(n_params / n_cols))
-
-    # Load and prepare embedding data
-    embedding_df = load_embedding_data(figure, data)
-    subtypes_df = load_marcotte_subtypes(embedding_df.cell_line.unique())
-    pca_embedding_df = prepare_pca_embeddings(embedding_df, subtypes_df)
-
-    # Filter to specific model and context
-    plot_df = pca_embedding_df[
-        (pca_embedding_df["model"] == model)
-        & (pca_embedding_df["context"] == context)
-    ].copy()
-
-    # Create figure
-    figsize = (figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows)
-    fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
-
-    # Flatten axes for easier iteration
-    axes_flat = axes.flatten()
-
-    # Compute axis limits once (centered at 0)
-    x_max = max(abs(plot_df[x_col].min()), abs(plot_df[x_col].max()))
-    y_max = max(abs(plot_df[y_col].min()), abs(plot_df[y_col].max()))
-
-    for idx, param in enumerate(parameters):
-        ax = axes_flat[idx]
-
-        # Load parameter data
-        try:
-            param_values = load_parameter_data(
-                model, param, figure, data, context
-            )
-            plot_df[param] = plot_df.index.map(param_values)
-
-            # Center colorscale on mean
-            values = plot_df[param].dropna()
-            if len(values) > 0:
-                mean_val = values.mean()
-                max_dev = max(
-                    abs(values.min() - mean_val), abs(values.max() - mean_val)
-                )
-                vmin = mean_val - max_dev
-                vmax = mean_val + max_dev
-
-                ax.scatter(
-                    plot_df[x_col],
-                    plot_df[y_col],
-                    c=plot_df[param],
-                    cmap=cmap,
-                    vmin=vmin,
-                    vmax=vmax,
-                    edgecolor="black",
-                    linewidths=0.3,
-                    s=20,
-                )
-            else:
-                ax.text(
-                    0.5,
-                    0.5,
-                    "No data",
-                    ha="center",
-                    va="center",
-                    transform=ax.transAxes,
-                )
-
-        except Exception as e:
-            ax.text(
-                0.5,
-                0.5,
-                f"Error:\n{str(e)[:20]}",
-                ha="center",
-                va="center",
-                transform=ax.transAxes,
-                fontsize=8,
-            )
-
-        # Set title (shortened parameter name)
-        param_short = param[:25] + "..." if len(param) > 25 else param
-        ax.set_title(param_short, fontsize=8)
-
-        # Set axis limits
-        ax.set_xlim(-x_max * 1.1, x_max * 1.1)
-        ax.set_ylim(-y_max * 1.1, y_max * 1.1)
-
-        # Draw axes at origin
-        ax.axhline(0, color="black", linewidth=0.5, zorder=0)
-        ax.axvline(0, color="black", linewidth=0.5, zorder=0)
-
-        # Remove ticks
-        ax.set_xticks([])
-        ax.set_yticks([])
-
-        # Remove spines
-        sns.despine(ax=ax, left=True, bottom=True)
-
-    # Hide unused axes
-    for idx in range(n_params, len(axes_flat)):
-        axes_flat[idx].axis("off")
-
-    # Add overall title
-    fig.suptitle(
-        f"Parameter deviations - {get_model_label(model)} - {get_context_label(context)}\n({x_col} vs {y_col})",
-        fontsize=14,
-        y=1.01,
-    )
-
-    plt.tight_layout()
-
-    if save_path is not None:
-        fig.savefig(save_path, bbox_inches="tight", dpi=150)
-
-    return fig, axes
-
-
 def plot_parameter_histograms_by_latent(
     model,
     context,
@@ -2395,7 +2757,7 @@ def plot_parameter_histograms_by_latent(
     figure="figure3",
     data="dream_cytof",
     figsize_per_plot=(3, 2.5),
-    cmap="coolwarm",
+    cmap=None,
     save_path=None,
 ):
     """Plot KDE distributions of parameters binned by latent embedding values.
@@ -2461,8 +2823,10 @@ def plot_parameter_histograms_by_latent(
     figsize = (figsize_per_plot[0] * n_cols, figsize_per_plot[1] * n_rows)
     fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize, squeeze=False)
 
-    # Get colors from colormap
-    colors = plt.cm.get_cmap(cmap)(np.linspace(0.2, 0.8, n_bins))
+    # Get colors for bins
+    if cmap is None:
+        cmap = BINNED_CMAP
+    colors = plt.cm.get_cmap(cmap)(np.linspace(0.15, 0.85, n_bins))
 
     for i, param in enumerate(parameters):
         for j, latent in enumerate(latents):

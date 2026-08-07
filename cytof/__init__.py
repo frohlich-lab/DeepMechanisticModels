@@ -1,6 +1,3 @@
-import re
-
-
 def get_samples(data_name):
     if data_name == "dream_cytof":
         return [
@@ -76,7 +73,5 @@ def get_samples(data_name):
             "cKPL1",
             "cZR75B",
         ]
-    elif m := re.match(r"synthetic_([0-9]+)_[0-9.]+_[0-9.]+$", data_name):
-        return [f"sample_{isample}" for isample in range(int(m.group(1)))]
 
     raise ValueError(f"{data_name} is not a valid data name")
