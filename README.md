@@ -19,6 +19,37 @@ Hyperparameters can be specified via `training_configuration.py`.
 
 Evaluation of the trained models is described in `evaluation_workflow.md`.
 
+## Setup
+
+```
+python3 -m venv venv
+./venv/bin/python -m pip install -r requirements.txt
+```
+
+`pandas` is capped below 3.0 and that bound is load-bearing — on pandas 3 the
+PEtab lint rejects the Arrow-backed string dtype and both pretraining steps
+fail. See the notes at the top of `requirements.txt`.
+
+Three prerequisites are not installable from `requirements.txt`:
+
+- **BioNetGen**, needed by pysb for network generation. Download it, then point
+  `BNGPATH` at the install directory (pysb only searches
+  `/usr/local/share/BioNetGen` and `PATH` by default):
+
+  ```
+  export BNGPATH=/path/to/BioNetGen-2.9.1
+  ```
+
+- **R and the `limma` package**, used by `figures_paper/figure_3.ipynb`
+  through rpy2:
+
+  ```
+  Rscript -e 'if (!requireNamespace("BiocManager", quietly=TRUE)) install.packages("BiocManager"); BiocManager::install("limma")'
+  ```
+
+- **Synapse credentials** in `~/.synapseConfig`, for the raw CyTOF/omics
+  downloads in `cytof/data.py`.
+
 ## Paper figures
 
 The notebooks under `figures_paper/` produce the paper figures. To check they
