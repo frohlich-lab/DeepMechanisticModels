@@ -2,9 +2,7 @@ import itertools as itt
 
 from dmm.config_options import scan_attributes
 from training_configuration import (
-    ACTIVATION_FNS,
     DROPOUT_RATES,
-    FREEZE_MEDIANS,
     INFLATER_BOUND,
     # Regularisation-adjacent
     INFLATER_OUTPUT_REG_EPOCHS,
@@ -17,21 +15,14 @@ from training_configuration import (
     NEPOCH,
     NETWORK_DEPTH,
     NETWORK_DEPTH_BY_CONTEXT,
-    NN_INIT_FN,
     NN_INIT_SCALES,
-    OPTIMISERS,
     OREG_ENCODE_REGS,
     OREG_INFLATE_REGS,
     # Regularisation
-    ORTH_REG_STRATEGIES,
     RECON_REGS,
     SPARSE_THRESH_PERCS,
     SPLITS,
-    STANDARDISE_FEATURES,
     SYMMETRY_REGS,
-    USE_BIAS,
-    # OTHER OPTIONS
-    USE_EARLY_STOP,
 )
 
 # Context-specific central-value overrides: param -> {context -> central_value}
@@ -94,32 +85,15 @@ linear_hyperparameters = {
 }
 
 
-# Default product hyperparameters (uses global SPLITS)
-def get_product_hyperparameters(splits=None):
-    if splits is None:
-        splits = SPLITS
-    return {
-        "activation_fn_name": ACTIVATION_FNS,
-        "optimiser": OPTIMISERS,
-        "orth_reg_strategy": ORTH_REG_STRATEGIES,
-        "use_layer_bias": USE_BIAS,
-        "nn_init_fn": NN_INIT_FN,
-        "standardise_features": STANDARDISE_FEATURES,
-        "freeze_medians": FREEZE_MEDIANS,
-        "use_early_stopping": USE_EARLY_STOP,
-        "samples": splits,
-    }
-
-
 def generate_linear_scan(
-    contexts_features: list[tuple],
+    contexts_features: list[tuple[str, str]],
     starts: list[str],
     select_central_values: bool,
-    params_to_scan: list = None,
-    splits: set = None,
-):
-    # Get product hyperparameters with the appropriate splits
-    current_product_hyperparameters = get_product_hyperparameters(splits)
+    params_to_scan: list[str] | None = None,
+    splits: set[str] | None = None,
+) -> list[dict]:
+    if splits is None:
+        splits = SPLITS
 
     # Check that all hyperparameter options are dicts (central value, range)
     if not all(
@@ -194,15 +168,17 @@ def generate_linear_scan(
             ]
             linear_scan_configs.extend(ctx_configs)
 
-    # TODO: fix this, this does not work! (linear scans ok, cartesian product broken)
-    # product expand for product hyperparameters
-    for param in scan_attributes:
-        if param in current_product_hyperparameters:
-            linear_scan_configs = [
-                {**config, **{param: value}}
-                for config in linear_scan_configs
-                for value in current_product_hyperparameters[param]
-            ]
+    # Replicate every config across the CV splits. This used to be phrased as a
+    # cartesian product over a dict of "product hyperparameters", but the loop
+    # was gated on `param in scan_attributes` and `samples` is the only key that
+    # satisfies it -- the other eight were never applied to any config. Their
+    # values are Conf field defaults anyway, so nothing changed when they were
+    # dropped.
+    linear_scan_configs = [
+        {**config, "samples": split}
+        for config in linear_scan_configs
+        for split in splits
+    ]
 
     # Set multiheaded to False if context is not multimodal
     linear_scan_configs = [

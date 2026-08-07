@@ -63,17 +63,6 @@ SPLITS = {
     # "UAC893",  # added 30.03.2026
 }
 
-STANDARDISE_FEATURES = {
-    # True,
-    False,
-}
-
-
-# Train/freeze median kinetic parameters
-FREEZE_MEDIANS = {
-    # True,
-    False,
-}
 
 # Network Structure and Initialisation Hyperparameters
 
@@ -127,36 +116,6 @@ NETWORK_DEPTH_BY_CONTEXT: dict[str, int] = {
 }
 
 
-# Encoder_layer_biases, inflater_layer_biases and decoder_layer_biases all take from a single USE_BIAS hyperparameter
-USE_BIAS = (
-    # "True",
-    "False",
-)
-
-
-# Encoder_weight/bias_init_fn, inflater_weight/bias_init_fn, decoder_weight/bias_init_fn all take from a single
-# NN_INIT_FN hyperparameter
-NN_INIT_FN = (
-    # "eqx_default",
-    "custom",  # custom initialisation with small scale (0.1)
-    # "HN",  # He Normal
-    # "HU",  # He Uniform
-    # "LN",  # LeCun Normal
-    # "LU",  # LeCun Uniform
-    # "XN",  # Xavier/Glorot Normal
-    # "XU",  # Xavier/Glorot Uniform
-)
-
-# Training Hyperparameters
-# Activation Functions: activation_fn_name
-ACTIVATION_FNS = (
-    # "tanh",
-    # "relu",
-    # "leaky_relu",
-    "swish",
-    # "softplus",
-)
-
 DROPOUT_RATES = {
     "range": (
         0,
@@ -166,12 +125,6 @@ DROPOUT_RATES = {
         0.4,
     ),
     "central_value": 0.1,  # updated after v71_fig1b_p38
-}
-
-# optimiser to use
-OPTIMISERS = {
-    "adam",
-    # "adamw",
 }
 
 
@@ -275,13 +228,6 @@ INFLATER_BOUND = {
     "central_value": 3,
 }
 
-
-# EARLY-STOPPING HYPERPARAMETERS
-# USE_EARLY_STOP: use_early_stopping, enables early-stopping via flax.training.early_stopping
-USE_EARLY_STOP = {
-    # True,
-    False,  # disabled for now - allow to overfit
-}
 
 # PATIENCE: patience, number of consecutive epochs where we tolerate rmse_val not improving by at least min_improvement
 PATIENCE = (
