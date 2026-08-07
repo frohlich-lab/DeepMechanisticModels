@@ -48,7 +48,10 @@ class MechanisticModel:
     def construct_pysb(self, model_name):
         pysb_model = Model(model_name)
 
-        for par in self.parameters:
+        # sorted() since self.parameters is a set: without it the order of
+        # Parameter declarations (and thus the exported pysb_flat file) varies
+        # between runs due to string hash randomisation
+        for par in sorted(self.parameters):
             Parameter(par)
 
         generate_pathway(
