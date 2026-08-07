@@ -790,8 +790,8 @@ def load_marcotte_subtypes(samples: list[str]) -> pd.DataFrame:
     """Load and normalise Marcotte molecular subtypes, aligned to *samples*."""
     df = pd.read_csv(basedir / "cell_line_subtypes.txt", delimiter="\t")
     df["cell_line"] = df["cell_line"].apply(lambda x: "c" + str(x).upper())
-    df.cell_line.replace("cHS578T", "cHs578T", inplace=True)
-    df.cell_line.replace("c600MPE", "cMPE600", inplace=True)
+    df["cell_line"] = df["cell_line"].replace("cHS578T", "cHs578T")
+    df["cell_line"] = df["cell_line"].replace("c600MPE", "cMPE600")
     df.loc[df["cell_line"] == "cDU4475", "subtype_intrinsic"] = "Basal"
     df.sort_values("cell_line", inplace=True)
     df.set_index("cell_line", inplace=True)

@@ -652,7 +652,7 @@ def render_model_comparison(
     df = _apply_display_labels(df)
 
     data_df, _ = _split_val_test(df, dataset)
-    data_df.features.fillna("None", inplace=True)
+    data_df["features"] = data_df["features"].fillna("None")
     plot_df, ref_df, hue_order, contexts, models = _prepare_data(
         data_df,
         contexts,
@@ -734,7 +734,7 @@ def render_delta_model_comparison(
 
     df = _apply_display_labels(df)
     data_df, _ = _split_val_test(df, dataset)
-    data_df.features.fillna("None", inplace=True)
+    data_df["features"] = data_df["features"].fillna("None")
     plot_df, ref_df, hue_order, contexts, resolved_models = _prepare_data(
         data_df,
         contexts,
@@ -1683,7 +1683,7 @@ def plot_model_comparison(
     data_by_dataset = {}
     for ds in datasets_to_plot:
         data_df, suffix = _split_val_test(df, ds)
-        data_df.features.fillna("None", inplace=True)
+        data_df["features"] = data_df["features"].fillna("None")
         (
             plot_df,
             ref_df,
