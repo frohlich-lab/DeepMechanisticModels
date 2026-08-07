@@ -321,6 +321,7 @@ def load_parameter_data(
     data: str = "dream_cytof",
     context: str = "cytof_init",
     z_transform: bool = False,
+    dataset: str | None = None,
 ):
     """Load parameter deviation data for a specific parameter.
 
@@ -330,6 +331,8 @@ def load_parameter_data(
         figure: Figure name (default: "figure3")
         data: Dataset name (default: "dream_cytof")
         context: Context to filter by (default: "cytof_init")
+        dataset: Restrict to one of "train"/"val". None (default) keeps both,
+                 i.e. the training cell lines plus the held-out test set.
 
     Returns:
         Series with cell_line as index and parameter values
@@ -348,9 +351,19 @@ def load_parameter_data(
     if "context" in df.columns:
         df = df[df["context"] == context]
 
-    # Filter to test set (samples starting with "all")
+    # Filter to the "all" CV split
     if "samples" in df.columns:
         df = df[df["samples"].str.startswith("all")]
+
+    # Optionally restrict to the training cell lines. Without this the "all"
+    # split also carries the held-out test set (common.test_samples).
+    if dataset is not None:
+        if "dataset" not in df.columns:
+            raise ValueError(
+                f"dataset={dataset!r} requested but param_devs_{figure}.csv "
+                "has no 'dataset' column"
+            )
+        df = df[df["dataset"] == dataset]
 
     # Average across jobs if multiple
     if (
@@ -363,7 +376,9 @@ def load_parameter_data(
     return result
 
 
-def load_embedding_data(figure: str, data: str = "dream_cytof"):
+def load_embedding_data(
+    figure: str, data: str = "dream_cytof", dataset: str | None = None
+):
     """Load embedding data for a specific figure.
 
     Args:
@@ -402,6 +417,15 @@ def load_embedding_data(figure: str, data: str = "dream_cytof"):
         & (embedding_df.n_hidden == central_n_hidden)
         & (embedding_df.samples.str.startswith("all"))
     ]
+
+    # Optionally restrict to the training cell lines; see load_parameter_data.
+    if dataset is not None:
+        if "dataset" not in embedding_df.columns:
+            raise ValueError(
+                f"dataset={dataset!r} requested but embeddings_{figure}.csv "
+                "has no 'dataset' column"
+            )
+        embedding_df = embedding_df[embedding_df["dataset"] == dataset]
 
     return embedding_df
 
@@ -909,6 +933,7 @@ def compute_marker_parameter_correlations(
     stratify_luminal_basal: bool = False,
     targets=None,
     exclude=None,
+    dataset: str | None = "train",
 ) -> pd.DataFrame:
     """Compute correlations or differential expression between markers and model parameters or parameter groups.
 
@@ -930,6 +955,10 @@ def compute_marker_parameter_correlations(
         parameter_loadings_df: Optional long-form loadings DataFrame with columns
                        [direction, seed, parameter, loading]. If provided,
                        parameter-group projections use these loadings.
+        dataset: Restrict parameters/embeddings to this dataset, "train" by default.
+                The "all" CV split also carries the held-out test set
+                (common.test_samples), which would otherwise be correlated too.
+                Pass None to reproduce the previous train+held-out behaviour.
         targets: Optional dict {name: pd.Series} of pre-computed target values per cell line.
                 When provided, bypasses all internal parameter/embedding loading. marker_data must
                 also be provided. Incompatible with stratify_luminal_basal=True.
@@ -1010,7 +1039,7 @@ def compute_marker_parameter_correlations(
             )
 
         # Load embedding data (needed for parameter groups)
-        embedding_df = load_embedding_data(figure, data)
+        embedding_df = load_embedding_data(figure, data, dataset=dataset)
         subtypes_df = load_marcotte_subtypes(embedding_df.cell_line.unique())
         pca_embedding_df = prepare_pca_embeddings(embedding_df, subtypes_df)
 
@@ -1059,7 +1088,13 @@ def compute_marker_parameter_correlations(
                 # Load individual parameter
                 try:
                     param_values = load_parameter_data(
-                        model, param, figure, data, context, z_transform=True
+                        model,
+                        param,
+                        figure,
+                        data,
+                        context,
+                        z_transform=True,
+                        dataset=dataset,
                     )
                     param_data[param] = param_values
                 except Exception as e:
