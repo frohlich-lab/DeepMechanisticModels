@@ -116,7 +116,6 @@ pypesto_problems = {
 for dataset in [
     "val",
     "train",
-    # "test"  # TODO still don't have test data!
 ]:
     # clear jax cache to avoid error where jitted function uses input with shape of train
     # which differs from test

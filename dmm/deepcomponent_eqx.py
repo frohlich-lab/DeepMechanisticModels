@@ -54,7 +54,6 @@ def generate_layer(
             bias_init=init_dict[bias_init_fn],
         )
     else:
-        # TODO @GiacomoFabrini consider improving this?!
         # In case of mixed combinations or unknown init_fn names, raise ValueError
         raise ValueError(
             f"Incorrect or unknown {weight_init_fn} or {bias_init_fn}."

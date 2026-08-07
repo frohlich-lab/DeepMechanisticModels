@@ -59,7 +59,6 @@ defaults = {
 
 tpl_results_file = "__".join(defaults.values())
 
-# TODO @GiacomoFabrini check this works and replace how this is handled everywhere!
 TRAINED_MODEL = str(
     results_dir / "{model}" / "{data}" / (tpl_results_file + ".eqx")
 )

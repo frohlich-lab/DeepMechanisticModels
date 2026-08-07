@@ -25,7 +25,6 @@ from generate_run_configs import generate_run_configs
 from training_configuration import (
     CONTEXTS_FEATURES_BY_FIGURE,
     PARAMS_TO_SCAN,
-    RETURN_STAT_TESTS,
     SELECT_CENTRAL_VALUES_BY_FIGURE,
     SPLITS_BY_FIGURE,
 )
@@ -53,7 +52,6 @@ def process_reference(
 
 conf = fire.Fire(Conf)
 outdir = fig_dir / conf.model / conf.data
-JOBS = tuple(i for i in range(conf.n_starts))
 # Compute figure-specific set of unique contexts
 CONTEXT_SET = sorted(
     {context for context, _ in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]}
@@ -219,7 +217,6 @@ for samples in sorted(SPLITS_BY_FIGURE[conf.figure]):
             # Once appended, this can be deleted
             del avg_ps_df
 
-        # TODO @GiacomoFabrini might it be better to have default activation, optimiser, orth_reg_strategy as "None"?
         dfd = pd.concat([training.convert_dtypes(), *avg_ps_dfs])
         print(
             f"Finished concatenating training and reference models for {samples}, {dataset}"
@@ -311,7 +308,6 @@ num_best = 10
 aggregate_and_log(
     df=df,
     conf=conf,
-    return_stat_tests=RETURN_STAT_TESTS,
     num_best=num_best,
 )
 print("Done.")

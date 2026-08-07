@@ -2,7 +2,6 @@ import itertools as itt
 import re
 from typing import Iterable
 
-import sympy as sp
 from pysb import (
     Expression,
     Initial,
@@ -61,7 +60,6 @@ class MechanisticModel:
             add_delay=self.delays,
             require_compartment=self.require_compartment,
             require_phosphorylation=self.require_phosphorylation,
-            multrate=self.has_modification("multrate"),
         )
 
         add_observables(pysb_model)
@@ -105,7 +103,6 @@ def generate_pathway(
     add_delay=None,
     require_compartment=None,
     require_phosphorylation=None,
-    multrate=False,
 ):
     """Adds synthesis and phospho-signal transduction rules to the model
     based on the input specifications
@@ -155,7 +152,6 @@ def generate_pathway(
                 site=site,
                 activators=activators,
                 deactivators=deactivators,
-                multrate=multrate,
                 n_delays=add_delay.get(f"{p_name}_{site}", 0),
                 require_compartment=require_compartment.get(
                     f"{p_name}_{site}"
@@ -329,7 +325,6 @@ def add_activation(
     m_name: str,
     site: str,
     n_delays: int,
-    multrate: bool,
     require_compartment: str | None,
     require_phosphorylation: str | None,
     activators: Iterable[str] = (),
@@ -421,12 +416,7 @@ def add_activation(
     for activator in activators:
         factor = add_or_get_modulator_obs(model, activator)
         weight = add_parameter(f"{forward_name}_{activator}_kw", model)
-        if multrate:
-            factor = weight * (
-                sp.log(1e-8 + factor) - sp.log(1e-8)
-            )  # 1e-8 is a bit higher than atol
-        else:
-            factor *= weight
+        factor *= weight
         activations.append(
             Expression(f"{forward_name}_{activator}_activating_factor", factor)
         )
@@ -435,12 +425,7 @@ def add_activation(
     for deactivator in deactivators:
         factor = add_or_get_modulator_obs(model, deactivator)
         weight = add_parameter(f"{forward_name}_{deactivator}_kw", model)
-        if multrate:
-            factor = weight * (
-                sp.log(1e-8 + factor) - sp.log(1e-8)
-            )  # 1e-8 is a bit higher than atol
-        else:
-            factor *= weight
+        factor *= weight
         deactivations.append(
             Expression(
                 f"{forward_name}_{deactivator}_inhibiting_factor", factor
@@ -448,20 +433,7 @@ def add_activation(
         )
 
     kr_name = f"{forward_name}_kr"
-    if multrate:
-        dynamic_range = sp.log(1_000)
-        # TODO: do we multiply with weights before or after asinh?
-        kr = Expression(
-            kr_name,
-            sp.exp(
-                dynamic_range
-                * sp.tanh(
-                    (sum(activations) - sum(deactivations)) / dynamic_range
-                )
-            ),
-        )
-    else:
-        kr = Expression(kr_name, sum(activations) / (1 + sum(deactivations)))
+    kr = Expression(kr_name, sum(activations) / (1 + sum(deactivations)))
 
     rate = Expression(f"{forward_name}_activation_rate", kref * kr)
 

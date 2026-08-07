@@ -291,7 +291,6 @@ class Chi2Objective(pypesto.objective.Objective):
         **kwargs,
     ) -> ResultDict:
         assert mode in [pypesto.C.MODE_FUN], "Only residual mode is supported"
-        # TODO @FabianFrohlich: add some additional safeguards
         res = self.base_objective.call_unprocessed(
             x, sensi_orders, mode, return_dict=True, **kwargs
         )

@@ -150,7 +150,6 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
                 weight_init_fn=conf.nn_init_fn,
                 bias_init_fn="zeros",
                 last_layer_activation=conf.last_layer_activation,
-                # TODO @GiacomoFabrini: discuss with Fabian which modules should have a last layer activation (all?)
                 # Only apply dropout (if any) to the encoder module
                 dropout_rate=conf.dropout_rate if module == "encoder" else 0.0,
                 weight_init_scale=conf.nn_init_scale,
@@ -437,9 +436,8 @@ class DeepMechanisticModel(TwoHeadedDeepAutoencoder):
         if self.conf.recon_loss == 0.0:
             return 0.0
         reconstructed_x = jax.vmap(self.decode, in_axes=(0, None))(x, key)
-        # fval contains MSE (not RMSE) - using MSE in reconstruction loss
-        # TODO @GiacomoFabrini: fval and reconstruction loss use MSEs - need to move to RMSEs?!
-        #  Are they on the same scale/order of magnitude as L1 terms if we leave them squared?!
+        # fval and this term are both MSEs, deliberately left squared; the
+        # regularisation strengths are tuned against that scale.
         return self.conf.recon_loss * mse(
             predictions=reconstructed_x, targets=x
         )

@@ -30,8 +30,6 @@ from dmm.pretraining import (
     generate_average_pretraining_problem,
     generate_per_sample_pretraining_problems,
 )
-from stat_test import statistical_significance_test
-from training_configuration import SPLITS
 
 
 def get_measurements_and_obervables(conf: Conf):
@@ -399,7 +397,6 @@ def get_best_regressor(
 def aggregate_and_log(
     df: pd.DataFrame,
     conf: Conf,
-    return_stat_tests: bool,
     num_best: int = 10,
 ):
     outdir = evaluations_dir / conf.model / conf.data
@@ -452,47 +449,6 @@ def aggregate_and_log(
     data = pd.concat(temp_dfs).sort_values(by="ref")
     # cleanup
     del temp_dfs
-
-    # Statistical tests -- currently disabled
-    # TODO @GiacomoFabrini -- review statistical tests? What do we want to do with them?
-    if return_stat_tests:
-        # Prepare statistical test dataframe
-        # Create pivot table for statistical testing
-        cols = [
-            "dataset",
-            "context",
-            "features",
-            "ref",
-            "n_hidden",
-            "orth_reg_strategy",
-            "l1reg_inflate",
-            "oreg_inflate",
-            "l1reg_encode",
-            "oreg_encode",
-        ]
-        # pivot table and create one column per cross-validation split and multistart/job
-        pivot_data = data.pivot_table(
-            index=cols, columns=["samples", "job"], values="rmse"
-        )
-        pivot_data = pivot_data.reset_index()
-        # Create list of the MultiIndex RMSE columns created above
-        JOBS = tuple(range(conf.n_starts))
-        multiindex_rmse_cols = [
-            (sample, job) for sample in SPLITS for job in JOBS
-        ]
-        # Create a single column 'rmse_list' listing all values from each of the MultiIndex columns
-        pivot_data["rmse_list"] = pivot_data.apply(
-            lambda row: np.array([row[col] for col in multiindex_rmse_cols]),
-            axis=1,
-        )
-        # Add the newly created column to the list of columns to be kept (cols)
-        cols += ["rmse_list"]
-        # Subset the pivot table and reduce MultiIndex back to single-level index
-        data_stat_tests = pivot_data[cols]
-        data_stat_tests.columns = data_stat_tests.columns.droplevel(level=1)
-        print("DataFrame for statistical testing is now ready.")
-
-        stat_test_res_df = statistical_significance_test(data_stat_tests)
 
     # Get the best regressor for each context/dataset pair
     best_regressors = get_best_regressor(
@@ -633,27 +589,14 @@ def aggregate_and_log(
     evaluation_tags = [
         f"evaluate_all_{conf.figure}",
     ]
-    if return_stat_tests:
-        evaluation_dfs.append(stat_test_res_df)
-        evaluation_tags.append(f"stat_tests_all_{conf.figure}")
     for evaluation_df, evaluation_tag in zip(evaluation_dfs, evaluation_tags):
         # Save dataframes to CSV
         evaluation_df.to_csv(outdir / f"{evaluation_tag}.csv")
 
-    if return_stat_tests:
-        return (
-            data,
-            stat_test_res_df,
-            top_n_dmm_train,
-            best_configs_dmm_jobs,
-            best_regressors,
-            unified_dmm_results,
-        )
-    else:
-        return (
-            data,
-            top_n_dmm_train,
-            best_configs_dmm_jobs,
-            best_regressors,
-            unified_dmm_results,
-        )
+    return (
+        data,
+        top_n_dmm_train,
+        best_configs_dmm_jobs,
+        best_regressors,
+        unified_dmm_results,
+    )

@@ -90,9 +90,7 @@ def make_step(
     model: DeepMechanisticModel,
     opt: optax.GradientTransformation,
     opt_state: PyTree,
-    input_data: Float[
-        Array, "..."
-    ],  # TODO @GiacomoFabrini fix input data shape?
+    input_data: Float[Array, "..."],
     problem_train: pypesto.Problem,
     conf: dict,
     median_init_arr: Array,

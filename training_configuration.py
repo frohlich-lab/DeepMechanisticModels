@@ -128,13 +128,6 @@ DROPOUT_RATES = {
 }
 
 
-# REGULARISATION HYPERPARAMETERS
-# ORTHOGONAL REGULARISATION STRATEGIES: L1 vs L2
-ORTH_REG_STRATEGIES = (
-    # "L1",
-    "L2",
-)
-
 # ALPHAS: l1reg_inflate, l1 regularisation for inflater network.
 L1_INFLATE_REGS = {
     "range": (0,),
@@ -238,7 +231,6 @@ PATIENCE = (
 MIN_IMPROVEMENT = 0
 
 # Flag to enable/disable statistical tests
-RETURN_STAT_TESTS = False
 
 # Figure 1A
 CONTEXTS_FEATURES_1A = CONTEXTS_FEATURES
