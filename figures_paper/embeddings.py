@@ -933,7 +933,7 @@ def compute_marker_parameter_correlations(
     stratify_luminal_basal: bool = False,
     targets=None,
     exclude=None,
-    dataset: str | None = "train",
+    dataset: str | None = None,
 ) -> pd.DataFrame:
     """Compute correlations or differential expression between markers and model parameters or parameter groups.
 
@@ -955,10 +955,9 @@ def compute_marker_parameter_correlations(
         parameter_loadings_df: Optional long-form loadings DataFrame with columns
                        [direction, seed, parameter, loading]. If provided,
                        parameter-group projections use these loadings.
-        dataset: Restrict parameters/embeddings to this dataset, "train" by default.
-                The "all" CV split also carries the held-out test set
-                (common.test_samples), which would otherwise be correlated too.
-                Pass None to reproduce the previous train+held-out behaviour.
+        dataset: Optionally restrict parameters/embeddings to "train"/"val".
+                None (the default) keeps both, i.e. the training cell lines plus
+                the held-out test set carried by the "all" CV split.
         targets: Optional dict {name: pd.Series} of pre-computed target values per cell line.
                 When provided, bypasses all internal parameter/embedding loading. marker_data must
                 also be provided. Incompatible with stratify_luminal_basal=True.
