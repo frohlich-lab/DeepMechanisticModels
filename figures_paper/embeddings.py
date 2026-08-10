@@ -2552,6 +2552,7 @@ def plot_binned_dynamic_cytof(
     bin_by_type="embedding",
     n_bins=3,
     bin_labels=None,
+    split="quantile",
     figure="figure3",
     data="dream_cytof",
     figsize=None,
@@ -2574,6 +2575,11 @@ def plot_binned_dynamic_cytof(
                      "parameter" for model parameters, or "parameter_group" for parameter groups
         n_bins: Number of bins (default: 3 for low/mid/high)
         bin_labels: Custom labels for bins (default: ["Low", "Mid", "High"] for 3 bins)
+        split: Where to place the bin boundary. "quantile" (default) uses
+               pd.qcut, i.e. equal-sized bins, which for n_bins=2 is a median
+               split. "mean" splits at the arithmetic mean into Low/High,
+               matching plot_binned_param_dynamics in figure_3; group sizes are
+               then unequal whenever the distribution is skewed. n_bins=2 only.
         figure: Figure name for loading data (default: "figure3")
         data: Dataset name (default: "dream_cytof")
         figsize: Figure size tuple (width, height) - auto-calculated if None
@@ -2649,13 +2655,51 @@ def plot_binned_dynamic_cytof(
     if bin_labels is None:
         if n_bins == 3:
             bin_labels = ["Low", "Mid", "High"]
+        elif n_bins == 2 and split == "mean":
+            bin_labels = ["Low", "High"]
         else:
             bin_labels = [f"Bin {i+1}" for i in range(n_bins)]
 
-    # Bin the values using quantiles
-    emb_df["bin"] = pd.qcut(
-        bin_values, q=n_bins, labels=bin_labels, duplicates="drop"
+    # the branches above yield a Series, an Index or an array; normalise so the
+    # NaN handling below is well defined
+    bin_values = pd.Series(
+        np.asarray(bin_values, dtype=float), index=emb_df.index
     )
+
+    if split == "mean":
+        if n_bins != 2:
+            raise ValueError(
+                'split="mean" splits into Low/High and requires n_bins=2, '
+                f"got n_bins={n_bins}"
+            )
+        threshold = bin_values.mean()
+        # NaN <= threshold is False, which would quietly file missing cell lines
+        # under "High"; keep them out of both bins instead
+        emb_df["bin"] = pd.Categorical(
+            pd.Series(
+                np.where(
+                    bin_values <= threshold, bin_labels[0], bin_labels[1]
+                ),
+                index=emb_df.index,
+            ).where(bin_values.notna()),
+            categories=bin_labels,
+            ordered=True,
+        )
+        n_low = int((bin_values <= threshold).sum())
+        n_high = int((bin_values > threshold).sum())
+        n_missing = int(bin_values.isna().sum())
+        print(
+            f"Binning {bin_by} at its mean ({threshold:.4g}): "
+            f"{n_low} {bin_labels[0]} / {n_high} {bin_labels[1]}"
+            + (f", {n_missing} unbinned (missing)" if n_missing else "")
+        )
+    elif split == "quantile":
+        # Bin the values using quantiles
+        emb_df["bin"] = pd.qcut(
+            bin_values, q=n_bins, labels=bin_labels, duplicates="drop"
+        )
+    else:
+        raise ValueError(f'split must be "quantile" or "mean", got {split!r}')
 
     # Prepare cell bins for merging
     cell_bins = emb_df[["bin"]].reset_index()
