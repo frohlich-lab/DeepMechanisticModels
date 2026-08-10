@@ -6,13 +6,16 @@ import fire
 import numpy as np
 import pandas as pd
 import petab
+from sklearn.model_selection import PredefinedSplit
 from sklearn.pipeline import Pipeline
 
 from common import (
     EVALUATION_REGRESSOR,
     FEATURES_OUTFILE,
+    Wildcards,
     fig_dir,
     pretrain_dir,
+    val_samples,
 )
 from dmm.analysis import process_simulation
 from dmm.config_options import Conf
@@ -24,6 +27,7 @@ from dmm.initialisation import (
 from dmm.plotting import plot_cross_samples
 from evaluation_utils import get_measurements_and_obervables
 from regressor_training import train_pipeline
+from training_configuration import SPLITS
 from util import load_petab_base_files
 
 
@@ -235,14 +239,32 @@ for mode in ["linreg", "lasso", "elasticnet"]:
     print(
         f"Building pipeline and training estimator for {mode} on {conf.context}..."
     )
-    # alpha is selected on the validation cell lines and the estimator refit on
-    # train+val, matching the DMM, which selects its configuration on val
+    # Select alpha over the DMM's own 5 CV folds: each split holds out its cell
+    # line while the rest train, mirroring training_samples() per split. All five
+    # lie inside the training set, so the held-out samples never enter the fit -
+    # note val_samples("all") *is* common.test_samples.
+    fold_of = {
+        cell_line: fold
+        for fold, split in enumerate(sorted(SPLITS))
+        for cell_line in val_samples(Wildcards(conf.data, split))
+    }
+    test_fold = [
+        fold_of.get(cell_line, -1)
+        for cell_line in input_features_dict["train"].index
+    ]
+    n_folds = len({fold for fold in test_fold if fold >= 0})
+    if n_folds < 2:
+        raise ValueError(
+            f"expected the {len(SPLITS)} DMM CV folds inside the training set, "
+            f"found {n_folds}"
+        )
+    print(f"Selecting alpha over the DMM's {n_folds} CV folds")
+
     trained_pipeline, features_train = train_pipeline(
         input_data_train=input_features_dict["train"],
         output_data_train=output_data_train,
         pipeline_steps=[mode],
-        input_data_val=input_features_dict["val"],
-        output_data_val=output_data_val,
+        cv=PredefinedSplit(test_fold=test_fold),
     )
 
     for dataset in ["train", "val"]:
