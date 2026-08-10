@@ -14,8 +14,6 @@ from common import (
     EVALUATION_SENSITIVITY_PARAMS,
     EVALUATION_TRAINING,
     REGRESSION_MODES,
-    fig_dir,
-    subtypes_tognetti,
 )
 from dmm.config_options import Conf
 from evaluation_utils import (
@@ -51,19 +49,9 @@ def process_reference(
 
 
 conf = fire.Fire(Conf)
-outdir = fig_dir / conf.model / conf.data
 # Compute figure-specific set of unique contexts
 CONTEXT_SET = sorted(
     {context for context, _ in CONTEXTS_FEATURES_BY_FIGURE[conf.figure]}
-)
-
-# Compute subtype dictionaries
-subtypes_pam50, subtypes_lb = (
-    {
-        cl: subtypes_tognetti[cl][subtype_scheme]
-        for cl in subtypes_tognetti.keys()
-    }
-    for subtype_scheme in ["PAM50", "Luminal/Basal"]
 )
 
 

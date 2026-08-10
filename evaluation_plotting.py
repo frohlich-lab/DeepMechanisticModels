@@ -5,8 +5,6 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import seaborn as sns
 
-lb_labels = ["Luminal", "Basal", "Normal", "Other"]
-
 
 def plot_parameter_heatmaps(
     param_df: pd.DataFrame,
