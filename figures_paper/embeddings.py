@@ -1001,22 +1001,6 @@ def compute_marker_parameter_correlations(
     marker_data = marker_data.drop(columns=["glob_cellID"], errors="ignore")
     n_total_genes = len(marker_data.columns)
 
-    # Pre-filters to increase statistical signal (skip for cytof)
-    if data_type == "transcriptomics":
-        # 2) Remove lowest-mean genes
-        gene_medians = marker_data.median(axis=0, skipna=True)
-        marker_data = marker_data.loc[:, gene_medians > -2.5]
-        print(
-            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_data.columns)} genes with median expression > -2.5 (log2 CPM)"
-        )
-
-    if data_type == "proteomics":
-        dropout = marker_data.isna().mean()
-        marker_data = marker_data.loc[:, dropout <= max_dropout]
-        print(
-            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_data.columns)} genes with dropout in ≤{max_dropout*100:.0f}% of samples"
-        )
-
     if data_type == "cytof_init":
         marker_data = marker_data.drop(
             columns=["glob_cellID"], errors="ignore"
@@ -1110,6 +1094,27 @@ def compute_marker_parameter_correlations(
 
     # Subset to common cell lines
     marker_subset = marker_data.loc[common_cells]
+
+    # Gene pre-filters, to increase statistical signal (skipped for cytof).
+    # These run on `marker_subset`, i.e. the cell lines actually analysed, not on
+    # the full marker table: data/transcriptomics.csv and proteomics.csv carry 64
+    # and 67 cell lines including all 5 held-out ones, and filtering on those
+    # picked a different gene set (68 and 40 genes respectively) from the one the
+    # correlations are computed over. Since the surviving genes are the
+    # Benjamini-Hochberg denominator, that shifted every corrected p-value.
+    if data_type == "transcriptomics":
+        gene_medians = marker_subset.median(axis=0, skipna=True)
+        marker_subset = marker_subset.loc[:, gene_medians > -2.5]
+        print(
+            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_subset.columns)} genes with median expression > -2.5 (log2 CPM) over {len(common_cells)} cell lines"
+        )
+
+    if data_type == "proteomics":
+        dropout = marker_subset.isna().mean()
+        marker_subset = marker_subset.loc[:, dropout <= max_dropout]
+        print(
+            f"Pre-filtered {data_type}: {n_total_genes} → {len(marker_subset.columns)} genes with dropout in ≤{max_dropout*100:.0f}% of {len(common_cells)} cell lines"
+        )
     param_subset = param_df.loc[common_cells]
 
     # Build subtype groups for stratification
@@ -2555,6 +2560,7 @@ def plot_binned_dynamic_cytof(
     split="quantile",
     figure="figure3",
     data="dream_cytof",
+    dataset=None,
     figsize=None,
     cmap=None,
     save_path=None,
@@ -2575,6 +2581,8 @@ def plot_binned_dynamic_cytof(
                      "parameter" for model parameters, or "parameter_group" for parameter groups
         n_bins: Number of bins (default: 3 for low/mid/high)
         bin_labels: Custom labels for bins (default: ["Low", "Mid", "High"] for 3 bins)
+        dataset: Restrict to one of "train"/"val". None (default) keeps both,
+                 i.e. the training cell lines plus the held-out test set.
         split: Where to place the bin boundary. "quantile" (default) uses
                pd.qcut, i.e. equal-sized bins, which for n_bins=2 is a median
                split. "mean" splits at the arithmetic mean into Low/High,
@@ -2599,7 +2607,7 @@ def plot_binned_dynamic_cytof(
         conditions = [conditions]
 
     # Load embedding data
-    embedding_df = load_embedding_data(figure, data)
+    embedding_df = load_embedding_data(figure, data, dataset=dataset)
     subtypes_df = load_marcotte_subtypes(embedding_df.cell_line.unique())
     pca_embedding_df = prepare_pca_embeddings(embedding_df, subtypes_df)
 
@@ -2615,10 +2623,17 @@ def plot_binned_dynamic_cytof(
     elif bin_by_type == "parameter":
         # Load parameter data for binning
         param_values = load_parameter_data(
-            model, bin_by, figure, data, context
+            model, bin_by, figure, data, context, dataset=dataset
         )
         bin_values = emb_df.index.map(param_values)
     elif bin_by_type == "parameter_group":
+        if dataset is not None:
+            raise NotImplementedError(
+                'bin_by_type="parameter_group" projects the parameter-deviation '
+                "matrix through compute_averaged_parameter_gradient, which has no "
+                f"dataset filter, so dataset={dataset!r} cannot be honoured here "
+                "without silently mixing populations"
+            )
         # Bin by sparse-PCA parameter projection (seed-specific when available)
         resolved_loadings_df = _resolve_sensitive_loadings_df(
             model=model,
