@@ -1,0 +1,75 @@
+# Direct dependencies of the pipeline. Versions are left open except where a
+# bound is load-bearing -- see the notes below.
+#
+# Install with:
+#     python3 -m venv venv && ./venv/bin/python -m pip install -r requirements.txt
+
+# ---------------------------------------------------------------------------
+# pandas < 3 is REQUIRED, not a preference.
+#
+# On pandas 3.0.x:
+#   * petab's lint (petab/v1/lint.py: np.issubdtype(df[col].dtype, np.number))
+#     raises TypeError on the Arrow-backed string dtype that pandas 3 uses by
+#     default, so PetabImporter(validate_petab=True) fails. That breaks BOTH
+#     pretraining steps -- pretrain_per_sample.py and pretrain_average.py.
+#   * copy-on-write is mandatory, so `df[col].replace(..., inplace=True)` is a
+#     silent no-op rather than an error. This was quietly dropping two cell
+#     lines (cHs578T, cMPE600) from the Marcotte subtype annotations.
+#   * synapseclient (<3.0), rpy2-robjects (<3.0) and fsspec (<3.0) all declare
+#     the same ceiling; those bounds sit in extras, so a plain install does not
+#     enforce them.
+#
+# anndata and scanpy (pulled in by pytometry) require pandas>=2.3, so the
+# usable window is 2.3.x.
+pandas>=2.3,<3
+
+# ---------------------------------------------------------------------------
+# Mechanistic model, PEtab and optimisation
+amici
+petab
+pypesto
+pysb
+fides
+sympy
+
+# Machine learning component (jax stack)
+jax
+jaxtyping
+equinox
+optax
+flax
+scikit-learn
+numpy
+scipy
+
+# Data access and annotation
+synapseclient
+requests
+biopython
+gitpython
+gseapy
+pytometry
+
+# Plotting and experiment tracking
+matplotlib
+seaborn
+plotnine
+wandb
+tqdm
+
+# Workflow and CLI
+snakemake
+fire
+
+# Notebook execution (run_notebooks.py)
+nbclient
+nbformat
+ipykernel
+jupyter-client
+
+# ---------------------------------------------------------------------------
+# Not installable via pip: figures_paper/figure_3.ipynb calls R's limma
+# through rpy2. Install it with:
+#     Rscript -e 'if (!requireNamespace("BiocManager", quietly=TRUE)) \
+#         install.packages("BiocManager"); BiocManager::install("limma")'
+rpy2

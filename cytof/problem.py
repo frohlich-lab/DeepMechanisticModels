@@ -1,0 +1,144 @@
+import logging
+from pathlib import Path
+from typing import Tuple
+
+import amici
+import amici.petab.conditions
+import amici.pysb_import
+import pandas as pd
+import pypesto.objective
+import pypesto.objective.jax
+import pysb
+import pysb.export
+
+from dmm.mechanistic_model import MechanisticModel
+from dmm.problem import ParameterBounds, Problem
+from dmm.training_helper_funcs import Chi2Objective
+
+from .data import load_dream_data
+
+base_dir = Path(__file__).parents[0]
+pysb_dir = base_dir / "pysb"
+
+logger = logging.getLogger("cytof_problem")
+
+BOUNDS = ParameterBounds(
+    kdeg=(-4, 0, "log10"),  # [1/[t]]
+    eq=(-4, 4, "log10"),  # [[c]]
+    kcat=(-3, 3, "log10"),  # [1/([t]*[c])]
+    scale=(-2, 3, "log10"),  # [1/[c]]
+    offset=(-4, 3, "log10"),  # [[c]]
+    kw=(-3, 3, "log10"),  # [1/[c]]
+    bact=(-5, 3, "log10"),  # [1]
+)
+
+
+class CytofProblem(Problem):
+    @property
+    def bounds(self) -> ParameterBounds:
+        return BOUNDS
+
+    def load_pysb(self) -> pysb.Model:
+        mechanistic_model = MechanisticModel(self.model_name)
+
+        model = mechanistic_model.construct_pysb(self.model_name)
+
+        pysb_dir.mkdir(exist_ok=True, parents=True)
+        pysb_file = pysb_dir / f"{model.name}.py"
+        with open(pysb_file, "w") as file:
+            logger.debug(f"writing pysb model to {pysb_file}")
+            file.write(pysb.export.export(model, "pysb_flat"))
+
+        return model
+
+    def apply_solver_settings(self, solver):
+        solver.setMaxSteps(int(2e4))
+        solver.setNewtonMaxSteps(int(100))
+        solver.setAbsoluteTolerance(1e-10)
+        solver.setRelativeTolerance(1e-10)
+        solver.setAbsoluteToleranceSteadyState(1e-6)
+        solver.setRelativeToleranceSteadyState(1e-6)
+        solver.setNewtonStepSteadyStateCheck(True)
+
+    def apply_objective_settings(self, objective, n_threads: int = 1):
+        amiobjective = None
+        if isinstance(objective, pypesto.objective.AmiciObjective):
+            amiobjective = objective
+        elif isinstance(objective, pypesto.objective.AggregatedObjective):
+            amiobjective = next(
+                (
+                    obj
+                    for obj in objective._objectives
+                    if isinstance(obj, pypesto.objective.AmiciObjective)
+                ),
+                None,
+            )
+        elif isinstance(objective, pypesto.objective.jax.JaxObjective):
+            base_objective = objective.base_objective
+            if isinstance(
+                base_objective, pypesto.objective.AggregatedObjective
+            ):
+                amiobjective = next(
+                    (
+                        obj
+                        for obj in base_objective._objectives
+                        if isinstance(obj, pypesto.objective.AmiciObjective)
+                    ),
+                    None,
+                )
+            elif isinstance(base_objective, pypesto.objective.AmiciObjective):
+                amiobjective = base_objective
+        elif isinstance(objective, Chi2Objective):
+            amiobjective = objective.base_objective
+
+        if amiobjective is None:
+            logger.warning(
+                "could not identify suitable objective function, settings were not applied."
+            )
+            return
+
+        amiobjective.guess_steadystate = False
+        amiobjective.n_threads = n_threads
+        self.apply_solver_settings(amiobjective.amici_solver)
+        amiobjective.amici_model.setSteadyStateSensitivityMode(
+            amici.SteadyStateSensitivityMode.newtonOnly
+        )
+        amiobjective.amici_model.setSteadyStateComputationMode(
+            amici.SteadyStateComputationMode.integrationOnly
+        )
+
+        for e in amiobjective.edatas:
+            # we do not want to reinitialize EGFR (or really anything else)
+            e.reinitializeFixedParameterInitialStates = False
+            fp = list(e.fixedParameters)
+            if (
+                "__" in e.id.split("+")[0]
+                and e.id.split("+")[0].split("__")[1] != "full"
+            ):  # perturbation conditions only
+                if "EGF_0" in amiobjective.amici_model.getFixedParameterIds():
+                    fp[
+                        amiobjective.amici_model.getFixedParameterIds().index(
+                            "EGF_0"
+                        )
+                    ] = 0
+                if (
+                    "serum_0"
+                    in amiobjective.amici_model.getFixedParameterIds()
+                ):
+                    fp[
+                        amiobjective.amici_model.getFixedParameterIds().index(
+                            "serum_0"
+                        )
+                    ] = 0
+                e.fixedParametersPresimulation = tuple(fp)
+                e.t_presim = 15
+
+    @staticmethod
+    def load_preprocess_petab_tables(
+        model,
+    ) -> Tuple[pd.DataFrame, pd.DataFrame]:
+        return load_dream_data(model)
+
+    @property
+    def base_dir(self) -> Path:
+        return base_dir

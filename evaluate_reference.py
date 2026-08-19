@@ -1,0 +1,156 @@
+import warnings
+from pathlib import Path
+
+import fire
+import numpy as np
+import pandas as pd
+
+from common import (
+    EVALUATION_REFERENCE,
+    Wildcards,
+    fig_dir,
+    pretrain_dir,
+    training_samples,
+    val_samples,
+)
+from cytof.problem import CytofProblem
+from dmm.analysis import process_simulation
+from dmm.config_options import Conf
+from dmm.plotting import plot_cross_samples, plot_single_sample
+from evaluation_utils import (
+    get_measurements_and_obervables,
+    process_avg_model_simulation,
+    process_per_sample_pretrain,
+    simulate_avg_model,
+)
+from util import load_petab_base_files
+
+conf = fire.Fire(Conf)
+
+outdir = fig_dir / conf.model / conf.data
+indir = pretrain_dir / conf.model / conf.data
+
+# The regressor-fairness note that used to sit here applied to
+# evaluate_regressors.py: avg_model and per_sample are pretrained parameter sets,
+# not CV-fitted estimators, so there is no alpha selection to rebalance here.
+samples = {
+    "train": training_samples(Wildcards(conf.data, conf.samples)),
+    "val": val_samples(Wildcards(conf.data, conf.samples)),
+}
+
+# instantiate a replacement conf for references,
+# only setting to 0 those parameters that are not already 0 by default
+ref_conf = Conf(
+    model=conf.model,
+    data=conf.data,
+    max_lrate=0,
+    lrate_span=0,
+    lrate_decay=0,
+)
+
+
+def evaluate_pretraining_per_sample(
+    dataset: str,
+    conf: Conf,
+    samples: dict,
+    petab_base_files: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    evaluations = []
+    problem = CytofProblem(conf.model)
+
+    # dictionary of samples - standard behaviour for `evaluate_reference`
+    for sample in samples[dataset]:
+        output = process_per_sample_pretrain(
+            sample, problem, conf, indir, petab_base_files
+        )
+        importer, simulation_df = output
+        process_simulation(
+            evaluations=evaluations,
+            measurement_df=importer.petab_problem.measurement_df,
+            simulation_df=simulation_df,
+            conf=ref_conf,
+            sample=sample,
+        )
+
+        print(f"plotting {sample} for per_sample pretraining")
+
+        plot_single_sample(
+            importer.petab_problem.measurement_df,
+            simulation_df,
+            outdir / "simulation" / dataset / sample,
+            sample,
+            "per_sample",
+        )
+    return pd.DataFrame(evaluations)
+
+
+def evaluate_average_model(
+    dataset: str,
+    conf: Conf,
+    samples: dict,
+    petab_base_files: dict[str, pd.DataFrame],
+) -> pd.DataFrame:
+    df_meas, df_obs = get_measurements_and_obervables(conf)
+
+    # Simulate avg_model
+    avg_model = simulate_avg_model(conf, indir, petab_base_files, dataset)
+    if not len(avg_model):
+        return pd.DataFrame([])
+
+    # Prepare avg_model simulation for plotting and processing
+    avg_model, df_meas = process_avg_model_simulation(
+        avg_model, df_meas, dataset, samples
+    )
+
+    plot_cross_samples(
+        df_meas, avg_model, outdir / "simulation" / dataset, "avg_model"
+    )
+
+    evaluations = []
+
+    for sample in samples[dataset]:
+        process_simulation(
+            evaluations=evaluations,
+            measurement_df=df_meas,
+            simulation_df=avg_model,
+            conf=ref_conf,
+            sample=sample,
+        )
+    return pd.DataFrame(evaluations)
+
+
+# Suppress all DeprecationWarning warnings (coming from petab)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Get petab_base_files
+petab_base_files = load_petab_base_files(conf)
+
+# Evaluate references/baselines
+for dataset in ["train", "val"]:
+    # model average ("avg_model")
+    df = evaluate_average_model(dataset, conf, samples, petab_base_files)
+    filepath = EVALUATION_REFERENCE.format(
+        **conf.to_dict(),
+        dataset=dataset,
+        mode="avg_model",
+    )
+    Path(filepath).parent.mkdir(exist_ok=True, parents=True)
+    df.to_csv(filepath)
+    if len(df):
+        rmse_avg_model = np.sqrt(np.mean(np.square(df["res"])))
+        print(f"avg_model on {dataset} - RMSE = {rmse_avg_model}")
+
+    # per sample ("sample")
+    df = evaluate_pretraining_per_sample(
+        dataset, conf, samples, petab_base_files
+    )
+    df.to_csv(
+        EVALUATION_REFERENCE.format(
+            **conf.to_dict(),
+            dataset=dataset,
+            mode="per_sample",
+        )
+    )
+    if len(df):
+        rmse_per_sample = np.sqrt(np.mean(np.square(df["res"])))
+        print(f"per_sample on {dataset} - RMSE = {rmse_per_sample}")

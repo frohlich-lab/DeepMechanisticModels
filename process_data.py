@@ -1,0 +1,219 @@
+import re
+
+import fire
+import pandas as pd
+import petab.v1 as petab
+import pysb
+
+from common import (
+    CONDITIONS_FILE,
+    MEASUREMENTS_FILE,
+    OBSERVABLES_FILE,
+    data_dir,
+)
+from dmm.config_options import Conf
+
+# MOSA pre-trained multi-omic latent embeddings (Peel et al. 2023)
+# https://doi.org/10.1038/s41587-023-01940-3
+MOSA_FIGSHARE_URL = "https://figshare.com/ndownloader/files/43146637"
+MOSA_LATENT_FILE = "MOSA_latent_joint.csv"
+
+
+def download_mosa_latent(dest_dir=data_dir):
+    """Download MOSA pre-trained latent embeddings from figshare if not cached."""
+    import gzip
+    import io
+    import urllib.request
+
+    dest_path = dest_dir / MOSA_LATENT_FILE
+    if dest_path.exists():
+        print(f"MOSA latent embeddings already downloaded: {dest_path}")
+        return dest_path
+
+    print(f"Downloading MOSA latent embeddings from {MOSA_FIGSHARE_URL} ...")
+    with urllib.request.urlopen(MOSA_FIGSHARE_URL) as response:
+        compressed = response.read()
+    csv_bytes = gzip.decompress(compressed)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    dest_path.write_bytes(csv_bytes)
+    # Verify the file is a valid CSV with expected SIDM index
+    df = pd.read_csv(io.BytesIO(csv_bytes), index_col=0, nrows=2)
+    assert df.index[0].startswith(
+        "SIDM"
+    ), f"Unexpected index format: {df.index[0]}"
+    print(
+        f"  → saved {len(csv_bytes):,} bytes to {dest_path} "
+        f"({len(pd.read_csv(dest_path, index_col=0))} cell lines, "
+        f"{len(df.columns)} latent dimensions)"
+    )
+    return dest_path
+
+
+def observable_id_to_model_expr(
+    obs_id: str, dataset: str, model: pysb.Model
+) -> str:
+    """Maps site definitions from data to model observables
+
+    :param obs_id:
+        identifier of the phosphosite in the data table
+
+    :param dataset:
+        identifier of the dataset. Used to setup parse observable information
+
+    :param model:
+        model to which the observables are mapped
+
+    :return:
+        the name of the corresponding observable in the model
+    """
+    if dataset == "dream_cytof":
+        obs_id = obs_id.replace("-", "_").upper()
+        palias = {
+            r"^P\.STAT5": "STAT5A_Y694",
+            r"^P\.MEK": "pMEK_S222",
+            r"^P\.S6K$": "RPS6KB1_S412",
+            r"^P\.STAT1": "STAT1_Y727",
+            r"^P\.AKT\.SER473\.": "pAKT_S473",
+            r"^P\.ERK": "pERK_Y204",
+            r"^P\.HER2": "ERBB2_Y1248",
+            r"^P\.GSK3B": "GSK3B_S9",
+            r"^P\.PDPK1": "PDPK1_S241",
+            r"^P\.P90RSK": "RPS6KA1_S380",
+            r"^P\.STAT3": "STAT3_Y705",
+            r"^P\.S6$": "RPS6_S235_S236",
+            r"^P\.AKT\.THR308\.": "pAKT_T308",
+            r"^P\.4EBP1": "EIF4EBP1_T37_T46",
+            r"^P\.SRC": "SRC_Y419",
+            r"^P\.p.PLCG2": "PLCG2_Y759",
+            r"^P\.BTK": "BTK_Y551",
+            r"^P\.CREB": "CREB1_S133",
+            r"^P\.MAPKAPK2": "MAPKAPK2_T334",
+            r"^P\.MKK3.MKK6": "MKK36_S218",
+            r"^P\.MKK4": "MKK4_S257",
+            r"^P\.P38": "p38_T180",
+            r"^P\.JNK": "JNK_T183",
+        }
+    elif re.match(r"synthetic_[0-9]+_[0-9.]+_[0-9.]+$", dataset):
+        palias = {}
+    else:
+        raise ValueError("Dataset not supported!")
+
+    for pname, prep in palias.items():
+        obs_id = re.sub(pname, prep, obs_id)
+
+    if model.observables.get(obs_id):
+        return obs_id
+
+    site_pattern = r"_([S|Y|T][0-9]+)"
+
+    monomer = re.sub(site_pattern, "", obs_id)
+    sites = sorted(re.findall(site_pattern, obs_id))
+
+    name = f'p{monomer}_{"_".join(sites)}' if sites else f"t{obs_id}"
+
+    if model.observables.get(name, None):
+        return name
+
+    if model.monomers.get(monomer, None) and name.startswith("p"):
+        print(f"could not map {obs_id} to {monomer}!")
+
+    return ""
+
+
+if __name__ == "__main__":
+    conf = fire.Fire(Conf)
+
+    from cytof.problem import CytofProblem
+
+    problem = CytofProblem(model_name=conf.model)
+    model = problem.load_pysb()
+    data_dir.mkdir(exist_ok=True, parents=True)
+
+    if "__" in conf.model:
+        modifications = conf.model.split("__")[-1].split("_")
+    else:
+        modifications = []
+
+    if conf.data == "dream_cytof":
+        (
+            measurement_table,
+            condition_table,
+        ) = problem.load_preprocess_petab_tables(model)
+    else:
+        raise RuntimeError("Unknown dataset!")
+
+    # filter measurements for removed conditions
+    condition_ids = condition_table[petab.CONDITION_ID].unique()
+    measurement_table = measurement_table.loc[
+        measurement_table[petab.SIMULATION_CONDITION_ID].isin(condition_ids)
+        & measurement_table[petab.PREEQUILIBRATION_CONDITION_ID].isin(
+            condition_ids
+        )
+    ]
+
+    observable_ids = [
+        obs_id
+        for obs_id in measurement_table.loc[:, petab.OBSERVABLE_ID].unique()
+        if observable_id_to_model_expr(obs_id, conf.data, model) != ""
+    ]
+    observable_table = pd.DataFrame(
+        {
+            petab.OBSERVABLE_NAME: observable_ids,
+        }
+    )
+    observable_obs = [
+        observable_id_to_model_expr(obs_id, conf.data, model)
+        for obs_id in observable_ids
+    ]
+    observable_table[petab.OBSERVABLE_ID] = [
+        f"{obs}_obs" for obs in observable_obs
+    ]
+    measurement_table[petab.OBSERVABLE_ID] = measurement_table[
+        petab.OBSERVABLE_ID
+    ].apply(
+        lambda x: obs + "_obs"
+        if (obs := observable_id_to_model_expr(x, conf.data, model)) != ""
+        else x
+    )
+
+    observable_table[petab.OBSERVABLE_FORMULA] = [
+        f"log(observableParameter1_{obs}_obs * {obs} "
+        f"+ observableParameter2_{obs}_obs)"
+        if (obs.startswith("t") or "logobs" in modifications)
+        else f"observableParameter1_{obs}_obs * {obs} "
+        f"+ observableParameter2_{obs}_obs"
+        for obs in observable_obs
+    ]
+    observable_table[petab.NOISE_DISTRIBUTION] = petab.NORMAL
+    observable_table[petab.NOISE_FORMULA] = [
+        f"noiseParameter1_{obs}_obs" for obs in observable_obs
+    ]
+
+    def obs_pars(x):
+        pars = (
+            f"{x[petab.OBSERVABLE_ID]}_scale;"
+            f"{x[petab.OBSERVABLE_ID]}_offset"
+        )
+        return pars
+
+    measurement_table[petab.OBSERVABLE_PARAMETERS] = measurement_table.apply(
+        obs_pars, axis=1
+    )
+
+    measurement_table = measurement_table[
+        measurement_table[petab.MEASUREMENT].notna()
+    ]
+
+    measurement_file = data_dir / MEASUREMENTS_FILE.format(**conf.to_dict())
+    measurement_table.to_csv(measurement_file, sep="\t")
+
+    condition_file = data_dir / CONDITIONS_FILE.format(**conf.to_dict())
+    condition_table.set_index(petab.CONDITION_ID, inplace=True)
+    condition_table.to_csv(condition_file, sep="\t")
+
+    observable_file = data_dir / OBSERVABLES_FILE.format(**conf.to_dict())
+    observable_table.set_index(petab.OBSERVABLE_ID, inplace=True)
+    observable_table.to_csv(observable_file, sep="\t")
+
+    # Download MOSA pre-trained latent embeddings
+    download_mosa_latent()

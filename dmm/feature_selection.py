@@ -1,0 +1,536 @@
+from typing import Optional
+
+import numpy as np
+import pandas as pd
+import petab.v1 as petab
+from sklearn.base import BaseEstimator, TransformerMixin
+from sklearn.cross_decomposition import CCA, PLSRegression
+from sklearn.decomposition import PCA
+from sklearn.feature_selection import (
+    SelectFromModel,
+    SequentialFeatureSelector,
+)
+from sklearn.impute import KNNImputer
+from sklearn.linear_model import (
+    LinearRegression,
+    MultiTaskElasticNetCV,
+    MultiTaskLassoCV,
+)
+from sklearn.model_selection import GridSearchCV
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+
+from cellosaurus_utils import get_cell_line_cellosaurus_annotations
+from common import data_dir, features_dir
+from dmm.initialisation import get_features, impute_features
+
+
+class DropNaNColumns(BaseEstimator, TransformerMixin):
+    """Drop columns based on a precomputed boolean mask."""
+
+    _keep_cols: pd.Index | None
+
+    def __init__(self, keep_cols: pd.Index | None = None):
+        self._keep_cols = keep_cols
+
+    def fit(self, X: pd.DataFrame, y=None):
+        if self._keep_cols is None:
+            self._keep_cols = X.columns[X.isna().mean() == 0.0]
+        return self
+
+    def transform(self, X: pd.DataFrame) -> pd.DataFrame:
+        return X.loc[:, self._keep_cols]
+
+
+def contextualize_measurements(
+    measurement_table: pd.DataFrame,
+    observable_table: pd.DataFrame,
+    contextualization: str,
+    samples: list[str],
+    impute: bool = True,  # only affects cytof_init - if False, recovers previous behaviour
+    imputer: Optional[Pipeline] = None,
+) -> tuple[pd.DataFrame, Pipeline | None]:
+    # Check requested contextualization is available
+    if contextualization not in (
+        "transcriptomics",
+        "proteomics",
+        "cytof_init",
+        "cytof_init_pca",
+        "cytof_dynamic",
+        "cytof_dynamic_pca",
+        "cytof_dynamic_full",
+    ):
+        raise ValueError(f"Unknown contextualization: {contextualization}")
+
+    # Make a copy of the measurements table
+    input_measurements = measurement_table.copy()
+
+    # Subset measurements to chosen contextualization
+    # e.g. if transcriptomics, only keep measurements with measurementType == transcriptomics
+    if contextualization == "transcriptomics":
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "transcriptomics"
+        ]
+    elif contextualization == "proteomics":
+        input_measurements = input_measurements[
+            input_measurements["measurementType"] == "proteomics"
+        ]
+    elif contextualization.split("_")[0] == "cytof":
+        input_measurements = input_measurements[
+            (input_measurements["measurementType"] == "cytof")
+            & (
+                np.logical_not(
+                    input_measurements[
+                        petab.SIMULATION_CONDITION_ID
+                    ].str.endswith("__full")
+                )
+            )
+        ]
+    else:
+        raise ValueError(f"Unknown contextualization: {contextualization}")
+
+    # For transcriptomics and proteomics, only keep time 0
+    if contextualization in ("transcriptomics", "proteomics"):
+        input_measurements = input_measurements[
+            input_measurements[petab.TIME] == 0
+        ]
+
+    # subset to samples:
+    input_measurements = input_measurements[
+        input_measurements[petab.PREEQUILIBRATION_CONDITION_ID].isin(samples)
+    ]
+
+    if contextualization.split("_")[0] == "cytof":
+        # Split SIMULATION_CONDITION_ID and keep the stimulus info (0th is cell line, 1st is stimulus)
+        input_measurements[petab.SIMULATION_CONDITION_ID] = input_measurements[
+            petab.SIMULATION_CONDITION_ID
+        ].apply(lambda x: x.split("__")[1])
+
+        pivot_columns = (
+            "FEATURE_ID",
+            petab.SIMULATION_CONDITION_ID,
+            petab.TIME,
+        )
+        # For cytof_dynamic_full, keep all observables
+        if contextualization.startswith(
+            "cytof_dynamic"
+        ) and not contextualization.endswith("_full"):
+            # For cytof_dynamic, subset observables to those within the model (ERK, MEK, ERBB2)
+            input_measurements = input_measurements[
+                input_measurements[petab.OBSERVABLE_ID].isin(
+                    list(observable_table.index)
+                )
+            ]
+            pivot_columns = (
+                petab.OBSERVABLE_ID,
+                petab.SIMULATION_CONDITION_ID,
+                petab.TIME,
+            )
+        elif contextualization.startswith("cytof_init"):
+            if impute:
+                # For cytof_init, impute based on harmonised cytof_dynamic, then subset to EGF and time 0 only
+                harmonised_cytof_dynamic = harmonise_cytof_dynamic(
+                    input_measurements.pivot_table(
+                        index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+                        columns=pivot_columns,
+                        # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+                        values=petab.MEASUREMENT,  # the actual measurement/signal
+                        aggfunc="mean",
+                    )
+                )
+                # Fit imputer pipeline on training samples, transform train + val samples
+                if imputer is None:
+                    # Fit DropNaNColumns with threshold-based column selection
+                    keep_cols = harmonised_cytof_dynamic.columns[
+                        harmonised_cytof_dynamic.isna().mean() < 0.3
+                    ]
+                    imputer = Pipeline(
+                        [
+                            ("dropnan", DropNaNColumns(keep_cols=keep_cols)),
+                            ("impute", KNNImputer()),
+                        ]
+                    )
+                    imputer.fit(harmonised_cytof_dynamic)
+                else:
+                    for c in imputer.named_steps["dropnan"]._keep_cols:
+                        if c not in harmonised_cytof_dynamic.columns:
+                            harmonised_cytof_dynamic[c] = np.nan
+                input_data = pd.DataFrame(
+                    imputer.transform(harmonised_cytof_dynamic),
+                    columns=imputer.named_steps["dropnan"]._keep_cols,
+                    index=harmonised_cytof_dynamic.index,
+                )
+                # subset to EGF and time 0
+                input_data = input_data[
+                    [
+                        col
+                        for col in input_data.columns
+                        if (col[1] == "EGF") and (col[2] == 0.0)
+                    ]
+                ]
+                # remove info on condition and timepoint, leaving markers only as column names
+                input_data.columns = [col[0] for col in input_data.columns]
+                return input_data, imputer
+            else:
+                # Subset to EGF and time 0 only
+                input_measurements = input_measurements[
+                    input_measurements[petab.SIMULATION_CONDITION_ID].apply(
+                        lambda x: x.endswith("EGF")
+                    )
+                ]
+                input_measurements = input_measurements[
+                    input_measurements[petab.TIME] == 0
+                ]
+                pivot_columns = ["FEATURE_ID"]
+    else:
+        pivot_columns = ["FEATURE_ID"]
+
+    # in all cases/contexts: average over replicates through np.nanmean aggfunc in pivot_table
+    input_data = input_measurements.pivot_table(
+        index=petab.PREEQUILIBRATION_CONDITION_ID,  # i.e. the cell line
+        columns=pivot_columns,  # i.e. the observable/biomarkers in the case of cytof/proteomics and transcriptomics
+        values=petab.MEASUREMENT,  # the actual measurement/signal
+        aggfunc="mean",  # aggregate via NaN-compatible mean in case of replicates (e.g. triplicates for proteomics)
+        # np.nanmean generates FutureWarning
+    )
+
+    return input_data, None
+
+
+def preprocess_mosa_latent(conf, samples_train, samples_val):
+    from cell_line_annotations import get_cellosaurus_annotations
+    from cytof import get_samples
+
+    mosa_latent = pd.read_csv(
+        data_dir / "MOSA_latent_joint.csv",
+        index_col=0,
+    )
+
+    # Build SIDM → cell-line name mapping from cellosaurus
+    cell_lines = list(get_samples(conf.data))
+    _, _, cl_to_sidm, _ = get_cellosaurus_annotations(
+        cell_lines,
+        file_dir=features_dir,
+    )
+    sidm_to_cl = {v: k for k, v in cl_to_sidm.items()}
+
+    # Map from Sanger model ID (SIDM) to our cell-line name format
+    mosa_latent["cell_line"] = mosa_latent.index.map(sidm_to_cl)
+
+    # Subset to breast cancer cell lines in our data
+    our_lines = samples_train + samples_val
+    mosa_latent = mosa_latent[mosa_latent["cell_line"].isin(our_lines)]
+
+    # Find available samples in pretrained MOSA latent embeddings
+    available_samples_train = [
+        sample
+        for sample in samples_train
+        if sample in mosa_latent["cell_line"].unique()
+    ]
+    available_samples_val = [
+        sample
+        for sample in samples_val
+        if sample in mosa_latent["cell_line"].unique()
+    ]
+    mosa_latent = mosa_latent.set_index("cell_line")
+    input_train = mosa_latent.loc[available_samples_train, :]
+    features_train = list(input_train.columns)
+    input_val = mosa_latent.loc[available_samples_val, :]
+    return input_train, input_val, features_train
+
+
+def harmonise_cytof_dynamic(input_data):
+    #  nearest neighbour imputation for misaligned/heterogeneous timepoints
+    def impute_missing(input_data, source, target):
+        if source not in input_data.columns:
+            return input_data
+        if target not in input_data.columns:
+            input_data[target] = np.nan
+        mask = input_data[target].isna()
+        input_data.loc[mask, target] = input_data.loc[mask, source]
+        return input_data
+
+    markers = tuple(input_data.columns.levels[0])
+    perturbations = tuple(input_data.columns.levels[1])
+
+    for marker in markers:
+        for pert in perturbations:
+            if pert == "full":
+                continue
+
+            # Impute 13.0 from 12.0 then 14.0 (order matters!)
+            for source_time in (12.0, 14.0):
+                input_data = impute_missing(
+                    input_data,
+                    source=(marker, pert, source_time),
+                    target=(marker, pert, 13.0),
+                )
+
+            # Impute 17.0 from 15.0 then 16.0 (only for inhibitors)
+            if pert != "EGF":
+                for source_time in (15.0, 16.0):
+                    input_data = impute_missing(
+                        input_data,
+                        source=(marker, pert, source_time),
+                        target=(marker, pert, 17.0),
+                    )
+
+            # Impute 40.0 -> 60.0
+            input_data = impute_missing(
+                input_data,
+                source=(marker, pert, 40.0),
+                target=(marker, pert, 60.0),
+            )
+
+        # Impute 35.0 -> 40.0 (only for EGF)
+        input_data = impute_missing(
+            input_data,
+            source=(marker, "EGF", 35.0),
+            target=(marker, "EGF", 40.0),
+        )
+
+    #  linear interpolation of intermediate missing timepoints
+    for marker in markers:
+        for pert in perturbations:
+            if pert == "full":
+                continue
+
+            for missing_time, [time_before, time_after] in zip(
+                [7.0, 13.0, 40.0], [[0.0, 9.0], [9.0, 17.0], [17.0, 60.0]]
+            ):
+                if (marker, pert, missing_time) not in input_data.columns:
+                    continue
+
+                mask = input_data.loc[:, (marker, pert, missing_time)].isna()
+                if (marker, pert, time_before) in input_data.columns:
+                    mask &= input_data.loc[
+                        :, (marker, pert, time_before)
+                    ].notna()
+                if (marker, pert, time_after) in input_data.columns:
+                    mask &= input_data.loc[
+                        :, (marker, pert, time_after)
+                    ].notna()
+
+                if (marker, pert, time_before) not in input_data.columns:
+                    input_data.loc[
+                        mask, (marker, pert, missing_time)
+                    ] = input_data.loc[mask, (marker, pert, time_after)]
+                    continue
+
+                if (marker, pert, time_after) not in input_data.columns:
+                    input_data.loc[
+                        mask, (marker, pert, missing_time)
+                    ] = input_data.loc[mask, (marker, pert, time_before)]
+                    continue
+
+                input_data.loc[mask, (marker, pert, missing_time)] = (
+                    input_data.loc[mask, (marker, pert, time_before)]
+                    * (time_after - missing_time)
+                    / (time_after - time_before)
+                    + input_data.loc[mask, (marker, pert, time_after)]
+                    * (missing_time - time_before)
+                    / (time_after - time_before)
+                )
+    return input_data
+
+
+def load_data(
+    contextualization,
+    samples,
+    features,
+    measurement_table,
+    observable_table,
+    features_filepath=None,
+    impute: bool = True,
+    imputer: Optional[Pipeline] = None,
+    transform: Optional[callable] = None,
+):
+    if contextualization not in ["MOSA", "seqvar"]:
+        input_data, imputer = contextualize_measurements(
+            measurement_table,
+            observable_table,
+            contextualization,
+            samples,
+            impute=impute,
+            imputer=imputer,
+        )
+    elif (contextualization == "MOSA") and (features_filepath is not None):
+        input_data = get_features(
+            features_filepath=features_filepath, datasets=["train", "val"]
+        )
+        input_data = impute_features(input_data)
+        input_data = pd.concat([input_data["train"], input_data["val"]])
+        # ensure index has correct name
+        input_data = input_data.rename_axis(
+            petab.PREEQUILIBRATION_CONDITION_ID
+        )
+        imputer = None
+    elif contextualization == "seqvar":
+        _, input_data = get_cell_line_cellosaurus_annotations(
+            file_dir=features_dir
+        )
+        input_data = input_data.rename_axis(
+            petab.PREEQUILIBRATION_CONDITION_ID
+        )
+        imputer = None
+    else:
+        raise ValueError(
+            f"Received invalid combination: context {contextualization} and features_filepath {features_filepath}"
+        )
+
+    # subset samples to dataset at hand (train, val)
+    _index_name = input_data.index.name
+    if contextualization != "MOSA":
+        input_data = input_data.loc[samples, :]
+    else:  # handle missing cell-lines for pre-trained MOSA
+        input_data = input_data.loc[
+            [sample for sample in samples if sample in input_data.index], :
+        ]
+    input_data.index.name = _index_name
+
+    if contextualization.startswith("cytof_dynamic"):
+        input_data = harmonise_cytof_dynamic(input_data)
+
+    # AVOID DROPPING pERBB2/iMEK FOR REGRESSORS!
+    nan_threshold = (
+        0.5 if contextualization.startswith("cytof_dynamic") else 0.3
+    )
+
+    if not features and not contextualization.split("_")[-1] == "pca":
+        # for training, compute feature set, filtering out too many nans
+        # this does not affect "seqvar", which has 0/0.5/1 values
+        input_data = input_data.loc[
+            :, input_data.isna().mean() < nan_threshold
+        ]
+
+    if not transform and contextualization.split("_")[-1] == "pca":
+
+        class ConvertDataFrame(BaseEstimator, TransformerMixin):
+            def fit(self, X, y=None):
+                return self
+
+            def transform(self, X):
+                return pd.DataFrame(
+                    X,
+                    columns=[f"pca_{i}" for i in range(X.shape[1])],
+                )
+
+        _isnotna = input_data.columns[input_data.isna().mean() == 0.0]
+
+        pipeline = Pipeline(
+            [
+                ("dropnan", DropNaNColumns(keep_cols=_isnotna)),
+                ("pca", PCA(n_components=0.95)),
+                ("df", ConvertDataFrame()),
+            ]
+        )
+        index = input_data.index
+        input_data = pipeline.fit_transform(input_data)
+        input_data.index = index
+        transform = pipeline.transform
+    elif not transform:
+        transform = lambda x: x
+    elif len(input_data):
+        index = input_data.index
+        input_data = transform(input_data)
+        input_data.index = index
+
+    if features and len(input_data):
+        # for prediction, use feature set computed on training data
+        # subsetting + pivoting in contextualize_measurements will lead to
+        # dropping of features in the validation/test
+        for f in features:
+            if f not in input_data.columns:
+                input_data[f] = np.nan
+        input_data = input_data[features]
+
+    elif features:
+        input_data = pd.DataFrame(columns=features, data=[])
+    else:
+        features = list(input_data.columns)
+
+    return input_data, features, transform, imputer
+
+
+def build_preprocessor(
+    preprocess: str,
+    input_data: np.ndarray,
+    output_data: np.ndarray,
+    cv=None,
+):
+    steps = [
+        ("scaler", StandardScaler()),
+        ("impute", KNNImputer()),
+    ]
+
+    def get_cv():
+        if cv is None:
+            return 5
+        return cv
+
+    cv = get_cv()
+
+    if preprocess == "elastic":
+        steps.append(
+            (
+                "selector",
+                SelectFromModel(
+                    MultiTaskElasticNetCV(
+                        l1_ratio=[0.1, 0.5, 0.9],
+                        cv=cv,
+                        n_alphas=25,
+                        verbose=1,
+                        n_jobs=-1,  # use all available cores
+                    ),
+                    threshold="mean",
+                ),
+            )
+        )
+    elif preprocess == "lasso":
+        steps.append(
+            (
+                "selector",
+                SelectFromModel(
+                    MultiTaskLassoCV(cv=cv, n_alphas=20, max_iter=1000),
+                    max_features=min(100, input_data.shape[1]),
+                ),
+            )
+        )
+    elif preprocess == "sequential":
+        steps.append(
+            (
+                "selector",
+                SequentialFeatureSelector(
+                    estimator=LinearRegression(),
+                    scoring="neg_mean_squared_error",
+                    cv=cv,
+                ),
+            )
+        )
+    elif preprocess in ("pls", "cca"):
+        model = {
+            "pls": PLSRegression,
+            "cca": CCA,
+        }.get(preprocess)
+        pipe = Pipeline(steps + [("selector", model())])
+        grid = GridSearchCV(
+            pipe,
+            param_grid={"selector__n_components": np.arange(1, 20)},
+            cv=cv,
+            scoring="neg_mean_squared_error",
+        )
+        grid.fit(input_data, output_data)
+        steps.append(
+            (
+                "selector",
+                model(
+                    n_components=grid.best_params_["selector__n_components"]
+                ),
+            )
+        )
+    elif preprocess == "all":
+        pass
+    else:
+        raise ValueError(f"Unknown preprocessing {preprocess}")
+
+    return Pipeline(steps)
