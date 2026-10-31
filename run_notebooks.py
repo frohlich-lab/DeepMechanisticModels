@@ -10,10 +10,17 @@ Usage
 -----
     ./venv/bin/python run_notebooks.py --list             # show what would run
     ./venv/bin/python run_notebooks.py                    # run all
+    ./venv/bin/python run_notebooks.py --paper-only       # only the paper's
     ./venv/bin/python run_notebooks.py figure_2 figure_3  # run matching ones
     ./venv/bin/python run_notebooks.py --save-notebooks   # keep executed copies
 
 Exits non-zero if any notebook failed.
+
+Every notebook under ``figures_paper/`` is found automatically, including new
+ones that are not committed yet; gitignored ones (``test_*.ipynb``, ...) are
+skipped. ``--paper-only`` also skips the exploratory notebooks in directories
+named ``... (not in paper)``. The Snakemake targets ``paper`` and ``figures``
+run it that way.
 
 Figure output
 -------------
@@ -56,6 +63,9 @@ from pathlib import Path
 REPO_ROOT = Path(__file__).resolve().parent
 DEFAULT_SEARCH_ROOT = "figures_paper"
 DEFAULT_OUT_DIR = "notebook_output"
+
+# Marks directories of exploratory notebooks, skipped with --paper-only
+NOT_IN_PAPER = "(not in paper)"
 
 # Cells idle this long are treated as hung. Generous: some notebooks refit.
 DEFAULT_TIMEOUT = 1800
@@ -112,10 +122,22 @@ _pd.Series.to_csv = _redirected_to_csv
 
 
 def discover(search_root: str, patterns: list[str]) -> list[Path]:
-    """Return tracked notebooks under `search_root`, filtered by `patterns`."""
+    """Return notebooks under `search_root`, filtered by `patterns`.
+
+    Tracked notebooks plus untracked ones that are not gitignored, so a new
+    figure notebook runs before it is committed but scratch notebooks don't.
+    """
     try:
         out = subprocess.run(
-            ["git", "ls-files", "-z", f"{search_root}/*.ipynb"],
+            [
+                "git",
+                "ls-files",
+                "-z",
+                "--cached",
+                "--others",
+                "--exclude-standard",
+                f"{search_root}/*.ipynb",
+            ],
             cwd=REPO_ROOT,
             capture_output=True,
             text=True,
@@ -306,6 +328,11 @@ def main() -> int:
         help="skip notebooks whose path contains this (repeatable)",
     )
     parser.add_argument(
+        "--paper-only",
+        action="store_true",
+        help=f"skip notebooks in directories marked '{NOT_IN_PAPER}'",
+    )
+    parser.add_argument(
         "--fail-fast",
         action="store_true",
         help="stop at the first failure instead of running the rest",
@@ -318,10 +345,11 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    exclude = args.exclude + ([NOT_IN_PAPER] if args.paper_only else [])
     notebooks = [
         p
         for p in discover(args.search_root, args.patterns)
-        if not any(x in str(p) for x in args.exclude)
+        if not any(x in str(p) for x in exclude)
     ]
     if not notebooks:
         print(f"no notebooks found under {args.search_root}/")
