@@ -8,6 +8,12 @@ Fig. 1C.
 `eval/EGFR_MAPK__logobs/dream_cytof/{trajectories,by_cl_cond_obs}_figure1a.csv`,
 dated 7–8 April 2026.
 
+**Decision (FF, 2026-10-31): "test set" means the 5 test lines** (CAL120, CAMA1,
+HCC1143, KPL1, ZR75B), predicted by the models trained on all 58 training lines.
+This is the notebook default (`HELDOUT = "test"`). Use version A of the text below.
+The numbers for the 10-line pooling of the old figure are kept for reference only.
+The Results numbers 0.43/0.34 in the draft become **0.36/0.34**.
+
 **Read this first.** On the five test cell lines the DMM is **not more accurate**
 than regularized regression on the same features. Its median per-combo RMSE is
 0.36, against 0.34 for elastic net and 0.34 for lasso. The difference is not
@@ -17,7 +23,7 @@ accurate than". The added value of the DMM has to rest on its mechanistic,
 interpretable parameters and not on prediction accuracy. The advantage over the
 negative control is also weak on the 5 test lines alone: 18% lower median,
 p = 0.04 unadjusted, 3/5 lines, driven by CAMA1. It is clear on the 10 held-out
-lines that the old figure pooled. Section 3a covers which set to call "test".
+lines that the old figure pooled, but those include the CV lines (section 3a).
 
 Code
 - `figures_paper/baseline_comparison.py` (new): replicate pairing and noise floor;
@@ -181,7 +187,7 @@ Methods (new sentences, wherever RMSE is defined):
   lines in which the DMM's mean ΔRMSE favours it, and an exact sign-flip p over cell
   lines (with 5 lines, its smallest attainable value is 0.0625).
 
-### Results: test set (5 test lines, split `all`, 60 combos) — notebook default
+### Results: test set (5 test lines, split `all`, 60 combos) — use these
 
 DMM median RMSE: test 0.36, train 0.34 (651 combos). Welch t-test train vs. test
 p = 0.034.
@@ -206,7 +212,7 @@ As aggregated by the pipeline (regressors scored on averaged targets), the
 regressors look slightly better still: elastic net 0.33 (DMM 10% higher, p = 0.19),
 lasso 0.33 (p = 0.12), linear regression 0.33 (p = 0.34).
 
-### Results: 10 held-out lines (5 test + 5 CV-validation, 120 combos) — old Fig. 1C pooling
+### For reference only: 10 held-out lines (5 test + 5 CV-validation, 120 combos), the old Fig. 1C pooling
 
 DMM median RMSE: held-out 0.43, train 0.34.
 
@@ -219,11 +225,10 @@ DMM median RMSE: held-out 0.43, train 0.34.
 | Positive control | 0.22 | 92% higher | +0.137 | 11/120 | 0/10 | 2.6e-19 | 1e-18 | 0.002 |
 
 ### Paste-ready text
-Use one held-out definition throughout. Version A uses the 5 test lines, which is
-the notebook default and what "test set" means elsewhere in the paper. Version B
-keeps the 10-line pooling, which needs the wording change in 3a.
+Version A (the 5 test lines) is the chosen one. Version B is kept only in case the
+pooling is revisited.
 
-**Results, revised (version A):**
+**Results, revised (version A, chosen):**
 > Prediction errors on the test set (median RMSE 0.36, red) were only moderately
 > higher than on the training set (0.34, blue), indicating limited overfitting. Test
 > errors were 18% lower than those of a mechanistic model fitted to data averaged
@@ -232,7 +237,7 @@ keeps the 10-line pooling, which needs the wording change in 3a.
 > mechanistic models fitted to each cell line individually (positive control, 0.22)
 > and the measurement noise floor (0.25, Fig. 1C).
 
-**Results, revised (version B):**
+**Results, revised (version B, not used):**
 > Prediction errors on held-out cell lines (five test and five cross-validation lines;
 > median RMSE 0.43, red) were higher than on the training set (0.34, blue). They were
 > 20% lower than those of a mechanistic model fitted to data averaged across cell
@@ -244,7 +249,7 @@ keeps the 10-line pooling, which needs the wording change in 3a.
 Under version A, "only moderately higher" (0.36 vs. 0.34) is accurate. Under version
 B, 0.43 vs. 0.34 is a 27% increase, so "only moderately" is a stretch; I dropped it.
 
-**R3.10 response (replaces "[RESULT: …]", version A):**
+**R3.10 response (replaces "[RESULT: …]", version A, chosen):**
 > …paired statistical tests across (cell line × condition × observable) combinations
 > (two-sided Wilcoxon signed-rank tests over the 60 test-set combinations of the five
 > test cell lines, Holm-corrected across five baselines). Prediction errors of the
@@ -281,9 +286,10 @@ The old Fig. 1C "test" box (median 0.43; train 0.34) and the train-vs-test numbe
 the 5 test lines (split `all`) plus the 5 CV-validation lines (BT20, HCC1500, HCC2185,
 MCF7, UACC3199), each predicted by the CV model that held it out. The CV lines
 informed the hyperparameter choice, so calling the pooled set "the test set" is
-inaccurate. The notebook default is now `HELDOUT = "test"`: split `all` only, with
-the test box from the 5 test lines and the train box from the same models' fits.
-`HELDOUT = "cv+test"` restores the old pooling. Under the default:
+inaccurate. **Resolved:** FF chose the 5 test lines. The notebook default is
+`HELDOUT = "test"`: split `all` only, with the test box from the 5 test lines and
+the train box from the same models' fits. `HELDOUT = "cv+test"` restores the old
+pooling. Under the default:
 - the per-observable/condition train-vs-test tests (section 2 of the notebook)
   have n_val = 5 and none is significant after FDR correction;
 - the representative trajectories now all come from test lines. Q5 and Q95 are the
