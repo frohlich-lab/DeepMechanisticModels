@@ -143,24 +143,47 @@ def noise_floor(pairs: pd.DataFrame, by=None) -> pd.DataFrame:
     """Noise SD of a single measurement, pooled over replicate pairs.
 
     For a pair, E[(x1 - x2)^2] = 2 sigma^2, so sigma = sqrt(mean(d^2) / 2):
-    the RMSE that predicting every expected value exactly would still incur
-    against individual measurements, i.e. the floor for the per-combo RMSEs.
-    The RMSE between the two replicates themselves is sqrt(2) sigma.
+    the RMSE, pooled over all measurements, that predicting every expected
+    value exactly would still incur. The RMSE between the two replicates
+    themselves is sqrt(2) sigma. ``robust_sigma`` is the MAD-based estimate.
     """
     groups = pairs.groupby(by) if by else [("all", pairs)]
     rows = []
     for key, grp in groups:
         msd = np.mean(np.square(grp["difference"]))
+        mad = np.median(np.abs(grp["difference"]))
         rows.append(
             {
                 **dict(zip(by or ["pairs"], np.atleast_1d(key))),
                 "n_pairs": len(grp),
                 "n_cell_lines": grp["cell_line"].nunique(),
                 "sigma": np.sqrt(msd / 2),
+                "robust_sigma": 1.4826 * mad / np.sqrt(2),
                 "replicate_rmse": np.sqrt(msd),
             }
         )
     return pd.DataFrame(rows)
+
+
+def combo_noise_floor(
+    pairs: pd.DataFrame, meas: pd.DataFrame, n_draws: int = 1000, seed=0
+) -> np.ndarray:
+    """Median per-combo RMSE of a model that predicts every expected value.
+
+    The boxes in Fig. 1C are per-combo RMSEs and are summarized by their
+    median, so the pooled sigma is not the right floor for them: replicate
+    differences are heavy-tailed, and a median of per-combo RMSEs lies below
+    the pooled RMS. Here, each combo in ``meas`` gets as many residuals as it
+    has measurements, drawn with replacement from the replicate noise
+    (d / sqrt(2)). Returns the median per-combo RMSE of each draw.
+    """
+    rng = np.random.default_rng(seed)
+    noise = pairs["difference"].to_numpy() / np.sqrt(2)
+    sizes = meas.groupby(COMBO).size().to_numpy()
+    draws = rng.choice(noise, size=(n_draws, sizes.sum()))
+    ends = np.cumsum(sizes)
+    sums = np.add.reduceat(np.square(draws), ends - sizes, axis=1)
+    return np.median(np.sqrt(sums / sizes), axis=1)
 
 
 # ── Per-combo RMSE of every method ────────────────────────────────────
@@ -440,7 +463,7 @@ def main(
     if not traj_file.exists():
         print(f"{traj_file} not found, skipping the paired tests")
         return
-    traj = pd.read_csv(traj_file, index_col=0)
+    traj = pd.read_csv(traj_file, index_col=0, low_memory=False)
     by_cl = pd.read_csv(outdir / f"by_cl_cond_obs_{figure}.csv", index_col=0)
     for heldout, splits in HELDOUT_SPLITS.items():
         matched, coverage = matched_combo_rmse(traj, context, features, splits)
@@ -449,6 +472,16 @@ def main(
             ["size", "median"]
         )
         print(medians.round(3).to_string())
+        heldout = matched.query("ref == 'DMM' and dataset == 'val'")
+        floor = combo_noise_floor(
+            pairs, meas[meas["cell_line"].isin(heldout["cell_line"])]
+        )
+        print(
+            "noise floor, median per-combo RMSE of a perfect model: "
+            f"{np.median(floor):.3f} "
+            f"(95% of draws {np.quantile(floor, 0.025):.3f}-"
+            f"{np.quantile(floor, 0.975):.3f})"
+        )
         for label, combo in (
             ("matched", matched),
             ("as aggregated", combo_rmse(by_cl, context, features, splits)),
