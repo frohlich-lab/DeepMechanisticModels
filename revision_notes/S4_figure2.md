@@ -8,15 +8,15 @@ Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 tra
 
 | Item | State |
 |---|---|
-| 1. Fig. 2 redesign (legends above every sub-panel, direct box labels, palette, CVD check) | Code done; rendered only on synthetic `eval/` data. **Re-run `figure_2.ipynb` on the NEMO `eval/` outputs** before using any number. |
-| 2. Fig. 2D relabel + minima; Table S4 check | Code done. Config and file evidence below. The minima are computed and printed by the notebook (cell "Panel D"), pending `eval/`. |
-| 3. New Fig. S-PCA (4 combinations) | Code done (`figure_2.ipynb`, section "Figure S — Latent embeddings…"), pending `eval/`. |
-| 4. Fig. 2B counts | Confirmed from the code path and subtype table: **30 luminal / 22 basal / 6 normal-like**. The notebook prints them from the plotted embeddings. |
-| 5. Fig. S1 highlight + threshold | Done on real data. |
-| 6. Fig. S2 column order | Fixed and re-run on real data (`figure_S7.ipynb` committed with outputs). |
-| 7. Optional Fig. S-pERK (R3.12) | Code done. The measured curves are real; the simulated overlay is pending `eval/`. |
+| 1. Fig. 2 redesign (legends above every sub-panel, direct box labels, palette, CVD check) | Done; run on the NEMO `eval/` outputs. |
+| 2. Fig. 2D relabel + minima; Table S4 check | Done. **The draft's minima statement doesn't hold** (F2). Table S4 is correct for CyTOF only (F1). |
+| 3. New Fig. S-PCA (4 combinations) | Done (`figure_2.ipynb`, section "Figure S — Latent embeddings…"). |
+| 4. Fig. 2B counts | Confirmed from the plotted embeddings: **30 luminal / 22 basal / 6 normal-like**. |
+| 5. Fig. S1 highlight + threshold | Done. |
+| 6. Fig. S2 column order | Fixed (`figure_S7.ipynb`). |
+| 7. Optional Fig. S-pERK (R3.12) | Done. |
 
-`figure_2.ipynb` is committed **without outputs**, because the only `eval/` available locally was synthetic. Every cell runs top to bottom on synthetic data with the expected columns. The old outputs were from the previous code.
+Both notebooks are committed with outputs from the real data (`eval/` synced from NEMO on 31 Oct 2026). `figure_2.ipynb` keeps its text statistics identical to the submitted run, e.g. CyTOF DMM RMSE 0.5456 and AUROC 0.859 → 0.744, so the synced `eval/` is the data behind the submission.
 
 ## Files changed
 
@@ -47,23 +47,42 @@ Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 tra
   | CyTOF + feature augmentation (`cytof_init_plus_*`, Fig. 2A right) | **4** | **0**, the global defaults, because these contexts have no override |
 
 - The locally saved downstream models (`res/EGFR_MAPK__logobs_tegfr_aggavg/dream_cytof/*.eqx`) are 60 files: 6 splits (all, BT20, HCC1500, HCC2185, MCF7, UACC3199) × 10 jobs. All have `n_hidden = 4, depth = 0` and all are dated **2 Jan 2026**. These are the global defaults from before the context-specific overrides, so they are stale local copies and **not** the final runs.
-- The submitted Fig. 2 was made by `load_embedding_data`, which keeps only rows with the context's central `n_hidden`/`depth` (8/1 for CyTOF). It plotted 52 luminal/basal lines for the CyTOF model, and its Fig. 2C contains the "EGFR est" points, whose context only exists at 4/0. So the `eval/` tables behind the submitted figure held CyTOF runs at n_hidden 8 and feature-augmentation runs at 4. The notebook now prints the `n_hidden`/`depth` found in every evaluation table (`print_architectures`, cell 4); check that printout when you re-run.
+- **Confirmed from the evaluation tables** (`print_architectures`, cell 4): every figure 1a/2/3 run uses exactly the values in the table above. CyTOF is 8/1 for all models, including the receptor integrations, and the feature-augmentation contexts are 4/0. The n_hidden scan (figure3b) varies n_hidden from 1 to 8 at depth 1 (CyTOF) and depth 0 (multimodal).
+- The parent session also synced the final Fig. 3 models, `res/…/all__cytof_init__RFE_8_permute__8__1__*.eqx`, which are n_hidden 8, depth 1, 10 runs.
 - **Conclusion:** "8 latent dimensions" is correct for the CyTOF-input DMMs, including the downstream CyTOF analyses. It is not correct for the other inputs. If Table S4 gives a single value, change it to the per-context values above.
-- **Caveat for Fig. 2A, right (feature augmentation):** the "CyTOF only" boxes use n_hidden 8 with one hidden layer. The "+ L/B", "+ intrinsic", "+ EGFR tx" and "+ EGFR prot" boxes use n_hidden 4 with no hidden layer, because those contexts never got the CyTOF override. This confounds the comparison. With no new runs allowed, state it in Methods/Table S4 at least. Confirm with the printout first.
+- **Caveat for Fig. 2A, right (feature augmentation):** the "CyTOF only" boxes use n_hidden 8 with one hidden layer. The "+ L/B", "+ intrinsic", "+ EGFR tx" and "+ EGFR prot" boxes use n_hidden 4 with no hidden layer, because those contexts never got the CyTOF override. This confounds the comparison and is confirmed by the evaluation tables. With no new runs allowed, state it in Methods/Table S4 at least.
 
 ### F2. Fig. 2D: local and global minima
 
 - The submitted panel hard-coded the black rings at n_hidden = 4 (DMM) and 3 (+ EGFR tx). They were not computed. The new panel computes and marks two things for each model: the **first interior local minimum** (open circle) and the **lowest test RMSE** (star). The cell below the panel prints both, for the pooled curve and for each input context separately.
-- In the submitted image, 4 (DMM) and 3 (+ EGFR tx) are local minima by eye. For + EGFR tx the lowest point is the n_hidden = 8 marker. For DMM, the n = 6–8 markers overlap and can't be resolved from the image. **Use the printed values.**
+- The real data, as mean test RMSE ± SEM over 10 training runs (the alternative panel reproduces the submitted panel exactly, so these are the same data):
+
+  | n_hidden | DMM pooled | + EGFR tx pooled | DMM CyTOF | + EGFR tx CyTOF |
+  |---|---|---|---|---|
+  | 1 | 0.517 ± 0.004 | 0.474 ± 0.003 | 0.547 ± 0.005 | 0.480 ± 0.005 |
+  | 2 | 0.512 ± 0.004 | 0.467 ± 0.005 | 0.548 ± 0.007 | 0.481 ± 0.005 |
+  | 3 | 0.499 ± 0.005 | **0.451 ± 0.005** | 0.525 ± 0.008 | **0.465 ± 0.006** |
+  | 4 | 0.493 ± 0.005 | 0.453 ± 0.005 | 0.523 ± 0.007 | 0.472 ± 0.008 |
+  | 5 | 0.484 ± 0.007 | 0.450 ± 0.005 | 0.515 ± 0.006 | 0.461 ± 0.009 |
+  | 6 | **0.479 ± 0.004** | 0.442 ± 0.004 | **0.512 ± 0.005** | 0.449 ± 0.006 |
+  | 7 | 0.487 ± 0.007 | 0.442 ± 0.006 | 0.520 ± 0.009 | 0.444 ± 0.005 |
+  | 8 | 0.481 ± 0.007 | 0.435 ± 0.006 | 0.504 ± 0.009 | 0.439 ± 0.007 |
+
+  Bold marks the first interior local minimum.
+- **The draft's "first local minimum at 4 for the base DMM" is wrong.** Test RMSE falls monotonically from 1 to 6, so the first local minimum is **6**. This holds in every grouping (pooled, CyTOF, multimodal). The submitted panel's ring at 4 was hard-coded.
+- **"3 with EGFR transcript integration" holds** (pooled and CyTOF), but the dip is 0.002–0.007, about one SEM.
+- **"Global minimum 8 for both" holds for CyTOF input** (DMM 0.504, + EGFR tx 0.439). It does not hold for the pooled curve that the submitted panel shows: there the DMM is lowest at 6 (0.479 vs. 0.481 at 8, well within the SEM). For multimodal alone, DMM is lowest at 6 and + EGFR tx at 8.
+- **Overall:** every local minimum is a dip of at most about one SEM. The robust statement is that test RMSE decreases with the number of latent dimensions and flattens from about 6, with the lowest values at 6–8. Recommended response and legend text is below.
+- **Recommendation:** restrict 2D to CyTOF input (`NHIDDEN_CONTEXTS = ["cytof_init"]`, one line). Then the panel matches the models it justifies (Table S4: CyTOF 8), and "lowest at 8 for both" is true. The committed figure still pools both inputs, as submitted.
 - **Wording:** 8 is the largest value scanned (`LATENT_DIMS["range"]` = 1…8). It is the lowest test RMSE *within the scanned range*, not a demonstrated global minimum. Suggested text: "lowest test RMSE within the scanned range (1–8)".
-- **Pooling:** the scan (`figure3b`) covers CyTOF *and* multimodal input. The submitted panel averaged both per training run, and the new one does the same by default (`NHIDDEN_CONTEXTS = None`), so the minima describe the average over both inputs. The multimodal models were trained with 6, not 8. If the text ties the minimum to the CyTOF training value, restrict the panel to CyTOF (`NHIDDEN_CONTEXTS = ["cytof_init"]`) and check the per-context printout.
+- **Pooling:** the scan (`figure3b`) covers CyTOF *and* multimodal input. The submitted panel averaged both per training run, and the new one does the same by default (`NHIDDEN_CONTEXTS = None`). The multimodal models were trained with 6, not 8.
 - The panel now plots test RMSE against "number of latent dimensions (n_hidden)" directly. The submitted train-vs-test layout is kept as an alternative (`fig2_panelD_trainval.pdf`) with a size legend titled "number of latent dimensions (n_hidden)".
 - Side note: the size handles that `barplots.render_nhidden_trainval` returns have twice the marker area of the plotted points. The notebook rebuilds them, and `barplots.py` is untouched.
 
 ### F3. Fig. 2B counts: 30 / 22 / 6, not 30 / 23 / 5
 
 - Code path: `load_marcotte_subtypes` → `prepare_pca_embeddings`. Marcotte `subtype_intrinsic` maps LuminalA/LuminalB/HER2 to luminal and Basal/CL to basal, and DU4475 is forced to basal. For the 58 training lines this gives **30 luminal, 22 basal, 6 normal-like** (184A1, 184B5, HDQP1, MACLS2, MCF10A, MCF12A).
-- The executed submitted notebook already printed luminal = 30 and basal = 22 from its embeddings (base DMM, multimodal; DMM + EGFR tx, CyTOF).
+- Confirmed on the plotted embeddings (real `eval/`): all four DMM / DMM + EGFR tx × CyTOF / multimodal embeddings contain the 58 training lines, 30/22/6.
 - The old legend's 30/23/5 is exactly what you get if HDQP1 is counted as basal. HDQP1 is basal in the Tognetti annotation and normal-like in Marcotte, so the legend probably mixed the two sources.
 - The notebook prints the counts under panel B and in the text-statistics cell. The panel legends now show them as well, e.g. "Luminal (n=30)".
 
@@ -143,9 +162,9 @@ These numbers come from real data (measured CyTOF).
 
 **Figure 2** (panel parts; keep your title sentence)
 
-> **(A)** Test-set RMSE (five held-out cell lines) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over independent training runs and are labeled individually; dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx. Open circles mark the first local minimum (n_hidden = 4 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx simulations (CyTOF input), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
+> **(A)** Test-set RMSE (five held-out cell lines) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over ten independent training runs and are labeled individually; linear regression is a single fit (bar); dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over ten training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx, averaged over CyTOF and multimodal input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 6 and 8). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx simulations (CyTOF input), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
 
-Check (D) against the printed minima, and add "averaged over CyTOF and multimodal input" if `NHIDDEN_CONTEXTS` stays `None`. Check the (B) counts against the printed counts.
+(D) as committed (both inputs pooled). If you restrict the panel to CyTOF (recommended, F2), use instead: "…for the base DMM and DMM + EGFR tx with CyTOF input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both)."
 
 **Figure S-PCA (new)**
 
@@ -176,8 +195,10 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 **R1, Fig. 2B:**
 > We corrected the subtype counts in the legend (30 luminal, 22 basal and 6 normal-like training cell lines, intrinsic subtypes from Marcotte et al.) and now show them in the panel legend. The new Figure S? shows the latent embeddings for all four combinations of input data (CyTOF, multimodal) and EGFR transcript integration.
 
-**R1, Fig. 2D** (pending the printed minima):
-> We relabeled the axis "number of latent dimensions (n_hidden)" and now plot the test RMSE directly against it. The test RMSE reaches a first local minimum at four latent dimensions for the base DMM and at three with EGFR transcript integration, and is lowest at eight, the largest value tested, for both models. We used eight latent dimensions for all CyTOF-input DMMs (Table S4).
+**R1, Fig. 2D.** The draft's "4 / 3 / 8" statement must change (F2). Wording that the data support, assuming 2D is restricted to CyTOF input:
+> We relabeled the axis "number of latent dimensions (n_hidden)" and now plot the test RMSE directly against it, marking the first local minimum and the lowest value of each curve. With CyTOF input, the test RMSE decreased with the number of latent dimensions and was lowest at eight, the largest value tested, for both the base DMM and the DMM with EGFR transcript integration; earlier local minima (six and three latent dimensions, respectively) were within one standard error of the neighboring values. We therefore used eight latent dimensions for the CyTOF-input DMMs (Table S4).
+
+If 2D stays pooled over both inputs, use instead: "…was lowest at six (base DMM) and eight (with EGFR transcript integration) latent dimensions, with values at six to eight within one standard error…".
 
 **R1, Figs. S7–S8 → S1–S2:**
 > We now highlight the same ten cell lines in both figures and define them explicitly: they lack detectable EGFR transcript (log-FPKM < 0, i.e. FPKM < 1), yet their EGFR protein estimate lies above −2 log₂FC, within the range of transcript-expressing lines; any cut-off between −2.64 and −1.95 selects the same lines. The columns of the peptide heat map (Figure S2) are now sorted by the same EGFR protein values, shown as a bar plot above the heat map. The heat map shows that the protein estimates of nine of these ten lines rest on one to three of the 40 EGFR peptides, whereas the other lines have a median of 25 detected peptides.
@@ -192,10 +213,10 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
   - `figure_S7.ipynb` now imports `embeddings`/`figure_config` and reads `data/proteomics.csv` and `data/transcriptomics.csv`.
   - Optional dependency: `colorspacious`, for the CVD cell only.
 - **S5 and others:** `figure_config.py` only gained constants, so existing ones are unchanged. Adopting `CVD_CONTEXT_COLORS` in Figs. 1/3/4 would make context colors consistent across the paper; that's an author decision. `barplots.render_nhidden_trainval` size-legend handles are 2× the plotted marker area (F2); `barplots.py` was not touched.
-- **To finish once `eval/` is here:**
-  1. Run `figure_2.ipynb`.
-  2. Read the architecture printout (F1) and the minima printout (F2), then fix the 2D legend/response wording.
-  3. Check the 2B/2C counts.
-  4. Look at the composite. The 2A row and the 2C legend were tuned on synthetic data, so check the spacing with the real ranges.
-  5. Check what one row of `evaluate_all_*.csv` is: one test RMSE per training run, or one per run and test cell line. The 2A legend says "distribution over independent training runs"; adjust it if the rows are per cell line.
-  6. Commit the executed notebook.
+- **Author decisions left:**
+  1. Pool 2D over both inputs or restrict it to CyTOF (F2).
+  2. Left 2B panel: keep DMM + EGFR tx, or switch to the base DMM (F4).
+  3. How to handle the feature-augmentation architecture mismatch (F1).
+  4. The reference of the proteomics log2FC (F6).
+  5. Whether to include Fig. S-pERK.
+- **Data checks done:** each DMM box in 2A is one test RMSE per training run (10 runs). Linear regression is one deterministic value per context, duplicated across model files, so it is drawn as a bar.
