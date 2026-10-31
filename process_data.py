@@ -13,8 +13,9 @@ from common import (
 )
 from dmm.config_options import Conf
 
-# MOSA pre-trained multi-omic latent embeddings (Peel et al. 2023)
-# https://doi.org/10.1038/s41587-023-01940-3
+# MOSA pre-trained multi-omic latent embeddings (Cai et al. 2024)
+# https://doi.org/10.1038/s41467-024-54771-4, file 20231023_092657_latent_joint
+# of https://doi.org/10.6084/m9.figshare.24562765.v1
 MOSA_FIGSHARE_URL = "https://figshare.com/ndownloader/files/43146637"
 MOSA_LATENT_FILE = "MOSA_latent_joint.csv"
 
