@@ -2,7 +2,7 @@ import json
 import re
 from dataclasses import replace
 from pathlib import Path
-from typing import Optional, Union
+from typing import Union
 
 import fire
 import numpy as np
@@ -28,11 +28,6 @@ from util import load_petab_base_files
 MSIGDB_CACHE_PATH = (
     Path(__file__).parent / "data" / "msigdb_c2cp_2025.1.Hs.json"
 )
-
-# Expression filter of the HVG prefilter, as in the DE analysis of Fig. 4:
-# keep transcripts with median log2 expression > -2.5 over the training cell
-# lines. Proteomics is relative quantification and gets no expression filter.
-HVG_MIN_MEDIAN = {"transcriptomics": -2.5}
 
 
 def load_msigdb_gmt() -> dict[str, list[str]]:
@@ -86,15 +81,10 @@ def get_feature_importances(model, X, y, method="auto"):
 
 
 def get_hvg(
-    input_df: pd.DataFrame,
-    top_n: Union[int, float] = 500,
-    expressed: Optional[pd.Series] = None,
+    input_df: pd.DataFrame, top_n: Union[int, float] = 500
 ) -> pd.DataFrame:
-    # keep expressed features only (mask computed before mean-centering)
-    if expressed is not None:
-        input_df = input_df.loc[
-            :, expressed.reindex(input_df.columns, fill_value=False)
-        ]
+    # No low-mean filter: inputs arrive mean-centered, and proteomics is
+    # relative quantification, so feature means carry no expression level.
     if isinstance(top_n, int):
         # Keep top N features with the highest variance
         var_threshold = sorted(np.nanvar(input_df, axis=0), reverse=True)[
@@ -120,7 +110,6 @@ def get_selected_features(
     features: str,
     features_all: list,
     cv=None,
-    expressed: Optional[pd.Series] = None,
 ):
     if features == "all":
         return features_all
@@ -344,7 +333,7 @@ def get_selected_features(
             "proteomics",
             "transcriptomics",
         ]:
-            input_data = get_hvg(input_data, expressed=expressed)
+            input_data = get_hvg(input_data)
 
         output_data -= output_data.mean(axis=0)  # center output data
 
@@ -564,7 +553,6 @@ def prepare_inputs_for_context(
             **petab_base_files,
         )
 
-    expressed = None
     if "subtype" not in subconf.context:
         # Impute missing input values
         imputer_input = KNNImputer()
@@ -574,8 +562,6 @@ def prepare_inputs_for_context(
             index=input_train.index,
             columns=input_train.columns,
         )
-        if subconf.context in HVG_MIN_MEDIAN:
-            expressed = input_train.median() > HVG_MIN_MEDIAN[subconf.context]
         # Mean-center
         mean_train = input_train.mean()
         input_train -= mean_train
@@ -606,7 +592,7 @@ def prepare_inputs_for_context(
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
         elif native == "HVG_all":
             # Quick unsupervised HVG prefilter, then keep all remaining
-            input_train = get_hvg(input_train, expressed=expressed)
+            input_train = get_hvg(input_train)
             selected = input_train.columns.tolist()
             input_val = input_val.reindex(columns=selected, fill_value=0.0)
         else:
@@ -624,7 +610,6 @@ def prepare_inputs_for_context(
                 features=native,
                 features_all=input_train.columns.tolist(),
                 cv=None,
-                expressed=expressed,
             )
             input_train = input_train[selected]
             input_val = input_val[selected]

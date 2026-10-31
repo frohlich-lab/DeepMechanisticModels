@@ -8,12 +8,12 @@ candidate set of every split and omics context three ways:
 - ``current``: ``get_hvg`` on the centered inputs, as the pipeline runs it;
 - ``mean_uncentered`` (fix A): the mean step uses the uncentered, imputed
   inputs; the variance step is unchanged;
-- ``no_mean_step`` (fix B): the mean step is dropped; the 501 most variable
-  features are kept;
-- ``median_expressed`` (fix C, implemented in select_features.py): no mean
-  step for proteomics; for transcriptomics, keep transcripts with median log2
-  expression > -2.5 over the training lines (the filter of the Fig. 4 DE
-  analysis), then the 501 most variable.
+- ``no_mean_step`` (fix B, implemented in select_features.py): the mean step
+  is dropped; the 501 most variable features are kept;
+- ``median_expressed`` (fix C): no mean step for proteomics; for
+  transcriptomics, keep transcripts with median log2 expression > -2.5 over
+  the training lines (the filter of the Fig. 4 DE analysis), then the 501 most
+  variable.
 
 It reuses ``rf_inputs``, ``get_hvg`` and ``hvg_diagnostics`` from
 ``figures_paper/receptor_evidence.py`` (branch
@@ -51,7 +51,7 @@ from dmm.feature_selection import load_data
 
 TOP_N = 500
 VARIANTS = ("current", "mean_uncentered", "no_mean_step", "median_expressed")
-MIN_MEDIAN = {"transcriptomics": -2.5}  # select_features.HVG_MIN_MEDIAN
+MIN_MEDIAN = {"transcriptomics": -2.5}  # Fig. 4 DE expression filter
 
 # Curated genes of select_features.py worth tracking (receptors, PAM50, IHC)
 PAM50 = (

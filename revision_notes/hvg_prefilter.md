@@ -9,15 +9,16 @@ Branch `claude/objective-rubin-5b7968`.
     merged, or with that file on `PYTHONPATH`.
   - It takes a few minutes on the laptop. Everything below was computed on
     this laptop, not on the cluster.
-- **Implemented: fix C, a per-modality prefilter (section 1).** FF chose it
-  after comparing it with the DE analysis in `figure_4.ipynb`.
-  - Proteomics: no expression filter. The prefilter keeps the 501 most
-    variable proteins.
-  - Transcriptomics: keep transcripts with median log2 expression > −2.5 over
-    the training lines, then the 501 most variable. This is the same filter
-    the Fig. 4 DE analysis uses (`embeddings.compute_marker_parameter_correlations`).
+- **Implemented: fix B, no expression filter (section 1).** The low-mean step
+  is gone, and the prefilter keeps the 501 most variable features of each
+  omics context.
+  - FF chose it over fix C, which would add the Fig. 4 DE filter for RNAseq
+    (median log2 expression > −2.5). Fix C was committed first (9142ba2) and
+    then replaced.
+  - Fix C would remove 74–78 of the 501 most variable transcripts: subtype
+    markers that are on in a minority of lines.
 - **Checked end to end.** Running the patched `select_features.py` with
-  `--features=HVG_all` reproduces the script's fix-C sets exactly, for BT20
+  `--features=HVG_all` reproduces the script's fix-B sets exactly, for BT20
   and `all`, in both contexts.
 - **Not yet done.** No feature set has been regenerated (section 3).
 
@@ -37,79 +38,82 @@ Branch `claude/objective-rubin-5b7968`.
     most variable proteins are missing from the current set in at least 3 of
     6 splits.
   - For RNAseq the bias runs the other way: 30–38 of the 501 most variable
-    genes are removed. Lost genes include VIM (rank 10–13, kept in 4/6) and
-    FOXA1 (rank 156–171, missing in 2/6).
-- **Why the fix differs by modality.**
+    genes are removed. Lost genes include VIM (rank 10–13, kept in 4/6),
+    MGP (rank 19–23, kept in 1/6) and FOXA1 (rank 144–171, kept in 4/6).
+- **Why no expression filter.**
   - MassSpec values are relative quantities. Their mean is not an expression
     level, and it is strongly anti-correlated with variance (ρ = −0.92). Any
     low-mean filter therefore removes the most variable proteins: fix A would
     remove 491–496 of the top 501.
-  - RNAseq is log2 expression with a floor at −3.32. There, "not expressed"
-    is meaningful, and the Fig. 4 median cut defines it.
-- **What fix C changes.**
+  - For RNAseq, an expression filter is meaningful (fix C), but it removes
+    subtype markers that are on in a minority of lines, such as PGR, KRT6B,
+    GABRP and AGR3. The supervised RFE that follows decides which candidates
+    carry signal.
+- **What fix B changes.**
   - MassSpec: 289–316 of 501 candidates stay the same (≈40 % change).
-  - RNAseq: 419–422 of 501 stay the same (≈16 % change).
+  - RNAseq: 463–471 of 501 stay the same (≈7 % change). The 30–38
+    transcripts the bug removed come back, and as many drop out from just
+    below the cut (ranks 502–538, including GRB7).
   - Every saved MassSpec selection contains 2–5 proteins that would no longer
-    be candidates. So does 1 of 10 RNAseq selections.
+    be candidates. So do 3 of 10 RNAseq selections.
   - All `proteomics`/`transcriptomics` `HVGRFE_*` feature sets and all
     `multimodal` `RFE_*` feature sets must be regenerated, with every model
     trained on them (section 3).
 
 ## 1. The fixes compared
 
-| | Fix A: mean step on uncentered data | Fix B: no mean step | **Fix C: per modality (implemented)** |
+| | Fix A: mean step on uncentered data | **Fix B: no mean step (implemented)** | Fix C: per modality |
 |---|---|---|---|
 | MassSpec | 20 % lowest uncentered means removed, then top 501 by variance | top 501 by variance | same as B |
 | RNAseq | 20 % lowest uncentered means removed (cut ≈ −2.49) | top 501 by variance | median > −2.5 over the training lines, then top 501 by variance |
 | Top-501 features removed by the filter | MassSpec 491–496; RNAseq 0 | 0 | MassSpec 0; RNAseq 74–78 |
-| Consistent with Fig. 4 DE prefilter | no | no for RNAseq | yes |
+| Consistent with Fig. 4 DE prefilter | no | MassSpec yes (no cutoff there); RNAseq no | yes |
 | Platform dependence | none, except a feature that sits exactly on the 20 % cut | none | none |
 
-**Fix C code** (`select_features.py`):
+**Fix B code** (`select_features.py`, `get_hvg`): the three lines of the mean
+step are replaced by a comment.
 
 ```python
-# Expression filter of the HVG prefilter, as in the DE analysis of Fig. 4:
-# keep transcripts with median log2 expression > -2.5 over the training cell
-# lines. Proteomics is relative quantification and gets no expression filter.
-HVG_MIN_MEDIAN = {"transcriptomics": -2.5}
+    # No low-mean filter: inputs arrive mean-centered, and proteomics is
+    # relative quantification, so feature means carry no expression level.
+    if isinstance(top_n, int):
+        # Keep top N features with the highest variance
 ```
 
-- `get_hvg(input_df, top_n, expressed=None)`:
-  - The low-mean step is gone.
-  - When given, `expressed` (a boolean Series) restricts the input before the
-    variance step.
-- `prepare_inputs_for_context`:
-  - computes `expressed = input_train.median() > HVG_MIN_MEDIAN[context]` on
-    the imputed, **uncentered** training inputs;
-  - passes it to `get_hvg` (`HVG_all`) and to `get_selected_features`
-    (`HVGRFE_*`).
 - Every other path (`RFE_*`, `all`, curated, MSIGDB, `genes:`, subtype) is
   unchanged.
 - The off-by-one is untouched: `top_n=500` keeps 501 features. Fixing it
   would change every set by one more feature, and the Methods can simply say
   "~500".
+- The variance ranking cannot flip between platforms: the relative gap
+  between the 501st and 502nd variance is at least 2e-5 in every split.
+- MassSpec candidates carry somewhat more imputed values: median 7 % missing,
+  and 39 % of them more than 10 % missing, against 5 % and 31–36 % now
+  (splits BT20 and `all`). Lower-mean proteins are measured in fewer lines
+  (ρ = −0.61). The supervised RFE that follows should drop features whose
+  signal is mostly imputed.
 
-### What the RNAseq median filter removes
+### Fix C, for the record
+
+Fix C keeps transcripts with median log2 expression > −2.5 over the training
+lines, as the Fig. 4 DE analysis does
+(`embeddings.compute_marker_parameter_correlations`), and gives MassSpec no
+expression filter. The code is in commit 9142ba2.
 
 The transcripts that fail the filter (≈27 % of all, ≈15 % of the 501 most
 variable) are expressed above −2.5 in fewer than half of the training lines.
+Among the most variable, they are mostly genes that are on in a minority of
+lines:
 
-- Among the most variable, they are mostly genes that are on in a minority of
-  lines:
-  - AGR3 (rank ≈78), CLEC3A, MMP7, TFAP2B, CDH13 and ANKRD30A;
-  - the stromal/ECM genes COL1A2, COL3A1, COL4A1, CXCL12 and A2M;
-  - the cancer-testis genes MAGEA2B/A3/A6/A12, CSAG1 and CTAG2;
-  - the basal markers GABRP and KRT6B.
-- PGR (rank ≈450–525) and SCGB2A1 (≈385) are also removed.
-- This is the trade-off of fix C. Minority-expressed subtype markers can no
-  longer be candidates. With ~57 training lines, a gene that is on in 15–25
-  lines could still carry signal for the random forest.
+- AGR3 (rank 73–109), CLEC3A, MMP7, TFAP2B, CDH13 and ANKRD30A;
+- the stromal/ECM genes COL1A2, COL3A1, COL4A1, CXCL12 and A2M;
+- the cancer-testis genes MAGEA2B/A3/A6/A12, CSAG1 and CTAG2;
+- the basal markers GABRP (216–257) and KRT6B (222–229);
+- PGR (451–524) and, in 4 of 6 splits, SCGB2A1 (383–398).
 
-The MassSpec cost is shared with fix B. Candidates carry somewhat more imputed
-values: median 7 % missing, and 39 % of them more than 10 % missing, against
-5 % and 31–36 % now (splits BT20 and `all`). Lower-mean proteins are measured
-in fewer lines (ρ = −0.61). The supervised RFE that follows should drop
-features whose signal is mostly imputed.
+With ~57 training lines, a gene that is on in 15–25 lines could still carry
+signal for the random forest. That trade-off decided against fix C. Fix C
+shares 423–427 RNAseq candidates with fix B and 419–422 with the current sets.
 
 ### Fix A, for the record
 
@@ -121,7 +125,7 @@ code comment, but fails for MassSpec:
 - 494 of the 501 most variable proteins (split `all`) lie in the lowest-mean
   20 %.
 - ERBB2, EGFR, GRB7, KRT5/14/17 and VIM would be excluded in every split.
-- Fix A shares only 5–10 MassSpec candidates with fix B/C.
+- Fix A shares only 5–10 MassSpec candidates with fix B.
 
 For RNAseq, fix A equals fix B in all 6 splits: the cut at ≈ −2.49 removes
 none of the top 501.
@@ -132,24 +136,24 @@ All 6 splits, both omics contexts. Each set has 501 features. "Current" is
 `get_hvg` on centered inputs as the pipeline runs it, replicated on this
 laptop. It reproduces 19 of 20 saved cluster selections (see below).
 
-| Split | Context | Candidates | Top-501 removed by current mean step | Current ∩ C | B ∩ C | Current ∩ B | Current ∩ A |
+| Split | Context | Candidates | Top-501 removed by current mean step | **Current ∩ B** | Current ∩ C | B ∩ C | Current ∩ A |
 |---|---|---:|---:|---:|---:|---:|---:|
-| BT20 | RNAseq | 16,562 (12,157 expressed) | 34 | 420 | 425 | 467 | 467 |
-| HCC1500 | RNAseq | 16,562 (12,146) | 30 | 422 | 426 | 471 | 471 |
-| HCC2185 | RNAseq | 16,562 (12,150) | 38 | 420 | 423 | 463 | 463 |
-| MCF7 | RNAseq | 16,562 (12,143) | 35 | 419 | 423 | 466 | 466 |
-| UACC3199 | RNAseq | 16,562 (12,140) | 35 | 420 | 425 | 466 | 466 |
-| all | RNAseq | 16,562 (12,147) | 35 | 419 | 427 | 466 | 466 |
-| BT20 | MassSpec | 6,179 | 212 | 289 | 501 | 289 | 55 |
-| HCC1500 | MassSpec | 6,177 | 207 | 294 | 501 | 294 | 59 |
-| HCC2185 | MassSpec | 6,182 | 206 | 295 | 501 | 295 | 55 |
-| MCF7 | MassSpec | 6,187 | 209 | 292 | 501 | 292 | 55 |
-| UACC3199 | MassSpec | 6,181 | 185 | 316 | 501 | 316 | 44 |
-| all | MassSpec | 6,161 | 199 | 302 | 501 | 302 | 56 |
+| BT20 | RNAseq | 16,562 | 34 | 467 | 420 | 425 | 467 |
+| HCC1500 | RNAseq | 16,562 | 30 | 471 | 422 | 426 | 471 |
+| HCC2185 | RNAseq | 16,562 | 38 | 463 | 420 | 423 | 463 |
+| MCF7 | RNAseq | 16,562 | 35 | 466 | 419 | 423 | 466 |
+| UACC3199 | RNAseq | 16,562 | 35 | 466 | 420 | 425 | 466 |
+| all | RNAseq | 16,562 | 35 | 466 | 419 | 427 | 466 |
+| BT20 | MassSpec | 6,179 | 212 | 289 | 289 | 501 | 55 |
+| HCC1500 | MassSpec | 6,177 | 207 | 294 | 294 | 501 | 59 |
+| HCC2185 | MassSpec | 6,182 | 206 | 295 | 295 | 501 | 55 |
+| MCF7 | MassSpec | 6,187 | 209 | 292 | 292 | 501 | 55 |
+| UACC3199 | MassSpec | 6,181 | 185 | 316 | 316 | 501 | 44 |
+| all | MassSpec | 6,161 | 199 | 302 | 302 | 501 | 56 |
 
-### Notable genes, MassSpec (number of splits in the set, out of 6; fix C = fix B)
+### Notable genes, MassSpec (number of splits in the set, out of 6)
 
-| Protein | Variance rank | Current | Fix C | Fix A |
+| Protein | Variance rank | Current | Fix B | Fix A |
 |---|---:|---:|---:|---:|
 | VIM | 1 | 1 | 6 | 0 |
 | AGR2 | 4 | 1 | 6 | 0 |
@@ -162,26 +166,29 @@ laptop. It reproduces 19 of 20 saved cluster selections (see below).
 | EGFR | 128–152 | 3 (BT20, MCF7, UACC3199) | 6 | 0 |
 | ERBB3 | — | removed by the 30 % missingness filter in every split | | |
 
-- Fix C also gains the PAM50/IHC proteins MLPH (rank ≈265), NUF2 (≈165) and
+- Fix B also gains the PAM50/IHC proteins MLPH (rank ≈265), NUF2 (≈165) and
   PHGDH (≈155) in the splits where they are currently missing.
 - It loses ANLN (rank 744–796), CEP55 (619–662) and TYMS (584–694). These
   were in the current set only because higher-variance proteins had been
   removed. Overall, the 199 proteins lost in split `all` have variance ranks
   502–820.
 
-### Notable genes, RNAseq (fix C)
+### Notable genes, RNAseq (fix B)
 
 - EGFR (rank 265–316) is in every set in every split. ERBB2 (rank
   ≈1,035–1,076) and ERBB3 (≈1,530–1,570) are in none, because of the variance
   step.
-- **Gained** vs current, split `all` (82 genes, ranks 13–593):
-  - VIM (13), S100A9 (21), MGP (22), MT1E (39), GPX1 (44), CLDN1 (83),
-    ALDH1A3 (175) and others;
-  - FOXA1 (rank 156–171), now in all 6 splits (currently 4);
-  - genes just below rank 501. GRB7 (rank ≈510–531) stays in, as it is now.
-- **Lost** vs current, split `all` (82 genes): the minority-expressed genes
-  listed in section 1, including AGR3, MMP7, TFAP2B, COL1A2, CXCL12, GABRP,
-  KRT6B and PGR.
+- **Gained** vs current, split `all` (35 genes, ranks 13–472): VIM (13),
+  S100A9 (21), MGP (22), MT1E (39), GPX1 (44), CLDN1 (83), ALDH1A3 (175) and
+  others. Across splits, VIM, MGP and FOXA1 are now candidates in all 6
+  (currently 4, 1 and 4).
+- **Lost** vs current, split `all` (35 genes, ranks 502–538): the genes just
+  below the cut, which were in the current set only because higher-variance
+  genes had been removed. They include GRB7 (rank 508–531; currently in all 6
+  splits, now in none; GRB7 protein is gained in all 6), MAGEC2, MAGEA4, LTF
+  and DAB2.
+- The minority-expressed genes that fix C would remove stay in, as they are
+  now: AGR3, GABRP, KRT6B, SCGB2A1 and, in 4 of 6 splits, PGR (currently 5).
 
 ### Saved selections
 
@@ -193,12 +200,12 @@ the current `BEST_FEATURE_SETS`.
 - **Current replication.** 19 of 20 selections lie inside the replicated
   sets. The exception is SP100 in BT20 MassSpec, a floating-point difference,
   as S3 found.
-- **Fix C.**
+- **Fix B.**
   - All 10 MassSpec selections (5 `HVGRFE_10`, 5 multimodal) contain 2–5
     proteins that are no longer candidates. RDH10 and TAP2 are the most
     frequent.
-  - 1 of 10 RNAseq selections does too: CST1 in HCC1500 `HVGRFE_15`. For
-    comparison, 3 of 10 would under fix B.
+  - 3 of 10 RNAseq selections do too: CYP4B1 in HCC1500 (`HVGRFE_15` and
+    multimodal), and DAB2, PSCA and TMPRSS2 in HCC2185 `HVGRFE_15`.
   - The other selections will most likely change as well, because the random
     forest's ranking depends on the whole candidate pool.
 
@@ -270,20 +277,21 @@ files and leave `mtime` out of `--rerun-triggers`.
 | `figure_5.ipynb` | `plot_figure3b_nhidden` panel | `figure3b`, pooled over contexts as above; `figure4`/`figure6` parts not affected |
 | `figure_4.ipynb` | none | `figure5`, CyTOF only; omics are used only as marker data |
 | `figure_S_feature_count_scan.ipynb` (S2 branch) | MassSpec, RNAseq and multimodal curves (Table S4) | `figure1c`; the CyTOF and MOSA curves are not affected |
-| `figure_S_receptor_evidence.ipynb` (S3 branch) | the "HVG candidates" RF importances and `first_round_status` | `receptor_evidence.get_hvg`/`rf_inputs` copy the buggy prefilter and need fix C; their "excluded by mean step" category becomes "not expressed" (RNAseq only) |
+| `figure_S_receptor_evidence.ipynb` (S3 branch) | the "HVG candidates" RF importances and `first_round_status` | `receptor_evidence.get_hvg`/`rf_inputs` copy the buggy prefilter and need fix B; their "excluded by mean step" category goes away |
 
 ### Text
 
-- Suggested Methods wording for fix C:
+- Suggested Methods wording for fix B:
 
   > Before recursive feature elimination, omics features were prefiltered on
-  > the training cell lines of each split. Transcripts were restricted to
-  > those with median log2 expression above −2.5 (the expression filter used
-  > for differential expression), and the ~500 most variable transcripts and
-  > the ~500 most variable proteins were retained.
+  > the training cell lines of each split, retaining the ~500 most variable
+  > transcripts and the ~500 most variable proteins.
 
-- Proteomics gets no expression filter because its values are relative.
-  This could be stated briefly if a reviewer asks.
+- If a reviewer asks why there is no expression filter: proteomics values
+  are relative, and for transcripts an expression filter would exclude
+  subtype markers that are on in a minority of lines. The DE analysis of
+  Fig. 4 does use one (median log2 expression > −2.5), so the two filters
+  differ by design.
 - If the pipeline is **not** rerun, the Methods must describe what actually
   ran. That is hard to state honestly: "a variance prefilter applied to a
   pseudo-random 80 % of features, biased against high-variance proteins".
