@@ -445,6 +445,10 @@ def main(
     for heldout, splits in HELDOUT_SPLITS.items():
         matched, coverage = matched_combo_rmse(traj, context, features, splits)
         print(f"== held-out set: {heldout}\n{coverage.to_string(index=False)}")
+        medians = matched.groupby(["ref", "dataset"])["rmse"].agg(
+            ["size", "median"]
+        )
+        print(medians.round(3).to_string())
         for label, combo in (
             ("matched", matched),
             ("as aggregated", combo_rmse(by_cl, context, features, splits)),
