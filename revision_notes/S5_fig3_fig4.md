@@ -13,25 +13,30 @@ Code changes on this branch:
   - The composite figure (Fig. 4) now draws the Fig. 4C color key, in the free corner below the row labels.
   - `plot_panel_snp_heatmap` takes `legend_kws` so the key can be placed there.
 
-Neither notebook was re-executed. Both need the `eval/` CSVs from NEMO. The Fig. 4C key and the Fig. 3 legend row were checked in mock renders with the real plotting code and the same layout. Stored outputs of the enrichment cells still show the old print text until the notebooks are re-run.
+**Verified on the real data.** Both notebooks were executed end to end with `run_notebooks.py figure_3` (332 s) and `run_notebooks.py figure_4` (298 s), using the NEMO `eval/`/`res/` files and the main checkout's `data/`, linked temporarily into the worktree. Both finished without errors.
 
-## Data caveat for items 1 and 2
+- In the Fig. 3 composite, the new label-color key sits in the bottom legend row without overlaps. The rest of the figure is unchanged from the published version.
+- In the Fig. 4 composite, the 4C key sits in the free corner below the row labels. The SNP hit list is unchanged: 13 hits, 12 cell lines without mutation data.
+- The new diagnostic cell and the robustness-check cell produce the numbers below.
 
-**The numbers in items 1 and 2 are a proxy, not the Fig. 3 models.**
+The repository copies of the notebooks keep their old stored outputs. Re-run `run_notebooks.py` to refresh them.
 
-- **What Fig. 3 uses.** Fig. 3 reads `eval/EGFR_MAPK__logobs_tegfr_aggavg/dream_cytof/{sensitivity_params,param_devs}_figure1a.csv` (`samples == "all"`). These files come from the `all` split, trained with the current config for `cytof_init`: n_hidden = 8, depth = 1 (`res/…/all__cytof_init__RFE_8_permute__8__1__…`).
-- **What is local.** None of these files are on this Mac, and `ssh crick` times out. Locally there are 60 older models of the same pipeline (January 2026): the `all_plus_missingtx` split (61 training and 5 test cell lines) plus five LOOCV splits, 10 replicates each.
-- **How they differ.** The local models use n_hidden = 4 and depth = 0. All other hyperparameters are the same: L1 = 0.1 on Δ_c until epoch 200, GMM sparsification, dropout 0.1, inflater bound 3, 500 epochs.
-- **How I computed them.** Masks were read from the `.eqx` files. Ablation ΔRMSE was recomputed with the repository's `sensitivity.set_param_to_zero` and `rmse`, run against the main checkout's data and compiled AMICI model.
+## Data used for items 1 and 2
 
-**To get the real numbers**, run one of these:
+These numbers come from the Fig. 3 models themselves.
 
-1. `figure_3.ipynb` with the NEMO `eval/` files. The new cell after Panel B prints k per replicate, how often each parameter was retained, and a per-replicate P2 table: ΔRMSE, train/test RMSE, which of P1–P6 were kept, Tukey-outlier flags, the P2–P3 correlation, and how well each replicate's P2 profile agrees with the other replicates.
-2. The snippet below, from the repository root on NEMO. It needs only numpy and the `.eqx` files.
+- The NEMO outputs are synced into the main checkout: `eval/EGFR_MAPK__logobs_tegfr_aggavg/dream_cytof/{sensitivity_params,param_devs}_figure1a.csv` (context `cytof_init`, samples `all`), and the 10 models `res/…/all__cytof_init__RFE_8_permute__8__1__…__{0..9}__500__3.eqx` (n_hidden = 8, depth = 1).
+- Each replicate covers 58 training and 5 test cell lines.
+- k was obtained two independent ways, which agree exactly for every replicate:
+  - from the output sparsity mask in each `.eqx` file;
+  - from `sensitivity_params`. A dropped parameter leaves the model unchanged when zeroed, so both its zeroed and activated ΔRMSE are exactly 0.
+- The table in item 2 is the output of the new diagnostic cell in `figure_3.ipynb`, run on these files.
+
+An earlier pass on older local models (n_hidden = 4, depth = 0) is superseded. It had predicted the same mechanism for the P2 outliers.
+
+To recount from the `.eqx` files without AMICI or pyPESTO, run this from the repository root:
 
 ```python
-# Count cell-line-variable parameters (output sparsity mask) per replicate
-# straight from the serialized .eqx files (no AMICI/pyPESTO needed).
 import json
 from pathlib import Path
 
@@ -59,82 +64,71 @@ for f in sorted(RES.glob("all__cytof_init__*.eqx")):
 
 ## 1. "[k] of 44" (Reviewer 1, Fig. 1 point 1)
 
-**Proxy result (`all_plus_missingtx` split, 10 replicates):**
+**Result: k = 16 of 44 (median; mean 16.1), range 10–21 across the 10 training replicates.**
 
-- k per replicate (jobs 0–9): 16, 17, 18, 16, 15, 15, 16, 20, 16, 24.
-- **k = 16 of 44 (median), range 15–24.**
-- Across all 60 local models (including the 50 LOOCV-split models): median 18, range 13–24.
-- Dropped parameters have Δ_c = 0 exactly for every cell line. Retained ones vary across the training cell lines with a standard deviation of 0.04–1.2 (median 0.24) in the model's log10 parameter scale. So "retained" and "cell-line-variable" coincide.
+- k per replicate (jobs 0–9): 17, 15, 19, 21, 10, 17, 20, 15, 14, 13.
+- Retained parameters vary across the 63 cell lines with SD 0.07–1.10 (median 0.26) in the model's log10 parameter scale. Dropped parameters have Δ_c = 0 exactly.
 - Retained in all 10 replicates:
   - P1 (ERK → p90RSK, `RPS6KA1_p_S380_ERK__Y204_p_kw`)
-  - P3 (p.EGFR → p.ERBB2, `ERBB2_p_Y1248_EGFR__Y1173_p_kw`)
-  - P6 (iMEK ⊣ p.ERK, `ERK_p_Y204_iMEK_0_kw`)
-- Retained in 9 of 10: P2 (`ERBB2_p_Y1248_ERBB2_kw`, dropped in job 7) and `ERK_p_Y204_TOPK__Y74_p_kw`.
-- Retained in 8 of 10: `EGFR_deg_kdeg` and `RPS6KA1_p_S380_bact`.
-- Retained in 7 of 10: P4 (`MEK_p_S222_EGFR__Y1173_p_kw`), `ERK_p_Y204_MEK__S222_p_kw` and `MEK_p_S222_ERBB2__Y1248_p_kw`. P5 (`MEK_p_S222_ERK__Y204_p_kw`) is retained in 6 of 10.
-- In total, 37 of the 44 parameters are retained in at least one replicate. The variable set therefore differs between replicates, apart from a stable core.
+  - P2 (ERBB2 autoactivation, `ERBB2_p_Y1248_ERBB2_kw`)
+- Retained in 9 of 10:
+  - P3 (p.EGFR → p.ERBB2, `ERBB2_p_Y1248_EGFR__Y1173_p_kw`; dropped in job 9)
+  - P6 (iMEK ⊣ p.ERK, `ERK_p_Y204_iMEK_0_kw`; dropped in job 0)
+- Retained in 8 of 10: `ERK_p_Y204_MEK__S222_p_kw`.
+- Retained in 7 of 10:
+  - P4 (`MEK_p_S222_EGFR__Y1173_p_kw`)
+  - P5 (`MEK_p_S222_ERK__Y204_p_kw`)
+  - `ERBB2_p_Y1248_serum_0_kw`
+  - `ERBB2_p_Y1248_iEGFR_0_kw`
+  - `MEK_p_S222_ERBB2__Y1248_p_kw`
+- 34 of 44 parameters are retained in at least one replicate. Ten are never retained:
+  - `EGFR_recycle_kcat`, `ERBB3_dp_Y1289_kcat`, `ERK_dp_Y204_kcat`, `MEK_dp_S222_kcat`, `RPS6KA1_dp_S380_kcat`
+  - `ERBB2_p_Y1248_ERBB3__Y1289_p_kw`, `MEK_p_S222_iMEK_0_kw`
+  - `TOPK_p_Y74_bact`, `TOPK_p_Y74_EGFR__Y1173_p_kw`, `TOPK_p_Y74_ERBB3__Y1289_p_kw`
+- Only **6 of 44** parameters (P1–P6) have an ablation effect on the training RMSE that differs significantly from zero across replicates (one-sample t-test, BH-adjusted p < 0.05; Fig. 3B).
 
-**Real-model evidence already in the stored outputs** (executed `figure_3.ipynb`): only **6 of 44** parameters have an ablation effect on the training RMSE that differs significantly from zero across the 10 replicates (one-sample t-test, BH-adjusted p < 0.05). These are P1–P6 in Fig. 3B.
+**Wording.** About a third of the parameters stay variable, so "a small subset" is generous. Suggested text:
 
-**Implication for the wording.** If the real models resemble the proxy, "a small subset" overstates the sparsity. Roughly a third of the parameters stay variable, though only a handful matter for the fit. Suggested text, with numbers to confirm from NEMO:
-
-> "…the L1 penalty on Δ_c, followed by GMM-based sparsification, restricts cell-line variability to a subset of the kinetic parameters (here [median k] of 44, range [min–max] across the ten training replicates), of which only six have a significant effect on model fit when ablated (Fig. 3B)."
-
-If the real k turns out to be small, for example ≤ 10, keep "only a small subset (here k of 44)".
+> "…the L1 penalty on Δ_c, followed by GMM-based sparsification, restricts cell-line variability to a subset of the kinetic parameters (here 16 of 44; range 10–21 across the ten training replicates), of which only six have a significant effect on model fit when ablated (Fig. 3B)."
 
 ## 2. Fig. 3B: P2 outlier replicates
 
-### What the published panel shows
+**The outlying replicates are jobs 7 and 9.** They are Tukey outliers in both the training and the test set, and match the two isolated points in the published panel.
 
-These values were read off the vector PDF of the Fig. 3 composite (`notebook_output/figures/figure_3__composite_…pdf`), at 800 dpi.
+| job | k | P2 ΔRMSE train | P2 ΔRMSE test | P3 | P4 | P5 | P6 | RMSE train | RMSE test | ρ(P2, P3) | P2 profile ρ vs other replicates |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 0 | 17 | 0.022 | 0.030 | ✓ | ✓ | ✓ | – | 0.422 | 0.447 | 0.97 | 0.96 |
+| 1 | 15 | 0.046 | 0.075 | ✓ | ✓ | ✓ | ✓ | 0.383 | 0.428 | 0.97 | 0.98 |
+| 2 | 19 | 0.031 | 0.048 | ✓ | ✓ | ✓ | ✓ | 0.397 | 0.444 | 0.96 | 0.98 |
+| 3 | 21 | 0.038 | 0.057 | ✓ | ✓ | ✓ | ✓ | 0.386 | 0.437 | 0.93 | 0.99 |
+| 4 | 10 | 0.040 | 0.051 | ✓ | – | ✓ | ✓ | 0.424 | 0.481 | 0.96 | 0.88 |
+| 5 | 17 | 0.043 | 0.071 | ✓ | ✓ | ✓ | ✓ | 0.382 | 0.445 | 0.90 | 0.99 |
+| 6 | 20 | 0.023 | 0.035 | ✓ | ✓ | ✓ | ✓ | 0.401 | 0.424 | 0.99 | 0.97 |
+| **7** | 15 | **0.087** | **0.249** | ✓ (SD 0.31) | – | – | ✓ | 0.386 | 0.416 | 0.81 | 0.97 |
+| 8 | 14 | 0.018 | 0.022 | ✓ | ✓ | – | ✓ | 0.411 | 0.454 | 1.00 | 0.95 |
+| **9** | 13 | **0.126** | **0.311** | – | – | – | ✓ | 0.383 | 0.402 | n/a | 0.90 |
 
-- **The P2 outliers are high, not low.** Two training points lie at ΔRMSE ≈ 0.09 and 0.13 (the rest are about 0.02–0.045). Two test points lie at ≈ 0.25 and 0.31 (the rest are about 0.02–0.075). These are most likely the same two replicates.
-- **This argues against the draft's explanation (a)** ("P2 not retained, so ablation has no effect"). That explanation would produce points at exactly 0, not at the top.
+P1 and P2 are retained in all replicates (not shown). ✓ = retained; – = dropped by the sparsification.
 
-The analogous mechanism that does fit is **missing compensation**. In some replicates, the GMM sparsification drops the parameters that co-vary with P2 (Fig. 3C: P3 ρ = 1.0, P4 ρ = 0.8). P2 then carries the whole ERBB2 axis alone, and ablating it costs more.
+Findings:
 
-### Proxy test (10 local replicates; ablation recomputed)
+1. **(a) as drafted is ruled out.** P2 is retained in all 10 replicates, so there is no replicate in which its ablation "has no effect". The outliers are replicates with unusually *large* effects: train ΔRMSE 0.087 and 0.126 against 0.018–0.046, and test ΔRMSE 0.249 and 0.311 against 0.022–0.075.
+2. **The variant of (a) that does hold is that the co-varying parameters were not retained.** Jobs 7 and 9 are the only two replicates in which both P4 (p.EGFR → p.MEK) and P5 (p.ERK ⊣ p.MEK) were dropped. Job 4 lacks P4 but keeps P5 and a strongly variable P3; job 8 lacks P5 only. P3 (p.EGFR → p.ERBB2) co-varies most strongly with P2 (Fig. 3C ρ = 1.0; within replicates ρ = 0.90–1.00):
+   - Job 9 is the only replicate that dropped P3 altogether.
+   - In job 7, P3 is retained but almost invariant across cell lines (SD 0.31 against 0.56–1.10 in the other replicates), and it is the least correlated with P2 (ρ = 0.81).
 
-| job | k | P2 ΔRMSE train | P2 ΔRMSE test | P2 | P3 | P4 | P5 | RMSE train | RMSE test | P2 profile ρ vs other replicates |
-|---|---|---|---|---|---|---|---|---|---|---|
-| 0 | 16 | 0.003 | 0.018 | ✓ | ✓ | ✓ | ✓ | 0.483 | 0.516 | 0.98 |
-| 1 | 17 | **0.030** | **0.038** | ✓ | ✓ | – | – | 0.477 | 0.495 | 0.99 |
-| 2 | 18 | 0.007 | 0.020 | ✓ | ✓ | ✓ | ✓ | 0.462 | 0.480 | 1.00 |
-| 3 | 16 | **0.027** | **0.032** | ✓ | ✓ | – | – | 0.478 | 0.491 | 0.99 |
-| 4 | 15 | 0.014 | 0.033 | ✓ | ✓ | ✓ | ✓ | 0.473 | 0.455 | 0.96 |
-| 5 | 15 | **0.032** | **0.046** | ✓ | ✓ | – | – | 0.481 | 0.492 | 0.98 |
-| 6 | 16 | 0.003 | 0.016 | ✓ | ✓ | ✓ | ✓ | 0.477 | 0.512 | 0.99 |
-| 7 | 20 | 0 (dropped) | 0 (dropped) | – | ✓ | ✓ | ✓ | 0.477 | 0.544 | n/a |
-| 8 | 16 | 0.009 | 0.018 | ✓ | ✓ | ✓ | – | 0.486 | 0.490 | 0.98 |
-| 9 | 24 | −0.000 | 0.002 | ✓ | ✓ | ✓ | ✓ | 0.474 | 0.524 | 0.93 |
+   In both replicates, P2 alone therefore carries this axis of cell-line variability. Its ablation cannot be absorbed by correlated parameters, and the error rises more. P2's own spread is not larger in the outliers (SD 0.27 and 0.34 against 0.26–0.38).
+3. **(b), a different or worse local optimum, is ruled out.**
+   - Both outliers are among the *best* fits. Their test RMSE (0.402 and 0.416) is the lowest and second lowest of the ten replicates (others 0.424–0.481). Their training RMSE (0.383 and 0.386) ranks 2nd and 4th of ten (others 0.382–0.424).
+   - Their P2 deviation profiles across cell lines agree with the median profile of the other replicates (Spearman ρ = 0.90 and 0.97, against 0.88–0.99 among the rest).
 
-✓ = parameter retained by the sparsification; – = dropped.
+**Response (paste-ready):**
 
-1. **The size of the P2 effect depends on which correlated parameters were retained.** The three replicates with the largest P2 ablation effect (jobs 1, 3, 5) are exactly those in which P4 (p.EGFR → p.MEK) and P5 were dropped.
-   - Train ΔRMSE is 0.027–0.032 there, against −0.000–0.014 in the six replicates that retained P2 and P4 (Mann–Whitney p = 0.024). Test ΔRMSE is 0.032–0.046 against 0.002–0.033 (p = 0.048).
-   - Where both are retained, P4 co-varies with P2 across cell lines (median Spearman ρ = 0.71), and P3 even more so (ρ = 0.92).
-   - So P4 can partly take over P2's role when P2 is ablated. Where P4 is absent, it cannot.
-   - The size of the P2 effect also tracks how variable P2 is across cell lines (Spearman ρ = 0.83 between P2 test ΔRMSE and the SD of P2 across cell lines, p = 0.003).
-2. **The draft's explanation (a), taken literally, occurs once but gives a low point.** In job 7, P2 was dropped, so its ablation effect is exactly 0. In job 9, k = 24, and many retained parameters absorb the ablation (effect ≈ 0). The published panel has no P2 points at 0, so in the Fig. 3 models P2 was presumably retained in all 10 replicates.
-3. **There is no evidence for different local optima (b).**
-   - The training RMSE of jobs 1, 3 and 5 (0.477–0.481) is within the range of the others (0.462–0.486). Their test RMSE (0.491–0.495) is within the range too (0.455–0.544).
-   - P2 ablation effect and training RMSE are unrelated (Spearman ρ = 0.03).
-   - Each replicate's P2 deviation profile across cell lines matches the median profile of the other replicates (Spearman ρ = 0.93–1.00). The same holds for P1 (ρ = 0.95–0.99). The replicates therefore infer the same cell-line pattern and differ only in how the effect is shared among correlated parameters.
-4. **Caveat: the proxy shows no Tukey outliers of the published size.** Its largest P2 test ΔRMSE is 0.046, against 0.25–0.31 in Fig. 3B. The mechanism therefore still has to be confirmed on the Fig. 3 models (n_hidden = 8, depth = 1). The new diagnostic cell in `figure_3.ipynb` does exactly this.
+> "We have examined the two outlying replicates and found that they are not failed fits. They have the lowest test errors of the ten replicates (RMSE 0.40 and 0.42, compared with 0.42–0.48) and training errors within the range of the others, and the cell-line pattern of their inferred P2 deviations agrees with that of the other replicates (Spearman ρ = 0.90 and 0.97). Instead, they are the two replicates in which the sparsification removed the parameters that co-vary with P2 (Fig. 3C): P4 (p.EGFR → p.MEK) and P5 (p.ERK ⊣ p.MEK) were dropped in both, and P3 (p.EGFR → p.ERBB2) was dropped in one and nearly invariant across cell lines in the other. In these replicates, P2 alone accounts for this axis of cell-line variability, so its ablation cannot be compensated by correlated parameters and increases the error more. We now note this in the figure legend."
 
-### Paste-ready text (fill the brackets after running the diagnostic cell on the NEMO files)
+**Legend sentence for Fig. 3B (paste-ready):**
 
-**If the real outliers lack P3 or P4 and have normal RMSE** (the outcome the proxy predicts):
-
-> Response: "We have examined the outlying replicates and found that they are not failed fits. Their training and test errors lie within the range of the other replicates, and the cell-line pattern of their inferred P2 deviations agrees with that of the other replicates (Spearman ρ ≥ [x]). Instead, the magnitude of the P2 ablation effect depends on which of the parameters that co-vary with P2 (Fig. 3C) were retained by the sparsification. In the two outlying replicates, [P4 / P3] was not retained, so P2 alone accounts for this axis of cell-line variability and its ablation costs more. Where these parameters are retained, they partly compensate for the ablation of P2. We now note this in the figure legend."
-
-> Legend sentence (Fig. 3B): "Two replicates show markedly larger effects of ablating P2 (ΔRMSE [0.09 and 0.13] on training and [0.25 and 0.31] on test cell lines). In these replicates, the sparsification did not retain the co-varying parameter [P4] (C), so that P2 alone carries this axis of variability; their training and test errors are within the range of the other replicates."
-
-**If the outliers instead show a clearly worse training RMSE, or a P2 profile that disagrees with the consensus (ρ well below the others)**, use (b):
-
-> "…found that the two outlying replicates converged to a different local optimum, with [higher training error / a different distribution of the ERBB2 axis across parameters]. The remaining eight replicates agree closely."
-
-**If neither applies**, report it plainly ("…found no systematic difference in fit quality or in the retained parameters…"), and keep the legend sentence descriptive.
+> "In two of the ten replicates, ablation of P2 increases the RMSE markedly more (training 0.09 and 0.13; test 0.25 and 0.31). In these replicates, the parameters that co-vary with P2 (P3–P5; C) were largely removed by the sparsification, so their contribution cannot compensate for the ablation; both replicates fit the data as well as the others."
 
 ## 3. Fig. 3F: what the font color encodes
 
