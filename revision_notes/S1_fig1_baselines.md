@@ -14,6 +14,13 @@ This is the notebook default (`HELDOUT = "test"`). Use version A of the text bel
 The numbers for the 10-line pooling of the old figure are kept for reference only.
 The Results numbers 0.43/0.34 in the draft become **0.36/0.34**.
 
+**Methods 8 is wrong for the reported numbers (settled 2026-10-31).** The April
+lasso and elastic-net outputs chose α by scikit-learn's default **5-fold split over
+the training lines, not by the DMM's CV folds**. Refitting with `cv=5` reproduces
+the stored predictions to machine precision. The conclusion is the same either way
+(section 2, "CV sensitivity"). The authors need to pick one of the two Methods
+variants in section 4.
+
 **Read this first.** On the five test cell lines the DMM is **not more accurate**
 than regularized regression on the same features. Its median per-combo RMSE is
 0.36, against 0.34 for elastic net and 0.34 for lasso. The difference is not
@@ -212,6 +219,23 @@ As aggregated by the pipeline (regressors scored on averaged targets), the
 regressors look slightly better still: elastic net 0.33 (DMM 10% higher, p = 0.19),
 lasso 0.33 (p = 0.12), linear regression 0.33 (p = 0.34).
 
+**CV sensitivity.** The numbers above use the April regressors, whose α came from
+scikit-learn's default 5-fold split (3d). Refitting the split-`all` regressors on
+the DMM's CV folds, as the current `evaluate_regressors.py` does, selects a smaller α
+(lasso 0.040 instead of 0.171; elastic net 0.039 instead of 0.165). With matched
+scoring on the test set this gives:
+
+| Baseline | median RMSE | DMM vs. baseline | median ΔRMSE | DMM lower in (combos) | lines | p | Holm p |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Lasso (DMM folds) | 0.36 | 2% higher | +0.029 | 24/60 | 2/5 | 0.13 | 0.38 |
+| Elastic net (DMM folds) | 0.35 | 2% higher | +0.023 | 24/60 | 2/5 | 0.13 | 0.38 |
+
+Linear regression, the controls and the DMM do not change. The negative-control
+Holm p becomes 0.16, because the other p-values in the family change. The
+conclusion is unchanged: the DMM is comparable to regularized regression, and the
+regressions are still numerically slightly ahead. The 10-line set was not refitted;
+it would need the four CV splits' feature files as well.
+
 ### For reference only: 10 held-out lines (5 test + 5 CV-validation, 120 combos), the old Fig. 1C pooling
 
 DMM median RMSE: held-out 0.43, train 0.34.
@@ -308,22 +332,36 @@ trajectories in Fig. 1 were labelled "linear regression". Now that OLS appears a
 "Linear reg.", the notebook overrides the label locally to "Elastic net".
 `figure_config.py` (S4's file) is unchanged.
 
-### d. Regressor outputs may predate the CV-fold change: unverified
-The aggregates date from 7–8 April 2026. See section 4. Whether these regressors used
-the DMM folds or scikit-learn's default 5-fold split cannot be told from the
-aggregates. To check, refit split `all` both ways and compare with the stored
-predictions. That needs only `features/EGFR_MAPK__logobs/dream_cytof/{train,val}/
-cytof_init__all__RFE_8_permute.csv` from NEMO; only `RFE_15` is on the laptop.
-Alternatively, rerun `evaluate_regressors` for `figure1a` (CPU only). The choice
-only moves α, so a large change is unlikely, but the Methods should describe the
-procedure that produced the numbers.
+### d. The April regressors used the default 5-fold split, not the DMM folds (settled)
+Check: the split-`all` regressors were refitted exactly as `evaluate_regressors.py`
+fits them, from the April feature files
+`features/EGFR_MAPK__logobs/dream_cytof/{train,val}/cytof_init__all__RFE_8_permute.csv`
+and the PEtab tables, once with `cv=5` and once with the current `PredefinedSplit`
+over the DMM folds. The predictions were then compared with the stored ones in
+`trajectories_figure1a.csv` (5,195 training and 460 test values per model):
+
+| Model | CV | selected α | max abs. difference to stored |
+|---|---|---:|---:|
+| Linear regression | (none) | – | 4e-15 |
+| Lasso | default `cv=5` | 0.171 | **3e-15** |
+| Lasso | DMM folds | 0.040 | 0.27 |
+| Elastic net | default `cv=5` | 0.165 | **4e-15** |
+| Elastic net | DMM folds | 0.039 | 0.28 |
+
+The April outputs therefore come from the pre-change code: `MultiTaskLassoCV` /
+`MultiTaskElasticNetCV` with `cv=5`, i.e. unshuffled 5-fold `KFold` over the 58
+training lines, which never include test lines. The exact match of linear
+regression confirms that inputs, targets and preprocessing were reconstructed
+correctly. The other splits (CV lines) were not checked, but they ran the same
+code at the same time. Section 4 has the two ways to resolve this.
 
 ---
 
 ## 4. Methods 8 check: "regression baselines predict the measured CyTOF dynamics directly from the DMM's input features with the same CV folds as DMM tuning"
 
-Verdict: **true for the current code, with qualifications that the Methods should
-state.** Whether the April 2026 outputs used the same CV folds is unverified (3d).
+Verdict: **inputs and outputs as drafted are correct, with qualifications. "Same CV
+folds as DMM tuning" is false for the numbers in the paper.** The April outputs used
+scikit-learn's default 5-fold split (3d). Only the current code uses the DMM folds.
 
 What the code does (`evaluate_regressors.py`, `regressor_training.py`,
 `dmm/feature_selection.py`):
@@ -345,7 +383,7 @@ What the code does (`evaluate_regressors.py`, `regressor_training.py`,
   **jointly as one multi-output model**. `MultiTaskLassoCV` and `MultiTaskElasticNetCV`
   select one common set of features for all outputs. There is no mechanistic model in
   the loop.
-- **Same CV folds as DMM tuning. True in the current code.** α (the penalty strength;
+- **Same CV folds as DMM tuning. True in the current code only.** α (the penalty strength;
   20 candidates) is chosen with `PredefinedSplit` over the DMM's CV folds. Each fold
   validates on one CV line (BT20, HCC1500, HCC2185, MCF7 or UACC3199), and all other
   training lines are always used for fitting. The model is then refitted on all
@@ -354,18 +392,28 @@ What the code does (`evaluate_regressors.py`, `regressor_training.py`,
   fit or the α selection. Ordinary least squares has no hyperparameter. The
   elastic-net mixing parameter is **fixed at l1_ratio = 0.5** (scikit-learn default)
   and not tuned. The draft should not say both are tuned.
-- **Caveat: provenance of the outputs.** `build_pipeline` and `train_pipeline` still
-  default to `cv=5` (unshuffled 5-fold `KFold` over the training lines). Any outputs
-  written before `evaluate_regressors.py` started passing the DMM folds used that
-  default. A comment in `evaluate_reference.py` refers to a "regressor-fairness note
-  that used to sit here", which suggests the change is recent. Git history (a single
-  squashed commit) cannot tell, and the aggregates date from April 2026. See 3d for
-  how to check.
+- **The April outputs used the old default.** `build_pipeline` and `train_pipeline`
+  default to `cv=5`, unshuffled 5-fold `KFold` over the training lines. The April
+  2026 outputs behind every number in this note were produced that way; this is
+  verified by exact reproduction (3d).
 - **Scoring.** The pipeline scores the regressors against the averaged, gap-filled
   targets (3b); the Fig. 1C numbers above score them against the individual
   measurements.
 
-Suggested Methods 8 text (US spelling):
+Suggested Methods 8 text (US spelling). Pick one variant:
+
+- **Variant 1: keep the April numbers.** Describe the 5-fold split. This needs no
+  rerun. However, the repository code (DMM folds) then no longer reproduces the paper's
+  regression numbers, unless `evaluate_regressors.py` goes back to `cv=5` or the
+  rerun of variant 2 happens.
+- **Variant 2: rerun with the current code.** Rerun `evaluate_regressors` for all
+  `figure1a` splits on NEMO, then `evaluate_all --figure=figure1a`. This is CPU only,
+  minutes per split. Then rerun `figure_1.ipynb` and update the numbers (expected for
+  the test set: elastic net 0.35, lasso 0.36, p = 0.13; see "CV sensitivity"). Code,
+  Methods and numbers then agree. This is my recommendation, if a cluster run is
+  acceptable.
+
+Shared text:
 > Regression baselines. To test whether the mechanistic structure adds predictive
 > value beyond a direct statistical mapping, we trained ordinary least-squares,
 > multi-task lasso and multi-task elastic-net regression models (scikit-learn) that
@@ -377,14 +425,12 @@ Suggested Methods 8 text (US spelling):
 > filled from the nearest measured or by linear interpolation), and were fitted
 > jointly as one multi-output model. The multi-task penalties select a common set of
 > features across outputs. The regularization strength (20 candidate values; elastic
-> net mixing parameter fixed at 0.5) was chosen by cross-validation over the same
-> folds used to tune the DMM, each holding out one of the five cross-validation cell
-> lines, and the model was refitted on all training cell lines. Test cell lines were
-> not used for fitting or model selection. For comparison with the DMM, regression
-> predictions were scored against the same individual replicate measurements as the
-> mechanistic models.
+> net mixing parameter fixed at 0.5) was chosen by {CV CLAUSE}, and the model was
+> refitted on all training cell lines. Test cell lines were not used for fitting or
+> model selection. For comparison with the DMM, regression predictions were scored
+> against the same individual replicate measurements as the mechanistic models.
 
-(If 3d shows that the April outputs used the default 5-fold split, replace "over the
-same folds used to tune the DMM, each holding out one of the five cross-validation
-cell lines" with "by five-fold cross-validation over the training cell lines", or
-rerun.)
+{CV CLAUSE}:
+- Variant 1: "five-fold cross-validation over the training cell lines"
+- Variant 2: "cross-validation over the same folds used to tune the DMM, each
+  holding out one of the five cross-validation cell lines"
