@@ -9,7 +9,11 @@ candidate set of every split and omics context three ways:
 - ``mean_uncentered`` (fix A): the mean step uses the uncentered, imputed
   inputs; the variance step is unchanged;
 - ``no_mean_step`` (fix B): the mean step is dropped; the 501 most variable
-  features are kept.
+  features are kept;
+- ``median_expressed`` (fix C, implemented in select_features.py): no mean
+  step for proteomics; for transcriptomics, keep transcripts with median log2
+  expression > -2.5 over the training lines (the filter of the Fig. 4 DE
+  analysis), then the 501 most variable.
 
 It reuses ``rf_inputs``, ``get_hvg`` and ``hvg_diagnostics`` from
 ``figures_paper/receptor_evidence.py`` (branch
@@ -46,7 +50,8 @@ from common import Wildcards, features_dir, training_samples
 from dmm.feature_selection import load_data
 
 TOP_N = 500
-VARIANTS = ("current", "mean_uncentered", "no_mean_step")
+VARIANTS = ("current", "mean_uncentered", "no_mean_step", "median_expressed")
+MIN_MEDIAN = {"transcriptomics": -2.5}  # select_features.HVG_MIN_MEDIAN
 
 # Curated genes of select_features.py worth tracking (receptors, PAM50, IHC)
 PAM50 = (
@@ -99,6 +104,11 @@ def candidate_sets(tables: dict, split: str, context: str):
         "mean_uncentered": hvg(centered, uncentered.mean()),
         "no_mean_step": hvg(centered, None),
     }
+    if context in MIN_MEDIAN:
+        expressed = uncentered.median() > MIN_MEDIAN[context]
+        sets["median_expressed"] = hvg(centered.loc[:, expressed], None)
+    else:
+        sets["median_expressed"] = sets["no_mean_step"]
     assert sets["current"].equals(hvg(centered, centered.mean()))
     return centered, uncentered, sets
 
@@ -143,7 +153,12 @@ def compare(tables: dict | None = None):
             removed_fix = set(
                 centered.columns[unc_means < np.percentile(unc_means, 20)]
             )
-            cur, fa, fb = (set(sets[v]) for v in VARIANTS)
+            cur, fa, fb, fc = (set(sets[v]) for v in VARIANTS)
+            expressed = (
+                uncentered.median() > MIN_MEDIAN[context]
+                if context in MIN_MEDIAN
+                else pd.Series(True, centered.columns)
+            )
             summary.append(
                 {
                     "split": split,
@@ -152,9 +167,16 @@ def compare(tables: dict | None = None):
                     "n_current": len(cur),
                     "n_mean_uncentered": len(fa),
                     "n_no_mean_step": len(fb),
+                    "n_median_expressed": len(fc),
                     "current_and_mean_uncentered": len(cur & fa),
                     "current_and_no_mean_step": len(cur & fb),
                     "mean_uncentered_and_no_mean_step": len(fa & fb),
+                    "current_and_median_expressed": len(cur & fc),
+                    "no_mean_step_and_median_expressed": len(fb & fc),
+                    "n_expressed": int(expressed.sum()),
+                    "top501_not_expressed": len(
+                        top & set(expressed.index[~expressed])
+                    ),
                     "top501_removed_by_current_mean_step": len(
                         top & removed_now
                     ),
@@ -179,6 +201,7 @@ def compare(tables: dict | None = None):
                             "gene": gene,
                             "variance_rank": rank[gene],
                             "uncentered_mean": unc_means[gene],
+                            "uncentered_median": uncentered.median()[gene],
                             **flags,
                         }
                     )
@@ -187,7 +210,7 @@ def compare(tables: dict | None = None):
                 .reset_index()
                 .assign(split=split, context=context)
             )
-            union = sorted(cur | fa | fb)
+            union = sorted(cur | fa | fb | fc)
             members.append(
                 pd.DataFrame(
                     {
@@ -197,6 +220,9 @@ def compare(tables: dict | None = None):
                         "variance_rank": rank[union].to_numpy(),
                         "uncentered_mean": unc_means[union].to_numpy(),
                         "centered_mean": cur_means[union].to_numpy(),
+                        "uncentered_median": uncentered.median()[
+                            union
+                        ].to_numpy(),
                         **{v: np.isin(union, sets[v]) for v in VARIANTS},
                     }
                 )
