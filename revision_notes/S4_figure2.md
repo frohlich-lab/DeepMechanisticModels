@@ -9,7 +9,7 @@ Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 tra
 | Item | State |
 |---|---|
 | 1. Fig. 2 redesign (legends above every sub-panel, direct box labels, palette, CVD check) | Done; run on the NEMO `eval/` outputs. |
-| 2. Fig. 2D relabel + minima; Table S4 check | Done. **The draft's minima statement doesn't hold** (F2). Table S4 is correct for CyTOF only (F1). |
+| 2. Fig. 2D relabel + minima; Table S4 check | Done. 2D now shows CyTOF input only (authors' decision, 31 Oct). **The draft's minima statement needs rewording** (F2). Table S4 is correct for CyTOF only (F1). |
 | 3. New Fig. S-PCA (4 combinations) | Done (`figure_2.ipynb`, section "Figure S — Latent embeddings…"). |
 | 4. Fig. 2B counts | Confirmed from the plotted embeddings: **30 luminal / 22 basal / 6 normal-like**. |
 | 5. Fig. S1 highlight + threshold | Done. |
@@ -73,9 +73,9 @@ Both notebooks are committed with outputs from the real data (`eval/` synced fro
 - **"3 with EGFR transcript integration" holds** (pooled and CyTOF), but the dip is 0.002–0.007, about one SEM.
 - **"Global minimum 8 for both" holds for CyTOF input** (DMM 0.504, + EGFR tx 0.439). It does not hold for the pooled curve that the submitted panel shows: there the DMM is lowest at 6 (0.479 vs. 0.481 at 8, well within the SEM). For multimodal alone, DMM is lowest at 6 and + EGFR tx at 8.
 - **Overall:** every local minimum is a dip of at most about one SEM. The robust statement is that test RMSE decreases with the number of latent dimensions and flattens from about 6, with the lowest values at 6–8. Recommended response and legend text is below.
-- **Recommendation:** restrict 2D to CyTOF input (`NHIDDEN_CONTEXTS = ["cytof_init"]`, one line). Then the panel matches the models it justifies (Table S4: CyTOF 8), and "lowest at 8 for both" is true. The committed figure still pools both inputs, as submitted.
+- **Decision (31 Oct):** 2D shows CyTOF input only (`NHIDDEN_CONTEXTS = ["cytof_init"]`). The panel now matches the models it justifies (Table S4: CyTOF 8). It shows first local minima at 6 (DMM) and 3 (+ EGFR tx), and the lowest test RMSE at 8 for both. The alternative train-vs-test panel (`fig2_panelD_trainval.pdf`) still pools both inputs, as submitted.
 - **Wording:** 8 is the largest value scanned (`LATENT_DIMS["range"]` = 1…8). It is the lowest test RMSE *within the scanned range*, not a demonstrated global minimum. Suggested text: "lowest test RMSE within the scanned range (1–8)".
-- **Pooling:** the scan (`figure3b`) covers CyTOF *and* multimodal input. The submitted panel averaged both per training run, and the new one does the same by default (`NHIDDEN_CONTEXTS = None`). The multimodal models were trained with 6, not 8.
+- **Pooling:** the scan (`figure3b`) covers CyTOF *and* multimodal input. The submitted panel averaged both per training run. The multimodal models were trained with 6, not 8.
 - The panel now plots test RMSE against "number of latent dimensions (n_hidden)" directly. The submitted train-vs-test layout is kept as an alternative (`fig2_panelD_trainval.pdf`) with a size legend titled "number of latent dimensions (n_hidden)".
 - Side note: the size handles that `barplots.render_nhidden_trainval` returns have twice the marker area of the plotted points. The notebook rebuilds them, and `barplots.py` is untouched.
 
@@ -162,9 +162,9 @@ These numbers come from real data (measured CyTOF).
 
 **Figure 2** (panel parts; keep your title sentence)
 
-> **(A)** Test-set RMSE (five held-out cell lines) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over ten independent training runs and are labeled individually; linear regression is a single fit (bar); dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over ten training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx, averaged over CyTOF and multimodal input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 6 and 8). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx simulations (CyTOF input), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
+> **(A)** Test-set RMSE (five held-out cell lines) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over ten independent training runs and are labeled individually; linear regression is a single fit (bar); dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over ten training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx with CyTOF input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx simulations (CyTOF input), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
 
-(D) as committed (both inputs pooled). If you restrict the panel to CyTOF (recommended, F2), use instead: "…for the base DMM and DMM + EGFR tx with CyTOF input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both)."
+(D) matches the committed CyTOF-only panel.
 
 **Figure S-PCA (new)**
 
@@ -195,10 +195,8 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 **R1, Fig. 2B:**
 > We corrected the subtype counts in the legend (30 luminal, 22 basal and 6 normal-like training cell lines, intrinsic subtypes from Marcotte et al.) and now show them in the panel legend. The new Figure S? shows the latent embeddings for all four combinations of input data (CyTOF, multimodal) and EGFR transcript integration.
 
-**R1, Fig. 2D.** The draft's "4 / 3 / 8" statement must change (F2). Wording that the data support, assuming 2D is restricted to CyTOF input:
+**R1, Fig. 2D.** The draft's "4 / 3 / 8" statement must change (F2). Wording for the committed CyTOF-only panel:
 > We relabeled the axis "number of latent dimensions (n_hidden)" and now plot the test RMSE directly against it, marking the first local minimum and the lowest value of each curve. With CyTOF input, the test RMSE decreased with the number of latent dimensions and was lowest at eight, the largest value tested, for both the base DMM and the DMM with EGFR transcript integration; earlier local minima (six and three latent dimensions, respectively) were within one standard error of the neighboring values. We therefore used eight latent dimensions for the CyTOF-input DMMs (Table S4).
-
-If 2D stays pooled over both inputs, use instead: "…was lowest at six (base DMM) and eight (with EGFR transcript integration) latent dimensions, with values at six to eight within one standard error…".
 
 **R1, Figs. S7–S8 → S1–S2:**
 > We now highlight the same ten cell lines in both figures and define them explicitly: they lack detectable EGFR transcript (log-FPKM < 0, i.e. FPKM < 1), yet their EGFR protein estimate lies above −2 log₂FC, within the range of transcript-expressing lines; any cut-off between −2.64 and −1.95 selects the same lines. The columns of the peptide heat map (Figure S2) are now sorted by the same EGFR protein values, shown as a bar plot above the heat map. The heat map shows that the protein estimates of nine of these ten lines rest on one to three of the 40 EGFR peptides, whereas the other lines have a median of 25 detected peptides.
@@ -214,9 +212,8 @@ If 2D stays pooled over both inputs, use instead: "…was lowest at six (base DM
   - Optional dependency: `colorspacious`, for the CVD cell only.
 - **S5 and others:** `figure_config.py` only gained constants, so existing ones are unchanged. Adopting `CVD_CONTEXT_COLORS` in Figs. 1/3/4 would make context colors consistent across the paper; that's an author decision. `barplots.render_nhidden_trainval` size-legend handles are 2× the plotted marker area (F2); `barplots.py` was not touched.
 - **Author decisions left:**
-  1. Pool 2D over both inputs or restrict it to CyTOF (F2).
-  2. Left 2B panel: keep DMM + EGFR tx, or switch to the base DMM (F4).
-  3. How to handle the feature-augmentation architecture mismatch (F1).
-  4. The reference of the proteomics log2FC (F6).
-  5. Whether to include Fig. S-pERK.
+  1. Left 2B panel: keep DMM + EGFR tx, or switch to the base DMM (F4).
+  2. How to handle the feature-augmentation architecture mismatch (F1).
+  3. The reference of the proteomics log2FC (F6).
+  4. Whether to include Fig. S-pERK.
 - **Data checks done:** each DMM box in 2A is one test RMSE per training run (10 runs). Linear regression is one deterministic value per context, duplicated across model files, so it is drawn as a bar.
