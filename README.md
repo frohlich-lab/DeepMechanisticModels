@@ -214,8 +214,9 @@ a subset, e.g. one main figure.
 <!-- TODO(authors): add the measured wall time and core-hours of a full
 cluster run. -->
 
-Building the full workflow graph takes several minutes before the first job
-starts.
+Snakemake first builds the graph of all jobs, which for the full set took
+47 minutes in a dry run on a laptop at low priority. Restricting to the
+figure configurations of interest with `--config figures=...` shortens this.
 
 The figures-only path runs on a laptop: it downloads about 0.4 GB from
 Synapse and executes the notebooks sequentially. It needs the aggregated
