@@ -295,20 +295,16 @@ def correlation_summary(tables: dict | None = None) -> dict:
 def get_hvg(input_df: pd.DataFrame, top_n: int = 500) -> pd.DataFrame:
     """Copy of ``select_features.get_hvg`` for an integer ``top_n``.
 
-    In ``select_features.py`` this runs on mean-centered inputs, so the
-    "lowest 20 % mean" step compares floating-point residuals of zero.
+    As fixed in commit 50bd9e1 (no low-mean step, which compared
+    floating-point residuals of the mean-centered inputs): keeps the
+    ``top_n + 1`` most variable features.
     """
-    means = np.mean(input_df, axis=0)
-    threshold = np.percentile(means, 20)
-    input_df = input_df.loc[:, means >= threshold]
     var_threshold = sorted(np.nanvar(input_df, axis=0), reverse=True)[top_n]
     return input_df.loc[:, np.nanvar(input_df, axis=0) >= var_threshold]
 
 
 def hvg_diagnostics(input_df: pd.DataFrame, top_n: int = 500) -> pd.DataFrame:
     """Why each receptor did or did not pass ``get_hvg``."""
-    means = np.mean(input_df, axis=0)
-    passes_mean = means >= np.percentile(means, 20)
     var_rank = (
         pd.Series(np.nanvar(input_df, axis=0), index=input_df.columns)
         .rank(ascending=False, method="min")
@@ -318,7 +314,6 @@ def hvg_diagnostics(input_df: pd.DataFrame, top_n: int = 500) -> pd.DataFrame:
     return pd.DataFrame(
         {
             "variance_rank": var_rank.reindex(RECEPTORS),
-            "passes_mean_step": passes_mean.reindex(RECEPTORS),
             "in_hvg_set": [g in kept for g in RECEPTORS],
         },
         index=pd.Index(RECEPTORS, name="gene"),
@@ -385,12 +380,16 @@ def rf_importance(inputs, output, seed: int = 42) -> pd.Series:
     return pd.Series(importances, index=inputs.columns)
 
 
-def compute_rf_importances(tables: dict | None = None, splits=SPLITS):
+def compute_rf_importances(
+    tables: dict | None = None,
+    splits=SPLITS,
+    candidate_sets=("all", "hvg"),
+):
     """Importances for all candidate features, per split/context/set/seed.
 
     ``candidate_set`` is ``"all"`` (every feature passing the missingness
-    filter, seeds ``SEEDS``) or ``"hvg"`` (the pipeline's HVG prefilter,
-    seed 42 only, i.e. exactly the first round of ``HVGRFE_*``).
+    filter) or ``"hvg"`` (the pipeline's HVG prefilter, i.e. the first round
+    of ``HVGRFE_*``). Both use ``SEEDS``; seed 42 is the pipeline's forest.
     """
     tables = tables or load_petab_tables()
     importances, diagnostics = [], []
@@ -407,9 +406,9 @@ def compute_rf_importances(tables: dict | None = None, splits=SPLITS):
                     n_candidates=inputs.shape[1],
                 )
             )
-            for candidate_set, seeds in (("all", SEEDS), ("hvg", (42,))):
+            for candidate_set in candidate_sets:
                 x = get_hvg(inputs) if candidate_set == "hvg" else inputs
-                for seed in seeds:
+                for seed in SEEDS:
                     print(f"{split} {context} {candidate_set} seed {seed}")
                     importances.append(
                         rf_importance(x, output, seed)
@@ -514,9 +513,8 @@ def first_round_status(
     """What happens to each receptor in the pipeline's first RFE round.
 
     One row per receptor and split: excluded by the missingness filter, by
-    the variance step of the HVG prefilter (not among the 501 most variable
-    candidates, so excluded with or without the mean step), by the mean step
-    alone, or ranked among the HVG candidates (rank out of ``n_features``).
+    the HVG prefilter (not among the 501 most variable candidates), or
+    ranked among the HVG candidates (rank out of ``n_features``).
     """
     hvg = ranks[ranks["candidate_set"] == "hvg"].set_index(
         ["split", "context", "gene"]
@@ -528,10 +526,8 @@ def first_round_status(
             status = "excluded: >30% missing"
         elif f["in_hvg_set"]:
             status = "ranked"
-        elif f["variance_rank"] > 501:
-            status = "excluded: HVG variance step"
         else:
-            status = "excluded: HVG mean step"
+            status = "excluded: not among 501 most variable"
         rows.append(
             {
                 "split": f["split"],
@@ -551,6 +547,7 @@ def check_hvg_replication(importances: pd.DataFrame) -> pd.DataFrame:
 
     Reads ``features/<model>/<data>/train/<context>__<split>__HVGRFE_*`` where
     present (untracked pipeline output) and reports features outside the set.
+    Only feature files produced after the HVG fix (50bd9e1) should match.
     """
     rows = []
     hvg = importances[importances["candidate_set"] == "hvg"]

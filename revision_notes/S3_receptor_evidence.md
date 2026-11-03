@@ -17,13 +17,16 @@ All numbers below come from that notebook. Data: `EGFR_MAPK__logobs__dream_cytof
      - Adjusted for EGFR transcript, the partial r is −0.30 (ΔpMEK, P = 0.02), −0.25 (ΔpERK, P = 0.048) and −0.12 (Δp90RSK, P = 0.35). All Spearman partials have P ≥ 0.12.
    - EGFR protein correlates with EGF-induced ΔpERBB2 (r = 0.45, q = 0.007, n = 46). It does not correlate with the downstream responses (|r| ≤ 0.21, q ≥ 0.30).
    - ERBB2 transcript and protein show no association with any of the five readouts (|r| ≤ 0.23, q ≥ 0.23).
-4. **The HVG prefilter in `select_features.py` removes an arbitrary 20 % of features.** `prepare_inputs_for_context` mean-centers the inputs before `get_selected_features` calls `get_hvg`. The "drop the 20 % lowest means" step therefore compares floating-point residuals of zero (|mean| < 3e-15). For the receptors this means, before any random forest sees them:
-   - EGFR protein (variance rank 128–152 of ~6,180) is removed in 3 of 6 splits.
-   - ERBB2 protein (variance rank 25–26) is removed in 5 of 6 splits.
-   - ERBB2 and ERBB3 transcripts would be excluded anyway: their variance ranks are 1,034–1,076 and 1,528–1,573 of 16,562, outside the 501 kept (panel D).
-
-   I did not change `select_features.py`, because it is out of scope. The artifact affects every `HVGRFE_*` feature set (the transcriptomics and proteomics contexts, Fig. 1 and later). It also makes the HVG set depend on floating-point details: 9 of the 10 saved `HVGRFE` selections fall inside my replicated HVG sets, but proteomics/BT20 has 1 of its 10 selected features outside. Whether to fix this and rerun is the authors' decision; see the follow-up below.
-6. **Random-forest importance does not single out EGFR transcript.** On all features of a modality, every receptor level ranks mid-distribution, and its rank varies about tenfold across splits (section 2a). The RF evidence supports "receptor levels are not among the most important features". It does not support "EGFR transcript is, the others are not". In the pipeline's own first round (the HVG set), EGFR transcript is the only receptor present in all splits (median rank 130.5 of 501). That is mainly a statement about the HVG prefilter (flag 4).
+4. **The HVG prefilter bug is fixed; this analysis uses the fix.** `prepare_inputs_for_context` mean-centered the inputs before `get_hvg`, so its "drop the 20 % lowest means" step compared floating-point residuals of zero.
+   - The fix is commit 50bd9e1 (fix B: no mean step, keep the 501 most variable features). It is on branch `claude/objective-rubin-5b7968` and not yet on `main`. The figure1c feature scan was rerun with it on NEMO; see `revision_notes/hvg_prefilter.md` on that branch.
+   - `receptor_evidence.get_hvg` copies the fixed version.
+   - Before the fix, EGFR protein (variance rank 128–152 of ~6,180) was dropped in 3 of 6 splits and ERBB2 protein (variance rank 25–26) in 5 of 6. With the fix, both are candidates in all 6.
+   - ERBB2 and ERBB3 transcripts are still not candidates. Their variance ranks are 1,034–1,076 and 1,528–1,573 of 16,562, outside the 501 kept. ERBB3 protein is still removed by the missingness filter. Of the six receptor measures, only three therefore reach the pipeline's random forest (panel D).
+6. **Random-forest importance does not single out EGFR transcript.**
+   - On all features of a modality, every receptor level ranks mid-distribution, and its rank varies about tenfold across splits (section 2a).
+   - Within the pipeline's first round (501 HVG candidates, section 2b), EGFR transcript, EGFR protein and ERBB2 protein all rank mid-pack (median 176.5, 212.5 and 315.5 of 501).
+   - A single forest, which is what the pipeline uses, can put the same receptor anywhere from about rank 20 to 480, depending on its seed.
+   - The RF evidence therefore supports "receptor levels are not among the most important features". It does not support "EGFR transcript is, the others are not".
 5. **The random-forest targets are the CyTOF dynamics, not kinetic parameters.** `select_features.py` fits the RF to the KNN-imputed, centered `cytof_dynamic` table (the four model observables × 3 conditions × time points, 96 columns). The response's phrase "random-forest models used for feature selection (Methods, Section 5)" is accurate. Methods §5 should name this target if it does not already.
 
 ## 1. Receptor level vs. phospho-ERBB2 across cell lines
@@ -99,18 +102,22 @@ Share of single forests (one split × one seed, 30 per modality) in which a feat
 
 Per-split ranks are in the notebook (`ranks`).
 
-### 2b. The pipeline's own first round (HVG set, 501 features, seed 42; panel D)
+### 2b. The pipeline's own first round (fixed HVG set, 501 features; panel D)
 
-| Receptor level | Ranked among the 501 HVG candidates | Excluded before ranking |
-|---|---|---|
-| EGFR transcript | 6 of 6 splits; rank 30–362 (median 130.5) | none |
-| ERBB2 transcript | none | variance step, 6 of 6 |
-| ERBB3 transcript | none | variance step, 6 of 6 |
-| EGFR protein | 3 of 6 (BT20 57, MCF7 118, UACC3199 408) | mean step, 3 of 6 (HCC1500, HCC2185, all) |
-| ERBB2 protein | 1 of 6 (all: 342) | mean step, 5 of 6 |
-| ERBB3 protein | none | missingness filter, 6 of 6 |
+Importance is averaged over the same 5 seeds. Seed 42 alone is the pipeline's forest, but single-forest ranks are too noisy to report: for example, EGFR transcript in split `all` ranges from 20 to 234 across seeds, and EGFR protein in BT20 from 41 to 422.
 
-No receptor level appears in any saved pipeline selection: the `transcriptomics … HVGRFE_15`, `proteomics … HVGRFE_10` and `multimodal … RFE_10` sets for the five CV splits, in `features/` of the main checkout. Selections for split `all` and for the sizes in `BEST_FEATURE_SETS` (`HVGRFE_12`, `HVGRFE_8`) are not on this machine, so I could not check those.
+| Receptor level | Ranked among the 501 HVG candidates (BT20, HCC1500, HCC2185, MCF7, UACC3199, all) | Median | Excluded before ranking |
+|---|---|---|---|
+| EGFR transcript | 199, 343, 154, 216, 125, 48 | 176.5 | none |
+| EGFR protein | 139, 46, 334, 173, 329, 252 | 212.5 | none |
+| ERBB2 protein | 380, 219, 198, 382, 281, 350 | 315.5 | none |
+| ERBB2 transcript | not ranked | n/a | not among the 501 most variable, 6 of 6 |
+| ERBB3 transcript | not ranked | n/a | not among the 501 most variable, 6 of 6 |
+| ERBB3 protein | not ranked | n/a | missingness filter, 6 of 6 |
+
+Before the fix (first version of this note), EGFR protein was a candidate in 3 of 6 splits and ERBB2 protein in 1 of 6.
+
+**Saved selections.** The saved selections in `features/` of the main checkout predate the fix, so they say nothing about the fixed pipeline. For the record, none of them (`transcriptomics … HVGRFE_15`, `proteomics … HVGRFE_10`, `multimodal … RFE_10`, five CV splits) contains a receptor level. Whether a receptor survives the full RFE under the fix can be read from the regenerated figure1c feature files on NEMO: the scan covers every selection size from 4 to 4,096.
 
 ## Paste-ready text
 
@@ -130,7 +137,7 @@ If the response also says that receptor levels other than EGFR transcripts "are 
 
 > Apart from EGFR transcript levels, receptor levels showed no consistent association with the measured signaling dynamics: ERBB2 transcript and protein levels were not associated with baseline or EGF-induced phospho-ERBB2, phospho-MEK, phospho-ERK or phospho-p90RSK (|r| ≤ 0.23, q ≥ 0.23); EGFR protein levels correlated with the EGF-induced phospho-ERBB2 response (r = 0.45) but not with downstream responses (|r| ≤ 0.21); and the negative correlation of ERBB3 transcript levels with EGF-induced downstream responses (r = −0.38 to −0.47) was attenuated after adjusting for EGFR transcript levels (partial r = −0.12 to −0.30), with which they are anticorrelated (r = −0.51; Fig. S_B).
 
-Avoid "none of the receptor levels was selected by the feature selection". It is true for the saved CV-split selections, but EGFR and ERBB2 protein were mostly not candidates, because of the HVG artifact (flag 4).
+Avoid "none of the receptor levels was selected by the feature selection" until it has been checked against the feature sets regenerated with the HVG fix (section 2b).
 
 ### Results
 
@@ -140,9 +147,9 @@ Replace "neither ERBB2 transcript nor protein levels correlated with phospho-ERB
 
 ### Figure legend (draft)
 
-> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Fate of receptor levels in the first round of the feature-selection pipeline per data split: rank among the 501 most variable features, or the filter step that excluded them.
+> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Receptor levels in the first round of the feature-selection pipeline per data split: importance rank (mean over five seeds) among the 501 most variable features of the modality, or the filter that excluded them.
 
-Panel D's "mean step" category describes the artifact in flag 4. If the authors fix the prefilter, D must be regenerated, or dropped and the legend cut to A–C.
+Panel D uses the fixed HVG prefilter (commit 50bd9e1). It is consistent with the pipeline only once that fix is on `main`.
 
 ### Methods (suggested addition to Section 5)
 
@@ -151,13 +158,14 @@ Panel D's "mean step" category describes the artifact in flag 4. If the authors 
 ## For S6 (workflow)
 
 - No change to `run_notebooks.py` is needed. Its current main-branch version discovers committed notebooks via `git ls-files figures_paper/*.ipynb`, and S6's branch also finds uncommitted ones. The notebook is not under a "(not in paper)" directory, so `--paper-only` includes it.
-- Runtime: the first run refits 72 random forests in one cell. That took 23 min under `taskpolicy -c utility` with `n_jobs = 3`. The result is cached as parquet under `eval/EGFR_MAPK__logobs/dream_cytof/receptor_evidence/`; parquet rather than CSV because `run_notebooks.py` redirects `to_csv`. Later runs take under a minute. This fits the default 1800 s cell timeout, but only just on a busy machine.
+- Runtime: the first run refits 120 random forests in one cell: about 25 min under `taskpolicy -c utility` with `n_jobs = 3` (the 60 all-feature fits took 23 min, the 60 first-round fits 1.5 min). The result is cached as parquet under `eval/EGFR_MAPK__logobs/dream_cytof/receptor_evidence/`; parquet rather than CSV because `run_notebooks.py` redirects `to_csv`. Later runs take under a minute. This fits the default 1800 s cell timeout, but only just on a busy machine.
 - Inputs: only the PEtab tables `data/EGFR_MAPK__logobs__dream_cytof__{measurements,observables}.tsv`, i.e. the `process_data` output for model `EGFR_MAPK__logobs`. No new figure configuration is needed. The replication check also reads `features/EGFR_MAPK__logobs/dream_cytof/train/*HVGRFE*` when present and skips it otherwise.
 - S6's note asks whether S3 owns the PXD017199 / `figure_S7` scripts. It does not: this task did not touch that analysis.
 
-## Follow-up (not done here)
+## Follow-up
 
-- **HVG prefilter.** In `select_features.py`, either apply the mean step before centering or drop it, then rerun the `HVGRFE_*` feature selection and the affected figures. This changes `select_features.py` behavior, so it needs the authors' decision. It also touches S2's feature scan.
+- **HVG prefilter.** Fixed in commit 50bd9e1 on `claude/objective-rubin-5b7968`; the figure1c scan was rerun on NEMO. That branch has to reach `main` before this PR's panel D matches the code on `main`.
+- **Full-RFE survival of receptors (not done).** Under the fix, read how far EGFR transcript, EGFR protein and ERBB2 protein survive the RFE from the regenerated figure1c feature files on NEMO.
 
 ## Reproduce
 
