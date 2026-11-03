@@ -13,6 +13,8 @@ Two analyses that do not involve the DMM:
    the estimator, targets and preprocessing of ``select_features.py`` (its
    ``RFE_*``/``HVGRFE_*`` branch). ``select_features.py`` runs ``fire.Fire`` at
    import, so the relevant logic is copied here rather than imported.
+3. How far receptor levels survive the pipeline's full RFE, read from the
+   feature files of the Fig. 1C feature-count scan.
 """
 
 import sys
@@ -42,6 +44,11 @@ from common import (
 from cytof import get_samples
 from dmm.config_options import Conf
 from dmm.feature_selection import load_data
+from training_configuration import (
+    BEST_FEATURE_SETS,
+    CONTEXTS_FEATURES_1C,
+    SPLITS_1C,
+)
 from util import load_petab_base_files
 
 MODEL = "EGFR_MAPK__logobs"
@@ -569,4 +576,74 @@ def check_hvg_replication(importances: pd.DataFrame) -> pd.DataFrame:
                     ],
                 }
             )
+    return pd.DataFrame(rows)
+
+
+# ---------------------------------------------------------------------------
+# 3. Survival through the full RFE (Fig. 1C feature-count scan)
+# ---------------------------------------------------------------------------
+
+
+def rfe_survival(splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))):
+    """Smallest selection of the Fig. 1C scan that still contains a receptor.
+
+    Reads the pipeline's ``<context>__<split>__HVGRFE_<N>_permute`` feature
+    files (untracked output of the ``figure1c`` workflow) for every size N
+    of the scan. Only files produced with the HVG fix (50bd9e1) are
+    meaningful. ``check_hvg_replication`` is necessary but not sufficient to
+    confirm that: older transcript selections often lie inside the fixed HVG
+    set too.
+
+    One row per receptor and split. ``smallest_selection`` is the number of
+    features in the smallest scanned selection containing the receptor (NaN
+    if none does); ``nested`` checks that every larger selection contains it
+    too; ``in_final_size_selection`` refers to the selection with the size of
+    ``BEST_FEATURE_SETS`` (the feature sets of the final models). Splits
+    without feature files are skipped.
+    """
+    rows = []
+    train_dir = features_dir / MODEL / DATA / "train"
+    for context in MODALITIES:
+        sizes = sorted(
+            int(features.split("_")[1])
+            for ctx, features in CONTEXTS_FEATURES_1C
+            if ctx == context and features.startswith("HVGRFE_")
+        )
+        final_size = int(BEST_FEATURE_SETS[context].split("_")[1])
+        for split in splits:
+            selections = {
+                size: set(pd.read_csv(path, index_col=0, nrows=0).columns)
+                for size in sizes
+                if (
+                    path := train_dir
+                    / f"{context}__{split}__HVGRFE_{size}_permute.csv"
+                ).exists()
+            }
+            if not selections:
+                continue
+            for gene in RECEPTORS:
+                kept = [
+                    size for size, sel in selections.items() if gene in sel
+                ]
+                rows.append(
+                    {
+                        "split": split,
+                        "context": context,
+                        "gene": gene,
+                        "receptor": receptor_label(context, gene),
+                        "n_sizes_found": len(selections),
+                        "smallest_selection": min(
+                            (len(selections[size]) for size in kept),
+                            default=np.nan,
+                        ),
+                        "nested": all(
+                            gene in sel
+                            for size, sel in selections.items()
+                            if kept and size >= min(kept)
+                        ),
+                        "final_size": final_size,
+                        "in_final_size_selection": gene
+                        in selections.get(final_size, set()),
+                    }
+                )
     return pd.DataFrame(rows)

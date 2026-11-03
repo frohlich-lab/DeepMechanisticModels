@@ -3,7 +3,7 @@
 Branch `claude/revision-receptor-evidence-b04f76`.
 
 - Code: `figures_paper/receptor_evidence.py`
-- Figure notebook: `figures_paper/figure_S_receptor_evidence.ipynb` (panels A–D, saved as `figS_receptor_panel{A,B,C,D}.pdf`)
+- Figure notebook: `figures_paper/figure_S_receptor_evidence.ipynb` (panels A–E, saved as `figS_receptor_panel{A,B,C,D,E}.pdf`)
 
 All numbers below come from that notebook. Data: `EGFR_MAPK__logobs__dream_cytof__*.tsv` (the PEtab tables the encoder features are built from), 63 cell lines (`cytof.get_samples`).
 
@@ -22,12 +22,13 @@ All numbers below come from that notebook. Data: `EGFR_MAPK__logobs__dream_cytof
    - `receptor_evidence.get_hvg` copies the fixed version.
    - Before the fix, EGFR protein (variance rank 128–152 of ~6,180) was dropped in 3 of 6 splits and ERBB2 protein (variance rank 25–26) in 5 of 6. With the fix, both are candidates in all 6.
    - ERBB2 and ERBB3 transcripts are still not candidates. Their variance ranks are 1,034–1,076 and 1,528–1,573 of 16,562, outside the 501 kept. ERBB3 protein is still removed by the missingness filter. Of the six receptor measures, only three therefore reach the pipeline's random forest (panel D).
-6. **Random-forest importance does not single out EGFR transcript.**
+5. **Random-forest importance does not single out EGFR transcript.**
    - On all features of a modality, every receptor level ranks mid-distribution, and its rank varies about tenfold across splits (section 2a).
    - Within the pipeline's first round (501 HVG candidates, section 2b), EGFR transcript, EGFR protein and ERBB2 protein all rank mid-pack (median 176.5, 212.5 and 315.5 of 501).
    - A single forest, which is what the pipeline uses, can put the same receptor anywhere from about rank 20 to 480, depending on its seed.
+   - In the full RFE, as run with the fix for the Fig. 1C scan (section 2c), no receptor level is in any selection of 24 or fewer features in any of the five CV splits. That includes the final models' sizes, 12 transcripts and 8 proteins. EGFR protein in HCC1500 lasts longest: it is kept down to 28 features.
    - The RF evidence therefore supports "receptor levels are not among the most important features". It does not support "EGFR transcript is, the others are not".
-5. **The random-forest targets are the CyTOF dynamics, not kinetic parameters.** `select_features.py` fits the RF to the KNN-imputed, centered `cytof_dynamic` table (the four model observables × 3 conditions × time points, 96 columns). The response's phrase "random-forest models used for feature selection (Methods, Section 5)" is accurate. Methods §5 should name this target if it does not already.
+6. **The random-forest targets are the CyTOF dynamics, not kinetic parameters.** `select_features.py` fits the RF to the KNN-imputed, centered `cytof_dynamic` table (the four model observables × 3 conditions × time points, 96 columns). The response's phrase "random-forest models used for feature selection (Methods, Section 5)" is accurate. Methods §5 should name this target if it does not already.
 
 ## 1. Receptor level vs. phospho-ERBB2 across cell lines
 
@@ -117,11 +118,40 @@ Importance is averaged over the same 5 seeds. Seed 42 alone is the pipeline's fo
 
 Before the fix (first version of this note), EGFR protein was a candidate in 3 of 6 splits and ERBB2 protein in 1 of 6.
 
-**Saved selections.** The saved selections in `features/` of the main checkout predate the fix, so they say nothing about the fixed pipeline. For the record, none of them (`transcriptomics … HVGRFE_15`, `proteomics … HVGRFE_10`, `multimodal … RFE_10`, five CV splits) contains a receptor level. Whether a receptor survives the full RFE under the fix can be read from the regenerated figure1c feature files on NEMO: the scan covers every selection size from 4 to 4,096.
+### 2c. Survival through the full RFE (Fig. 1C feature-count scan; panel E)
+
+Source: the `figure1c` feature files regenerated with the fix on NEMO, dated 2 Nov 2026. These are `features/EGFR_MAPK__logobs/dream_cytof/train/{transcriptomics,proteomics}__<split>__HVGRFE_<N>_permute.csv` for N = 4 … 4,096, 170 files in all.
+
+- All 170 selections lie inside the locally replicated HVG sets.
+- The 10 selections with N ≥ 512 hold all 501 candidates, and they match the replicated sets exactly.
+- The scan covers the five CV splits only.
+
+The table gives the smallest selection that still contains the receptor, in number of features. Every larger selection contains it too.
+
+| Receptor level | BT20 | HCC1500 | HCC2185 | MCF7 | UACC3199 | Median |
+|---|---|---|---|---|---|---|
+| EGFR transcript | 501 | 256 | 64 | 256 | 256 | 256 |
+| EGFR protein | 501 | 28 | 501 | 128 | 256 | 256 |
+| ERBB2 protein | 501 | 501 | 256 | 501 | 128 | 501 |
+| ERBB2 transcript, ERBB3 transcript, ERBB3 protein | never candidates (section 2b) | | | | | |
+
+How to read the table:
+
+- 501 means the receptor is already gone from the 256-feature selection.
+- The scanned sizes between 32 and 501 are 64, 128 and 256. So 256 means "kept at 256, gone at 128".
+
+Findings:
+
+- No receptor level is in any selection of 24 or fewer features in any split. That includes the final models' sizes in `BEST_FEATURE_SETS`: 12 transcripts and 8 proteins.
+- EGFR protein in HCC1500 lasts longest. It is kept down to 28 of 501 features and gone at 24.
+- The multimodal selections (`multimodal__<split>__RFE_<N>_permute`, N ≤ 32) concatenate the same omics selections; all 100 checked are identical. pEGFR therefore appears only in HCC1500, at N = 28 and 32.
+- **Split `all` is not covered.** It holds the final models of Figs. 2–4 and is not part of the scan. Its feature files on NEMO predate the fix: `transcriptomics__all__HVGRFE_12`, `proteomics__all__HVGRFE_8` and the multimodal `RFE_8` date from Apr 2026, and the others from Dec 2025–Feb 2026. None of them contains a receptor level, but they were drawn from the buggy prefilter.
+
+The older CV-split selections in `features/` of the main checkout (`HVGRFE_15`, `HVGRFE_10`, multimodal `RFE_10`) also predate the fix. None of them contains a receptor level.
 
 ## Paste-ready text
 
-US spelling. "Fig. S_" is the new figure. Panels: A (scatters), B (correlation heatmap), C (RF percentiles), D (first-round status).
+US spelling. "Fig. S_" is the new figure. Panels: A (scatters), B (correlation heatmap), C (RF percentiles), D (first-round status), E (survival through the full RFE).
 
 ### Response to Reviewer 2, major point 2
 
@@ -133,11 +163,15 @@ Replace the random-forest clause ("in the random-forest models used for feature 
 
 > in random forests trained as for feature selection (Methods, Section 5) on all features of the respective modality, receptor transcript and protein levels ranked in the middle of the importance distribution (median rank across the six data splits: 5,508, 4,946 and 2,997 of 16,562 transcripts for EGFR, ERBB2 and ERBB3; 2,920 and 2,438 of about 6,180 proteins for EGFR and ERBB2; ERBB3 protein was quantified in only 33 of 63 cell lines and therefore not considered; Fig. S_C).
 
+Optionally, continue with the pipeline's own recursive feature elimination (section 2c):
+
+> Within the feature-selection pipeline itself, which applies recursive feature elimination to the 501 most variable transcripts or proteins, ERBB2 and ERBB3 transcript levels were not among the most variable features and ERBB3 protein levels did not pass the missingness filter. EGFR transcript, EGFR protein and ERBB2 protein levels were eliminated before the feature sets reached 24 features in each of the five cross-validation splits (median smallest feature set retaining them: 256, 256 and 501 features, compared with final feature sets of 12 transcripts and 8 proteins; Fig. S_D,E).
+
 If the response also says that receptor levels other than EGFR transcripts "are not predictive" in general, flag 3 contradicts that at the univariate level. This more precise, numbers-only version could replace it:
 
 > Apart from EGFR transcript levels, receptor levels showed no consistent association with the measured signaling dynamics: ERBB2 transcript and protein levels were not associated with baseline or EGF-induced phospho-ERBB2, phospho-MEK, phospho-ERK or phospho-p90RSK (|r| ≤ 0.23, q ≥ 0.23); EGFR protein levels correlated with the EGF-induced phospho-ERBB2 response (r = 0.45) but not with downstream responses (|r| ≤ 0.21); and the negative correlation of ERBB3 transcript levels with EGF-induced downstream responses (r = −0.38 to −0.47) was attenuated after adjusting for EGFR transcript levels (partial r = −0.12 to −0.30), with which they are anticorrelated (r = −0.51; Fig. S_B).
 
-Avoid "none of the receptor levels was selected by the feature selection" until it has been checked against the feature sets regenerated with the HVG fix (section 2b).
+"None of the receptor levels was selected by the feature selection" now holds for the five CV splits, at every selection size of 24 or fewer features (section 2c). For split `all` itself, which holds the final models of Figs. 2–4, it still rests on feature files from before the HVG fix until those are regenerated.
 
 ### Results
 
@@ -147,27 +181,41 @@ Replace "neither ERBB2 transcript nor protein levels correlated with phospho-ERB
 
 ### Figure legend (draft)
 
-> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Receptor levels in the first round of the feature-selection pipeline per data split: importance rank (mean over five seeds) among the 501 most variable features of the modality, or the filter that excluded them.
+> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Receptor levels in the first round of the feature-selection pipeline per data split: importance rank (mean over five seeds) among the 501 most variable features of the modality, or the filter that excluded them. (E) Smallest feature set in the recursive feature elimination (feature-count scan of Fig. 1C) that still contained the receptor level, per cross-validation split; every larger feature set contained it too. Dashed lines, feature-set size of the final models.
 
-Panel D uses the fixed HVG prefilter (commit 50bd9e1). It is consistent with the pipeline only once that fix is on `main`.
+Panels D and E use the fixed HVG prefilter (commit 50bd9e1). They are consistent with the pipeline only once that fix is on `main`.
 
 ### Methods (suggested addition to Section 5)
 
-> To assess receptor levels independently of the DMM, we correlated EGFR, ERBB2 and ERBB3 transcript and protein levels (replicate means) across cell lines with baseline phospho-ERBB2 (CyTOF ERBB2 Y1248, EGF condition, t = 0, preprocessed as the CyTOF encoder input) and with the EGF-induced response of the four model observables (maximum over the EGF time course minus baseline), using Pearson and Spearman correlation with Benjamini–Hochberg correction. Random-forest importances were computed with the estimator, targets and preprocessing of the first feature-selection round, but on all features of the respective modality without the variance prefilter, averaging impurity-based importances over five random seeds per data split.
+> To assess receptor levels independently of the DMM, we correlated EGFR, ERBB2 and ERBB3 transcript and protein levels (replicate means) across cell lines with baseline phospho-ERBB2 (CyTOF ERBB2 Y1248, EGF condition, t = 0, preprocessed as the CyTOF encoder input) and with the EGF-induced response of the four model observables (maximum over the EGF time course minus baseline), using Pearson and Spearman correlation with Benjamini–Hochberg correction. Random-forest importances were computed with the estimator, targets and preprocessing of the first feature-selection round, but on all features of the respective modality without the variance prefilter, averaging impurity-based importances over five random seeds per data split. How far receptor levels were retained by the recursive feature elimination was read from the feature sets of the feature-count scan (Fig. 1C).
 
 ## For S6 (workflow)
 
 - No change to `run_notebooks.py` is needed. Its current main-branch version discovers committed notebooks via `git ls-files figures_paper/*.ipynb`, and S6's branch also finds uncommitted ones. The notebook is not under a "(not in paper)" directory, so `--paper-only` includes it.
 - Runtime: the first run refits 120 random forests in one cell: about 25 min under `taskpolicy -c utility` with `n_jobs = 3` (the 60 all-feature fits took 23 min, the 60 first-round fits 1.5 min). The result is cached as parquet under `eval/EGFR_MAPK__logobs/dream_cytof/receptor_evidence/`; parquet rather than CSV because `run_notebooks.py` redirects `to_csv`. Later runs take under a minute. This fits the default 1800 s cell timeout, but only just on a busy machine.
-- Inputs: only the PEtab tables `data/EGFR_MAPK__logobs__dream_cytof__{measurements,observables}.tsv`, i.e. the `process_data` output for model `EGFR_MAPK__logobs`. No new figure configuration is needed. The replication check also reads `features/EGFR_MAPK__logobs/dream_cytof/train/*HVGRFE*` when present and skips it otherwise.
+- Inputs: only the PEtab tables `data/EGFR_MAPK__logobs__dream_cytof__{measurements,observables}.tsv`, i.e. the `process_data` output for model `EGFR_MAPK__logobs`. No new figure configuration is needed.
+- Optional inputs: the `figure1c` feature files `features/EGFR_MAPK__logobs/dream_cytof/train/{transcriptomics,proteomics}__<split>__HVGRFE_<N>_permute.csv`. The replication check and panel E read them; without them, both are skipped. In the Snakefile, the notebook therefore belongs after the `figure1c` feature selection. Scan sizes, splits and final feature-set sizes are imported from `training_configuration.py` (`CONTEXTS_FEATURES_1C`, `SPLITS_1C`, `BEST_FEATURE_SETS`).
 - S6's note asks whether S3 owns the PXD017199 / `figure_S7` scripts. It does not: this task did not touch that analysis.
 
 ## Follow-up
 
-- **HVG prefilter.** Fixed in commit 50bd9e1 on `claude/objective-rubin-5b7968`; the figure1c scan was rerun on NEMO. That branch has to reach `main` before this PR's panel D matches the code on `main`.
-- **Full-RFE survival of receptors (not done).** Under the fix, read how far EGFR transcript, EGFR protein and ERBB2 protein survive the RFE from the regenerated figure1c feature files on NEMO.
+- **HVG prefilter.** Fixed in commit 50bd9e1 on `claude/objective-rubin-5b7968`; the figure1c scan was rerun on NEMO. That branch has to reach `main` before this PR's panels D and E match the code on `main`.
+- **Split `all` feature files predate the fix.** On NEMO, the final models' feature sets for Figs. 2–4 (`*__all__HVGRFE_12/8`, multimodal `RFE_8`) were selected before the fix. Until they are regenerated, nothing here checks receptor survival for split `all`.
 
 ## Reproduce
+
+Panel E needs the regenerated `figure1c` feature files locally. Copy them from NEMO; the files are gitignored:
+
+```bash
+rsync -a --include='transcriptomics__*__HVGRFE_*_permute.csv' --include='proteomics__*__HVGRFE_*_permute.csv' --exclude='*' login008.nemo.thecrick.org:/nemo/lab/froehlichf/home/shared/DeepMechanisticModels/features/EGFR_MAPK__logobs/dream_cytof/train/ features/EGFR_MAPK__logobs/dream_cytof/train/
+```
+
+This also copies older selections that predate the fix: CV-split sizes 5, 15, 25 and 30, and split `all`. Panel E reads only the scan sizes, so it ignores them. The replication check lists them as well, but it cannot reliably tell them apart:
+
+- Every older proteomics selection has features outside the fixed HVG set.
+- Many older transcript selections lie entirely inside it, for example `transcriptomics__all__HVGRFE_12`.
+
+Judge these files by date.
 
 ```bash
 taskpolicy -c utility ./venv/bin/python run_notebooks.py figure_S_receptor_evidence
