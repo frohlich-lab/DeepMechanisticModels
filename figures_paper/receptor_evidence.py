@@ -647,3 +647,61 @@ def rfe_survival(splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))):
                     }
                 )
     return pd.DataFrame(rows)
+
+
+def rfe_path(
+    inputs: pd.DataFrame, output: pd.DataFrame, sizes
+) -> dict[int, list[str]]:
+    """Selections of the pipeline's ``HVGRFE_<N>_permute`` RFE for each N.
+
+    Copies the ``RFE_*``/``HVGRFE_*`` loop of ``select_features.py``
+    (reduce factor 0.8, impurity importance above 500 features, permutation
+    importance otherwise, columns reordered by importance after each step;
+    final selection: top N by permutation importance). Runs with different
+    N follow the same elimination path, since the forest seed is fixed, so
+    one pass covers all sizes. ``inputs`` are the HVG candidates.
+
+    Outside the pipeline's container (scikit-learn 1.7.1, x86_64) the
+    forests, and with them the selections, differ: with scikit-learn 1.8.0
+    on arm64, 7 of 130 Fig. 1C CV-split selections came out identical to the
+    pipeline's (median overlap 75 %).
+    """
+    reduce_factor = 0.8
+    pipeline = Pipeline(
+        [
+            ("scaler", StandardScaler()),
+            (
+                "regressor",
+                RandomForestRegressor(
+                    random_state=42, max_features=reduce_factor
+                ),
+            ),
+        ]
+    )
+    x = inputs
+    remaining = sorted(sizes, reverse=True)
+    selections = {}
+    while remaining:
+        pipeline.fit(x, output)
+        # sizes whose elimination loop stops at the current stage
+        stop_here = [n for n in remaining if x.shape[1] * reduce_factor <= n]
+        perm = None
+        if stop_here or x.shape[1] <= 500:
+            perm = permutation_importance(
+                pipeline, x, output, n_repeats=10, random_state=42
+            ).importances_mean
+        for n in stop_here:
+            selections[n] = list(x.columns[np.argsort(perm)[::-1][:n]])
+            remaining.remove(n)
+        if not remaining:
+            break
+        importances = (
+            pipeline.named_steps["regressor"].feature_importances_
+            if x.shape[1] > 500
+            else perm
+        )
+        n_target = int(np.ceil(len(importances) * reduce_factor))
+        if n_target == x.shape[1]:
+            n_target -= 1  # reduce by at least one feature
+        x = x.iloc[:, np.argsort(importances)[::-1][:n_target]]
+    return selections
