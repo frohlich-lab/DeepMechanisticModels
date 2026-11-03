@@ -735,7 +735,8 @@ def coexpression_summary(
 
     - ``gene_correlations``: per transcript, Pearson r with EGFR transcript
       and with each EGF-induced response (``egf_responses``; pairwise
-      complete, n = 49).
+      complete: n = 49 for ΔpERBB2, whose baseline is missing in 14 lines,
+      and 63 for the others).
     - ``partners``: per receptor transcript, the number of other
       transcripts with |r| >= ``threshold`` and the percentage of all
       transcripts that have fewer.
@@ -817,4 +818,67 @@ def coexpression_summary(
         "partners": partners,
         "axis_agreement": axis_agreement,
         "egfr_rank": pd.DataFrame(ranks),
+    }
+
+
+RESPONSE_TARGETS = ("pMEK_S222_obs", "pERK_Y204_obs", "pRPS6KA1_S380_obs")
+
+
+def load_response_target_importances(
+    recompute: bool = False, tables: dict | None = None, split: str = "all"
+) -> pd.DataFrame:
+    """Transcript importances when the RF is fitted to EGF-induced responses.
+
+    Same estimator, inputs and seeds as ``compute_rf_importances`` for
+    transcripts, but the targets are the centered EGF-induced responses of
+    the three downstream observables (``RESPONSE_TARGETS``; ΔpERBB2 is
+    missing in 14 lines). Cached as parquet like the other importances.
+    """
+    cache = CACHE_DIR / f"rf_response_importances_{split}.parquet"
+    if recompute or not cache.exists():
+        tables = tables or load_petab_tables()
+        inputs, _ = rf_inputs(tables, split, "transcriptomics")
+        targets = egf_responses(tables, get_samples(DATA)).loc[
+            inputs.index, list(RESPONSE_TARGETS)
+        ]
+        targets -= targets.mean()
+        rows = []
+        for candidate_set in ("all", "hvg"):
+            x = get_hvg(inputs) if candidate_set == "hvg" else inputs
+            for seed in SEEDS:
+                rows.append(
+                    rf_importance(x, targets, seed)
+                    .rename("importance")
+                    .rename_axis("feature")
+                    .reset_index()
+                    .assign(
+                        split=split,
+                        context="transcriptomics",
+                        candidate_set=candidate_set,
+                        seed=seed,
+                    )
+                )
+        CACHE_DIR.mkdir(parents=True, exist_ok=True)
+        pd.concat(rows, ignore_index=True).to_parquet(cache)
+    return pd.read_parquet(cache)
+
+
+def selected_transcripts(
+    size: int | None = None, splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))
+) -> dict[str, list[str]]:
+    """Transcripts in the pipeline's ``HVGRFE_<size>`` selections, per split.
+
+    Default size: the final models' (``BEST_FEATURE_SETS``). Reads the
+    feature files in ``features/`` (as ``rfe_survival`` does); splits
+    without a file are left out.
+    """
+    size = size or int(BEST_FEATURE_SETS["transcriptomics"].split("_")[1])
+    train_dir = features_dir / MODEL / DATA / "train"
+    return {
+        split: list(pd.read_csv(path, index_col=0, nrows=0).columns)
+        for split in splits
+        if (
+            path := train_dir
+            / f"transcriptomics__{split}__HVGRFE_{size}_permute.csv"
+        ).exists()
     }

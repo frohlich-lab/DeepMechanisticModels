@@ -31,11 +31,14 @@ All numbers below come from that notebook. Data: `EGFR_MAPK__logobs__dream_cytof
    - How deep a receptor gets is not robust. Outside the container, with another scikit-learn version and platform, the depths change. The conclusion holds either way.
    - The RF evidence therefore supports "receptor levels are not among the most important features". It does not support "EGFR transcript is, the others are not".
 6. **The random-forest targets are the CyTOF dynamics, not kinetic parameters.** `select_features.py` fits the RF to the KNN-imputed, centered `cytof_dynamic` table (the four model observables × 3 conditions × time points, 96 columns). The response's phrase "random-forest models used for feature selection (Methods, Section 5)" is accurate. Methods §5 should name this target if it does not already.
-7. **EGFR transcript's signal is strong, but it is shared and is not what the RF is fitted to** (section 3, panel F).
-   - By |r| with the EGF-induced responses, EGFR transcript ranks 2–35 of 16,553 transcripts.
-   - It is co-expressed (|r| ≥ 0.5) with 756 other transcripts; 98.9 % of transcripts have fewer such partners.
-   - Across transcripts, a transcript's correlation with EGFR transcript tracks its correlation with each response (r = 0.64–0.80).
-   - For the 96 RF targets (the time courses), EGFR transcript ranks a median of 1,055.
+7. **EGFR transcript is not selected because the RF is fitted to a different target** (section 3, panel F).
+   - **The target decides.** In split `all`, with the pipeline's targets (96 time-course columns), EGFR transcript ranks 48 of 501 HVG candidates and 3,845 of 16,562 transcripts (5-seed mean).
+     - Fitted instead to the EGF-induced ΔpMEK, ΔpERK and Δp90RSK, with the same estimator, inputs and seeds, it ranks 1 of 501 in every seed.
+     - Among all 16,562 transcripts it ranks 1 on the 5-seed mean (single seeds: 1, 1, 2, 41, 3,140).
+   - **Univariately, it is the same picture.** By |r| with the EGF-induced responses, EGFR transcript ranks 2–35 of 16,553 transcripts. For the 96 RF targets its median rank is 1,055.
+   - **The selected transcripts are not EGFR proxies.** EGFR transcript is co-expressed (|r| ≥ 0.5) with 756 transcripts.
+     - Per CV split, 1–4 of the 12 selected transcripts have |r| ≥ 0.5 with it. The candidates' rate predicts 3.2–3.3.
+     - None of its 50 strongest co-expression partners is selected, although 16–17 of them are candidates in each split.
 
 ## 1. Receptor level vs. phospho-ERBB2 across cell lines
 
@@ -180,7 +183,7 @@ Split `all`'s feature files on NEMO predate the fix, so I reran the pipeline's R
 
 ## 3. EGFR transcript among all transcripts (panel F)
 
-Transcripts: the 16,553 non-constant transcripts that pass the `load_data` missingness filter (the RF candidates), all 63 cell lines. Correlations with EGF-induced responses use the 49 lines with a measured baseline.
+Transcripts: the 16,553 non-constant transcripts that pass the `load_data` missingness filter (the RF candidates), all 63 cell lines. Correlations with ΔpERBB2 use the 49 lines with a measured baseline pERBB2; the other three responses use all 63.
 
 **Co-expression.** Number of other transcripts with |r| ≥ 0.5:
 
@@ -204,6 +207,25 @@ The median transcript has 38 such partners. EGFR transcript's strongest partners
 - **ERBB3 transcript on the trend.** ERBB3 transcript (r = −0.51 with EGFR transcript) lies on the across-transcript trend for ΔpERBB2 and Δp90RSK. For ΔpERK and ΔpMEK it lies below it, consistent with the partial correlations in flag 3.
 - **What the RF is fitted to.** The RF targets are the 96 centered `cytof_dynamic` columns of split `all`: four observables × three conditions × time points, i.e. phospho levels over time, not EGF-induced changes. Ranked by |r| with each of them, EGFR transcript has median rank 1,055 (interquartile range 304–5,604; range 1–16,415). It ranks in the top 50 for 8 of the 96 targets.
 
+**Target test** (split `all`). The table gives EGFR transcript's RF importance rank, as the mean over 5 seeds. The estimator, inputs and seeds are those of panels C/D; only the targets change.
+
+| RF targets | Among all 16,562 transcripts | Among the 501 HVG candidates |
+|---|---|---|
+| Pipeline: 96 time-course columns | 3,845 | 48 |
+| EGF-induced ΔpMEK, ΔpERK, Δp90RSK (centered; ΔpERBB2 is missing in 14 lines) | 1 (single seeds 1, 1, 2, 41, 3,140) | 1 (every seed) |
+
+**Are the selected transcripts EGFR proxies?** Panel F's open circles mark the 21 transcripts in the 12-transcript selections (`HVGRFE_12`) of the five CV splits, read from the `figure1c` files.
+
+| CV split | Selected with \|r\| ≥ 0.5 with EGFR transcript | Expected from the split's 501 candidates | EGFR's top-50 partners among candidates | … selected |
+|---|---|---|---|---|
+| BT20 | 3 of 12 | 3.3 | 17 | 0 |
+| HCC1500 | 2 of 12 | 3.2 | 16 | 0 |
+| HCC2185 | 4 of 12 | 3.2 | 17 | 0 |
+| MCF7 | 1 of 12 | 3.2 | 17 | 0 |
+| UACC3199 | 4 of 12 | 3.2 | 17 | 0 |
+
+The selected transcripts lie along the across-transcript trend in panel F, but not near EGFR transcript. The split-`all` selection from the container replication (section 2d) looks the same: 4 of 12 have |r| ≥ 0.5, and none of the top-50 partners is selected.
+
 ## Paste-ready text
 
 US spelling. "Fig. S_" is the new figure. Panels: A (scatters), B (correlation heatmap), C (RF percentiles), D (first-round status), E (survival through the full RFE), F (EGFR transcript among all transcripts).
@@ -224,9 +246,9 @@ Optionally, continue with the pipeline's own recursive feature elimination (sect
 
 The last clause cites the container replication (section 2d). It is exact, but the pipeline's own split-`all` files are regenerated only when Figs. 2–4 are rerun with the fix. If the response should cite only pipeline output, end the sentence after "Fig. S_D,E".
 
-Optionally, on why EGFR transcript is not selected despite its univariate association (section 3):
+Optionally, on why EGFR transcript is not selected despite its univariate association (section 3, flag 7):
 
-> EGFR transcript levels were among the transcripts most strongly correlated with the EGF-induced responses (rank 2–35 of 16,553 transcripts), but they were co-expressed with many other transcripts (|r| ≥ 0.5 with 756 transcripts), whose correlation with the responses tracked their correlation with EGFR transcript levels (r = 0.64–0.80 across transcripts; Fig. S_F). The random forests used for feature selection were trained on the full CyTOF time courses, for which EGFR transcript levels ranked lower (median rank 1,055 across the 96 target variables).
+> EGFR transcript levels were among the transcripts most strongly correlated with the EGF-induced responses (rank 2–35 of 16,553 transcripts; Fig. S_F), and random forests trained to predict these responses ranked them first among all transcripts (mean importance over five random seeds). The random forests used for feature selection, however, are trained on the full CyTOF time courses (Methods, Section 5), for which EGFR transcript levels ranked 3,845 of 16,562 transcripts in the training data of the final models.
 
 If the response also says that receptor levels other than EGFR transcripts "are not predictive" in general, flag 3 contradicts that at the univariate level. This more precise, numbers-only version could replace it:
 
@@ -242,18 +264,18 @@ Replace "neither ERBB2 transcript nor protein levels correlated with phospho-ERB
 
 ### Figure legend (draft)
 
-> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Receptor levels in the first round of the feature-selection pipeline per data split: importance rank (mean over five seeds) among the 501 most variable features of the modality, or the filter that excluded them. (E) Smallest feature set in the recursive feature elimination (feature-count scan of Fig. 1C) that still contained the receptor level, per cross-validation split; every larger feature set contained it too. Dashed lines, feature-set size of the final models. (F) Pearson correlation of each transcript with EGFR transcript levels versus with the EGF-induced response, across cell lines. Shading, number of transcripts (log scale); dashed line, least-squares fit; r, Pearson correlation across transcripts. Rank, rank of EGFR transcript among all transcripts by absolute correlation with the response. EGFR, ERBB2 and ERBB3 transcripts are highlighted.
+> **Figure S_. Receptor levels and phospho-signaling across cell lines.** (A) Receptor transcript (top) and protein (bottom) levels versus baseline phospho-ERBB2 (CyTOF, ERBB2 Y1248; EGF condition, t = 0) across cell lines. Open circles, baseline value KNN-imputed as for the encoder input. Dashed line, least-squares fit; r, Pearson; ρ, Spearman. (B) Pearson correlation of receptor levels with baseline phospho-ERBB2 and with the EGF-induced response (maximum over the EGF time course minus baseline) of the four model observables. \*, Benjamini–Hochberg q < 0.05 over the 30 pairs. (C) Random-forest feature importance of receptor levels for the CyTOF signaling dynamics, trained as in feature selection (Methods, Section 5) on all features of the respective modality, shown as the percentage of features with lower importance (mean over five seeds) for each data split; bars, median; open symbols, importance zero. ERBB3 protein was quantified in fewer than 70 % of cell lines and excluded. (D) Receptor levels in the first round of the feature-selection pipeline per data split: importance rank (mean over five seeds) among the 501 most variable features of the modality, or the filter that excluded them. (E) Smallest feature set in the recursive feature elimination (feature-count scan of Fig. 1C) that still contained the receptor level, per cross-validation split; every larger feature set contained it too. Dashed lines, feature-set size of the final models. (F) Pearson correlation of each transcript with EGFR transcript levels versus with the EGF-induced response, across cell lines. Shading, number of transcripts (log scale); dashed line, least-squares fit; r, Pearson correlation across transcripts. Rank, rank of EGFR transcript among all transcripts by absolute correlation with the response. EGFR, ERBB2 and ERBB3 transcripts are highlighted. Open circles, transcripts in the 12-transcript feature sets of the five cross-validation splits.
 
 Panels D and E use the fixed HVG prefilter (commit 50bd9e1). They are consistent with the pipeline only once that fix is on `main`.
 
 ### Methods (suggested addition to Section 5)
 
-> To assess receptor levels independently of the DMM, we correlated EGFR, ERBB2 and ERBB3 transcript and protein levels (replicate means) across cell lines with baseline phospho-ERBB2 (CyTOF ERBB2 Y1248, EGF condition, t = 0, preprocessed as the CyTOF encoder input) and with the EGF-induced response of the four model observables (maximum over the EGF time course minus baseline), using Pearson and Spearman correlation with Benjamini–Hochberg correction. Random-forest importances were computed with the estimator, targets and preprocessing of the first feature-selection round, but on all features of the respective modality without the variance prefilter, averaging impurity-based importances over five random seeds per data split. How far receptor levels were retained by the recursive feature elimination was read from the feature sets of the feature-count scan (Fig. 1C). Co-expression with EGFR transcript levels was quantified as the Pearson correlation across cell lines with every transcript passing the missingness filter.
+> To assess receptor levels independently of the DMM, we correlated EGFR, ERBB2 and ERBB3 transcript and protein levels (replicate means) across cell lines with baseline phospho-ERBB2 (CyTOF ERBB2 Y1248, EGF condition, t = 0, preprocessed as the CyTOF encoder input) and with the EGF-induced response of the four model observables (maximum over the EGF time course minus baseline), using Pearson and Spearman correlation with Benjamini–Hochberg correction. Random-forest importances were computed with the estimator, targets and preprocessing of the first feature-selection round, but on all features of the respective modality without the variance prefilter, averaging impurity-based importances over five random seeds per data split. How far receptor levels were retained by the recursive feature elimination was read from the feature sets of the feature-count scan (Fig. 1C). Co-expression with EGFR transcript levels was quantified as the Pearson correlation across cell lines with every transcript passing the missingness filter. For comparison, random forests with the same estimator, inputs and seeds were trained with the EGF-induced responses of phospho-MEK, phospho-ERK and phospho-p90RSK as targets.
 
 ## For S6 (workflow)
 
 - No change to `run_notebooks.py` is needed. Its current main-branch version discovers committed notebooks via `git ls-files figures_paper/*.ipynb`, and S6's branch also finds uncommitted ones. The notebook is not under a "(not in paper)" directory, so `--paper-only` includes it.
-- Runtime: the first run refits 120 random forests in one cell: about 25 min under `taskpolicy -c utility` with `n_jobs = 3` (the 60 all-feature fits took 23 min, the 60 first-round fits 1.5 min). The result is cached as parquet under `eval/EGFR_MAPK__logobs/dream_cytof/receptor_evidence/`; parquet rather than CSV because `run_notebooks.py` redirects `to_csv`. Later runs take about a minute; panel F's co-expression step adds about 35 s. This fits the default 1800 s cell timeout, but only just on a busy machine.
+- Runtime: the first run refits 120 random forests in one cell: about 25 min under `taskpolicy -c utility` with `n_jobs = 3` (the 60 all-feature fits took 23 min, the 60 first-round fits 1.5 min). The result is cached as parquet under `eval/EGFR_MAPK__logobs/dream_cytof/receptor_evidence/`; parquet rather than CSV because `run_notebooks.py` redirects `to_csv`. Later runs take about a minute; panel F's co-expression step adds about 35 s. The target test fits 10 more forests on its first run (about 35 s), cached as `rf_response_importances_all.parquet`. This fits the default 1800 s cell timeout, but only just on a busy machine.
 - Inputs: only the PEtab tables `data/EGFR_MAPK__logobs__dream_cytof__{measurements,observables}.tsv`, i.e. the `process_data` output for model `EGFR_MAPK__logobs`. No new figure configuration is needed.
 - Optional inputs: the `figure1c` feature files `features/EGFR_MAPK__logobs/dream_cytof/train/{transcriptomics,proteomics}__<split>__HVGRFE_<N>_permute.csv`. The replication check and panel E read them; without them, both are skipped. In the Snakefile, the notebook therefore belongs after the `figure1c` feature selection. Scan sizes, splits and final feature-set sizes are imported from `training_configuration.py` (`CONTEXTS_FEATURES_1C`, `SPLITS_1C`, `BEST_FEATURE_SETS`).
 - S6's note asks whether S3 owns the PXD017199 / `figure_S7` scripts. It does not: this task did not touch that analysis.
