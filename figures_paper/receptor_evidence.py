@@ -15,6 +15,9 @@ Two analyses that do not involve the DMM:
    import, so the relevant logic is copied here rather than imported.
 3. How far receptor levels survive the pipeline's full RFE, read from the
    feature files of the Fig. 1C feature-count scan.
+4. How EGFR transcript relates to all other transcripts: co-expression, and
+   whether the transcripts correlated with it share its correlation with
+   the EGF-induced responses.
 """
 
 import sys
@@ -706,3 +709,112 @@ def rfe_path(
             n_target -= 1  # reduce by at least one feature
         x = x.iloc[:, np.argsort(importances)[::-1][:n_target]]
     return selections
+
+
+# ---------------------------------------------------------------------------
+# 4. EGFR transcript among all transcripts
+# ---------------------------------------------------------------------------
+
+
+def _corr_matrix(x: pd.DataFrame, y: pd.DataFrame) -> pd.DataFrame:
+    """Pearson r between the columns of ``x`` and ``y`` (complete data)."""
+    zx = ((x - x.mean()) / x.std()).to_numpy()
+    zy = ((y - y.mean()) / y.std()).to_numpy()
+    return pd.DataFrame(
+        zx.T @ zy / (len(x) - 1), index=x.columns, columns=y.columns
+    )
+
+
+def coexpression_summary(
+    tables: dict | None = None, threshold: float = 0.5
+) -> dict:
+    """EGFR transcript among all transcripts, across cell lines.
+
+    Transcripts are those passing the ``load_data`` missingness filter
+    (the RF candidates), all 63 cell lines, constant ones dropped.
+
+    - ``gene_correlations``: per transcript, Pearson r with EGFR transcript
+      and with each EGF-induced response (``egf_responses``; pairwise
+      complete, n = 49).
+    - ``partners``: per receptor transcript, the number of other
+      transcripts with |r| >= ``threshold`` and the percentage of all
+      transcripts that have fewer.
+    - ``axis_agreement``: per response, Pearson r across transcripts between
+      r(transcript, EGFR transcript) and r(transcript, response).
+    - ``egfr_rank``: rank of EGFR transcript among all transcripts by |r|
+      (1 = highest), for each EGF-induced response and for each RF target of
+      split ``all`` (centered ``cytof_dynamic`` columns, training lines).
+    """
+    tables = tables or load_petab_tables()
+    samples = get_samples(DATA)
+    tx, *_ = load_data(
+        contextualization="transcriptomics",
+        samples=samples,
+        features=None,
+        **tables,
+    )
+    tx = tx.loc[:, tx.std() > 0]
+    responses = egf_responses(tables, samples)
+    gene_corr = pd.concat(
+        [tx.corrwith(tx["EGFR"]).rename("EGFR transcript")]
+        + [tx.corrwith(responses[obs]).rename(obs) for obs in responses],
+        axis=1,
+    )
+
+    counts = []
+    for start in range(0, tx.shape[1], 2000):
+        block = _corr_matrix(tx.iloc[:, start : start + 2000], tx)
+        counts.append((block.abs() >= threshold).sum(axis=1) - 1)
+    counts = pd.concat(counts)
+    partners = pd.DataFrame(
+        {
+            "n_partners": counts.reindex(RECEPTORS),
+            "percentile": [
+                100 * (counts < counts[g]).mean() for g in RECEPTORS
+            ],
+            "median_all_transcripts": counts.median(),
+        }
+    )
+
+    others = gene_corr.drop(index="EGFR")
+    axis_agreement = pd.Series(
+        {
+            obs: np.corrcoef(others["EGFR transcript"], others[obs])[0, 1]
+            for obs in responses
+        },
+        name="r_across_transcripts",
+    )
+
+    inputs, output = rf_inputs(tables, "all", "transcriptomics")
+    rf_corr = _corr_matrix(inputs.loc[:, inputs.std() > 0], output)
+    ranks = [
+        {
+            "target_set": "EGF-induced response",
+            "target": obs,
+            "egfr_r": gene_corr.loc["EGFR", obs],
+            "rank": int(
+                (gene_corr[obs].abs() >= abs(gene_corr.loc["EGFR", obs])).sum()
+            ),
+            "n_transcripts": int(gene_corr[obs].notna().sum()),
+        }
+        for obs in responses
+    ] + [
+        {
+            "target_set": "RF target (split all)",
+            "target": target,
+            "egfr_r": rf_corr.loc["EGFR", target],
+            "rank": int(
+                (
+                    rf_corr[target].abs() >= abs(rf_corr.loc["EGFR", target])
+                ).sum()
+            ),
+            "n_transcripts": len(rf_corr),
+        }
+        for target in rf_corr.columns
+    ]
+    return {
+        "gene_correlations": gene_corr,
+        "partners": partners,
+        "axis_agreement": axis_agreement,
+        "egfr_rank": pd.DataFrame(ranks),
+    }
