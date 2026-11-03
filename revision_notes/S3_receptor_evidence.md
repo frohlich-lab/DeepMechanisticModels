@@ -27,8 +27,8 @@ All numbers below come from that notebook. Data: `EGFR_MAPK__logobs__dream_cytof
    - Within the pipeline's first round (501 HVG candidates, section 2b), EGFR transcript, EGFR protein and ERBB2 protein all rank mid-pack (median 176.5, 212.5 and 315.5 of 501).
    - A single forest, which is what the pipeline uses, can put the same receptor anywhere from about rank 20 to 480, depending on its seed.
    - In the full RFE, as run with the fix for the Fig. 1C scan (section 2c), no receptor level is in any selection of 24 or fewer features in any of the five CV splits. That includes the final models' sizes, 12 transcripts and 8 proteins. EGFR protein in HCC1500 lasts longest: it is kept down to 28 features.
-   - Split `all` (final models) has no post-fix pipeline files yet. An approximate local rerun of the RFE finds no receptor level in its selections of 128 or fewer features (section 2d).
-   - How deep a receptor gets is not robust: it changes between scikit-learn versions and platforms. The conclusion that no receptor reaches 24 or fewer features holds in both runs.
+   - Split `all` (final models) has no post-fix pipeline files yet. An exact replication of the pipeline's RFE in its container finds no receptor level in any of its selections of 256 or fewer features (section 2d). The final feature sets regenerated with the fix will therefore contain none.
+   - How deep a receptor gets is not robust. Outside the container, with another scikit-learn version and platform, the depths change. The conclusion holds either way.
    - The RF evidence therefore supports "receptor levels are not among the most important features". It does not support "EGFR transcript is, the others are not".
 6. **The random-forest targets are the CyTOF dynamics, not kinetic parameters.** `select_features.py` fits the RF to the KNN-imputed, centered `cytof_dynamic` table (the four model observables × 3 conditions × time points, 96 columns). The response's phrase "random-forest models used for feature selection (Methods, Section 5)" is accurate. Methods §5 should name this target if it does not already.
 
@@ -147,32 +147,31 @@ Findings:
 - No receptor level is in any selection of 24 or fewer features in any split. That includes the final models' sizes in `BEST_FEATURE_SETS`: 12 transcripts and 8 proteins.
 - EGFR protein in HCC1500 lasts longest. It is kept down to 28 of 501 features and gone at 24.
 - The multimodal selections (`multimodal__<split>__RFE_<N>_permute`, N ≤ 32) concatenate the same omics selections; all 100 checked are identical. pEGFR therefore appears only in HCC1500, at N = 28 and 32.
-- **Split `all` is not covered.** It holds the final models of Figs. 2–4 and is not part of the scan. Its feature files on NEMO predate the fix: `transcriptomics__all__HVGRFE_12`, `proteomics__all__HVGRFE_8` and the multimodal `RFE_8` date from Apr 2026, and the others from Dec 2025–Feb 2026. None of them contains a receptor level, but they were drawn from the buggy prefilter.
+- **Split `all` is not part of the scan.** It holds the final models of Figs. 2–4. Its feature files on NEMO predate the fix: `transcriptomics__all__HVGRFE_12`, `proteomics__all__HVGRFE_8` and the multimodal `RFE_8` date from Apr 2026, and the others from Dec 2025–Feb 2026. None of them contains a receptor level, but they were drawn from the buggy prefilter. Section 2d covers split `all` with the fix.
 
 The older CV-split selections in `features/` of the main checkout (`HVGRFE_15`, `HVGRFE_10`, multimodal `RFE_10`) also predate the fix. None of them contains a receptor level.
 
-### 2d. Split `all`: local preview (approximate)
+### 2d. Split `all` (final models): exact replication in the pipeline container
 
-Split `all`'s feature files on NEMO predate the fix, so I reran the pipeline's RFE locally.
+Split `all`'s feature files on NEMO predate the fix, so I reran the pipeline's RFE for all six splits at sizes 4–256.
 
-- **How.** `receptor_evidence.rfe_path` copies the `HVGRFE_*` loop of `select_features.py`. I ran it on the fixed HVG candidates for all six splits at scan sizes 4–256.
-- **Split `all` result.** EGFR transcript, EGFR protein and ERBB2 protein are all in the 256-feature selection. None is in any selection of 128 or fewer features, so no receptor level is in the final-size selections (12 transcripts, 8 proteins).
-- **The local run does not reproduce the pipeline exactly.**
-  - For the five CV splits, 7 of 130 selections (sizes 4–256) are identical to the pipeline's files on NEMO.
-  - The median overlap is 75 %. Per selection it ranges from 50 to 100 %, and from 68 to 74 % at size 256.
-  - The pipeline runs in its container: scikit-learn 1.7.1, numpy 2.3.1, x86_64. This run used scikit-learn 1.8.0, numpy 2.4.4, arm64.
-  - Different forests are expected from that difference, and the RFE path reacts to them as strongly as to a change of seed (section 2b). A difference in the copied logic is not ruled out, though.
-- **The receptor depths differ between the two runs** (table below). Neither run has a receptor level in any selection of 24 or fewer features. Locally, the smallest selection with a receptor has 64 features.
+- **How.** `receptor_evidence.rfe_path` copies the `HVGRFE_*` loop of `select_features.py`. I ran it on the fixed HVG candidates inside the pipeline's container on NEMO: SLURM job 62741011, scikit-learn 1.7.1, numpy 2.3.1, x86_64.
+  - The job read the shared checkout's data.
+  - It wrote only to `/nemo/lab/froehlichf/home/users/frohlif/s3_rfe_container/`, which holds the script, log and `rfe_selections_container.csv`.
+- **The replication is exact.** For the five CV splits, all 130 selections (sizes 4–256) are identical to the pipeline's `figure1c` files, including the feature order.
+- **Split `all` result.** EGFR transcript, EGFR protein and ERBB2 protein are among the 501 candidates, but none is in any selection of 256 or fewer features. Once the final models' feature sets (12 transcripts, 8 proteins) are regenerated with the fix, they will contain no receptor level.
+- **The regenerated final sets will differ from the current pre-fix files.** Only 7 of 12 transcripts and 4 of 8 proteins stay the same. The sets with the fix, in order of importance:
+  - Transcripts: GJA5, UCP2, CYP4B1, ZG16B, CLIP4, TINAGL1, COL5A1, LXN, PLS3, MYEOV, C1orf116, FAM83A.
+  - Proteins: BAZ1A, CMBL, MT1X, PSMB10, ELAPOR1, PLS3, IL18, ALDH1A3.
 
-Smallest selection containing the receptor. Each cell shows the local replication, with the pipeline's result on NEMO in parentheses. 501 means not in the 256-feature selection.
+**Outside the container, the RFE does not reproduce.** I ran the same code locally with scikit-learn 1.8.0 and numpy 2.4.4 on arm64. Only 7 of the 130 CV-split selections matched.
 
-| Receptor level | BT20 | HCC1500 | HCC2185 | MCF7 | UACC3199 | all |
-|---|---|---|---|---|---|---|
-| EGFR transcript | 128 (501) | 501 (256) | 501 (64) | 501 (256) | 501 (256) | 256 (n/a) |
-| EGFR protein | 128 (501) | 64 (28) | 501 (501) | 501 (128) | 256 (256) | 256 (n/a) |
-| ERBB2 protein | 501 (501) | 501 (501) | 256 (256) | 501 (501) | 256 (128) | 256 (n/a) |
-
-The selected features themselves are equally sensitive. At the final sizes (8–12), the local and pipeline selections share a median of 75–83 % of features, so reproducing the paper's feature sets exactly needs the container.
+- The median overlap is 75 %. Per selection it ranges from 50 to 100 %, and it is 75–83 % at sizes 8–12.
+- The receptor depths changed too:
+  - Locally, EGFR protein in HCC1500 is kept down to 64 features rather than 28.
+  - Locally, all three receptors in split `all` are in the 256-feature selection.
+- Neither run has a receptor level in any selection of 24 or fewer features.
+- Only the container run counts. The local sensitivity is one more sign that single-forest RFE depths are not robust (section 2b).
 
 ## Paste-ready text
 
@@ -188,15 +187,17 @@ Replace the random-forest clause ("in the random-forest models used for feature 
 
 > in random forests trained as for feature selection (Methods, Section 5) on all features of the respective modality, receptor transcript and protein levels ranked in the middle of the importance distribution (median rank across the six data splits: 5,508, 4,946 and 2,997 of 16,562 transcripts for EGFR, ERBB2 and ERBB3; 2,920 and 2,438 of about 6,180 proteins for EGFR and ERBB2; ERBB3 protein was quantified in only 33 of 63 cell lines and therefore not considered; Fig. S_C).
 
-Optionally, continue with the pipeline's own recursive feature elimination (section 2c):
+Optionally, continue with the pipeline's own recursive feature elimination (sections 2c and 2d):
 
-> Within the feature-selection pipeline itself, which applies recursive feature elimination to the 501 most variable transcripts or proteins, ERBB2 and ERBB3 transcript levels were not among the most variable features and ERBB3 protein levels did not pass the missingness filter. EGFR transcript, EGFR protein and ERBB2 protein levels were eliminated before the feature sets reached 24 features in each of the five cross-validation splits (median smallest feature set retaining them: 256, 256 and 501 features, compared with final feature sets of 12 transcripts and 8 proteins; Fig. S_D,E).
+> Within the feature-selection pipeline itself, which applies recursive feature elimination to the 501 most variable transcripts or proteins, ERBB2 and ERBB3 transcript levels were not among the most variable features and ERBB3 protein levels did not pass the missingness filter. EGFR transcript, EGFR protein and ERBB2 protein levels were eliminated before the feature sets reached 24 features in each of the five cross-validation splits (median smallest feature set retaining them: 256, 256 and 501 features; Fig. S_D,E) and before they reached 256 features in the data split used for the final models, whose feature sets comprise 12 transcripts and 8 proteins.
+
+The last clause cites the container replication (section 2d). It is exact, but the pipeline's own split-`all` files are regenerated only when Figs. 2–4 are rerun with the fix. If the response should cite only pipeline output, end the sentence after "Fig. S_D,E".
 
 If the response also says that receptor levels other than EGFR transcripts "are not predictive" in general, flag 3 contradicts that at the univariate level. This more precise, numbers-only version could replace it:
 
 > Apart from EGFR transcript levels, receptor levels showed no consistent association with the measured signaling dynamics: ERBB2 transcript and protein levels were not associated with baseline or EGF-induced phospho-ERBB2, phospho-MEK, phospho-ERK or phospho-p90RSK (|r| ≤ 0.23, q ≥ 0.23); EGFR protein levels correlated with the EGF-induced phospho-ERBB2 response (r = 0.45) but not with downstream responses (|r| ≤ 0.21); and the negative correlation of ERBB3 transcript levels with EGF-induced downstream responses (r = −0.38 to −0.47) was attenuated after adjusting for EGFR transcript levels (partial r = −0.12 to −0.30), with which they are anticorrelated (r = −0.51; Fig. S_B).
 
-"None of the receptor levels was selected by the feature selection" now holds for the five CV splits, at every selection size of 24 or fewer features (section 2c). For split `all` itself, which holds the final models of Figs. 2–4, the pipeline's feature files still predate the HVG fix. An approximate local rerun of the RFE points the same way: no receptor level appears below 256 features (section 2d). Don't cite that rerun until the pipeline's own files exist.
+"None of the receptor levels was selected by the feature selection" now holds for the five CV splits, at every selection size of 24 or fewer features (section 2c). It also holds for split `all`, which holds the final models of Figs. 2–4: in the exact container replication, no receptor level is in any selection of 256 or fewer features (section 2d).
 
 ### Results
 
@@ -225,7 +226,7 @@ Panels D and E use the fixed HVG prefilter (commit 50bd9e1). They are consistent
 ## Follow-up
 
 - **HVG prefilter.** Fixed in commit 50bd9e1 on `claude/objective-rubin-5b7968`; the figure1c scan was rerun on NEMO. That branch has to reach `main` before this PR's panels D and E match the code on `main`.
-- **Split `all` feature files predate the fix.** On NEMO, the final models' feature sets for Figs. 2–4 (`*__all__HVGRFE_12/8`, multimodal `RFE_8`) were selected before the fix. Until they are regenerated, split `all` has only the approximate local preview (section 2d). For an exact answer without touching the pipeline's outputs, run `rfe_path` inside the pipeline container.
+- **Split `all` feature files predate the fix.** On NEMO, the final models' feature sets for Figs. 2–4 (`*__all__HVGRFE_12/8`, multimodal `RFE_8`) were selected before the fix. They need regenerating before Figs. 2–4 are rerun with the fix. Section 2d predicts the outcome: no receptor level, and 5 of 12 transcripts and 4 of 8 proteins change.
 
 ## Reproduce
 
@@ -246,7 +247,18 @@ Judge these files by date.
 taskpolicy -c utility ./venv/bin/python run_notebooks.py figure_S_receptor_evidence
 ```
 
-The split-`all` preview (section 2d) is not in the notebook. Each split and modality takes about 5 min. Run it from `figures_paper/`:
+The container replication (section 2d) is not in the notebook. It has to run inside the pipeline container on NEMO to be exact. The files are in `/nemo/lab/froehlichf/home/users/frohlif/s3_rfe_container/`:
+
+- `rfe_container.py` holds `load_petab_tables`, `get_hvg`, `rf_inputs` and `rfe_path`, copied verbatim from `receptor_evidence.py` with `inspect.getsource`, plus a driver that runs one process per split and modality.
+- `rfe_container.sbatch` runs it on 12 CPUs in `.snakemake/singularity/7f04b812f71f5e2337af6e13df44ead6.simg`, with `PYTHONPATH` set to the shared checkout. It takes about 6 min.
+
+To rerun:
+
+```bash
+ssh login008.nemo.thecrick.org 'cd /nemo/lab/froehlichf/home/users/frohlif/s3_rfe_container && sbatch rfe_container.sbatch'
+```
+
+Outside the container, `rfe_path` runs but does not reproduce the pipeline's selections (section 2d):
 
 ```python
 from receptor_evidence import get_hvg, load_petab_tables, rf_inputs, rfe_path

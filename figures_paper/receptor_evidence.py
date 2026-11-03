@@ -661,10 +661,11 @@ def rfe_path(
     N follow the same elimination path, since the forest seed is fixed, so
     one pass covers all sizes. ``inputs`` are the HVG candidates.
 
-    Outside the pipeline's container (scikit-learn 1.7.1, x86_64) the
-    forests, and with them the selections, differ: with scikit-learn 1.8.0
-    on arm64, 7 of 130 Fig. 1C CV-split selections came out identical to the
-    pipeline's (median overlap 75 %).
+    Inside the pipeline's container (scikit-learn 1.7.1, x86_64) this
+    reproduces all 130 Fig. 1C CV-split selections (sizes 4-256) exactly,
+    including their order. Outside it the forests, and with them the
+    selections, differ: with scikit-learn 1.8.0 on arm64, 7 of 130 came out
+    identical (median overlap 75 %).
     """
     reduce_factor = 0.8
     pipeline = Pipeline(
