@@ -284,6 +284,11 @@ Panels D and E use the fixed HVG prefilter (commit 50bd9e1). They are consistent
 
 - **HVG prefilter.** Fixed in commit 50bd9e1 on `claude/objective-rubin-5b7968`; the figure1c scan was rerun on NEMO. That branch has to reach `main` before this PR's panels D and E match the code on `main`.
 - **Split `all` feature files predate the fix.** On NEMO, the final models' feature sets for Figs. 2–4 (`*__all__HVGRFE_12/8`, multimodal `RFE_8`) were selected before the fix. They need regenerating before Figs. 2–4 are rerun with the fix. Section 2d predicts the outcome: no receptor level, and 5 of 12 transcripts and 4 of 8 proteins change.
+- **Final feature-set sizes change with the fix (to do once it is on `main`).** Commit 677d833 on the fix branch re-picks `BEST_FEATURE_SETS` from the fixed scan: transcriptomics `HVGRFE_4` (was 12), proteomics `HVGRFE_10` (was 8), multimodal `RFE_6` (was 8). The conclusions hold at the new sizes: no receptor level is in any CV-split selection of 24 or fewer features, or in any split-`all` selection of 256 or fewer. After syncing this branch with `main`:
+  - Panel E's dashed lines and panel F's marked transcripts follow automatically, because both read `BEST_FEATURE_SETS`. Re-execute the notebook.
+  - Rewrite by hand every "12 transcripts and 8 proteins" in this note: flag 5, sections 2c, 2d and 3, the paste-ready text and the legend.
+  - Redo the enrichment table in section 3 for the 4-transcript selections.
+  - Replace the predicted split-`all` feature lists in section 2d with the sizes-4 and -10 selections from `rfe_selections_container.csv`.
 
 ## Reproduce
 
