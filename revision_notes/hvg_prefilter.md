@@ -20,7 +20,12 @@ Branch `claude/objective-rubin-5b7968`.
 - **Checked end to end.** Running the patched `select_features.py` with
   `--features=HVG_all` reproduces the script's fix-B sets exactly, for BT20
   and `all`, in both contexts.
-- **Not yet done.** No feature set has been regenerated (section 3).
+- **Regenerated so far (section 4):**
+  - The `figure1c` feature-count scan was rerun with fix B on NEMO.
+  - Its new minima re-pinned `BEST_FEATURE_SETS`: 4 genes, 10 proteins and
+    6 features per modality for multimodal.
+  - `figure1b` is rerunning on those sizes.
+  - `figure1a`, `figure3` and `figure3b` are still on the old sizes.
 
 ## Summary
 
@@ -238,7 +243,9 @@ Paths have the form
 
 ### Configurations in `training_configuration.py`
 
-The figure keys below are configuration keys, not paper figure numbers.
+The figure keys below are configuration keys, not paper figure numbers. The
+sizes are those before the re-pin. Since section 4, the entries read
+proteomics `HVGRFE_10`, transcriptomics `HVGRFE_4` and multimodal `RFE_6`.
 
 | Config key | Affected entries | Feature sets | Downstream |
 |---|---|---|---|
@@ -295,3 +302,65 @@ files and leave `mtime` out of `--rerun-triggers`.
 - If the pipeline is **not** rerun, the Methods must describe what actually
   ran. That is hard to state honestly: "a variance prefilter applied to a
   pseudo-random 80 % of features, biased against high-variance proteins".
+
+## 4. Reruns with fix B (NEMO, November 2026)
+
+### `figure1c` feature-count scan (done, 4 Nov)
+
+- **What was rerun:** the 220 affected selections and their trainings
+  (5 CV folds × 10 starts).
+  - CyTOF, MOSA and proteomics `all` results are byte-identical to April.
+  - The transcriptomics `all` models were retrained because their model files
+    were missing, so those numbers differ only by training noise.
+- **Failures:** 111 trainings first failed on Singularity "no loop devices
+  available", an infrastructure problem, and were rerun. No failure was in
+  the code.
+- **Files:** the new
+  `eval/EGFR_MAPK__logobs/dream_cytof/evaluate_all_figure1c.csv` is dated
+  3 Nov. The April files are in `pre_hvg_fix_2026-11-02/` next to it.
+- **Results:** S2's measure (validation RMSE, median over 10 starts, mean over
+  folds), April → now:
+
+| Modality | Lowest RMSE at | Old selected size | Largest set vs selected |
+|---|---|---|---|
+| RNAseq | 12 (0.657) → **4 (0.609)** | 12: 0.657 → 0.774 | +18 % → −2 % (all 16,562) |
+| MassSpec | 8 (0.669) → **10 (0.741)** | 8: 0.669 → 0.788 | +20 % → +2 % (all ~6,181) |
+| Multimodal | 24 inputs (0.533) → **18 (0.566)** | 24: 0.533 → 0.588 | +11 % → +5 % (96 inputs) |
+| CyTOF, MOSA | unchanged | unchanged | unchanged |
+
+- **The HCC1500 fold drives much of the change at the old sizes.** With
+  8 proteins, all 10 starts went from 0.46–0.64 to 1.04–1.32. The new feature
+  selection for that fold generalises badly, so it is not noise from the
+  random starts.
+- **Wording:** S2's note (PR 16) has the updated scan figure and wording.
+
+### Re-pinned `BEST_FEATURE_SETS` (677d833)
+
+- **New sizes:** transcriptomics `HVGRFE_4`, proteomics `HVGRFE_10`,
+  multimodal `RFE_6` (6 per modality, 18 inputs). These are the scan's new
+  minima.
+- **Unchanged:** CyTOF `RFE_8` and MOSA `RFE_6`. Fix B does not affect them.
+  CyTOF's scan minimum (16) is within noise of 8.
+
+### `figure1b` ML hyperparameter scan (running)
+
+- **What runs:** 3,000 new trainings, for the three re-pinned feature sets:
+  20 configurations × 5 folds × 10 starts each.
+  - The central configuration is shared with `figure1c` and reused.
+  - CyTOF and MOSA reuse their April models.
+- **Launch and resume:** `sbatch estimationCluster_figure1b_revision.sh` on
+  NEMO.
+- **April results:** in `pre_hvg_fix_2026-11-02/`.
+- **Next step:** the central values in `LATENT_DIMS_BY_CONTEXT` and
+  `NETWORK_DEPTH_BY_CONTEXT` were tuned on the old sizes. Revisit them when
+  the scan finishes.
+
+### Still to do
+
+- **Main-text configurations** `figure1a`, `figure3` and `figure3b` use the
+  re-pinned sizes but have not been rerun. Then their notebook panels
+  (section 3) need updating.
+- **NEMO checkout state:** `select_features.py` is backdated (mtime
+  2025-12-19), so Snakemake does not rerun the unaffected selections. A
+  configuration that still has old affected feature files needs those files
+  moved aside first, otherwise they are reused.
