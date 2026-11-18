@@ -90,7 +90,7 @@ LATENT_DIMS = {
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "multimodal": 6,
     "MOSA": 6,
-    "transcriptomics": 7,
+    "transcriptomics": 6,  # was 7; re-picked from the figure1b rerun (Nov 2026)
     "proteomics": 5,
     "cytof_init": 8,
 }
