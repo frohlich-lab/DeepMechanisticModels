@@ -2,6 +2,9 @@
 
 Branch `claude/objective-rubin-5b7968`.
 
+S1–S6 below name revision work streams, not supplementary figures.
+Supplementary figures are written "Fig. S5", "Fig. S8".
+
 - **Analysis script:** `revision_notes/hvg_prefilter_impact.py`.
   - It imports `rf_inputs`, `get_hvg` and `hvg_diagnostics` from
     `figures_paper/receptor_evidence.py` on branch
@@ -251,7 +254,7 @@ proteomics `HVGRFE_10`, transcriptomics `HVGRFE_4` and multimodal `RFE_6`.
 |---|---|---|---|
 | `figure1a` | proteomics `HVGRFE_8`, transcriptomics `HVGRFE_12`, multimodal `RFE_8`; 2 pathways (`logobs`, `logobs_tegfr_aggavg`) × 6 splits | 36 | training, `evaluate_training`, `evaluate_regressors` (elastic net / lasso / OLS on the same features), `evaluate_all_figure1a.csv` |
 | `figure1b` | the same three contexts; `logobs`; 5 CV splits; ML hyperparameter scans | 15 | every scan point of those three contexts |
-| `figure1c` (feature-count scan, Table S4) | proteomics and transcriptomics `HVGRFE_N` (17 sizes each), multimodal `RFE_N` (N ≤ 32, 10 sizes); 5 CV splits | 220 | 10 starts per fold (S2); `evaluate_all_figure1c.csv` |
+| `figure1c` (feature-count scan, Table S4 and Fig. S8) | proteomics and transcriptomics `HVGRFE_N` (17 sizes each), multimodal `RFE_N` (N ≤ 32, 10 sizes); 5 CV splits | 220 | 10 starts per fold (S2); `evaluate_all_figure1c.csv` |
 | `figure3` | multimodal `RFE_8`; 7 pathways; split `all` | 7 | training and evaluation |
 | `figure3b` | multimodal `RFE_8`; 2 pathways; split `all`; `n_hidden` scan | 2 | every `n_hidden` point |
 | `default` | proteomics, transcriptomics, multimodal × 8 pathways | — | not built by the `paper` target (S6), so it can be skipped |
@@ -283,8 +286,8 @@ files and leave `mtime` out of `--rerun-triggers`.
 | `figure_3.ipynb` | E "Annotation classifier summary" | `ANNOTATION_CONTEXT = "multimodal"` (`figure1a`); other panels use `cytof_init` |
 | `figure_5.ipynb` | `plot_figure3b_nhidden` panel | `figure3b`, pooled over contexts as above; `figure4`/`figure6` parts not affected |
 | `figure_4.ipynb` | none | `figure5`, CyTOF only; omics are used only as marker data |
-| `figure_S_feature_count_scan.ipynb` (S2 branch) | MassSpec, RNAseq and multimodal curves (Table S4) | `figure1c`; the CyTOF and MOSA curves are not affected |
-| `figure_S_receptor_evidence.ipynb` (S3 branch) | the "HVG candidates" RF importances and `first_round_status` | `receptor_evidence.get_hvg`/`rf_inputs` copy the buggy prefilter and need fix B; their "excluded by mean step" category goes away |
+| `figure_S_feature_count_scan.ipynb` (Fig. S8; S2 branch) | MassSpec, RNAseq and multimodal curves (Table S4) | `figure1c`; the CyTOF and MOSA curves are not affected |
+| `figure_S_receptor_evidence.ipynb` (Fig. S5; S3 branch) | the "HVG candidates" RF importances and `first_round_status` | `receptor_evidence.get_hvg`/`rf_inputs` copy the buggy prefilter and need fix B; their "excluded by mean step" category goes away |
 
 ### Text
 
@@ -332,7 +335,8 @@ files and leave `mtime` out of `--rerun-triggers`.
   8 proteins, all 10 starts went from 0.46–0.64 to 1.04–1.32. The new feature
   selection for that fold generalises badly, so it is not noise from the
   random starts.
-- **Wording:** S2's note (PR 16) has the updated scan figure and wording.
+- **Wording:** S2's note (PR 16) has the updated scan figure (Fig. S8) and
+  wording.
 
 ### Re-pinned `BEST_FEATURE_SETS` (677d833)
 
