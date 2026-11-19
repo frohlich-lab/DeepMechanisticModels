@@ -96,7 +96,8 @@ resources table and a resource-availability section).
    legally means "all rights reserved". Zenodo asks for a license and so does
    `CITATION.cff`. Pick one (e.g. MIT, BSD-3-Clause or Apache-2.0), add
    `LICENSE`, and fill `license:` in `CITATION.cff`.
-3. **figure_S7.ipynb cannot be regenerated from the repository.**
+3. **figure_S2.ipynb (Fig. S2, formerly figure_S7.ipynb) cannot be
+   regenerated from the repository.**
    - It reads `figures_paper/egfr_spectronaut_rows.csv`,
      `egfr_peptides_mapped.csv`, `egfr_isoform_presence_matrix.csv` and
      `egfr_log2fc.csv`.

@@ -46,7 +46,7 @@ to ``Path("figures_paper/mmc2.xlsx")`` when ``__file__`` is undefined and
 ``import figure_config`` and ``from figures_paper.de_corr_plots import ...``.
 
 ``DataFrame.to_csv``/``Series.to_csv`` are redirected the same way, into
-``<out-dir>/data/`` -- ``figure_S7.ipynb`` writes a derived CSV that would
+``<out-dir>/data/`` -- ``figure_S2.ipynb`` writes a derived CSV that would
 otherwise land in ``figures_paper/``.
 """
 
