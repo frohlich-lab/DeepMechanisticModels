@@ -2,7 +2,7 @@
 
 Responses to Reviewer 1 (Fig. 2A, 2B, 2D, Figs. S2–S3, formerly S7–S8), Reviewer 4 (point 2) and Reviewer 3 (points 11–12).
 
-Supplementary figures are numbered in order of first citation in the revised manuscript: S1 receptor evidence (PR 17); **Fig. S2** EGFR/ERBB2 transcript vs. protein (old S7); **Fig. S3** EGFR peptide heat map, PXD017199 (old S8); **Fig. S4** latent PCA (this PR); **Fig. S5** pERK by EGFR level and subtype (this PR; optional); S6 heterogeneity-axis parameters (old S9); S7 ERK→p90rsk gain vs. invasion/morphology (old S10); S8 feature-count scan (PR 16). If S5 is dropped, old S9/S10 become S5/S6 and the feature-count scan S7. The notebook that makes Fig. S3 is `figure_S3.ipynb` (formerly `figure_S7.ipynb`).
+Supplementary figures are numbered in order of first citation in the revised manuscript: S1 receptor evidence (PR 17); **Fig. S2** EGFR/ERBB2 transcript vs. protein (old S7); **Fig. S3** EGFR peptide heat map, PXD017199 (old S8); **Fig. S4** latent PCA (this PR); **Fig. S5** pERK by EGFR level and subtype (this PR); S6 heterogeneity-axis parameters (old S9); S7 ERK→p90rsk gain vs. invasion/morphology (old S10); S8 feature-count scan (PR 16). The notebook that makes Fig. S3 is `figure_S3.ipynb` (formerly `figure_S7.ipynb`).
 
 ## Status
 
@@ -14,7 +14,7 @@ Supplementary figures are numbered in order of first citation in the revised man
 | 4. Fig. 2B counts | Confirmed from the plotted embeddings: **30 luminal / 22 basal / 6 normal-like**. |
 | 5. Fig. S2 highlight + threshold | Done. |
 | 6. Fig. S3 column order | Fixed (`figure_S3.ipynb`). |
-| 7. Optional Fig. S5 (pERK by subtype, R3.12) | Done. |
+| 7. Fig. S5 (pERK by subtype, R3.12) | Done; the authors confirmed it is included. |
 | Test-set definition (5 test lines) | All Fig. 2 panels already used them. Two pieces that pooled more were fixed (F10): the text statistics and the 2E simulation overlay. |
 
 Both notebooks are committed with outputs from the real data (`eval/` synced from NEMO on 31 Oct 2026). The submitted text-statistics computation, rerun on the synced data, reproduces the submitted numbers exactly (e.g. pooled CyTOF DMM 0.5456; AUROC 0.859 → 0.744), so the synced `eval/` is the data behind the submission. The cell now uses the five-test-line definition (F10).
@@ -212,7 +212,7 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 
 > **Figure S3 | EGFR peptide intensities across 63 breast cell lines (PXD017199).** log₁₀ intensities of the 40 EGFR peptides (rows, ordered by sequence position; ● present in all isoforms, ◆ absent in isoform 2, ▲ canonical isoform only; gray, not detected) across cell lines (columns). Columns are sorted by EGFR protein log₂FC (bar plot on top; same values as the protein axis of Figure S2), from lowest to highest. Red: cell lines highlighted in Figure S2. In nine of these ten lines only one to three EGFR peptides are detected (median of the other lines: 25), whereas BT483 has 31.
 
-**Figure S5 (optional, R3.12; if dropped, old S9/S10 become S5/S6 and the feature-count scan S7)**
+**Figure S5 (R3.12)**
 
 > **Figure S5 | EGF-induced pERK by EGFR transcript level and by subtype.** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in the training cell lines grouped by EGFR transcript level (left; as Figure 2E) or by luminal/basal subtype (right; Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like lines omitted). Dashed lines: DMM + EGFR tx simulations (CyTOF input). The two groupings largely coincide: 19 of 22 basal lines but only 9 of 30 luminal lines have above-mean EGFR transcript levels.
 
@@ -233,7 +233,7 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 **R1, Figs. S7–S8 → S2–S3:**
 > We now highlight the same ten cell lines in both figures and define them explicitly: they lack detectable EGFR transcript (log-FPKM < 0, i.e. FPKM < 1), yet their EGFR protein estimate lies above −2 log₂FC, within the range of transcript-expressing lines; any cut-off between −2.64 and −1.95 selects the same lines. The columns of the peptide heat map (Figure S3) are now sorted by the same EGFR protein values, shown as a bar plot above the heat map. The heat map shows that the protein estimates of nine of these ten lines rest on one to three of the 40 EGFR peptides, whereas the other lines have a median of 25 detected peptides.
 
-**R3.12** (if the optional figure is included):
+**R3.12:**
 > We added Figure S5, which stratifies EGF-induced pERK by luminal/basal subtype instead of EGFR transcript level. Basal cell lines show a higher and more sustained pERK response than luminal lines, mirroring the EGFR-transcript stratification of Figure 2E; the two groupings largely overlap (19 of 22 basal but 9 of 30 luminal lines have above-mean EGFR transcript levels).
 
 ## Hand-over
@@ -247,5 +247,5 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
   1. Left 2B panel: keep DMM + EGFR tx, or switch to the base DMM (F4).
   2. How to handle the feature-augmentation architecture mismatch (F1).
   3. The reference of the proteomics log2FC (F6).
-  4. Whether to include Fig. S5 (pERK by subtype).
+  4. ~~Whether to include Fig. S5 (pERK by subtype).~~ Decided: included.
 - **Data checks done:** each DMM box in 2A is one test RMSE per training run (10 runs). Linear regression is one deterministic value per context, duplicated across model files, so it is drawn as a bar.
