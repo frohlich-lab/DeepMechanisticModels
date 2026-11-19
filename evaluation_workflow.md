@@ -121,7 +121,7 @@ eval/{model}/{data}/regressors/{context}__{samples}__{mode}__{features}__{datase
 
 **Purpose:** Aggregate all per-run evaluation CSVs (DMMs, references, regressors) into unified DataFrames. This is the central aggregation script.
 
-**Invoked by:** Snakefile rule `evaluate_all`; called once per `{model, data}` (figure-level).
+**Invoked by:** Snakefile rule `evaluate_all`; called once per `{model, data, figure}`, where `figure` is a figure configuration in `training_configuration.py`.
 
 **Workflow:**
 

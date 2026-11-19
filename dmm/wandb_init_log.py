@@ -5,7 +5,6 @@ import git
 import jax.numpy as jnp
 import jax.random as jr
 import numpy as np
-
 import wandb
 
 from .config_options import (
@@ -24,6 +23,16 @@ from .config_options import (
 from .dmm_autoencoder_eqx import DeepMechanisticModel
 
 
+def git_commit_and_remote() -> tuple[str | None, str | None]:
+    """HEAD commit and origin URL, None outside a git clone (e.g. an archive)."""
+    try:
+        repo = git.Repo(search_parent_directories=True)
+    except git.InvalidGitRepositoryError:
+        return None, None
+    remote = repo.remotes.origin.url if "origin" in repo.remotes else None
+    return repo.head.object.hexsha, remote
+
+
 def log_performance(df, dataset, rmse):
     gbs = ["sample", "condition", "observable"]
     df_rmse = df[gbs + ["rmse"]].groupby(gbs).agg("mean").reset_index()
@@ -38,7 +47,7 @@ def init_wandb_ltt(
     """
     Initialise W&B run. Run name = chosen hyperparameters in configuration string representation.
     """
-    repo = git.Repo(search_parent_directories=True)
+    commit, remote = git_commit_and_remote()
 
     # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
     activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
@@ -53,14 +62,15 @@ def init_wandb_ltt(
             "context": conf.context,
             "type": type,
             "samples": conf.samples,
-            "commit": repo.head.object.hexsha,
+            "commit": commit,
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
-            git_commit=repo.head.object.hexsha,
-            git_remote_url=repo.remotes.origin.url,
+            git_commit=commit,
+            git_remote_url=remote,
         ),
-        mode="online",  # to run more jobs simultaneously on the cluster
+        # online by default; WANDB_MODE=disabled runs without a W&B account
+        mode=os.environ.get("WANDB_MODE", "online"),
     )
 
     for metric in ["rmse_train", "rmse_val"]:
@@ -75,7 +85,7 @@ def init_wandb(
     """
     Initialise W&B run. Run name = chosen hyperparameters in configuration string representation.
     """
-    repo = git.Repo(search_parent_directories=True)
+    commit, remote = git_commit_and_remote()
 
     # default is "relu" but it is not applied unless there is at least 1 hidden layer in a given model module
     activation_fn_tag = "None" if conf.depth == 0 else conf.activation_fn_name
@@ -200,7 +210,7 @@ def init_wandb(
             "scheduler": "linear"
             if conf.use_simple_linear_schedule
             else "custom",
-            "commit": repo.head.object.hexsha,
+            "commit": commit,
             "base_model": base_model,
             **{mod: 1 for mod in modifications},
             "job_id": job_id,
@@ -209,15 +219,15 @@ def init_wandb(
         },
         name=conf.__str__(replace={"activation_fn_name": activation_fn_tag}),
         settings=wandb.Settings(
-            git_commit=repo.head.object.hexsha,
-            git_remote_url=repo.remotes.origin.url,
+            git_commit=commit,
+            git_remote_url=remote,
         ),
         tags=[
             "shallow_model" if conf.depth == 0 else "deep_model",
             "early_stop" if conf.use_early_stopping else "no_early_stop",
             conf.date_tag,  # label experiment with date of experiment start
         ],
-        mode="online",
+        mode=os.environ.get("WANDB_MODE", "online"),
     )
 
     # Define W&B metrics
