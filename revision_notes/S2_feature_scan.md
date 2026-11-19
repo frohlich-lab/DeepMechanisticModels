@@ -33,11 +33,11 @@ feature-set sizes (option B, the user's choice on 4 Nov 2026).
 
 ## 1. Deliverables
 
-- **`figures_paper/figure_S_feature_count_scan.ipynb`** is committed with its
+- **`figures_paper/figure_S_feature_count_scan.ipynb`** makes Fig. S8. It is committed with its
   outputs. It plots validation RMSE against the number of input features on a
   log axis, one line per modality.
-  - Panel A shows absolute validation RMSE.
-  - Panel B shows the paired per-fold difference to the selected size.
+  - Fig. S8A shows absolute validation RMSE.
+  - Fig. S8B shows the paired per-fold difference to the selected size.
   - Stars mark the sizes in `BEST_FEATURE_SETS`, now the re-pinned ones.
   - Open circles mark `all` features.
   - A dotted line marks the number of training cell lines per fold (57).
@@ -176,7 +176,7 @@ noisy sizes on the same folds.
 
 > We treated the number of input features as a hyperparameter and scanned it
 > from 4 features up to the complete feature set of each modality (Table S4,
-> Fig. S_). For transcriptomics, proteomics, MOSA and the multimodal encoder,
+> Fig. S8). For transcriptomics, proteomics, MOSA and the multimodal encoder,
 > the lowest cross-validation error was obtained with 4–10 features per
 > modality, and the largest feature sets (up to all available features)
 > increased validation error by 9–25% relative to these small feature sets.
@@ -188,7 +188,7 @@ noisy sizes on the same folds.
 > vastly exceeds the number of training cell lines (n = 58), we treated the
 > number of selected features as a hyperparameter and scanned it from 4
 > features up to the complete feature set of each modality (Table S4,
-> Fig. S_). For transcriptomics, proteomics, MOSA and the multimodal encoder,
+> Fig. S8). For transcriptomics, proteomics, MOSA and the multimodal encoder,
 > validation error was lowest for small feature sets (4 genes, 10 proteins,
 > 6 MOSA dimensions, and 6 features per modality for the multimodal encoder),
 > and models trained on large feature sets overfitted: validation error was
@@ -207,7 +207,7 @@ Optional clarifications:
 - Avoid "scanned from 4 to 4,096": the omics RFE runs saturate at 501
   features.
 
-**Legend for Fig. S_:**
+**Legend for Fig. S8:**
 
 > Validation error as a function of the number of input features. DMMs (base
 > EGFR/MAPK model) were trained on feature sets of increasing size, selected
