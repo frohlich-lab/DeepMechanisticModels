@@ -2,7 +2,7 @@
 
 Responses to Reviewer 1 (Fig. 2A, 2B, 2D, old Figs. S7–S8), Reviewer 4 (point 2) and Reviewer 3 (points 11–12).
 
-Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 transcript vs. protein), old S8 → **Fig. S2** (EGFR peptide heat map). The two new supplementary figures are called **Fig. S-PCA** and **Fig. S-pERK** below; give them numbers when the order is fixed.
+Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 transcript vs. protein), old S8 → **Fig. S2** (EGFR peptide heat map). New supplementary figures continue from S5 in order of first citation: S5 receptor evidence (PR 17), **Fig. S6** latent PCA (this PR, cited with Fig. 2B/2C), **Fig. S7** pERK by subtype (this PR, cited with Fig. 2E; optional), S8 feature-count scan (PR 16). If S7 is dropped, the feature-count scan becomes S7. Old S9/S10 become S3/S4. The notebook that makes Fig. S2 is now `figure_S2.ipynb` (formerly `figure_S7.ipynb`).
 
 ## Status
 
@@ -10,11 +10,11 @@ Supplementary numbering follows the plan: old S7 → **Fig. S1** (EGFR/ERBB2 tra
 |---|---|
 | 1. Fig. 2 redesign (legends above every sub-panel, direct box labels, palette, CVD check) | Done; run on the NEMO `eval/` outputs. |
 | 2. Fig. 2D relabel + minima; Table S4 check | Done. 2D now shows CyTOF input only (authors' decision, 31 Oct). **The draft's minima statement needs rewording** (F2). Table S4 is correct for CyTOF only (F1). |
-| 3. New Fig. S-PCA (4 combinations) | Done (`figure_2.ipynb`, section "Figure S — Latent embeddings…"). |
+| 3. New Fig. S6 (latent PCA, 4 combinations) | Done (`figure_2.ipynb`, section "Figure S6 — Latent embeddings…"). |
 | 4. Fig. 2B counts | Confirmed from the plotted embeddings: **30 luminal / 22 basal / 6 normal-like**. |
 | 5. Fig. S1 highlight + threshold | Done. |
-| 6. Fig. S2 column order | Fixed (`figure_S7.ipynb`). |
-| 7. Optional Fig. S-pERK (R3.12) | Done. |
+| 6. Fig. S2 column order | Fixed (`figure_S2.ipynb`). |
+| 7. Optional Fig. S7 (pERK by subtype, R3.12) | Done. |
 | Test-set definition (5 test lines) | All Fig. 2 panels already used them. Two pieces that pooled more were fixed (F10): the text statistics and the 2E simulation overlay. |
 
 Both notebooks are committed with outputs from the real data (`eval/` synced from NEMO on 31 Oct 2026). The submitted text-statistics computation, rerun on the synced data, reproduces the submitted numbers exactly (e.g. pooled CyTOF DMM 0.5456; AUROC 0.859 → 0.744), so the synced `eval/` is the data behind the submission. The cell now uses the five-test-line definition (F10).
@@ -25,8 +25,8 @@ Both notebooks are committed with outputs from the real data (`eval/` synced fro
 - `figures_paper/figure_2.ipynb`: changes listed below.
   - New panel renderers. They pick the same rows as the old `barplots` functions, so only the drawing changes.
   - The composite is laid out as A (three sub-panels) / B + C / D + E, which matches the paper's letters.
-  - New sections: an architecture printout, the Fig. 2D minima check, the alternative 2D in the old layout, Fig. S-PCA, Fig. S-pERK, Fig. S1 with the highlight, the threshold check and the CVD check.
-- `figures_paper/figure_S7.ipynb` (Fig. S2): changes listed below.
+  - New sections: an architecture printout, the Fig. 2D minima check, the alternative 2D in the old layout, Fig. S6, Fig. S7, Fig. S1 with the highlight, the threshold check and the CVD check.
+- `figures_paper/figure_S2.ipynb` (Fig. S2; renamed from `figure_S7.ipynb`): changes listed below.
   - Sorted by EGFR protein, with a bar strip above the heat map that shows the sort key.
   - Same highlight set as Fig. S1.
   - Peptide-support table.
@@ -91,7 +91,7 @@ Both notebooks are committed with outputs from the real data (`eval/` synced fro
 
 - The submitted composite plotted `EGFR_MAPK__logobs_tegfr_aggavg` in the multimodal context but titled it "DMM (Multimodal)". The old stand-alone panel cell and the text-statistics cell used the base model instead.
 - Fig. 2B is meant to stay unchanged, so the data stay as submitted (`PANEL_B_EMBEDDINGS`). The title is now derived from the plotted model: "DMM + EGFR tx (Multimodal)".
-- If the base DMM was intended, change the first entry of `PANEL_B_EMBEDDINGS` to `"EGFR_MAPK__logobs"`. Fig. S-PCA shows both versions either way.
+- If the base DMM was intended, change the first entry of `PANEL_B_EMBEDDINGS` to `"EGFR_MAPK__logobs"`. Fig. S6 shows both versions either way.
 
 ### F5. Fig. 2C uses different subtype labels from 2B
 
@@ -102,7 +102,7 @@ Both notebooks are committed with outputs from the real data (`eval/` synced fro
 
 ### F6. Fig. S1: the "log2FC > −2 = high protein" threshold
 
-- The highlighted set (`HIGHLIGHT_CELLS` in the old S2 notebook) is exactly the lines with **no EGFR transcript (log-FPKM < 0, i.e. FPKM < 1) and EGFR protein log2FC > −2** in `data/proteomics.csv`. All 10 are in Fig. S1.
+- The highlighted set (`HIGHLIGHT_CELLS` in the submitted version of the S2 notebook) is exactly the lines with **no EGFR transcript (log-FPKM < 0, i.e. FPKM < 1) and EGFR protein log2FC > −2** in `data/proteomics.csv`. All 10 are in Fig. S1.
 - The old ad-hoc filter (transcript < 2) also caught OCUBM, which was never highlighted.
 - "High protein" is not defensible, for three reasons:
   - The median EGFR log2FC across the 58 cancer lines is −1.14, and 41/58 lie above −2.
@@ -188,7 +188,7 @@ The paper's test set is the five held-out lines CAL120, CAMA1, HCC1143, KPL1 and
   - + EGFR tx input: 0.426 / 0.451 / 0.422
   - The other inputs are printed by the notebook.
 - **The 2E simulation overlay was pooled as well.** It averaged the fits of all six model sets in `trajectories_figure1a.csv`: the all-data model and the five LOOCV models, including the LOOCV models' predictions for their held-out lines. It now uses only the all-data model's fits to the 58 training lines, the model whose embeddings are in 2B. The curves barely move.
-- 2B, 2C and Fig. S-PCA use the 58 training lines and are unaffected.
+- 2B, 2C and Fig. S6 use the 58 training lines and are unaffected.
 
 ## Legend text (paste-ready, US spelling)
 
@@ -198,9 +198,9 @@ The paper's test set is the five held-out lines CAL120, CAMA1, HCC1143, KPL1 and
 
 (D) matches the committed CyTOF-only panel.
 
-**Figure S-PCA (new)**
+**Figure S6 (new)**
 
-> **Figure S? | Latent embeddings with and without EGFR transcript integration.** First two principal components of the latent embeddings (latent coordinates concatenated over training runs) of the 58 training cell lines for the base DMM (left) and DMM + EGFR tx (right), trained on CyTOF (top) or multimodal (bottom) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). AUROC: mean luminal/basal classification performance of the three classifiers in Figure 2C.
+> **Figure S6 | Latent embeddings with and without EGFR transcript integration.** First two principal components of the latent embeddings (latent coordinates concatenated over training runs) of the 58 training cell lines for the base DMM (left) and DMM + EGFR tx (right), trained on CyTOF (top) or multimodal (bottom) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). AUROC: mean luminal/basal classification performance of the three classifiers in Figure 2C.
 
 **Figure S1** (old S7)
 
@@ -212,9 +212,9 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 
 > **Figure S2 | EGFR peptide intensities across 63 breast cell lines (PXD017199).** log₁₀ intensities of the 40 EGFR peptides (rows, ordered by sequence position; ● present in all isoforms, ◆ absent in isoform 2, ▲ canonical isoform only; gray, not detected) across cell lines (columns). Columns are sorted by EGFR protein log₂FC (bar plot on top; same values as the protein axis of Figure S1), from lowest to highest. Red: cell lines highlighted in Figure S1. In nine of these ten lines only one to three EGFR peptides are detected (median of the other lines: 25), whereas BT483 has 31.
 
-**Figure S-pERK (optional, R3.12)**
+**Figure S7 (optional, R3.12; if dropped, the feature-count scan becomes S7)**
 
-> **Figure S? | EGF-induced pERK by EGFR transcript level and by subtype.** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in the training cell lines grouped by EGFR transcript level (left; as Figure 2E) or by luminal/basal subtype (right; Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like lines omitted). Dashed lines: DMM + EGFR tx simulations (CyTOF input). The two groupings largely coincide: 19 of 22 basal lines but only 9 of 30 luminal lines have above-mean EGFR transcript levels.
+> **Figure S7 | EGF-induced pERK by EGFR transcript level and by subtype.** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in the training cell lines grouped by EGFR transcript level (left; as Figure 2E) or by luminal/basal subtype (right; Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like lines omitted). Dashed lines: DMM + EGFR tx simulations (CyTOF input). The two groupings largely coincide: 19 of 22 basal lines but only 9 of 30 luminal lines have above-mean EGFR transcript levels.
 
 ## Paste-ready sentences for the response
 
@@ -225,7 +225,7 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 > We redesigned Figure 2. Each sub-panel now has its own legend placed directly above it, every box in Figure 2A is labeled on the x axis, and the panels follow a color-blind-safe palette in which each input modality and each integrated receptor has a distinct hue, with protein-level integrations hatched.
 
 **R1, Fig. 2B:**
-> We corrected the subtype counts in the legend (30 luminal, 22 basal and 6 normal-like training cell lines, intrinsic subtypes from Marcotte et al.) and now show them in the panel legend. The new Figure S? shows the latent embeddings for all four combinations of input data (CyTOF, multimodal) and EGFR transcript integration.
+> We corrected the subtype counts in the legend (30 luminal, 22 basal and 6 normal-like training cell lines, intrinsic subtypes from Marcotte et al.) and now show them in the panel legend. The new Figure S6 shows the latent embeddings for all four combinations of input data (CyTOF, multimodal) and EGFR transcript integration.
 
 **R1, Fig. 2D.** The draft's "4 / 3 / 8" statement must change (F2). Wording for the committed CyTOF-only panel:
 > We relabeled the axis "number of latent dimensions (n_hidden)" and now plot the test RMSE directly against it, marking the first local minimum and the lowest value of each curve. With CyTOF input, the test RMSE decreased with the number of latent dimensions and was lowest at eight, the largest value tested, for both the base DMM and the DMM with EGFR transcript integration; earlier local minima (six and three latent dimensions, respectively) were within one standard error of the neighboring values. We therefore used eight latent dimensions for the CyTOF-input DMMs (Table S4).
@@ -234,18 +234,18 @@ Add the protein reference ("log₂FC relative to …") once you've confirmed it 
 > We now highlight the same ten cell lines in both figures and define them explicitly: they lack detectable EGFR transcript (log-FPKM < 0, i.e. FPKM < 1), yet their EGFR protein estimate lies above −2 log₂FC, within the range of transcript-expressing lines; any cut-off between −2.64 and −1.95 selects the same lines. The columns of the peptide heat map (Figure S2) are now sorted by the same EGFR protein values, shown as a bar plot above the heat map. The heat map shows that the protein estimates of nine of these ten lines rest on one to three of the 40 EGFR peptides, whereas the other lines have a median of 25 detected peptides.
 
 **R3.12** (if the optional figure is included):
-> We added Figure S?, which stratifies EGF-induced pERK by luminal/basal subtype instead of EGFR transcript level. Basal cell lines show a higher and more sustained pERK response than luminal lines, mirroring the EGFR-transcript stratification of Figure 2E; the two groupings largely overlap (19 of 22 basal but 9 of 30 luminal lines have above-mean EGFR transcript levels).
+> We added Figure S7, which stratifies EGF-induced pERK by luminal/basal subtype instead of EGFR transcript level. Basal cell lines show a higher and more sustained pERK response than luminal lines, mirroring the EGFR-transcript stratification of Figure 2E; the two groupings largely overlap (19 of 22 basal but 9 of 30 luminal lines have above-mean EGFR transcript levels).
 
 ## Hand-over
 
-- **S6 (`run_notebooks.py`):** no new notebook. Fig. S-PCA and Fig. S-pERK are new sections in `figure_2.ipynb`.
+- **S6 (`run_notebooks.py`):** no new notebook. Fig. S6 and Fig. S7 are new sections in `figure_2.ipynb`.
   - New figure outputs: `fig2_panelA.pdf` (now the three A sub-panels), `fig2_panelB…E.pdf` in the paper's letters (the old F/G files are gone), `fig2_panelD_trainval.pdf`, `figS_latent_pca_cytof_multimodal.pdf`, `figS_perk_by_subtype.pdf` and `fig2_cvd_check.png`.
-  - `figure_S7.ipynb` now imports `embeddings`/`figure_config` and reads `data/proteomics.csv` and `data/transcriptomics.csv`.
+  - `figure_S2.ipynb` (renamed from `figure_S7.ipynb`, so its outputs are named `figure_S2__*`) now imports `embeddings`/`figure_config` and reads `data/proteomics.csv` and `data/transcriptomics.csv`.
   - Optional dependency: `colorspacious`, for the CVD cell only.
 - **S5 and others:** `figure_config.py` only gained constants, so existing ones are unchanged. Adopting `CVD_CONTEXT_COLORS` in Figs. 1/3/4 would make context colors consistent across the paper; that's an author decision. `barplots.render_nhidden_trainval` size-legend handles are 2× the plotted marker area (F2); `barplots.py` was not touched.
 - **Author decisions left:**
   1. Left 2B panel: keep DMM + EGFR tx, or switch to the base DMM (F4).
   2. How to handle the feature-augmentation architecture mismatch (F1).
   3. The reference of the proteomics log2FC (F6).
-  4. Whether to include Fig. S-pERK.
+  4. Whether to include Fig. S7 (pERK by subtype).
 - **Data checks done:** each DMM box in 2A is one test RMSE per training run (10 runs). Linear regression is one deterministic value per context, duplicated across model files, so it is drawn as a bar.
