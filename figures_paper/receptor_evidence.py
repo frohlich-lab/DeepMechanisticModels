@@ -14,7 +14,7 @@ Two analyses that do not involve the DMM:
    ``RFE_*``/``HVGRFE_*`` branch). ``select_features.py`` runs ``fire.Fire`` at
    import, so the relevant logic is copied here rather than imported.
 3. How far receptor levels survive the pipeline's full RFE, read from the
-   feature files of the Fig. 1C feature-count scan.
+   feature files of the feature-count scan (Fig. S8).
 4. How EGFR transcript relates to all other transcripts: co-expression, and
    whether the transcripts correlated with it share its correlation with
    the EGF-induced responses.
@@ -583,12 +583,12 @@ def check_hvg_replication(importances: pd.DataFrame) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------
-# 3. Survival through the full RFE (Fig. 1C feature-count scan)
+# 3. Survival through the full RFE (Fig. S8 feature-count scan)
 # ---------------------------------------------------------------------------
 
 
 def rfe_survival(splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))):
-    """Smallest selection of the Fig. 1C scan that still contains a receptor.
+    """Smallest selection of the Fig. S8 scan that still contains a receptor.
 
     Reads the pipeline's ``<context>__<split>__HVGRFE_<N>_permute`` feature
     files (untracked output of the ``figure1c`` workflow) for every size N
@@ -665,7 +665,7 @@ def rfe_path(
     one pass covers all sizes. ``inputs`` are the HVG candidates.
 
     Inside the pipeline's container (scikit-learn 1.7.1, x86_64) this
-    reproduces all 130 Fig. 1C CV-split selections (sizes 4-256) exactly,
+    reproduces all 130 Fig. S8 CV-split selections (sizes 4-256) exactly,
     including their order. Outside it the forests, and with them the
     selections, differ: with scikit-learn 1.8.0 on arm64, 7 of 130 came out
     identical (median overlap 75 %).
