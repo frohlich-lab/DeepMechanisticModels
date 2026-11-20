@@ -552,26 +552,54 @@ def first_round_status(
     return pd.DataFrame(rows)
 
 
-def check_hvg_replication(importances: pd.DataFrame) -> pd.DataFrame:
-    """Do the pipeline's saved selections lie inside our replicated HVG sets?
+def pipeline_sizes(context: str, split: str) -> list[int]:
+    """``HVGRFE_<N>`` sizes this analysis reads from the pipeline's files.
 
-    Reads ``features/<model>/<data>/train/<context>__<split>__HVGRFE_*`` where
-    present (untracked pipeline output) and reports features outside the set.
-    Only feature files produced after the HVG fix (50bd9e1) should match.
+    CV splits: every size of the Fig. S8 feature-count scan. Split ``all``:
+    only the final models' size (``BEST_FEATURE_SETS``). Other files in
+    ``features/`` (older sizes, selected before the HVG fix) are ignored.
+    """
+    if split not in SPLITS_1C:
+        return [int(BEST_FEATURE_SETS[context].split("_")[1])]
+    return sorted(
+        int(features.split("_")[1])
+        for ctx, features in CONTEXTS_FEATURES_1C
+        if ctx == context and features.startswith("HVGRFE_")
+    )
+
+
+def pipeline_selections(context: str, split: str) -> dict[int, list[str]]:
+    """The pipeline's ``HVGRFE_<N>`` selections for ``pipeline_sizes``.
+
+    Read from ``features/<model>/<data>/train`` (untracked pipeline output);
+    sizes without a file are left out.
+    """
+    train_dir = features_dir / MODEL / DATA / "train"
+    return {
+        size: list(pd.read_csv(path, index_col=0, nrows=0).columns)
+        for size in pipeline_sizes(context, split)
+        if (
+            path := train_dir
+            / f"{context}__{split}__HVGRFE_{size}_permute.csv"
+        ).exists()
+    }
+
+
+def check_hvg_replication(importances: pd.DataFrame) -> pd.DataFrame:
+    """Do the pipeline's selections lie inside our replicated HVG sets?
+
+    Checks the files of ``pipeline_selections`` and reports features outside
+    the set. Selections made with the HVG fix (50bd9e1) must all lie inside;
+    older selections often do not, but older transcript selections can.
     """
     rows = []
     hvg = importances[importances["candidate_set"] == "hvg"]
     for (split, context), grp in hvg.groupby(["split", "context"]):
-        for path in sorted(
-            (features_dir / MODEL / DATA / "train").glob(
-                f"{context}__{split}__HVGRFE_*_permute.csv"
-            )
-        ):
-            selected = pd.read_csv(path, index_col=0).columns
+        for size, selected in pipeline_selections(context, split).items():
             outside = sorted(set(selected) - set(grp["feature"]))
             rows.append(
                 {
-                    "file": path.name,
+                    "file": f"{context}__{split}__HVGRFE_{size}_permute.csv",
                     "n_selected": len(selected),
                     "n_outside_replicated_hvg": len(outside),
                     "receptors_selected": [
@@ -591,11 +619,11 @@ def rfe_survival(splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))):
     """Smallest selection of the Fig. S8 scan that still contains a receptor.
 
     Reads the pipeline's ``<context>__<split>__HVGRFE_<N>_permute`` feature
-    files (untracked output of the ``figure1c`` workflow) for every size N
-    of the scan. Only files produced with the HVG fix (50bd9e1) are
-    meaningful. ``check_hvg_replication`` is necessary but not sufficient to
-    confirm that: older transcript selections often lie inside the fixed HVG
-    set too.
+    files (``pipeline_selections``): every size of the scan for the CV
+    splits (``figure1c`` workflow), only the final size for split ``all``.
+    Only files produced with the HVG fix (50bd9e1) are meaningful.
+    ``check_hvg_replication`` is necessary but not sufficient to confirm
+    that: older transcript selections often lie inside the fixed HVG set too.
 
     One row per receptor and split. ``smallest_selection`` is the number of
     features in the smallest scanned selection containing the receptor (NaN
@@ -605,22 +633,12 @@ def rfe_survival(splits: tuple[str, ...] = tuple(sorted(SPLITS_1C))):
     without feature files are skipped.
     """
     rows = []
-    train_dir = features_dir / MODEL / DATA / "train"
     for context in MODALITIES:
-        sizes = sorted(
-            int(features.split("_")[1])
-            for ctx, features in CONTEXTS_FEATURES_1C
-            if ctx == context and features.startswith("HVGRFE_")
-        )
         final_size = int(BEST_FEATURE_SETS[context].split("_")[1])
         for split in splits:
             selections = {
-                size: set(pd.read_csv(path, index_col=0, nrows=0).columns)
-                for size in sizes
-                if (
-                    path := train_dir
-                    / f"{context}__{split}__HVGRFE_{size}_permute.csv"
-                ).exists()
+                size: set(sel)
+                for size, sel in pipeline_selections(context, split).items()
             }
             if not selections:
                 continue
@@ -869,16 +887,12 @@ def selected_transcripts(
     """Transcripts in the pipeline's ``HVGRFE_<size>`` selections, per split.
 
     Default size: the final models' (``BEST_FEATURE_SETS``). Reads the
-    feature files in ``features/`` (as ``rfe_survival`` does); splits
-    without a file are left out.
+    files of ``pipeline_selections``; splits without one are left out.
     """
     size = size or int(BEST_FEATURE_SETS["transcriptomics"].split("_")[1])
-    train_dir = features_dir / MODEL / DATA / "train"
     return {
-        split: list(pd.read_csv(path, index_col=0, nrows=0).columns)
+        split: selections[size]
         for split in splits
-        if (
-            path := train_dir
-            / f"transcriptomics__{split}__HVGRFE_{size}_permute.csv"
-        ).exists()
+        if size
+        in (selections := pipeline_selections("transcriptomics", split))
     }
