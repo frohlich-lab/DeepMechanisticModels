@@ -16,8 +16,9 @@ Supplementary figures are numbered in order of first citation in the revised man
 | 6. Fig. S3 column order | Fixed (`figure_S3.ipynb`). |
 | 7. Fig. S5 (pERK by subtype, R3.12) | Done; the authors confirmed it is included. |
 | Test-set definition (5 test lines) | All Fig. 2 panels already used them. Two pieces that pooled more were fixed (F10): the text statistics and the 2E simulation overlay. |
+| Rerun after the HVG prefilter fix (PR 21) | Re-executed on the 19–20 Nov reruns (F11). The RNAseq, MassSpec and multimodal models changed; the claims that change are listed in F11. |
 
-Both notebooks are committed with outputs from the real data (`eval/` synced from NEMO on 31 Oct 2026). The submitted text-statistics computation, rerun on the synced data, reproduces the submitted numbers exactly (e.g. pooled CyTOF DMM 0.5456; AUROC 0.859 → 0.744), so the synced `eval/` is the data behind the submission. The cell now uses the five-test-line definition (F10).
+Both notebooks are committed with outputs from the real data. `figure_2.ipynb` was last executed on 20 Nov 2026 on the figure1a/figure3 reruns after the HVG prefilter fix (PR 21; synced from NEMO, checksums verified). Those reruns changed only the RNAseq, MassSpec and multimodal models; CyTOF, MOSA, figure2 (feature augmentation) and figure3b (n_hidden scan) are unchanged from the submission data. On the 31 Oct sync, the submitted text-statistics computation reproduced the submitted numbers exactly (e.g. pooled CyTOF DMM 0.5456; AUROC 0.859 → 0.744), confirming that sync was the data behind the submission. The cell now uses the five-test-line definition (F10).
 
 ## Files changed
 
@@ -42,12 +43,13 @@ Both notebooks are committed with outputs from the real data (`eval/` synced fro
   |---|---|---|
   | CyTOF (`cytof_init`) | **8** | 1 |
   | Multimodal | 6 | 0 |
-  | RNAseq | 7 | 1 |
+  | RNAseq | **6** (was 7 before the HVG-fix rerun; PR 21) | 1 |
   | MassSpec | 5 | 1 |
   | MOSA | 6 | 0 (global default) |
   | CyTOF + feature augmentation (`cytof_init_plus_*`, Fig. 2A right) | **4** | **0**, the global defaults, because these contexts have no override |
 
 - The locally saved downstream models (`res/EGFR_MAPK__logobs_tegfr_aggavg/dream_cytof/*.eqx`) are 60 files: 6 splits (all, BT20, HCC1500, HCC2185, MCF7, UACC3199) × 10 jobs. All have `n_hidden = 4, depth = 0` and all are dated **2 Jan 2026**. These are the global defaults from before the context-specific overrides, so they are stale local copies and **not** the final runs.
+- After the HVG prefilter fix (PR 21) the feature sets are multimodal RFE_6 (was RFE_8), MassSpec HVGRFE_10 (was HVGRFE_8) and RNAseq HVGRFE_4 (was HVGRFE_12); CyTOF stays RFE_8. Table S4 should list these.
 - **Confirmed from the evaluation tables** (`print_architectures`, cell 4): every figure 1a/2/3 run uses exactly the values in the table above. CyTOF is 8/1 for all models, including the receptor integrations, and the feature-augmentation contexts are 4/0. The n_hidden scan (figure3b) varies n_hidden from 1 to 8 at depth 1 (CyTOF) and depth 0 (multimodal).
 - The parent session also synced the final Fig. 3 models, `res/…/all__cytof_init__RFE_8_permute__8__1__*.eqx`, which are n_hidden 8, depth 1, 10 runs.
 - **Conclusion:** "8 latent dimensions" is correct for the CyTOF-input DMMs, including the downstream CyTOF analyses. It is not correct for the other inputs. If Table S4 gives a single value, change it to the per-context values above.
@@ -170,19 +172,19 @@ The paper's test set is the five held-out lines CAL120, CAMA1, HCC1143, KPL1 and
   | input | DMM, old cell | DMM, test (5 lines) | + EGFR tx, old cell | + EGFR tx, test | Δ old | Δ test |
   |---|---|---|---|---|---|---|
   | CyTOF | 0.5456 | **0.504** | 0.4680 | **0.439** | −0.078 | **−0.065** |
-  | Multimodal | 0.5352 | **0.446** | 0.4805 | **0.434** | −0.055 | **−0.012** |
-  | MassSpec | 0.6607 | **0.541** | 0.6615 | **0.527** | +0.001 | **−0.014** |
-  | RNAseq | 0.6314 | **0.590** | 0.6285 | **0.556** | −0.003 | **−0.034** |
+  | Multimodal | 0.5352 | **0.433** | 0.4805 | **0.424** | −0.055 | **−0.009** |
+  | MassSpec | 0.6607 | **0.597** | 0.6615 | **0.560** | +0.001 | **−0.037** |
+  | RNAseq | 0.6314 | **0.587** | 0.6285 | **0.559** | −0.003 | **−0.028** |
   | MOSA | 0.6094 | **0.647** | 0.5976 | **0.603** | −0.012 | **−0.043** |
 
-  (Means over 10 runs. The old "+ EGFR tx" values also averaged figures 1a, 2 and 3.)
-- **For the text.** On the test lines, EGFR transcript integration improves CyTOF input by 0.065 RMSE but multimodal input by only 0.012. Multimodal DMM + EGFR tx (0.434) is also *worse* than linear regression with multimodal input (0.422); with CyTOF input it is better (0.439 vs. 0.506). This is unchanged data; 2A-ii showed it before. Check any sentence that says DMMs outperform linear regression in general.
+  (Means over 10 runs. The old-cell columns are the submitted numbers; the test columns are from the post-HVG-fix reruns (F11), which changed the multimodal, MassSpec and RNAseq rows. The old "+ EGFR tx" values also averaged figures 1a, 2 and 3.)
+- **For the text.** On the test lines, EGFR transcript integration improves CyTOF input by 0.065 RMSE but multimodal input by only 0.009. With multimodal input, both DMMs (0.433; + EGFR tx 0.424) are *worse* than linear regression (elastic net 0.400, the "linear regression" bar; lasso 0.390, ordinary least squares 0.404). With CyTOF input, DMM + EGFR tx is better (0.439 vs. elastic net 0.506, lasso 0.501). Check any sentence that says DMMs outperform linear regression in general.
 - **The other 2A-ii values** (CyTOF / multimodal mean test RMSE):
-  - EGFR prot: 0.529 / 0.464
-  - ERBB2 tx: 0.618 / 0.536
-  - ERBB2 prot: 0.603 / 0.542
-  - ERBB3 tx: 0.516 / 0.448
-  - ERBB3 prot: 0.504 / 0.450
+  - EGFR prot: 0.529 / 0.466
+  - ERBB2 tx: 0.618 / 0.532
+  - ERBB2 prot: 0.603 / 0.602 (multimodal median 0.508; two of ten runs at 0.93 and 0.97, SD 0.19)
+  - ERBB3 tx: 0.516 / 0.446
+  - ERBB3 prot: 0.504 / 0.447
 - **2A-iii (DMM / + EGFR est / + EGFR tx):**
   - CyTOF only: 0.504 / 0.530 / 0.439
   - + EGFR tx input: 0.426 / 0.451 / 0.422
@@ -190,11 +192,27 @@ The paper's test set is the five held-out lines CAL120, CAMA1, HCC1143, KPL1 and
 - **The 2E simulation overlay was pooled as well.** It averaged the fits of all six model sets in `trajectories_figure1a.csv`: the all-data model and the five LOOCV models, including the LOOCV models' predictions for their held-out lines. It now uses only the all-data model's fits to the 58 training lines, the model whose embeddings are in 2B. The curves barely move.
 - 2B, 2C and Fig. S4 use the 58 training lines and are unaffected.
 
+### F11. Rerun after the HVG prefilter fix (20 Nov 2026)
+
+`figure_2.ipynb` was re-executed on the figure1a/figure3 reruns (RNAseq HVGRFE_4 at n_hidden 6, MassSpec HVGRFE_10, multimodal RFE_6). The numbers agree with the parent session's cross-check.
+
+- **2A left (DMM test RMSE):** CyTOF 0.504, MOSA 0.647 (unchanged); multimodal 0.433 (was 0.446), RNAseq 0.587 (0.590), MassSpec **0.597** (0.541).
+- **Modality ranking, which the text must change:** before the fix, error fell from RNAseq (0.590) to MassSpec (0.541) to CyTOF (0.504), matching "prediction error decreased with increasing regulatory proximity". Now RNAseq (0.587 ± 0.022 SD) and MassSpec (0.597 ± 0.034) tie, with MassSpec nominally worse. CyTOF (phosphoproteins) is still the best single modality and multimodal is best overall. Only "CyTOF beats transcript and protein inputs" survives; the transcript < protein step does not.
+- **EGFR tx integration (2A left):** multimodal Δ −0.009 (was −0.012), MassSpec −0.037, RNAseq −0.028; CyTOF −0.065 and MOSA −0.043 unchanged.
+- **2A middle, multimodal:** listed in F10. DMM + EGFR tx is still the best multimodal DMM. ERBB2 prot has two runs off the axis; see below.
+- **DMM vs. regression with multimodal input:** linear models beat both multimodal DMMs by more than before. Elastic net is 0.400 (was 0.422) and lasso 0.390, against DMM 0.433 and + EGFR tx 0.424. CyTOF is unchanged (DMM + EGFR tx 0.439 vs. elastic net 0.506).
+- **Luminal/basal separation (2B left, 2C, S4):** multimodal embeddings still separate the subtypes; both multimodal panels of Fig. S4 split luminal from basal along PC1.
+  - AUROC, multimodal: DMM 0.987 (SVM 1.00, logistic regression 1.00, random forest 0.96; was 1.000), DMM + EGFR tx 1.000 for all three classifiers (was 0.997).
+  - CyTOF is unchanged: 0.859 → 0.744.
+  - Subtype counts are unchanged (30/22/6).
+- **Unchanged:** 2A right (figure2), 2D (figure3b) and 2E. RNAseq now uses 6 latent dimensions (was 7), which only affects Table S4 (F1).
+- **Off-axis runs:** the 2A y-axis stops at 0.75, which hid several runs. This was true in the submitted figure as well (CyTOF ERBB2 tx and prot each have one run at 0.81–0.83), and now also multimodal ERBB2 prot (0.93, 0.97). A triangle with the count now marks runs above the axis at the top of each affected box, instead of the axis silently hiding them.
+
 ## Legend text (paste-ready, US spelling)
 
 **Figure 2** (panel parts; keep your title sentence)
 
-> **(A)** Test-set RMSE (the five held-out test cell lines CAL120, CAMA1, HCC1143, KPL1 and ZR75B) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over ten independent training runs and are labeled individually; linear regression is a single fit (bar); dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over ten training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx with CyTOF input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx fits (CyTOF input; model trained on all training cell lines), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
+> **(A)** Test-set RMSE (the five held-out test cell lines CAL120, CAMA1, HCC1143, KPL1 and ZR75B) of DMMs with different inputs. Left: base DMM trained on each input data modality. Middle: base DMM and DMMs in which EGFR, ERBB2 or ERBB3 transcript (filled boxes) or protein (hatched boxes) levels rescale the abundance of the corresponding receptor ("mechanistic integration"), for CyTOF and multimodal input; linear regression is shown for comparison. Right: base DMM, DMM + EGFR est and DMM + EGFR tx with CyTOF input alone or augmented with luminal/basal subtype, intrinsic subtype, EGFR transcript or EGFR protein as additional input features. Boxes show the distribution over ten independent training runs and are labeled individually; triangles mark runs above the axis limit (number given); linear regression is a single fit (bar); dash-dotted and dotted lines mark the negative (population-average model) and positive (per-cell-line fits) controls. **(B)** First two principal components of the latent embeddings of the 58 training cell lines for DMM + EGFR tx with multimodal (left) and CyTOF (right) input, colored by intrinsic subtype (Marcotte et al.; luminal, n = 30; basal, n = 22; normal-like, n = 6). **(C)** Luminal/basal classification from the latent embeddings: cross-validated AUROC of three classifiers (symbols) for the base DMM (x axis) versus DMM + EGFR tx (filled symbols) or DMM + EGFR est (open symbols) with CyTOF or multimodal input (colors); labels from Tognetti et al. (48 cell lines; 25 luminal, 23 basal). **(D)** Test RMSE (mean ± SEM over ten training runs) versus the number of latent dimensions (n_hidden) for the base DMM and DMM + EGFR tx with CyTOF input. Open circles mark the first local minimum (n_hidden = 6 and 3, respectively) and stars the lowest test RMSE within the scanned range (n_hidden = 8 for both). **(E)** EGF-induced pERK (CyTOF; mean ± SEM across cell lines) in cell lines with EGFR transcript levels below (n = 24) or above (n = 34) the mean (2.68 log-FPKM); dashed lines: DMM + EGFR tx fits (CyTOF input; model trained on all training cell lines), averaged over training runs and cell lines. Colors follow a color-blind-safe palette (Okabe and Ito, 2008) checked under simulated deuteranopia, protanopia and tritanopia.
 
 (D) matches the committed CyTOF-only panel.
 
