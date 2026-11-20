@@ -19,11 +19,13 @@ modifications = [
     # "logobs",
 ]
 
+# Omics and multimodal re-picked from the figure1c scan after the HVG
+# prefilter fix (Nov 2026): lowest mean validation RMSE over the CV folds
 BEST_FEATURE_SETS = {
     "cytof_init": "RFE_8_permute",
-    "multimodal": "RFE_8_permute",
-    "proteomics": "HVGRFE_8_permute",
-    "transcriptomics": "HVGRFE_12_permute",
+    "multimodal": "RFE_6_permute",  # was RFE_8
+    "proteomics": "HVGRFE_10_permute",  # was HVGRFE_8
+    "transcriptomics": "HVGRFE_4_permute",  # was HVGRFE_12
     "MOSA": "RFE_6_permute",
 }
 
@@ -88,7 +90,7 @@ LATENT_DIMS = {
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "multimodal": 6,
     "MOSA": 6,
-    "transcriptomics": 7,
+    "transcriptomics": 6,  # was 7; re-picked from the figure1b rerun (Nov 2026)
     "proteomics": 5,
     "cytof_init": 8,
 }
