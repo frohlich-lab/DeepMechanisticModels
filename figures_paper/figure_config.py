@@ -28,6 +28,72 @@ EMBEDDING_COLORS = {
     "Basal": "#1b9e77",  # teal
     "Normal": "#d95f02",  # orange
 }
+# Marcotte "Normal" is the normal-like intrinsic subtype, not normal tissue
+EMBEDDING_LABELS = {
+    "Luminal": "Luminal",
+    "Basal": "Basal",
+    "Normal": "Normal-like",
+}
+
+# ── Colour-vision-deficiency-safe palette (Figure 2 and its supplements) ──
+# Okabe & Ito (2008). Colours that share a Figure 2 panel stay at least 11
+# CAM02-UCS units apart under simulated deuteranopia, protanopia and
+# tritanopia (Machado et al. 2009, severity 100); figure_2.ipynb re-runs
+# that check. The tab20 palette above drops to 1.6 units (RNAseq vs MassSpec)
+# for protanopes. The older constants stay for the other figures.
+OKABE_ITO = {
+    "orange": "#E69F00",
+    "sky_blue": "#56B4E9",
+    "bluish_green": "#009E73",
+    "yellow": "#F0E442",
+    "blue": "#0072B2",
+    "vermillion": "#D55E00",
+    "reddish_purple": "#CC79A7",
+    "black": "#000000",
+}
+
+CVD_CONTEXT_COLORS = {
+    "CyTOF": OKABE_ITO["blue"],
+    "RNAseq": OKABE_ITO["orange"],
+    "MassSpec": OKABE_ITO["bluish_green"],
+    "Multimodal": OKABE_ITO["vermillion"],
+    "MOSA": "#BBBBBB",  # light grey: external embedding, not a modality
+}
+
+# Hue encodes the integrated receptor; the data source is encoded by the
+# fill: transcript = solid, protein = hatched "////", estimate = dotted.
+CVD_RECEPTOR_COLORS = {
+    "EGFR": OKABE_ITO["reddish_purple"],
+    "ERBB2": OKABE_ITO["sky_blue"],
+    "ERBB3": OKABE_ITO["yellow"],
+}
+_SOURCE_HATCH = {"tx": None, "prot": "////", "est": "...."}
+CVD_MODEL_STYLES = {
+    f"DMM + {receptor} {source}": {
+        "color": color,
+        "hatch": _SOURCE_HATCH[source],
+    }
+    for receptor, color in CVD_RECEPTOR_COLORS.items()
+    for source in ("tx", "prot", "est")
+    if source != "est" or receptor == "EGFR"
+} | {"linear regression": {"color": OKABE_ITO["black"], "hatch": None}}
+
+# EGFR-transcript-negative cell lines whose EGFR protein estimate in
+# data/proteomics.csv is nonetheless > -2 log2FC; highlighted in the two
+# EGFR supplementary figures (transcript vs protein, peptide heat map).
+EGFR_DISCORDANT_CELLS = (
+    "BT483",
+    "EFM19",
+    "HCC1500",
+    "LY2",
+    "MCF7",
+    "MDAMB134VI",
+    "MDAMB415",
+    "MFM223",
+    "UACC812",
+    "ZR7530",
+)
+EGFR_DISCORDANT_COLOR = "#e63946"
 
 
 def apply_figure_style():
