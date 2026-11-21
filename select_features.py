@@ -182,7 +182,7 @@ def get_selected_features(
             "IL6",  # missing in proteomics
             "CD274",
             "G0S2",  # missing in proteomics
-            "STAC,"  # missing in proteomics
+            "STAC",  # missing in proteomics
             "COL5A1",
             "COL12A1",
             "SERPINE1",
