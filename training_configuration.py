@@ -19,11 +19,13 @@ modifications = [
     # "logobs",
 ]
 
+# Omics and multimodal re-picked from the figure1c scan after the HVG
+# prefilter fix (Nov 2026): lowest mean validation RMSE over the CV folds
 BEST_FEATURE_SETS = {
     "cytof_init": "RFE_8_permute",
-    "multimodal": "RFE_8_permute",
-    "proteomics": "HVGRFE_8_permute",
-    "transcriptomics": "HVGRFE_12_permute",
+    "multimodal": "RFE_6_permute",  # was RFE_8
+    "proteomics": "HVGRFE_10_permute",  # was HVGRFE_8
+    "transcriptomics": "HVGRFE_4_permute",  # was HVGRFE_12
     "MOSA": "RFE_6_permute",
 }
 
@@ -88,7 +90,7 @@ LATENT_DIMS = {
 LATENT_DIMS_BY_CONTEXT: dict[str, int] = {
     "multimodal": 6,
     "MOSA": 6,
-    "transcriptomics": 7,
+    "transcriptomics": 6,  # was 7; re-picked from the figure1b rerun (Nov 2026)
     "proteomics": 5,
     "cytof_init": 8,
 }
@@ -324,46 +326,46 @@ CONTEXTS_FEATURES_1C = (
         (context, genomic_features)
         # curated feature sets
         for genomic_features in [
-            # "PAM50",
-            # "MEKFA",
-            # "CompRes",
-            # "MPAS",
-            # "CSC",
-            # "IHC",
-            # "MSIGDB_KEGG_ERBB",
-            # "MSIGDB_KEGG_MAPK",
-            # "MSIGDB_KEGG_EGFR",
-            # "MSIGDB_KEGG_RTK",
-            # "MSIGDB_KEGG_ERK",
-            # "MSIGDB_BIOCARTA_MAPK",
-            # "MSIGDB_BIOCARTA_EGF",
-            # "MSIGDB_BIOCARTA_ERK",
-            # "MSIGDB_BIOCARTA_RAS",
-            # "MSIGDB_BIOCARTA_P38",
-            # "MSIGDB_PID_ERBB_DOWNSTREAM",
-            # "MSIGDB_PID_ERBB_INTERN",
-            # "MSIGDB_PID_ERBB_PROXIMAL",
-            # "MSIGDB_PID_ERBB",
-            # "MSIGDB_PID_RAS",
-            # "MSIGDB_PID_MAPK",
-            # "MSIGDB_PID_P38_DOWNSTREAM",
-            # "MSIGDB_PID_P38",
-            # "MSIGDB_REACTOME_EGFR_CANCER_VARIANTS",
-            # "MSIGDB_REACTOME_EGFR_DOWNREGULATION",
-            # "MSIGDB_REACTOME_EGFR",
-            # "MSIGDB_REACTOME_EGFR_CANCER",
-            # "MSIGDB_REACTOME_ERBB2_OVEREXPRESSION",
-            # "MSIGDB_REACTOME_ERBB2",
-            # "MSIGDB_REACTOME_ERBB2_CANCER",
-            # "MSIGDB_REACTOME_ERK_TARGETS",
-            # "MSIGDB_REACTOME_ERK",
-            # "MSIGDB_REACTOME_MAPK",
-            # "MSIGDB_REACTOME_MAPK_CANCER",
-            # "MSIGDB_REACTOME_P38",
-            # "MSIGDB_WP_EGFR",
-            # "MSIGDB_WP_EGFR_RESISTANCE",
-            # "MSIGDB_WP_MAPK",
-            # "MSIGDB_WP_P38",
+            "PAM50",
+            "MEKFA",
+            "CompRes",
+            "MPAS",
+            "CSC",
+            "IHC",
+            "MSIGDB_KEGG_ERBB",
+            "MSIGDB_KEGG_MAPK",
+            "MSIGDB_KEGG_EGFR",
+            "MSIGDB_KEGG_RTK",
+            "MSIGDB_KEGG_ERK",
+            "MSIGDB_BIOCARTA_MAPK",
+            "MSIGDB_BIOCARTA_EGF",
+            "MSIGDB_BIOCARTA_ERK",
+            "MSIGDB_BIOCARTA_RAS",
+            "MSIGDB_BIOCARTA_P38",
+            "MSIGDB_PID_ERBB_DOWNSTREAM",
+            "MSIGDB_PID_ERBB_INTERN",
+            "MSIGDB_PID_ERBB_PROXIMAL",
+            "MSIGDB_PID_ERBB",
+            "MSIGDB_PID_RAS",
+            "MSIGDB_PID_MAPK",
+            "MSIGDB_PID_P38_DOWNSTREAM",
+            "MSIGDB_PID_P38",
+            "MSIGDB_REACTOME_EGFR_CANCER_VARIANTS",
+            "MSIGDB_REACTOME_EGFR_DOWNREGULATION",
+            "MSIGDB_REACTOME_EGFR",
+            "MSIGDB_REACTOME_EGFR_CANCER",
+            "MSIGDB_REACTOME_ERBB2_OVEREXPRESSION",
+            "MSIGDB_REACTOME_ERBB2",
+            "MSIGDB_REACTOME_ERBB2_CANCER",
+            "MSIGDB_REACTOME_ERK_TARGETS",
+            "MSIGDB_REACTOME_ERK",
+            "MSIGDB_REACTOME_MAPK",
+            "MSIGDB_REACTOME_MAPK_CANCER",
+            "MSIGDB_REACTOME_P38",
+            "MSIGDB_WP_EGFR",
+            "MSIGDB_WP_EGFR_RESISTANCE",
+            "MSIGDB_WP_MAPK",
+            "MSIGDB_WP_P38",
         ]
         for context in ["transcriptomics", "proteomics"]
     ]

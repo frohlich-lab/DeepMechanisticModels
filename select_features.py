@@ -83,10 +83,8 @@ def get_feature_importances(model, X, y, method="auto"):
 def get_hvg(
     input_df: pd.DataFrame, top_n: Union[int, float] = 500
 ) -> pd.DataFrame:
-    # remove 20% of features with the lowest mean:
-    means = np.mean(input_df, axis=0)
-    threshold = np.percentile(means, 20)
-    input_df = input_df.loc[:, means >= threshold]
+    # No low-mean filter: inputs arrive mean-centered, and proteomics is
+    # relative quantification, so feature means carry no expression level.
     if isinstance(top_n, int):
         # Keep top N features with the highest variance
         var_threshold = sorted(np.nanvar(input_df, axis=0), reverse=True)[
@@ -184,7 +182,7 @@ def get_selected_features(
             "IL6",  # missing in proteomics
             "CD274",
             "G0S2",  # missing in proteomics
-            "STAC,"  # missing in proteomics
+            "STAC",  # missing in proteomics
             "COL5A1",
             "COL12A1",
             "SERPINE1",
