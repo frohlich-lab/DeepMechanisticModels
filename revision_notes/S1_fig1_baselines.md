@@ -4,11 +4,19 @@ Branch `claude/revision-fig1-baselines-e0894d`. This note fills the placeholders
 the responses to R2 major 1 and R3.10, in the revised Results paragraph on Fig. 1C,
 and in Methods 8.
 
-**Status: final (2026-10-31).** All numbers come from the NEMO aggregates
-`eval/EGFR_MAPK__logobs/dream_cytof/{trajectories,by_cl_cond_obs}_figure1a.csv`,
-dated 7–8 April 2026. One decision is left to the authors: the Methods 8 variant
-(section 5). It decides whether the regression numbers stay as they are or are
-rerun.
+**Status: final (2026-10-31), rechecked 2026-11-24 on the post-fix files.** The
+numbers were first computed on the NEMO aggregates
+`eval/EGFR_MAPK__logobs/dream_cytof/{trajectories,by_cl_cond_obs}_figure1a.csv` of
+7–8 April 2026. They were rechecked on the post-HVG-fix files of 19 November 2026
+(PR #21 rerun of `figure1a`), using `python -m figures_paper.baseline_comparison` and
+`run_notebooks.py figure_1`. Every number in sections 1–3 is identical at full
+precision, because the rerun left the `cytof_init` rows unchanged. Section 3b
+depends only on those rows and on the April `cytof_init` feature files, so it is
+unchanged too.
+
+One decision is left to the authors: the Methods 8 variant (section 5). It decides
+whether the regression numbers stay as they are (variant 1, the numbers below) or
+are rerun.
 
 ## Summary
 
