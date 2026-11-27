@@ -5,7 +5,6 @@ import git
 import jax.numpy as jnp
 import jax.random as jr
 import numpy as np
-
 import wandb
 
 from .config_options import (
@@ -186,7 +185,8 @@ def init_wandb(
         # v78: fixup feature selection post test data inclusion
         # v79: fix petab bug
         # v80: update central values
-        project=f"DeepMechanisticModels.v80.{conf.data}.{conf.figure}",
+        # revision: paper revision runs, HVG prefilter without the mean step
+        project=f"DeepMechanisticModels.revision.{conf.data}.{conf.figure}",
         group=group,
         config={
             **conf.to_dict(),
