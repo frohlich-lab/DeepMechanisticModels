@@ -56,7 +56,7 @@ What the final scan (`figure1c`) shows:
 
 ## 1. Deliverables
 
-- **`figures_paper/figure_S_feature_count_scan.ipynb`** makes Fig. S8 and
+- **`figures_paper/figure_S8.ipynb`** makes Fig. S8 and
   Table S4. It is committed with its outputs.
   - Fig. S8A: validation RMSE against the number of input features, on a log
     axis, one line per modality.
@@ -70,10 +70,10 @@ What the final scan (`figure1c`) shows:
     per-set labels and are not part of the curves.
   - A dotted line marks the number of training cell lines per fold (57).
 - **Outputs:**
-  - `figure_S_feature_count_scan.pdf` and `.png` (Fig. S8).
-  - `figure_S_feature_count_scan_summary.csv`: one row per modality × size,
+  - `figure_S8.pdf` and `.png` (Fig. S8).
+  - `figure_S8_scan_summary.csv`: one row per modality × size,
     data-driven scan only.
-  - `figure_S_feature_count_scan_curated.csv`: one row per knowledge-based
+  - `figure_S8_curated_sets.csv`: one row per knowledge-based
     set, with these columns:
     - feature count (median, min, max over folds);
     - CV RMSE and its fold SEM;
