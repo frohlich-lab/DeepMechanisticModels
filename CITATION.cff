@@ -1,0 +1,56 @@
+# Citation metadata. GitHub shows it under "Cite this repository", and Zenodo
+# reads it when it archives a GitHub release.
+#
+# TODO(authors) before minting the Zenodo DOI:
+#   - confirm the author list for the software record
+#   - add `license:` (SPDX identifier) once a LICENSE file exists
+#   - add `version:`, `date-released:` and the Zenodo `doi:`
+#   - point preferred-citation at the Cell Systems article once published
+cff-version: 1.2.0
+message: >-
+  If you use this software, please cite the article given under
+  preferred-citation.
+type: software
+title: "Deep Mechanistic Models"
+abstract: >-
+  Code to reproduce model training, hyperparameter tuning and figures of
+  "Deep Mechanistic Models reveal pathway-extrinsic drivers of mammary MAPK
+  signalling heterogeneity", including a Snakemake workflow that retrieves
+  all input data and regenerates all figures.
+authors:
+  - given-names: Giacomo
+    family-names: Fabrini
+    orcid: "https://orcid.org/0000-0001-8601-1680"
+    affiliation: >-
+      Dynamics of Living Systems Laboratory, The Francis Crick Institute,
+      London, UK
+  - given-names: Fabian
+    family-names: Fröhlich
+    orcid: "https://orcid.org/0000-0002-5360-4292"
+    affiliation: >-
+      Dynamics of Living Systems Laboratory, The Francis Crick Institute,
+      London, UK
+repository-code: "https://github.com/frohlich-lab/DeepMechanisticModels"
+keywords:
+  - deep mechanistic models
+  - mechanistic modeling
+  - ordinary differential equations
+  - machine learning
+  - MAPK signaling
+  - breast cancer
+  - mass cytometry
+preferred-citation:
+  type: article
+  title: >-
+    Deep Mechanistic Models reveal pathway-extrinsic drivers of mammary MAPK
+    signalling heterogeneity
+  authors:
+    - given-names: Giacomo
+      family-names: Fabrini
+      orcid: "https://orcid.org/0000-0001-8601-1680"
+    - given-names: Fabian
+      family-names: Fröhlich
+      orcid: "https://orcid.org/0000-0002-5360-4292"
+  journal: bioRxiv
+  year: 2026
+  doi: "10.64898/2026.07.30.741759"

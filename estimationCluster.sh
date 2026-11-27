@@ -17,7 +17,14 @@ source ./venv/bin/activate
 export SLURM_MPI_TYPE=none
 export WANDB_MODE=online
 
+# Target and extra snakemake options come from the command line, e.g.
+#   sbatch estimationCluster.sh                                  # train_and_evaluate
+#   sbatch estimationCluster.sh train_and_evaluate --config figure=figure2
+#   sbatch estimationCluster.sh paper_results                    # all paper figures
+TARGET=${1:-train_and_evaluate}
+shift $(( $# > 0 ))
+
 snakemake --unlock
-snakemake train_and_evaluate --local-cores 1 -j 400 --config num_starts=5 \
+snakemake "$TARGET" --local-cores 1 -j 400 --config num_starts=5 \
     --use-singularity --slurm --default-resources slurm_account=froehlichf slurm_partition=ncpu \
-    --rerun-incomplete
+    --rerun-incomplete "$@"
